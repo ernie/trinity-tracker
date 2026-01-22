@@ -1,0 +1,22 @@
+server:
+  listen_addr: "127.0.0.1"  # Use "0.0.0.0" to listen on all interfaces
+  http_port: 8080
+  poll_interval: 5s
+  static_dir: "./web/dist"
+
+database:
+  path: "/var/lib/trinity/trinity.db"
+
+q3_servers:
+  - name: "FFA"
+    address: "192.168.1.4:27960"
+    log_path: "/var/log/quake3/ffa.log"
+  - name: "TDM"
+    address: "192.168.1.4:27961"
+    log_path: "/var/log/quake3/tdm.log"
+  - name: "CTF"
+    address: "192.168.1.4:27962"
+    log_path: "/var/log/quake3/ctf.log"
+  - name: "1v1"
+    address: "192.168.1.4:27963"
+    log_path: "/var/log/quake3/1v1.log"

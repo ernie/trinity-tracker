@@ -1,0 +1,104 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm --prefix web ci
+
+      - name: Build frontend
+        run: npm --prefix web run build
+
+      - name: Get version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Build linux/amd64
+        env:
+          GOOS: linux
+          GOARCH: amd64
+        run: |
+          go build -ldflags "-X main.version=${{ steps.version.outputs.VERSION }}" \
+            -o dist/trinity-linux-amd64 ./cmd/trinity
+
+      - name: Build linux/arm64
+        env:
+          GOOS: linux
+          GOARCH: arm64
+        run: |
+          go build -ldflags "-X main.version=${{ steps.version.outputs.VERSION }}" \
+            -o dist/trinity-linux-arm64 ./cmd/trinity
+
+      - name: Build linux/arm
+        env:
+          GOOS: linux
+          GOARCH: arm
+          GOARM: "7"
+        run: |
+          go build -ldflags "-X main.version=${{ steps.version.outputs.VERSION }}" \
+            -o dist/trinity-linux-arm ./cmd/trinity
+
+      - name: Create release archives
+        run: |
+          VERSION=${{ steps.version.outputs.VERSION }}
+
+          # linux-amd64
+          mkdir -p trinity-${VERSION}-linux-amd64
+          cp dist/trinity-linux-amd64 trinity-${VERSION}-linux-amd64/trinity
+          cp -r web/dist trinity-${VERSION}-linux-amd64/web
+          cp trinity.service trinity-${VERSION}-linux-amd64/
+          cp config.example.yml trinity-${VERSION}-linux-amd64/
+          cp README.md trinity-${VERSION}-linux-amd64/
+          tar -czvf trinity-${VERSION}-linux-amd64.tar.gz trinity-${VERSION}-linux-amd64
+
+          # linux-arm64
+          mkdir -p trinity-${VERSION}-linux-arm64
+          cp dist/trinity-linux-arm64 trinity-${VERSION}-linux-arm64/trinity
+          cp -r web/dist trinity-${VERSION}-linux-arm64/web
+          cp trinity.service trinity-${VERSION}-linux-arm64/
+          cp config.example.yml trinity-${VERSION}-linux-arm64/
+          cp README.md trinity-${VERSION}-linux-arm64/
+          tar -czvf trinity-${VERSION}-linux-arm64.tar.gz trinity-${VERSION}-linux-arm64
+
+          # linux-arm (32-bit, Raspberry Pi 2/3/4 with 32-bit OS)
+          mkdir -p trinity-${VERSION}-linux-arm
+          cp dist/trinity-linux-arm trinity-${VERSION}-linux-arm/trinity
+          cp -r web/dist trinity-${VERSION}-linux-arm/web
+          cp trinity.service trinity-${VERSION}-linux-arm/
+          cp config.example.yml trinity-${VERSION}-linux-arm/
+          cp README.md trinity-${VERSION}-linux-arm/
+          tar -czvf trinity-${VERSION}-linux-arm.tar.gz trinity-${VERSION}-linux-arm
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            trinity-${{ steps.version.outputs.VERSION }}-linux-amd64.tar.gz
+            trinity-${{ steps.version.outputs.VERSION }}-linux-arm64.tar.gz
+            trinity-${{ steps.version.outputs.VERSION }}-linux-arm.tar.gz
+          generate_release_notes: true

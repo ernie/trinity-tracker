@@ -1,0 +1,14 @@
+[Unit]
+Description=Trinity
+After=network.target
+
+[Service]
+Type=simple
+User=quake
+Group=quake
+ExecStart=/usr/local/bin/trinity serve
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
