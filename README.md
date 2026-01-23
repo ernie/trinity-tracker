@@ -23,6 +23,9 @@ cd trinity-v1.0.0-linux-arm64
 # Create service user
 sudo useradd -r -s /usr/sbin/nologin quake
 
+# Add yourself to quake group for CLI access (log out/in to take effect)
+sudo usermod -aG quake $USER
+
 # Create directories
 sudo mkdir -p /var/lib/trinity /etc/trinity
 sudo chown -R quake:quake /var/lib/trinity /etc/trinity
@@ -169,6 +172,9 @@ For prebuilt binaries, see [Installation](#installation) above.
 ```bash
 # Create service user (if not using existing quake user)
 sudo useradd -r -s /usr/sbin/nologin quake
+
+# Add yourself to quake group for CLI access (log out/in to take effect)
+sudo usermod -aG quake $USER
 
 # Create directories
 sudo mkdir -p /var/lib/trinity/web

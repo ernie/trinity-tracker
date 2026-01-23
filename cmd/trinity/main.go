@@ -208,20 +208,28 @@ var (
 func loadCLIConfig(args []string) (*config.Config, []string) {
 	fs := flag.NewFlagSet("cli", flag.ContinueOnError)
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
-	url := fs.String("url", baseURL, "base URL of the trinity server")
+	url := fs.String("url", "", "base URL of the trinity server")
 	fs.Parse(args)
 
-	baseURL = *url
-
-	// Load config file to get database path
+	// Load config file
 	cfg, err := config.Load(*configPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: failed to load config from %s: %v\n", *configPath, err)
-		// Use default database path
 		dbPath = "/var/lib/trinity/trinity.db"
+		// Use explicit -url flag or default
+		if *url != "" {
+			baseURL = *url
+		}
 		return nil, fs.Args()
 	}
+
 	dbPath = cfg.Database.Path
+	// Derive URL from config, but allow -url flag to override
+	if *url != "" {
+		baseURL = *url
+	} else {
+		baseURL = fmt.Sprintf("http://%s:%d", cfg.Server.ListenAddr, cfg.Server.HTTPPort)
+	}
 	return cfg, fs.Args()
 }
 
