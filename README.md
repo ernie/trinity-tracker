@@ -116,18 +116,19 @@ sudo -u quake trinity skills        # Bot skill level icons
 sudo -u quake trinity assets /path/to/quake3
 ```
 
-| Command | Source Path | Output Path | Format |
-|---------|-------------|-------------|--------|
-| `levelshots` | `levelshots/*.tga\|jpg` | `assets/levelshots/<map>.jpg` | JPG |
-| `portraits` | `models/players/<model>/icon_*.tga` | `assets/portraits/<model>/icon_*.png` | PNG 128x128 |
-| `medals` | `menu/medals/medal_*.tga`, `ui/assets/medal_*.tga` | `assets/medals/medal_*.png` | PNG 128x128 |
-| `skills` | `menu/art/skill[1-5].tga` | `assets/skills/skill[1-5].png` | PNG 128x128 |
+| Command      | Source Path                                        | Output Path                           | Format      |
+| ------------ | -------------------------------------------------- | ------------------------------------- | ----------- |
+| `levelshots` | `levelshots/*.tga\|jpg`                            | `assets/levelshots/<map>.jpg`         | JPG         |
+| `portraits`  | `models/players/<model>/icon_*.tga`                | `assets/portraits/<model>/icon_*.png` | PNG 128x128 |
+| `medals`     | `menu/medals/medal_*.tga`, `ui/assets/medal_*.tga` | `assets/medals/medal_*.png`           | PNG 128x128 |
+| `skills`     | `menu/art/skill[1-5].tga`                          | `assets/skills/skill[1-5].png`        | PNG 128x128 |
 
 Portraits, medals, and skills are upscaled to 128x128 using Catmull-Rom (bicubic) interpolation and saved as PNG to preserve alpha transparency.
 
 Requires `static_dir` to be configured. The source path defaults to `quake3_dir` from config but can be overridden on the command line.
 
 For higher quality source assets, consider installing:
+
 - [High Quality Quake](https://www.moddb.com/mods/high-quality-quake) for baseq3
 - [HQQ Team Arena](https://www.moddb.com/games/quake-iii-team-arena/addons/hqq-high-quality-quake-team-arena-test) for missionpack
 
@@ -141,7 +142,7 @@ server:
   http_port: 8080
   poll_interval: 5s
   static_dir: "/var/lib/trinity/web"
-  quake3_dir: "/usr/lib/quake3"  # For asset extraction commands
+  quake3_dir: "/usr/lib/quake3" # For asset extraction commands
 
 database:
   path: "/var/lib/trinity/trinity.db"
@@ -370,7 +371,7 @@ Add to your server config:
 
 ```
 set g_log "games.log"
-set g_logSync 0
+set g_logSync 1 // Flush immediately (otherwise, stats will lag)
 ```
 
 This produces timestamped log output like:
