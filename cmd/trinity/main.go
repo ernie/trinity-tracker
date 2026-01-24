@@ -815,13 +815,25 @@ func extractLevelshot(f *zip.File, outputPath, ext string) error {
 		return fmt.Errorf("failed to decode %s: %w", ext, err)
 	}
 
+	// Resize to 640x480 using Catmull-Rom (bicubic) interpolation
+	bounds := img.Bounds()
+	if bounds.Dx() != 640 || bounds.Dy() != 480 {
+		dst := image.NewRGBA(image.Rect(0, 0, 640, 480))
+		draw.CatmullRom.Scale(dst, dst.Bounds(), img, bounds, draw.Over, nil)
+		img = dst
+	}
+
 	out, err := os.Create(outputPath)
 	if err != nil {
 		return err
 	}
-	defer out.Close()
 
-	return jpeg.Encode(out, img, &jpeg.Options{Quality: 90})
+	if err := jpeg.Encode(out, img, &jpeg.Options{Quality: 90}); err != nil {
+		out.Close()
+		return err
+	}
+
+	return out.Close()
 }
 
 // pk3DisplayPath returns a display-friendly path for a pk3 file relative to basePath
