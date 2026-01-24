@@ -28,6 +28,7 @@ type ServerConfig struct {
 	HTTPPort     int           `yaml:"http_port"`
 	PollInterval time.Duration `yaml:"poll_interval"`
 	StaticDir    string        `yaml:"static_dir"`
+	Quake3Dir    string        `yaml:"quake3_dir"`
 }
 
 // DatabaseConfig holds SQLite settings
@@ -69,6 +70,9 @@ func Load(path string) (*Config, error) {
 		cfg.Database.Path = "/var/lib/trinity/trinity.db"
 	}
 	// Note: StaticDir intentionally has no default - empty means don't serve static files
+	if cfg.Server.Quake3Dir == "" {
+		cfg.Server.Quake3Dir = "/usr/lib/quake3"
+	}
 
 	// Auth defaults
 	if cfg.Auth.TokenDuration == 0 {

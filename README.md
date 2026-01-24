@@ -89,32 +89,47 @@ trinity user remove <username>             Remove a user
 trinity user list                          List all users
 trinity user reset <username>              Reset a user's password
 trinity user admin <username>              Toggle admin status for a user
-trinity levelshots <path>                  Extract levelshots from pk3 file(s)
+trinity levelshots [path]                  Extract levelshots from pk3 file(s)
+trinity portraits [path]                   Extract player portraits from pk3 file(s)
+trinity medals [path]                      Extract medal icons from pk3 file(s)
+trinity skills [path]                      Extract skill icons from pk3 file(s)
+trinity assets [path]                      Extract all assets (levelshots, portraits, medals, skills)
 trinity version                            Show version
 trinity help                               Show help
 ```
 
-### Extracting Levelshots
+### Extracting Assets
 
-The `levelshots` command extracts map preview images from Q3A pk3 files and places them in the web frontend's assets directory. These images are displayed as subtle backgrounds on server and match cards, and as hover previews on map names.
+Trinity can extract various game assets from Q3A pk3 files for use in the web frontend. All extraction commands read pk3 files in Quake 3's load order (baseq3 pak0-8, then missionpack pak0-3, then remaining pk3s alphabetically) so that later files properly override earlier ones.
 
 ```bash
-# Extract from a directory (recursively scans for pk3 files)
-# --config option not needed if you use the default location
-sudo -u quake trinity levelshots --config /etc/trinity/config.yml /usr/lib/quake3
+# Extract all assets (recommended)
+sudo -u quake trinity assets
 
-# Extract from a single pk3 file
-sudo -u quake trinity levelshots --config /etc/trinity/config.yml /path/to/map-mymap.pk3
+# Or extract specific asset types
+sudo -u quake trinity levelshots    # Map preview images
+sudo -u quake trinity portraits     # Player model icons
+sudo -u quake trinity medals        # Award medal icons
+sudo -u quake trinity skills        # Bot skill level icons
+
+# Override the source directory (default: quake3_dir from config)
+sudo -u quake trinity assets /path/to/quake3
 ```
 
-The command:
+| Command | Source Path | Output Path | Format |
+|---------|-------------|-------------|--------|
+| `levelshots` | `levelshots/*.tga\|jpg` | `assets/levelshots/<map>.jpg` | JPG |
+| `portraits` | `models/players/<model>/icon_*.tga` | `assets/portraits/<model>/icon_*.png` | PNG 128x128 |
+| `medals` | `menu/medals/medal_*.tga`, `ui/assets/medal_*.tga` | `assets/medals/medal_*.png` | PNG 128x128 |
+| `skills` | `menu/art/skill[1-5].tga` | `assets/skills/skill[1-5].png` | PNG 128x128 |
 
-- Recursively searches directories for `.pk3` files
-- Extracts `levelshots/*.jpg` and `levelshots/*.tga` from each pk3
-- Converts TGA files to JPG format
-- Saves images to `<static_dir>/assets/levelshots/<mapname>.jpg`
+Portraits, medals, and skills are upscaled to 128x128 using Catmull-Rom (bicubic) interpolation and saved as PNG to preserve alpha transparency.
 
-Requires `static_dir` to be configured in your config file.
+Requires `static_dir` to be configured. The source path defaults to `quake3_dir` from config but can be overridden on the command line.
+
+For higher quality source assets, consider installing:
+- [High Quality Quake](https://www.moddb.com/mods/high-quality-quake) for baseq3
+- [HQQ Team Arena](https://www.moddb.com/games/quake-iii-team-arena/addons/hqq-high-quality-quake-team-arena-test) for missionpack
 
 ## Configuration
 
@@ -126,6 +141,7 @@ server:
   http_port: 8080
   poll_interval: 5s
   static_dir: "/var/lib/trinity/web"
+  quake3_dir: "/usr/lib/quake3"  # For asset extraction commands
 
 database:
   path: "/var/lib/trinity/trinity.db"
@@ -149,6 +165,7 @@ q3_servers:
 | `server.http_port`           | HTTP server port                                                   |
 | `server.poll_interval`       | UDP polling interval (e.g., `5s`, `10s`)                           |
 | `server.static_dir`          | Path to built web frontend                                         |
+| `server.quake3_dir`          | Path to Quake 3 install (default: `/usr/lib/quake3`)               |
 | `database.path`              | SQLite database file path                                          |
 | `q3_servers[].name`          | Display name for the server                                        |
 | `q3_servers[].address`       | UDP address for server queries                                     |
@@ -250,7 +267,7 @@ server {
 }
 ```
 
-When using nginx for static files, Trinity won't serve static content directly, but keep `static_dir` configured so the `levelshots` command knows where to save extracted map images:
+When using nginx for static files, Trinity won't serve static content directly, but keep `static_dir` configured so the asset extraction commands know where to save images:
 
 ```yaml
 server:

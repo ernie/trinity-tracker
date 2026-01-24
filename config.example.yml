@@ -3,6 +3,7 @@ server:
   http_port: 8080
   poll_interval: 5s
   static_dir: "./web/dist"
+  quake3_dir: "/usr/lib/quake3"  # For asset extraction commands
 
 database:
   path: "/var/lib/trinity/trinity.db"

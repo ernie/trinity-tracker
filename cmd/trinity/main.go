@@ -6,13 +6,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"image"
 	"image/jpeg"
+	"image/png"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sort"
 	"strings"
 	"syscall"
 	"text/tabwriter"
@@ -25,6 +28,7 @@ import (
 	"github.com/ernie/trinity-tools/internal/storage"
 	"github.com/ftrvxmtrx/tga"
 	flag "github.com/spf13/pflag"
+	"golang.org/x/image/draw"
 	"golang.org/x/term"
 )
 
@@ -53,6 +57,14 @@ func main() {
 		cmdUser(os.Args[2:])
 	case "levelshots":
 		cmdLevelshots(os.Args[2:])
+	case "portraits":
+		cmdPortraits(os.Args[2:])
+	case "medals":
+		cmdMedals(os.Args[2:])
+	case "skills":
+		cmdSkills(os.Args[2:])
+	case "assets":
+		cmdAssets(os.Args[2:])
 	case "version":
 		fmt.Printf("trinity %s\n", version)
 	case "help", "-h", "--help":
@@ -79,7 +91,11 @@ func printUsage() {
 	fmt.Println("  user list                          List all users")
 	fmt.Println("  user reset <username>              Reset a user's password")
 	fmt.Println("  user admin <username>              Toggle admin status for a user")
-	fmt.Println("  levelshots <path>                  Extract levelshots from pk3 file(s)")
+	fmt.Println("  levelshots [path]                  Extract levelshots from pk3 file(s)")
+	fmt.Println("  portraits [path]                   Extract player portraits from pk3 file(s)")
+	fmt.Println("  medals [path]                      Extract medal icons from pk3 file(s)")
+	fmt.Println("  skills [path]                      Extract skill icons from pk3 file(s)")
+	fmt.Println("  assets [path]                      Extract all assets (portraits, medals, skills, levelshots)")
 	fmt.Println("  version                            Show version")
 	fmt.Println("  help                               Show this help")
 	fmt.Println()
@@ -694,23 +710,22 @@ func cmdLevelshots(args []string) {
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
 	fs.Parse(args)
 
-	remaining := fs.Args()
-	if len(remaining) < 1 {
-		fmt.Fprintf(os.Stderr, "Error: usage: trinity levelshots [--config <path>] <pk3_path_or_directory>\n")
-		os.Exit(1)
-	}
-
 	cfg := loadCLIConfigFromFlags(*configPath, "")
-	inputPath := remaining[0]
-
 	if cfg == nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to load config, cannot determine static_dir\n")
+		fmt.Fprintf(os.Stderr, "Error: failed to load config\n")
 		os.Exit(1)
 	}
 
 	if cfg.Server.StaticDir == "" {
 		fmt.Fprintf(os.Stderr, "Error: static_dir not configured in config file\n")
 		os.Exit(1)
+	}
+
+	// Use remaining arg as path override, or default to quake3_dir from config
+	remaining := fs.Args()
+	inputPath := cfg.Server.Quake3Dir
+	if len(remaining) > 0 {
+		inputPath = remaining[0]
 	}
 
 	// Validate and create output directory
@@ -720,59 +735,28 @@ func cmdLevelshots(args []string) {
 		os.Exit(1)
 	}
 
-	// Check if input is a file or directory
-	info, err := os.Stat(inputPath)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to access %s: %v\n", inputPath, err)
+	pk3Files := collectPk3FilesOrdered(inputPath)
+	if len(pk3Files) == 0 {
+		fmt.Fprintf(os.Stderr, "Error: no pk3 files found in %s\n", inputPath)
 		os.Exit(1)
 	}
 
-	var pk3Files []string
-	if info.IsDir() {
-		// Recursively scan directory for pk3 files
-		err := filepath.WalkDir(inputPath, func(path string, d os.DirEntry, err error) error {
-			if err != nil {
-				return nil // Skip directories we can't read
-			}
-			if !d.IsDir() && strings.HasSuffix(strings.ToLower(d.Name()), ".pk3") {
-				pk3Files = append(pk3Files, path)
-			}
-			return nil
-		})
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: failed to scan directory: %v\n", err)
-			os.Exit(1)
-		}
-		if len(pk3Files) == 0 {
-			fmt.Fprintf(os.Stderr, "Error: no pk3 files found in %s\n", inputPath)
-			os.Exit(1)
-		}
-	} else {
-		// Single file
-		if !strings.HasSuffix(strings.ToLower(inputPath), ".pk3") {
-			fmt.Fprintf(os.Stderr, "Error: %s is not a pk3 file\n", inputPath)
-			os.Exit(1)
-		}
-		pk3Files = []string{inputPath}
-	}
-
-	var totalExtracted, totalErrors int
+	var totalExtracted int
 	for _, pk3Path := range pk3Files {
-		fmt.Printf("Processing %s...\n", filepath.Base(pk3Path))
-		n, err := extractLevelshotsFromPk3(pk3Path, outputDir)
+		displayPath := pk3DisplayPath(pk3Path, inputPath)
+		n, err := extractLevelshotsFromPk3(pk3Path, outputDir, displayPath)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "  Warning: %v\n", err)
-			totalErrors++
+			fmt.Fprintf(os.Stderr, "  Warning: %s: %v\n", displayPath, err)
 			continue
 		}
 		totalExtracted += n
 	}
 
-	fmt.Printf("Extraction complete: %d levelshots extracted, %d errors\n", totalExtracted, totalErrors)
+	fmt.Printf("Levelshots: %d extracted\n", totalExtracted)
 }
 
 // extractLevelshotsFromPk3 extracts levelshot images from a single pk3 file
-func extractLevelshotsFromPk3(pk3Path, outputDir string) (int, error) {
+func extractLevelshotsFromPk3(pk3Path, outputDir, displayPath string) (int, error) {
 	r, err := zip.OpenReader(pk3Path)
 	if err != nil {
 		return 0, fmt.Errorf("failed to open pk3: %w", err)
@@ -806,7 +790,7 @@ func extractLevelshotsFromPk3(pk3Path, outputDir string) (int, error) {
 			continue
 		}
 
-		fmt.Printf("  Extracted: %s\n", mapName)
+		fmt.Printf("  %s: %s\n", displayPath, mapName)
 		extracted++
 	}
 
@@ -821,22 +805,14 @@ func extractLevelshot(f *zip.File, outputPath, ext string) error {
 	}
 	defer rc.Close()
 
+	var img image.Image
 	if ext == ".jpg" {
-		// Direct copy for JPG files
-		out, err := os.Create(outputPath)
-		if err != nil {
-			return err
-		}
-		defer out.Close()
-
-		_, err = io.Copy(out, rc)
-		return err
+		img, err = jpeg.Decode(rc)
+	} else {
+		img, err = tga.Decode(rc)
 	}
-
-	// TGA files need conversion to JPG
-	img, err := tga.Decode(rc)
 	if err != nil {
-		return fmt.Errorf("failed to decode TGA: %w", err)
+		return fmt.Errorf("failed to decode %s: %w", ext, err)
 	}
 
 	out, err := os.Create(outputPath)
@@ -846,6 +822,14 @@ func extractLevelshot(f *zip.File, outputPath, ext string) error {
 	defer out.Close()
 
 	return jpeg.Encode(out, img, &jpeg.Options{Quality: 90})
+}
+
+// pk3DisplayPath returns a display-friendly path for a pk3 file relative to basePath
+func pk3DisplayPath(pk3Path, basePath string) string {
+	if rel, err := filepath.Rel(basePath, pk3Path); err == nil && !strings.HasPrefix(rel, "..") {
+		return rel
+	}
+	return filepath.Base(pk3Path)
 }
 
 func getJSON(path string, target interface{}) error {
@@ -877,4 +861,450 @@ func formatTime(isoTime string) string {
 		return time
 	}
 	return isoTime
+}
+
+// cmdPortraits extracts player portrait icons from pk3 files
+func cmdPortraits(args []string) {
+	fs := flag.NewFlagSet("portraits", flag.ExitOnError)
+	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
+	fs.Parse(args)
+
+	cfg := loadCLIConfigFromFlags(*configPath, "")
+	if cfg == nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to load config\n")
+		os.Exit(1)
+	}
+
+	if cfg.Server.StaticDir == "" {
+		fmt.Fprintf(os.Stderr, "Error: static_dir not configured in config file\n")
+		os.Exit(1)
+	}
+
+	// Use remaining arg as path override, or default to quake3_dir from config
+	remaining := fs.Args()
+	inputPath := cfg.Server.Quake3Dir
+	if len(remaining) > 0 {
+		inputPath = remaining[0]
+	}
+
+	outputDir := filepath.Join(cfg.Server.StaticDir, "assets", "portraits")
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to create output directory: %v\n", err)
+		os.Exit(1)
+	}
+
+	pk3Files := collectPk3FilesOrdered(inputPath)
+	if len(pk3Files) == 0 {
+		fmt.Fprintf(os.Stderr, "Error: no pk3 files found in %s\n", inputPath)
+		os.Exit(1)
+	}
+
+	var totalExtracted int
+	for _, pk3Path := range pk3Files {
+		displayPath := pk3DisplayPath(pk3Path, inputPath)
+		n, err := extractPortraitsFromPk3(pk3Path, outputDir, displayPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "  Warning: %s: %v\n", displayPath, err)
+			continue
+		}
+		totalExtracted += n
+	}
+
+	fmt.Printf("Portraits: %d extracted\n", totalExtracted)
+}
+
+// extractPortraitsFromPk3 extracts player portrait icons from a pk3 file
+func extractPortraitsFromPk3(pk3Path, outputDir, displayPath string) (int, error) {
+	r, err := zip.OpenReader(pk3Path)
+	if err != nil {
+		return 0, fmt.Errorf("failed to open pk3: %w", err)
+	}
+	defer r.Close()
+
+	extracted := 0
+	for _, f := range r.File {
+		lowerName := strings.ToLower(f.Name)
+		// Match models/players/<model>/icon_<skin>.tga
+		if !strings.HasPrefix(lowerName, "models/players/") {
+			continue
+		}
+		base := filepath.Base(f.Name)
+		if !strings.HasPrefix(strings.ToLower(base), "icon_") {
+			continue
+		}
+		ext := strings.ToLower(filepath.Ext(base))
+		if ext != ".tga" {
+			continue
+		}
+
+		// Extract model name from path
+		parts := strings.Split(f.Name, "/")
+		if len(parts) < 4 {
+			continue
+		}
+		model := strings.ToLower(parts[2])
+
+		// Create model subdirectory
+		modelDir := filepath.Join(outputDir, model)
+		if err := os.MkdirAll(modelDir, 0755); err != nil {
+			fmt.Fprintf(os.Stderr, "  Warning: failed to create directory %s: %v\n", modelDir, err)
+			continue
+		}
+
+		// Output path: portraits/<model>/icon_<skin>.png
+		outputName := strings.TrimSuffix(strings.ToLower(base), ".tga") + ".png"
+		outputPath := filepath.Join(modelDir, outputName)
+		assetName := model + "/" + outputName
+
+		if err := extractTgaToPng(f, outputPath, 128); err != nil {
+			fmt.Fprintf(os.Stderr, "  Warning: failed to extract %s: %v\n", f.Name, err)
+			continue
+		}
+
+		fmt.Printf("  %s: %s\n", displayPath, assetName)
+		extracted++
+	}
+
+	return extracted, nil
+}
+
+// cmdMedals extracts medal icons from pk3 files
+func cmdMedals(args []string) {
+	fs := flag.NewFlagSet("medals", flag.ExitOnError)
+	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
+	fs.Parse(args)
+
+	cfg := loadCLIConfigFromFlags(*configPath, "")
+	if cfg == nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to load config\n")
+		os.Exit(1)
+	}
+
+	if cfg.Server.StaticDir == "" {
+		fmt.Fprintf(os.Stderr, "Error: static_dir not configured in config file\n")
+		os.Exit(1)
+	}
+
+	// Use remaining arg as path override, or default to quake3_dir from config
+	remaining := fs.Args()
+	inputPath := cfg.Server.Quake3Dir
+	if len(remaining) > 0 {
+		inputPath = remaining[0]
+	}
+
+	outputDir := filepath.Join(cfg.Server.StaticDir, "assets", "medals")
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to create output directory: %v\n", err)
+		os.Exit(1)
+	}
+
+	pk3Files := collectPk3FilesOrdered(inputPath)
+	if len(pk3Files) == 0 {
+		fmt.Fprintf(os.Stderr, "Error: no pk3 files found in %s\n", inputPath)
+		os.Exit(1)
+	}
+
+	var totalExtracted int
+	for _, pk3Path := range pk3Files {
+		displayPath := pk3DisplayPath(pk3Path, inputPath)
+		n, err := extractMedalsFromPk3(pk3Path, outputDir, displayPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "  Warning: %s: %v\n", displayPath, err)
+			continue
+		}
+		totalExtracted += n
+	}
+
+	fmt.Printf("Medals: %d extracted\n", totalExtracted)
+}
+
+// extractMedalsFromPk3 extracts medal icons from a pk3 file
+func extractMedalsFromPk3(pk3Path, outputDir, displayPath string) (int, error) {
+	r, err := zip.OpenReader(pk3Path)
+	if err != nil {
+		return 0, fmt.Errorf("failed to open pk3: %w", err)
+	}
+	defer r.Close()
+
+	extracted := 0
+	for _, f := range r.File {
+		lowerName := strings.ToLower(f.Name)
+		base := strings.ToLower(filepath.Base(f.Name))
+
+		// Match menu/medals/medal_*.tga or ui/assets/medal_*.tga
+		isMedalPath := (strings.HasPrefix(lowerName, "menu/medals/") || strings.HasPrefix(lowerName, "ui/assets/")) &&
+			strings.HasPrefix(base, "medal_") &&
+			strings.HasSuffix(base, ".tga")
+
+		if !isMedalPath {
+			continue
+		}
+
+		// Output: medals/medal_*.png (flat structure)
+		outputName := strings.TrimSuffix(base, ".tga") + ".png"
+		outputPath := filepath.Join(outputDir, outputName)
+
+		if err := extractTgaToPng(f, outputPath, 128); err != nil {
+			fmt.Fprintf(os.Stderr, "  Warning: failed to extract %s: %v\n", f.Name, err)
+			continue
+		}
+
+		fmt.Printf("  %s: %s\n", displayPath, outputName)
+		extracted++
+	}
+
+	return extracted, nil
+}
+
+// cmdSkills extracts skill icons from pk3 files
+func cmdSkills(args []string) {
+	fs := flag.NewFlagSet("skills", flag.ExitOnError)
+	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
+	fs.Parse(args)
+
+	cfg := loadCLIConfigFromFlags(*configPath, "")
+	if cfg == nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to load config\n")
+		os.Exit(1)
+	}
+
+	if cfg.Server.StaticDir == "" {
+		fmt.Fprintf(os.Stderr, "Error: static_dir not configured in config file\n")
+		os.Exit(1)
+	}
+
+	remaining := fs.Args()
+	inputPath := cfg.Server.Quake3Dir
+	if len(remaining) > 0 {
+		inputPath = remaining[0]
+	}
+
+	outputDir := filepath.Join(cfg.Server.StaticDir, "assets", "skills")
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to create output directory: %v\n", err)
+		os.Exit(1)
+	}
+
+	pk3Files := collectPk3FilesOrdered(inputPath)
+	if len(pk3Files) == 0 {
+		fmt.Fprintf(os.Stderr, "Error: no pk3 files found in %s\n", inputPath)
+		os.Exit(1)
+	}
+
+	var totalExtracted int
+	for _, pk3Path := range pk3Files {
+		displayPath := pk3DisplayPath(pk3Path, inputPath)
+		n, err := extractSkillsFromPk3(pk3Path, outputDir, displayPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "  Warning: %s: %v\n", displayPath, err)
+			continue
+		}
+		totalExtracted += n
+	}
+
+	fmt.Printf("Skills: %d extracted\n", totalExtracted)
+}
+
+// extractSkillsFromPk3 extracts skill icons from a pk3 file
+func extractSkillsFromPk3(pk3Path, outputDir, displayPath string) (int, error) {
+	r, err := zip.OpenReader(pk3Path)
+	if err != nil {
+		return 0, fmt.Errorf("failed to open pk3: %w", err)
+	}
+	defer r.Close()
+
+	extracted := 0
+	for _, f := range r.File {
+		lowerName := strings.ToLower(f.Name)
+		base := strings.ToLower(filepath.Base(f.Name))
+
+		// Match menu/art/skill[1-5].tga
+		if !strings.HasPrefix(lowerName, "menu/art/") {
+			continue
+		}
+		if !strings.HasPrefix(base, "skill") || !strings.HasSuffix(base, ".tga") {
+			continue
+		}
+		// Verify it's skill1-5
+		numPart := strings.TrimPrefix(base, "skill")
+		numPart = strings.TrimSuffix(numPart, ".tga")
+		if len(numPart) != 1 || numPart[0] < '1' || numPart[0] > '5' {
+			continue
+		}
+
+		// Output: skills/skill[1-5].png
+		outputName := strings.TrimSuffix(base, ".tga") + ".png"
+		outputPath := filepath.Join(outputDir, outputName)
+
+		if err := extractTgaToPng(f, outputPath, 128); err != nil {
+			fmt.Fprintf(os.Stderr, "  Warning: failed to extract %s: %v\n", f.Name, err)
+			continue
+		}
+
+		fmt.Printf("  %s: %s\n", displayPath, outputName)
+		extracted++
+	}
+
+	return extracted, nil
+}
+
+// cmdAssets runs all asset extraction commands
+func cmdAssets(args []string) {
+	fs := flag.NewFlagSet("assets", flag.ExitOnError)
+	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
+	fs.Parse(args)
+
+	cfg := loadCLIConfigFromFlags(*configPath, "")
+	if cfg == nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to load config\n")
+		os.Exit(1)
+	}
+
+	remaining := fs.Args()
+	inputPath := cfg.Server.Quake3Dir
+	if len(remaining) > 0 {
+		inputPath = remaining[0]
+	}
+
+	// Build args for sub-commands
+	subArgs := []string{"--config", *configPath, inputPath}
+
+	fmt.Println("=== Extracting Levelshots ===")
+	cmdLevelshots(subArgs)
+	fmt.Println()
+
+	fmt.Println("=== Extracting Portraits ===")
+	cmdPortraits(subArgs)
+	fmt.Println()
+
+	fmt.Println("=== Extracting Medals ===")
+	cmdMedals(subArgs)
+	fmt.Println()
+
+	fmt.Println("=== Extracting Skills ===")
+	cmdSkills(subArgs)
+	fmt.Println()
+
+	fmt.Println("=== All asset extraction complete ===")
+}
+
+// collectPk3FilesOrdered returns pk3 files in Quake 3 load order (later files override earlier)
+// Order: pak0-9 numerically, then remaining pk3s alphabetically
+// Applied to baseq3 first, then missionpack
+func collectPk3FilesOrdered(quake3Dir string) []string {
+	var files []string
+
+	// Check if quake3Dir is a single file
+	info, err := os.Stat(quake3Dir)
+	if err != nil {
+		return files
+	}
+	if !info.IsDir() {
+		// Single pk3 file
+		if strings.HasSuffix(strings.ToLower(quake3Dir), ".pk3") {
+			return []string{quake3Dir}
+		}
+		return files
+	}
+
+	// Check if this directory has baseq3/missionpack structure
+	hasStructure := false
+	for _, subdir := range []string{"baseq3", "missionpack"} {
+		if _, err := os.Stat(filepath.Join(quake3Dir, subdir)); err == nil {
+			hasStructure = true
+			break
+		}
+	}
+
+	if hasStructure {
+		// Process baseq3 and missionpack in order
+		for _, subdir := range []string{"baseq3", "missionpack"} {
+			dir := filepath.Join(quake3Dir, subdir)
+			if _, err := os.Stat(dir); os.IsNotExist(err) {
+				continue
+			}
+			files = append(files, collectPk3FilesFromDir(dir)...)
+		}
+	} else {
+		// No standard structure, scan the directory directly
+		files = collectPk3FilesFromDir(quake3Dir)
+	}
+
+	return files
+}
+
+// collectPk3FilesFromDir recursively collects pk3 files from a directory
+// Returns them in Quake 3 load order: pak0-9 first, then others alphabetically
+func collectPk3FilesFromDir(dir string) []string {
+	var pakFiles []string   // pak[0-9].pk3 at root level
+	var otherFiles []string // other pk3s
+
+	filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil // Skip directories we can't read
+		}
+		if d.IsDir() {
+			return nil
+		}
+		if !strings.HasSuffix(strings.ToLower(d.Name()), ".pk3") {
+			return nil
+		}
+
+		name := d.Name()
+		lowerName := strings.ToLower(name)
+
+		// Only treat pak[0-9].pk3 at the root level specially
+		isRootLevel := filepath.Dir(path) == dir
+		if isRootLevel && strings.HasPrefix(lowerName, "pak") && len(lowerName) == 8 {
+			numChar := lowerName[3]
+			if numChar >= '0' && numChar <= '9' {
+				pakFiles = append(pakFiles, path)
+				return nil
+			}
+		}
+		otherFiles = append(otherFiles, path)
+		return nil
+	})
+
+	// Sort pak files numerically (pak0, pak1, ..., pak9)
+	sort.Slice(pakFiles, func(i, j int) bool {
+		return pakFiles[i] < pakFiles[j]
+	})
+
+	// Sort other files alphabetically
+	sort.Strings(otherFiles)
+
+	// Pak files first, then other files
+	return append(pakFiles, otherFiles...)
+}
+
+// extractTgaToPng extracts a TGA file from a zip, scales to targetSize, and saves as PNG
+func extractTgaToPng(f *zip.File, outputPath string, targetSize int) error {
+	rc, err := f.Open()
+	if err != nil {
+		return err
+	}
+	defer rc.Close()
+
+	img, err := tga.Decode(rc)
+	if err != nil {
+		return fmt.Errorf("decode TGA: %w", err)
+	}
+
+	// Scale to target size using Catmull-Rom (bicubic) interpolation
+	// CatmullRom produces sharper results than bilinear, better for pixel art
+	bounds := img.Bounds()
+	if bounds.Dx() != targetSize || bounds.Dy() != targetSize {
+		dst := image.NewRGBA(image.Rect(0, 0, targetSize, targetSize))
+		draw.CatmullRom.Scale(dst, dst.Bounds(), img, bounds, draw.Over, nil)
+		img = dst
+	}
+
+	out, err := os.Create(outputPath)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	return png.Encode(out, img)
 }
