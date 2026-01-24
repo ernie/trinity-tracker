@@ -1,6 +1,6 @@
 # Trinity
 
-Real-time statistics tracking system for Quake 3 Arena servers.
+Real-time statistics tracking system for the [Trinity Quake 3 server](https://github.com/ernie/Quake3e) and [Trinity mod](https://github.com/ernie/trinity).
 
 ## Installation
 
@@ -398,7 +398,7 @@ Wants=network-online.target
 Type=simple
 User=quake
 WorkingDirectory=/usr/lib/quake3
-ExecStart=/usr/bin/screen -DmS quake3-ffa -L -Logfile /var/log/quake3/ffa-console.log /usr/lib/quake3/quake3e.ded.aarch64 +set com_hunkmegs 256 +set net_port 27960 +exec ffa.cfg
+ExecStart=/usr/bin/screen -DmS quake3-ffa -L -Logfile /var/log/quake3/ffa-console.log /usr/lib/quake3/trinity.ded.aarch64 +set com_hunkmegs 256 +set net_port 27960 +exec ffa.cfg
 Restart=on-failure
 
 [Install]
