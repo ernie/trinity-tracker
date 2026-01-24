@@ -26,7 +26,7 @@ export function PlayersPage() {
   const [searching, setSearching] = useState(false)
 
   const [period, setPeriod] = useState<TimePeriod>('all')
-  const { stats, loading, error } = usePlayerStats(id ? Number(id) : undefined, period)
+  const { stats, loading, error, refetch } = usePlayerStats(id ? Number(id) : undefined, period)
 
   // Admin state
   const [showUserManagement, setShowUserManagement] = useState(false)
@@ -123,10 +123,7 @@ export function PlayersPage() {
       setShowMergeSearch(false)
       setMergeQuery('')
       setMergeResults([])
-      // Trigger reload by toggling period
-      const currentPeriod = period
-      setPeriod('day')
-      setTimeout(() => setPeriod(currentPeriod), 0)
+      refetch()
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Merge failed')
     } finally {

@@ -8,11 +8,11 @@ Real-time statistics tracking system for Quake 3 Arena servers.
 
 Download the latest release for your platform from the [Releases](https://github.com/ernie/trinity-tools/releases) page:
 
-| Platform | Architecture | File |
-| -------- | ------------ | ---- |
-| Linux (64-bit) | x86_64 | `trinity-vX.X.X-linux-amd64.tar.gz` |
+| Platform           | Architecture                      | File                                |
+| ------------------ | --------------------------------- | ----------------------------------- |
+| Linux (64-bit)     | x86_64                            | `trinity-vX.X.X-linux-amd64.tar.gz` |
 | Linux (64-bit ARM) | aarch64 (Raspberry Pi 4/5 64-bit) | `trinity-vX.X.X-linux-arm64.tar.gz` |
-| Linux (32-bit ARM) | armv7 (Raspberry Pi 2/3/4 32-bit) | `trinity-vX.X.X-linux-arm.tar.gz` |
+| Linux (32-bit ARM) | armv7 (Raspberry Pi 2/3/4 32-bit) | `trinity-vX.X.X-linux-arm.tar.gz`   |
 
 ```bash
 # Download and extract (replace with your architecture and version)
@@ -73,27 +73,25 @@ Trinity provides a single binary with subcommands for both the server and CLI op
 trinity serve [options]
 
 Options:
-  -config <path>    Path to config file (default: /etc/trinity/config.yml)
+  --config <path>    Path to config file (default: /etc/trinity/config.yml)
 ```
 
 ### CLI Commands
 
 ```bash
-trinity status                   Show all servers status
-trinity players                  Show current players across all servers
-trinity players --humans         Show only human players
-trinity matches                  Show recent matches
-trinity leaderboard              Show top players
-trinity user add <username>      Add a user (prompts for password)
-       [--admin]                 Create as admin user
-       [--player-id=N]           Link to player ID
-trinity user remove <username>   Remove a user
-trinity user list                List all users
-trinity user reset <username>    Reset a user's password
-trinity user admin <username>    Toggle admin status for a user
-trinity levelshots <path>        Extract levelshots from pk3 file(s)
-trinity version                  Show version
-trinity help                     Show help
+trinity status                             Show all servers status
+trinity players [--humans]                 Show current players across all servers
+trinity matches [--recent N]               Show recent matches (default: 20)
+trinity leaderboard [--top N]              Show top players (default: 20)
+trinity user add [--admin] [--player-id N] <username>
+                                           Add a user (prompts for password)
+trinity user remove <username>             Remove a user
+trinity user list                          List all users
+trinity user reset <username>              Reset a user's password
+trinity user admin <username>              Toggle admin status for a user
+trinity levelshots <path>                  Extract levelshots from pk3 file(s)
+trinity version                            Show version
+trinity help                               Show help
 ```
 
 ### Extracting Levelshots
@@ -102,11 +100,11 @@ The `levelshots` command extracts map preview images from Q3A pk3 files and plac
 
 ```bash
 # Extract from a directory (recursively scans for pk3 files)
-# -config option not needed if you use the default location
-sudo -u quake trinity -config /etc/trinity/config.yml levelshots /usr/lib/quake3
+# --config option not needed if you use the default location
+sudo -u quake trinity levelshots --config /etc/trinity/config.yml /usr/lib/quake3
 
 # Extract from a single pk3 file
-sudo -u quake trinity -config /etc/trinity/config.yml levelshots /path/to/map-mymap.pk3
+sudo -u quake trinity levelshots --config /etc/trinity/config.yml /path/to/map-mymap.pk3
 ```
 
 The command:
@@ -160,7 +158,7 @@ q3_servers:
 ## Running
 
 ```bash
-./bin/trinity serve -config config.yml
+./bin/trinity serve --config config.yml
 ```
 
 Open <http://localhost:8080> in your browser.
@@ -187,7 +185,7 @@ make
 sudo make install
 
 # Copy web frontend
-sudo cp -r web/dist/* /var/lib/trinity/web/
+sudo -u quake cp -r web/dist/* /var/lib/trinity/web/
 sudo chown -R quake:quake /var/lib/trinity/web
 
 # Create config

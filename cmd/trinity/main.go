@@ -5,7 +5,6 @@ import (
 	"archive/zip"
 	"context"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"image/jpeg"
 	"io"
@@ -25,6 +24,7 @@ import (
 	"github.com/ernie/trinity-tools/internal/config"
 	"github.com/ernie/trinity-tools/internal/storage"
 	"github.com/ftrvxmtrx/tga"
+	flag "github.com/spf13/pflag"
 	"golang.org/x/term"
 )
 
@@ -68,31 +68,30 @@ func printUsage() {
 	fmt.Println("Usage: trinity <command> [options] [args]")
 	fmt.Println()
 	fmt.Println("Commands:")
-	fmt.Println("  serve                    Start the stats server")
-	fmt.Println("  status                   Show all servers status")
-	fmt.Println("  players                  Show current players across all servers")
-	fmt.Println("  players --humans         Show only human players")
-	fmt.Println("  matches                  Show recent matches")
-	fmt.Println("  leaderboard              Show top players")
-	fmt.Println("  user add <username>      Add a user (prompts for password)")
-	fmt.Println("       [--admin]           Create as admin user")
-	fmt.Println("       [--player-id=N]     Link to player ID")
-	fmt.Println("  user remove <username>   Remove a user")
-	fmt.Println("  user list                List all users")
-	fmt.Println("  user reset <username>    Reset a user's password")
-	fmt.Println("  user admin <username>    Toggle admin status for a user")
-	fmt.Println("  levelshots <path>        Extract levelshots from pk3 file(s)")
-	fmt.Println("                           Path can be a pk3 file or directory")
-	fmt.Println("  version                  Show version")
-	fmt.Println("  help                     Show this help")
+	fmt.Println("  serve                              Start the stats server")
+	fmt.Println("  status                             Show all servers status")
+	fmt.Println("  players [--humans]                 Show current players across all servers")
+	fmt.Println("  matches [--recent N]               Show recent matches (default: 20)")
+	fmt.Println("  leaderboard [--top N]              Show top players (default: 20)")
+	fmt.Println("  user add [--admin] [--player-id N] <username>")
+	fmt.Println("                                     Add a user (prompts for password)")
+	fmt.Println("  user remove <username>             Remove a user")
+	fmt.Println("  user list                          List all users")
+	fmt.Println("  user reset <username>              Reset a user's password")
+	fmt.Println("  user admin <username>              Toggle admin status for a user")
+	fmt.Println("  levelshots <path>                  Extract levelshots from pk3 file(s)")
+	fmt.Println("  version                            Show version")
+	fmt.Println("  help                               Show this help")
 	fmt.Println()
 	fmt.Println("Global Options:")
-	fmt.Println("  -config string      Path to configuration file (default /etc/trinity/config.yml)")
+	fmt.Println("  --config <path>    Path to configuration file (default /etc/trinity/config.yml)")
+	fmt.Println("  --url <url>        Base URL of the trinity server (default: derived from config)")
 	fmt.Println()
 	fmt.Println("Examples:")
-	fmt.Println("  trinity serve -config /etc/trinity/config.yml")
-	fmt.Println("  trinity status")
-	fmt.Println("  trinity user add admin --admin")
+	fmt.Println("  trinity serve --config /etc/trinity/config.yml")
+	fmt.Println("  trinity players --humans")
+	fmt.Println("  trinity matches --recent 50")
+	fmt.Println("  trinity user add --admin myuser")
 }
 
 // cmdServe starts the stats server
@@ -107,7 +106,7 @@ func cmdServe(args []string) {
 		if _, err := os.Stat(defaultConfigPath); err == nil {
 			cfgPath = defaultConfigPath
 		} else {
-			log.Fatalf("No config file found at %s. Use -config to specify a config file.", defaultConfigPath)
+			log.Fatalf("No config file found at %s. Use --config to specify a config file.", defaultConfigPath)
 		}
 	}
 
@@ -205,36 +204,47 @@ var (
 	dbPath  string
 )
 
+// loadCLIConfigFromFlags loads config using pre-parsed flag values
+func loadCLIConfigFromFlags(configPath, url string) *config.Config {
+	// Load config file
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to load config from %s: %v\n", configPath, err)
+		dbPath = "/var/lib/trinity/trinity.db"
+		// Use explicit --url flag or default
+		if url != "" {
+			baseURL = url
+		}
+		return nil
+	}
+
+	dbPath = cfg.Database.Path
+	// Derive URL from config, but allow --url flag to override
+	if url != "" {
+		baseURL = url
+	} else {
+		baseURL = fmt.Sprintf("http://%s:%d", cfg.Server.ListenAddr, cfg.Server.HTTPPort)
+	}
+	return cfg
+}
+
 func loadCLIConfig(args []string) (*config.Config, []string) {
 	fs := flag.NewFlagSet("cli", flag.ContinueOnError)
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
 	url := fs.String("url", "", "base URL of the trinity server")
 	fs.Parse(args)
 
-	// Load config file
-	cfg, err := config.Load(*configPath)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: failed to load config from %s: %v\n", *configPath, err)
-		dbPath = "/var/lib/trinity/trinity.db"
-		// Use explicit -url flag or default
-		if *url != "" {
-			baseURL = *url
-		}
-		return nil, fs.Args()
-	}
-
-	dbPath = cfg.Database.Path
-	// Derive URL from config, but allow -url flag to override
-	if *url != "" {
-		baseURL = *url
-	} else {
-		baseURL = fmt.Sprintf("http://%s:%d", cfg.Server.ListenAddr, cfg.Server.HTTPPort)
-	}
+	cfg := loadCLIConfigFromFlags(*configPath, *url)
 	return cfg, fs.Args()
 }
 
 func cmdStatus(args []string) {
-	loadCLIConfig(args)
+	fs := flag.NewFlagSet("status", flag.ExitOnError)
+	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
+	url := fs.String("url", "", "base URL of the trinity server")
+	fs.Parse(args)
+
+	loadCLIConfigFromFlags(*configPath, *url)
 
 	// Get servers
 	var servers []map[string]interface{}
@@ -287,14 +297,13 @@ func cmdStatus(args []string) {
 }
 
 func cmdPlayers(args []string) {
-	_, remaining := loadCLIConfig(args)
+	fs := flag.NewFlagSet("players", flag.ExitOnError)
+	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
+	url := fs.String("url", "", "base URL of the trinity server")
+	humansOnly := fs.Bool("humans", false, "show only human players")
+	fs.Parse(args)
 
-	humansOnly := false
-	for _, arg := range remaining {
-		if arg == "--humans" || arg == "--humans-only" {
-			humansOnly = true
-		}
-	}
+	loadCLIConfigFromFlags(*configPath, *url)
 
 	// Get servers
 	var servers []map[string]interface{}
@@ -328,7 +337,7 @@ func cmdPlayers(args []string) {
 			}
 
 			isBot := pm["is_bot"].(bool)
-			if humansOnly && isBot {
+			if *humansOnly && isBot {
 				continue
 			}
 
@@ -349,17 +358,16 @@ func cmdPlayers(args []string) {
 }
 
 func cmdMatches(args []string) {
-	_, remaining := loadCLIConfig(args)
+	fs := flag.NewFlagSet("matches", flag.ExitOnError)
+	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
+	url := fs.String("url", "", "base URL of the trinity server")
+	limit := fs.Int("recent", 20, "number of recent matches to show")
+	fs.Parse(args)
 
-	limit := "20"
-	for i, arg := range remaining {
-		if arg == "--recent" && i+1 < len(remaining) {
-			limit = remaining[i+1]
-		}
-	}
+	loadCLIConfigFromFlags(*configPath, *url)
 
 	var matches []map[string]interface{}
-	if err := getJSON("/api/matches?limit="+limit, &matches); err != nil {
+	if err := getJSON(fmt.Sprintf("/api/matches?limit=%d", *limit), &matches); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
@@ -394,17 +402,16 @@ func cmdMatches(args []string) {
 }
 
 func cmdLeaderboard(args []string) {
-	_, remaining := loadCLIConfig(args)
+	fs := flag.NewFlagSet("leaderboard", flag.ExitOnError)
+	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
+	url := fs.String("url", "", "base URL of the trinity server")
+	limit := fs.Int("top", 20, "number of top players to show")
+	fs.Parse(args)
 
-	limit := "20"
-	for i, arg := range remaining {
-		if arg == "--top" && i+1 < len(remaining) {
-			limit = remaining[i+1]
-		}
-	}
+	loadCLIConfigFromFlags(*configPath, *url)
 
 	var response map[string]interface{}
-	if err := getJSON("/api/stats/leaderboard?limit="+limit, &response); err != nil {
+	if err := getJSON(fmt.Sprintf("/api/stats/leaderboard?limit=%d", *limit), &response); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
@@ -489,27 +496,20 @@ func cmdUser(args []string) {
 }
 
 func cmdUserAdd(ctx context.Context, store *storage.Store, args []string) error {
-	if len(args) < 1 {
-		return fmt.Errorf("usage: trinity user add <username> [--admin] [--player-id=N]")
+	fs := flag.NewFlagSet("user add", flag.ExitOnError)
+	isAdmin := fs.Bool("admin", false, "create as admin user")
+	playerIDFlag := fs.Int64("player-id", 0, "link to player ID")
+	fs.Parse(args)
+
+	remaining := fs.Args()
+	if len(remaining) < 1 {
+		return fmt.Errorf("usage: trinity user add [--admin] [--player-id N] <username>")
 	}
 
-	username := args[0]
-	isAdmin := false
+	username := remaining[0]
 	var playerID *int64
-
-	// Parse flags
-	for _, arg := range args[1:] {
-		if arg == "--admin" {
-			isAdmin = true
-		}
-		if strings.HasPrefix(arg, "--player-id=") {
-			idStr := strings.TrimPrefix(arg, "--player-id=")
-			var id int64
-			if _, err := fmt.Sscanf(idStr, "%d", &id); err != nil {
-				return fmt.Errorf("invalid player-id: %s", idStr)
-			}
-			playerID = &id
-		}
+	if *playerIDFlag != 0 {
+		playerID = playerIDFlag
 	}
 
 	// Check if user already exists
@@ -555,12 +555,12 @@ func cmdUserAdd(ctx context.Context, store *storage.Store, args []string) error 
 		return fmt.Errorf("failed to hash password: %w", err)
 	}
 
-	if err := store.CreateUser(ctx, username, hash, isAdmin, playerID); err != nil {
+	if err := store.CreateUser(ctx, username, hash, *isAdmin, playerID); err != nil {
 		return fmt.Errorf("failed to create user: %w", err)
 	}
 
 	roleStr := "user"
-	if isAdmin {
+	if *isAdmin {
 		roleStr = "admin"
 	}
 	fmt.Printf("User '%s' created successfully (role: %s)\n", username, roleStr)
@@ -690,13 +690,17 @@ func cmdUserAdmin(ctx context.Context, store *storage.Store, args []string) erro
 
 // cmdLevelshots extracts levelshot images from pk3 files
 func cmdLevelshots(args []string) {
-	cfg, remaining := loadCLIConfig(args)
+	fs := flag.NewFlagSet("levelshots", flag.ExitOnError)
+	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
+	fs.Parse(args)
 
+	remaining := fs.Args()
 	if len(remaining) < 1 {
-		fmt.Fprintf(os.Stderr, "Error: usage: trinity levelshots <pk3_path_or_directory>\n")
+		fmt.Fprintf(os.Stderr, "Error: usage: trinity levelshots [--config <path>] <pk3_path_or_directory>\n")
 		os.Exit(1)
 	}
 
+	cfg := loadCLIConfigFromFlags(*configPath, "")
 	inputPath := remaining[0]
 
 	if cfg == nil {

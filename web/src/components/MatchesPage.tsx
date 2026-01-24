@@ -8,7 +8,7 @@ import { useAuth } from '../hooks/useAuth'
 import { GAME_TYPE_LABELS, type GameTypeFilter } from '../constants/labels'
 import type { MatchSummary } from '../types'
 
-const PAGE_SIZE = 24
+const PAGE_SIZE = 10
 
 function parseDateTimeLocal(value: string): Date | null {
   if (!value) return null
