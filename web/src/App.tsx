@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useWebSocket } from "./useWebSocket";
 import { useAuth } from "./hooks/useAuth";
@@ -58,7 +58,7 @@ function App() {
     name: string;
     playerId: number;
   } | null>(null);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [showPasswordChange, setShowPasswordChange] = useState(false);
   const [showUserManagement, setShowUserManagement] = useState(false);
   const activityIdRef = useRef(0);
@@ -75,6 +75,22 @@ function App() {
 
   // Keep ref in sync with state
   serversRef.current = servers;
+
+  // Count active human players across all servers (for sidebar indicator)
+  const activeHumanPlayersCount = useMemo(() => {
+    let count = 0;
+    for (const [, status] of servers.entries()) {
+      if (!status.players || !status.online) continue;
+      const serverName = status.name && !/^Server \d+$/.test(status.name) ? status.name : null;
+      if (!serverName) continue;
+      for (const player of status.players) {
+        if (!player.is_bot && player.team !== 3) {
+          count++;
+        }
+      }
+    }
+    return count;
+  }, [servers]);
 
   // Get server name by ID - returns undefined if real name not yet available
   const getServerName = useCallback((serverId: number): string | undefined => {
@@ -635,7 +651,22 @@ function App() {
 
       <aside className={`left-sidebar ${sidebarCollapsed ? "collapsed" : ""}`}>
         <div className="sidebar-header">
-          <h2>{sidebarCollapsed ? "" : "Activity"}</h2>
+          {sidebarCollapsed ? (
+            <div className="collapsed-header">
+              <div
+                className="activity-indicator-wrapper"
+                title={activeHumanPlayersCount > 0 ? `Players online: ${activeHumanPlayersCount}` : "No players online"}
+              >
+                <span className={`activity-indicator ${activeHumanPlayersCount > 0 ? "active" : "inactive"}`} />
+                {activeHumanPlayersCount > 0 && (
+                  <span className="activity-count">{activeHumanPlayersCount}</span>
+                )}
+              </div>
+              <span className="rotated-title">Activity</span>
+            </div>
+          ) : (
+            <h2>Activity</h2>
+          )}
           <button
             className="collapse-toggle"
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}

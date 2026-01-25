@@ -56,7 +56,72 @@ body {
 }
 
 .left-sidebar.collapsed .sidebar-header {
+  flex-direction: column-reverse;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 15px 5px;
+  flex: 1;
+  border-bottom: none;
+}
+
+.collapsed-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+}
+
+.activity-indicator-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
   justify-content: center;
+}
+
+.activity-count {
+  position: absolute;
+  bottom: -2px;
+  right: -6px;
+  font-size: 0.6rem;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 0 0 2px #000;
+}
+
+.rotated-title {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  transform: rotate(180deg);
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  letter-spacing: 1px;
+}
+
+.activity-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.activity-indicator.inactive {
+  background: var(--red);
+}
+
+.activity-indicator.active {
+  background: var(--green);
+  animation: pulse-green 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-green {
+  0%, 100% {
+    box-shadow: 0 0 4px var(--green);
+    opacity: 1;
+  }
+  50% {
+    box-shadow: 0 0 12px var(--green), 0 0 20px var(--green);
+    opacity: 0.8;
+  }
 }
 
 .left-sidebar .sidebar-header h2 {
