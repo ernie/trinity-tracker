@@ -2452,6 +2452,7 @@ h2 {
     margin-left: 0;
   }
 
+  .left-sidebar.collapsed + .app-layout,
   .app-layout.sidebar-collapsed,
   .app.sidebar-collapsed .app-header {
     margin-left: 0;
