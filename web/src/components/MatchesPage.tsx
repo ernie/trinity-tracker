@@ -28,6 +28,9 @@ export function MatchesPage() {
   })
   const [startDate, setStartDate] = useState<string>(() => searchParams.get('start_date') || '')
   const [endDate, setEndDate] = useState<string>(() => searchParams.get('end_date') || '')
+  const [includeBotOnly, setIncludeBotOnly] = useState<boolean>(() =>
+    searchParams.get('include_bot_only') === 'true'
+  )
 
   const [matches, setMatches] = useState<MatchSummary[]>([])
   const [loading, setLoading] = useState(true)
@@ -40,8 +43,9 @@ export function MatchesPage() {
     if (gameType !== 'all') params.set('game_type', gameType)
     if (startDate) params.set('start_date', startDate)
     if (endDate) params.set('end_date', endDate)
+    if (includeBotOnly) params.set('include_bot_only', 'true')
     setSearchParams(params, { replace: true })
-  }, [gameType, startDate, endDate, setSearchParams])
+  }, [gameType, startDate, endDate, includeBotOnly, setSearchParams])
 
   // Fetch matches when filters change
   useEffect(() => {
@@ -54,6 +58,7 @@ export function MatchesPage() {
         const params = new URLSearchParams()
         params.set('limit', PAGE_SIZE.toString())
         if (gameType !== 'all') params.set('game_type', gameType)
+        if (includeBotOnly) params.set('include_bot_only', 'true')
 
         // Convert datetime-local to RFC3339
         if (startDate) {
@@ -80,7 +85,7 @@ export function MatchesPage() {
     }
 
     fetchMatches()
-  }, [gameType, startDate, endDate])
+  }, [gameType, startDate, endDate, includeBotOnly])
 
   const loadMore = async () => {
     if (loadingMore || !hasMore || matches.length === 0) return
@@ -93,6 +98,7 @@ export function MatchesPage() {
       params.set('limit', PAGE_SIZE.toString())
       params.set('before', lastMatchId.toString())
       if (gameType !== 'all') params.set('game_type', gameType)
+      if (includeBotOnly) params.set('include_bot_only', 'true')
       if (startDate) {
         const date = parseDateTimeLocal(startDate)
         if (date) params.set('start_date', date.toISOString())
@@ -126,9 +132,10 @@ export function MatchesPage() {
     setGameType('all')
     setStartDate('')
     setEndDate('')
+    setIncludeBotOnly(false)
   }
 
-  const hasActiveFilters = gameType !== 'all' || startDate || endDate
+  const hasActiveFilters = gameType !== 'all' || startDate || endDate || includeBotOnly
 
   return (
     <div className="matches-page">
@@ -179,6 +186,14 @@ export function MatchesPage() {
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
             />
+          </label>
+          <label className="include-bots-filter">
+            <input
+              type="checkbox"
+              checked={includeBotOnly}
+              onChange={(e) => setIncludeBotOnly(e.target.checked)}
+            />
+            Include bot-only matches
           </label>
           {hasActiveFilters && (
             <button className="clear-filters-btn" onClick={clearFilters}>

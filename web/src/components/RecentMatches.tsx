@@ -9,11 +9,12 @@ interface RecentMatchesProps {
 export function RecentMatches({ onPlayerClick }: RecentMatchesProps) {
   const [matches, setMatches] = useState<MatchSummary[]>([])
   const [loading, setLoading] = useState(true)
+  const [includeBotOnly, setIncludeBotOnly] = useState(false)
 
   useEffect(() => {
     async function fetchMatches() {
       try {
-        const res = await fetch('/api/matches?limit=8')
+        const res = await fetch(`/api/matches?limit=8${includeBotOnly ? '&include_bot_only=true' : ''}`)
         if (res.ok) {
           const data = await res.json()
           setMatches(data ?? [])
@@ -28,7 +29,7 @@ export function RecentMatches({ onPlayerClick }: RecentMatchesProps) {
     fetchMatches()
     const interval = setInterval(fetchMatches, 30000)
     return () => clearInterval(interval)
-  }, [])
+  }, [includeBotOnly])
 
   if (loading) {
     return (
@@ -50,7 +51,17 @@ export function RecentMatches({ onPlayerClick }: RecentMatchesProps) {
 
   return (
     <div className="recent-matches">
-      <h2>Recent Matches</h2>
+      <div className="recent-matches-header">
+        <h2>Recent Matches</h2>
+        <label className="include-bots-filter">
+          <input
+            type="checkbox"
+            checked={includeBotOnly}
+            onChange={(e) => setIncludeBotOnly(e.target.checked)}
+          />
+          Include bot-only
+        </label>
+      </div>
       <div className="matches-list">
         {matches.map((match) => (
           <MatchCard

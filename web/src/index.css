@@ -3810,3 +3810,25 @@ h2 {
   background: rgba(255, 255, 255, 0.2);
   color: var(--text);
 }
+
+/* Recent matches header with filter */
+.recent-matches-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+/* Include bots filter checkbox */
+.include-bots-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.include-bots-filter input[type="checkbox"] {
+  cursor: pointer;
+}

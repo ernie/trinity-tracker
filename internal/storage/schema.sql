@@ -81,13 +81,15 @@ CREATE TABLE IF NOT EXISTS matches (
     ended_at TIMESTAMP,
     exit_reason TEXT,
     red_score INTEGER,
-    blue_score INTEGER
+    blue_score INTEGER,
+    has_human_player BOOLEAN DEFAULT FALSE
 );
 
 CREATE INDEX IF NOT EXISTS idx_matches_server_id ON matches(server_id);
 CREATE INDEX IF NOT EXISTS idx_matches_started_at ON matches(started_at);
 CREATE INDEX IF NOT EXISTS idx_matches_ended_at ON matches(ended_at);
 CREATE INDEX IF NOT EXISTS idx_matches_uuid ON matches(uuid);
+CREATE INDEX IF NOT EXISTS idx_matches_has_human_player ON matches(has_human_player);
 
 -- Player stats per match - linked to specific GUID that earned them
 -- client_id allows tracking duplicate bots (same name) in the same match

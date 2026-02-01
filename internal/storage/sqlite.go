@@ -974,6 +974,12 @@ func (s *Store) FlushMatchPlayerStats(ctx context.Context, matchID, playerGUIDID
 	`, matchID, playerGUIDID, clientID, frags, deaths, completed, score, team,
 		model, skill, boolToInt(victory), captures, flagReturns, assists, impressives,
 		excellents, humiliations, defends, joinedLate, formatTimestamp(joinedAt))
+	if err != nil {
+		return err
+	}
+
+	// Mark match as having a human player
+	_, err = s.db.ExecContext(ctx, `UPDATE matches SET has_human_player = TRUE WHERE id = ? AND has_human_player = FALSE`, matchID)
 	return err
 }
 
@@ -1756,11 +1762,12 @@ func (s *Store) GetMatchSummaryByID(ctx context.Context, matchID int64) (*domain
 
 // MatchFilter defines filters for querying matches
 type MatchFilter struct {
-	GameType  string
-	StartDate *time.Time
-	EndDate   *time.Time
-	BeforeID  *int64
-	Limit     int
+	GameType       string
+	StartDate      *time.Time
+	EndDate        *time.Time
+	BeforeID       *int64
+	Limit          int
+	IncludeBotOnly bool // when false, filter to has_human_player = TRUE
 }
 
 // GetFilteredMatchSummaries returns matches filtered by the given criteria
@@ -1795,6 +1802,9 @@ func (s *Store) GetFilteredMatchSummaries(ctx context.Context, filter MatchFilte
 	if filter.BeforeID != nil {
 		query += ` AND m.id < ?`
 		args = append(args, *filter.BeforeID)
+	}
+	if !filter.IncludeBotOnly {
+		query += ` AND m.has_human_player = TRUE`
 	}
 
 	query += ` ORDER BY m.ended_at DESC LIMIT ?`

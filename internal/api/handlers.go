@@ -213,6 +213,8 @@ func (r *Router) handleGetMatches(w http.ResponseWriter, req *http.Request) {
 		filter.EndDate = &t
 	}
 
+	filter.IncludeBotOnly = req.URL.Query().Get("include_bot_only") == "true"
+
 	matches, err := r.store.GetFilteredMatchSummaries(req.Context(), filter)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
