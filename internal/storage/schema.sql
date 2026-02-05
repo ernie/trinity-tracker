@@ -19,7 +19,8 @@ CREATE TABLE IF NOT EXISTS players (
     first_seen TIMESTAMP,
     last_seen TIMESTAMP,
     total_playtime_seconds INTEGER DEFAULT 0,
-    is_bot BOOLEAN DEFAULT FALSE
+    is_bot BOOLEAN DEFAULT FALSE,
+    is_vr BOOLEAN DEFAULT FALSE
 );
 
 CREATE INDEX IF NOT EXISTS idx_players_clean_name ON players(clean_name);
@@ -35,7 +36,8 @@ CREATE TABLE IF NOT EXISTS player_guids (
     clean_name TEXT NOT NULL,
     first_seen TIMESTAMP,
     last_seen TIMESTAMP,
-    is_bot BOOLEAN DEFAULT FALSE
+    is_bot BOOLEAN DEFAULT FALSE,
+    is_vr BOOLEAN DEFAULT FALSE
 );
 
 CREATE INDEX IF NOT EXISTS idx_player_guids_player_id ON player_guids(player_id);
@@ -114,6 +116,7 @@ CREATE TABLE IF NOT EXISTS match_player_stats (
     team INTEGER,
     model TEXT,
     skill REAL,
+    is_vr BOOLEAN DEFAULT FALSE,
     PRIMARY KEY (match_id, player_guid_id, client_id)
 );
 

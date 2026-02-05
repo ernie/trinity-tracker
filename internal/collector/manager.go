@@ -60,6 +60,7 @@ type clientState struct {
 	guid               string
 	model              string // player model (e.g., "sarge/krusade")
 	isBot              bool
+	isVR               bool
 	skill              float64 // bot skill level (1-5), 0 if human
 	team               int
 	joinedAt           time.Time
@@ -366,6 +367,7 @@ func (m *ServerManager) enrichPlayersFromClients(state *serverState, status *dom
 			player.Captures = client.captures
 			player.Assists = client.assists
 			player.Model = client.model
+			player.IsVR = client.isVR
 			player.PlayerID = client.getPlayerIDPtr()
 		} else {
 			// No tracked client yet - assume bot until GUID data arrives from logs
@@ -462,6 +464,7 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 		client.cleanName = domain.CleanQ3Name(data.Name)
 		client.guid = data.GUID
 		client.isBot = data.IsBot
+		client.isVR = data.IsVR
 		client.skill = data.Skill
 		client.team = data.Team
 		client.model = data.Model
@@ -495,7 +498,7 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 				}
 			} else if data.GUID != "" {
 				// Human player with real GUID
-				pg, err := m.store.UpsertPlayerGUID(ctx, data.GUID, data.Name, client.cleanName, event.Timestamp)
+				pg, err := m.store.UpsertPlayerGUID(ctx, data.GUID, data.Name, client.cleanName, event.Timestamp, data.IsVR)
 				if err != nil {
 					log.Printf("Error upserting player GUID: %v", err)
 				} else {
@@ -568,6 +571,7 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 							Name:      client.name,
 							CleanName: client.cleanName,
 							IsBot:     client.isBot,
+							IsVR:      client.isVR,
 							Team:      client.team,
 							JoinedAt:  event.Timestamp,
 						},
@@ -610,7 +614,7 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 						client.frags, client.deaths, completed, client.score, team, client.model, client.skill, false,
 						client.captures, client.flagReturns, client.assists, client.impressives,
 						client.excellents, client.humiliations, client.defends,
-						client.isBot, joinedLate, client.joinedAt); err != nil {
+						client.isBot, joinedLate, client.joinedAt, client.isVR); err != nil {
 						log.Printf("Error flushing match player stats: %v", err)
 					}
 				}
@@ -749,7 +753,7 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 									client.frags, client.deaths, true, client.score, team, client.model, client.skill, victory,
 									client.captures, client.flagReturns, client.assists, client.impressives,
 									client.excellents, client.humiliations, client.defends,
-									client.isBot, joinedLate, client.joinedAt)
+									client.isBot, joinedLate, client.joinedAt, client.isVR)
 							}
 						}
 						m.store.EndMatch(ctx, existing.ID, state.pendingExitAt, *state.pendingExit, state.pendingRedScore, state.pendingBlueScore)
@@ -775,7 +779,7 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 									client.frags, client.deaths, true, client.score, team, client.model, client.skill, victory,
 									client.captures, client.flagReturns, client.assists, client.impressives,
 									client.excellents, client.humiliations, client.defends,
-									client.isBot, joinedLate, client.joinedAt); err != nil {
+									client.isBot, joinedLate, client.joinedAt, client.isVR); err != nil {
 									log.Printf("Error flushing match player stats: %v", err)
 								}
 							}
@@ -797,7 +801,7 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 									client.frags, client.deaths, false, nil, team, client.model, client.skill, false,
 									client.captures, client.flagReturns, client.assists, client.impressives,
 									client.excellents, client.humiliations, client.defends,
-									client.isBot, joinedLate, client.joinedAt)
+									client.isBot, joinedLate, client.joinedAt, client.isVR)
 							}
 						}
 						m.store.EndMatch(ctx, matchID, event.Timestamp, "shutdown", nil, nil)
@@ -974,7 +978,7 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 						client.frags, client.deaths, false, client.score, team, client.model, client.skill, false,
 						client.captures, client.flagReturns, client.assists, client.impressives,
 						client.excellents, client.humiliations, client.defends,
-						client.isBot, joinedLate, client.joinedAt)
+						client.isBot, joinedLate, client.joinedAt, client.isVR)
 					// Reset in-memory counters after flushing
 					client.frags = 0
 					client.deaths = 0

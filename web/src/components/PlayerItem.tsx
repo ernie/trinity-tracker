@@ -5,6 +5,8 @@ import { ColoredText } from './ColoredText'
 import { FlagIcon } from './FlagIcon'
 import { MedalIcon } from './MedalIcon'
 import { PlayerPortrait } from './PlayerPortrait'
+import { PlayerBadge } from './PlayerBadge'
+import { stripVRPrefix } from '../utils'
 
 interface PlayerItemProps {
   player: Player
@@ -74,7 +76,8 @@ export function PlayerItem({ player, isNew, carryingFlag, onClick }: PlayerItemP
       <span className={nameClasses}>
         <PlayerPortrait model={player.model} size="sm" />
         {player.is_bot && <BotBadge isBot skill={player.skill!} />}
-        <ColoredText text={player.name} />
+        {!player.is_bot && <PlayerBadge playerId={player.player_id!} isVR={player.is_vr} />}
+        <ColoredText text={player.is_vr ? stripVRPrefix(player.name) : player.name} />
         {carryingFlag && (
           <span className="player-flag">
             <FlagIcon team={carryingFlag} status="base" size="sm" title={`Carrying ${carryingFlag} flag`} />

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { BotBadge } from './BotBadge'
 import { ColoredText } from './ColoredText'
 import { PlayerPortrait } from './PlayerPortrait'
-import { VerifiedBadge } from './VerifiedBadge'
+import { PlayerBadge } from './PlayerBadge'
 import { StatItem } from './StatItem'
 import { PeriodSelector } from './PeriodSelector'
 import { usePlayerStats } from '../hooks/usePlayerStats'
@@ -39,7 +39,7 @@ export function PlayerStatsModal({ playerName, playerId, onClose }: PlayerStatsM
           <h3>
             {stats && <PlayerPortrait model={stats.player.model} size="md" />}
             {stats?.player.is_bot && <BotBadge isBot skill={5} size="md" />}
-            {stats && !stats.player.is_bot && <VerifiedBadge playerId={stats.player.id} />}
+            {stats && !stats.player.is_bot && <PlayerBadge playerId={stats.player.id} isVR={stats.player.is_vr} size="md" />}
             <ColoredText text={playerName} />
           </h3>
           <button onClick={onClose} className="close-btn" aria-label="Close">×</button>

@@ -58,6 +58,7 @@ type PlayerStatus struct {
 	Score        int       `json:"score"`
 	Ping         int       `json:"ping"`
 	IsBot        bool      `json:"is_bot"`
+	IsVR         bool      `json:"is_vr"`
 	Skill        float64   `json:"skill,omitempty"`        // bot skill level (1-5), 0 if human
 	Team         int       `json:"team,omitempty"`
 	JoinedAt     time.Time `json:"joined_at,omitempty"`

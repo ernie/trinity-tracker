@@ -612,6 +612,7 @@ h2 {
   display: inline-flex;
   align-items: center;
   flex-wrap: wrap;
+  gap: 2px;
 }
 
 .player-flag {
@@ -621,7 +622,7 @@ h2 {
 }
 
 /* Verified badge */
-.verified-badge {
+.player-badge {
   margin: 0 4px;
   display: inline-flex;
   align-items: center;
@@ -631,21 +632,64 @@ h2 {
   font-size: 16px;
   line-height: 1;
   text-align: center;
-  padding-bottom: 2px;
+  padding-bottom: 3px;
   padding-left: 1px;
   border-radius: 3px;
   vertical-align: middle;
   box-sizing: border-box;
 }
 
-.verified-badge.admin {
+.player-badge.admin {
   color: #fff;
   background: #d4a000;
 }
 
-.verified-badge.user {
+.player-badge.user {
   color: #fff;
   background: #4caf50;
+}
+
+/* Verified badge sizes */
+.player-badge-md {
+  width: 24px;
+  height: 24px;
+  font-size: 24px;
+  padding-bottom: 5px;
+}
+.player-badge-lg {
+  width: 32px;
+  height: 32px;
+  font-size: 32px;
+  padding-bottom: 6px;
+}
+
+/* VR-only badge (no verified status) */
+.player-badge.vr-only {
+  width: auto;
+  height: auto;
+  padding: 0;
+  background: none;
+  border-radius: 0;
+}
+.player-badge.vr-only img {
+  width: 16px;
+  height: 16px;
+}
+.player-badge-md.vr-only img {
+  width: 24px;
+  height: 24px;
+}
+.player-badge-lg.vr-only img {
+  width: 32px;
+  height: 32px;
+}
+
+/* VR + verified combined: colored background with VR icon overlay */
+.player-badge.vr.admin {
+  background: #d4a000 url('/assets/vr/vr.png') center/contain no-repeat;
+}
+.player-badge.vr.user {
+  background: #4caf50 url('/assets/vr/vr.png') center/contain no-repeat;
 }
 
 /* Bot badge */
@@ -1228,6 +1272,7 @@ h2 {
   display: inline-flex;
   align-items: center;
   flex-wrap: wrap;
+  gap: 2px;
 }
 
 .match-player-row .completion-dot {

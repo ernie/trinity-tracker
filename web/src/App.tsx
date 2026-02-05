@@ -108,11 +108,11 @@ function App() {
     (
       serverId: number,
       cleanName: string,
-    ): { isBot: boolean; skill?: number } => {
+    ): { isBot: boolean; skill?: number; isVR?: boolean } => {
       const server = serversRef.current.get(serverId);
       if (!server?.players) return { isBot: false };
       const player = server.players.find((p) => p.clean_name === cleanName);
-      return { isBot: player?.is_bot ?? false, skill: player?.skill };
+      return { isBot: player?.is_bot ?? false, skill: player?.skill, isVR: player?.is_vr };
     },
     [],
   );

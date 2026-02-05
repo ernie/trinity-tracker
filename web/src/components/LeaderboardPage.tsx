@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { AppLogo } from "./AppLogo";
 import { ColoredText } from "./ColoredText";
 import { PlayerPortrait } from "./PlayerPortrait";
-import { VerifiedBadge } from "./VerifiedBadge";
+import { PlayerBadge } from "./PlayerBadge";
 import { BotBadge } from "./BotBadge";
 import { FlagIcon } from "./FlagIcon";
 import { MedalIcon } from "./MedalIcon";
@@ -13,7 +13,7 @@ import { UserManagement } from "./UserManagement";
 import { PeriodSelector } from "./PeriodSelector";
 import { useAuth } from "../hooks/useAuth";
 import { GAME_TYPE_LABELS, type GameTypeFilter } from "../constants/labels";
-import { formatNumber } from "../utils";
+import { formatNumber, stripVRPrefix } from "../utils";
 import type {
   LeaderboardResponse,
   LeaderboardCategory,
@@ -312,9 +312,9 @@ function LeaderboardTable({
               <td className="player-col">
                 <PlayerPortrait model={entry.player.model} size="sm" />
                 {botsOnly && <BotBadge isBot skill={entry.player.skill || 5} />}
-                {!botsOnly && <VerifiedBadge playerId={entry.player.id} />}
+                {!botsOnly && <PlayerBadge playerId={entry.player.id} isVR={entry.player.is_vr} />}
                 <Link to={`/players/${entry.player.id}`}>
-                  <ColoredText text={entry.player.name} />
+                  <ColoredText text={entry.player.is_vr ? stripVRPrefix(entry.player.name) : entry.player.name} />
                 </Link>
               </td>
               <td className={colClass("matches")} title={
@@ -357,9 +357,9 @@ function LeaderboardTable({
             <td className="player-col">
               <PlayerPortrait model={entry.player.model} size="sm" />
               {botsOnly && <BotBadge isBot skill={entry.player.skill || 5} />}
-              {!botsOnly && <VerifiedBadge playerId={entry.player.id} />}
+              {!botsOnly && <PlayerBadge playerId={entry.player.id} isVR={entry.player.is_vr} />}
               <Link to={`/players/${entry.player.id}`}>
-                <ColoredText text={entry.player.name} />
+                <ColoredText text={entry.player.is_vr ? stripVRPrefix(entry.player.name) : entry.player.name} />
               </Link>
             </td>
             <td className="stat-col sorted-col">{getAwardValue(entry)}</td>

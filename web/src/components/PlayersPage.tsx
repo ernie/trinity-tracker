@@ -7,7 +7,7 @@ import { ColoredText } from './ColoredText'
 import { PlayerPortrait } from './PlayerPortrait'
 import { PlayerRecentMatches } from './PlayerRecentMatches'
 import { PlayerSessions } from './PlayerSessions'
-import { VerifiedBadge } from './VerifiedBadge'
+import { PlayerBadge } from './PlayerBadge'
 import { LoginForm } from './LoginForm'
 import { UserManagement } from './UserManagement'
 import { StatItem } from './StatItem'
@@ -15,6 +15,7 @@ import { PeriodSelector } from './PeriodSelector'
 import { useAuth } from '../hooks/useAuth'
 import { usePlayerStats } from '../hooks/usePlayerStats'
 import { formatDate, formatDuration } from '../utils/formatters'
+import { stripVRPrefix } from '../utils'
 import type { TimePeriod, PlayerProfile, PlayerGUID } from '../types'
 
 export function PlayersPage() {
@@ -211,8 +212,8 @@ export function PlayersPage() {
             >
               <span className="player-name-with-badges">
                 {player.is_bot && <BotBadge isBot skill={5} />}
-                {!player.is_bot && <VerifiedBadge playerId={player.id} />}
-                <ColoredText text={player.name} />
+                {!player.is_bot && <PlayerBadge playerId={player.id} isVR={player.is_vr} />}
+                <ColoredText text={player.is_vr ? stripVRPrefix(player.name) : player.name} />
               </span>
               <span className="player-last-seen">Last seen: {formatDate(player.last_seen)}</span>
             </div>
@@ -233,8 +234,8 @@ export function PlayersPage() {
               <h2>
                 <PlayerPortrait model={stats.player.model} size="lg" />
                 {stats.player.is_bot && <BotBadge isBot skill={5} size="lg" />}
-                {!stats.player.is_bot && <VerifiedBadge playerId={stats.player.id} />}
-                <ColoredText text={stats.player.name} />
+                {!stats.player.is_bot && <PlayerBadge playerId={stats.player.id} isVR={stats.player.is_vr} size="lg" />}
+                <ColoredText text={stats.player.is_vr ? stripVRPrefix(stats.player.name) : stats.player.name} />
               </h2>
 
               <div className="player-meta-top">

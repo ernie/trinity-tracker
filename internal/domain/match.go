@@ -49,6 +49,7 @@ type MatchPlayerSummary struct {
 	Deaths       int      `json:"deaths"`
 	Completed    bool     `json:"completed"`
 	IsBot        bool     `json:"is_bot"`
+	IsVR         bool     `json:"is_vr"`
 	Skill        *float64 `json:"skill,omitempty"`
 	Score        *int     `json:"score,omitempty"`
 	Team         *int     `json:"team,omitempty"`

@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react'
 import type { ActivityItem, Player, ServerStatus } from '../types'
 import { BotBadge } from './BotBadge'
 import { ColoredText } from './ColoredText'
-import { VerifiedBadge } from './VerifiedBadge'
+import { PlayerBadge } from './PlayerBadge'
 import { FlagIcon } from './FlagIcon'
 import { MedalIcon } from './MedalIcon'
 import { PlayerItem } from './PlayerItem'
@@ -219,7 +219,7 @@ function ActivityMessage({ activity, onPlayerClick }: ActivityMessageProps) {
       <ColoredText text={before} />
       {icon}
       {!icon && isBot && <BotBadge isBot skill={skill!} />}
-      {!icon && !isBot && playerId && <VerifiedBadge playerId={playerId} />}
+      {!icon && !isBot && playerId && <PlayerBadge playerId={playerId} isVR={activity.player?.isVR} />}
       <span
         className="clickable-player"
         onClick={() => onPlayerClick(playerName, cleanName, playerId)}

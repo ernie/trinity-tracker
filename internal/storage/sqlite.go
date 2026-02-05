@@ -133,7 +133,7 @@ func (s *Store) GetServerByID(ctx context.Context, id int64) (*domain.Server, er
 
 // UpsertPlayerGUID creates or updates a player GUID, creating a new player if needed
 // Returns the PlayerGUID with ID and PlayerID populated
-func (s *Store) UpsertPlayerGUID(ctx context.Context, guid, name, cleanName string, timestamp time.Time) (*domain.PlayerGUID, error) {
+func (s *Store) UpsertPlayerGUID(ctx context.Context, guid, name, cleanName string, timestamp time.Time, isVR bool) (*domain.PlayerGUID, error) {
 	now := timestamp
 	if now.IsZero() {
 		now = time.Now().UTC()
@@ -153,18 +153,18 @@ func (s *Store) UpsertPlayerGUID(ctx context.Context, guid, name, cleanName stri
 
 	if err == sql.ErrNoRows {
 		result, err := tx.ExecContext(ctx, `
-			INSERT INTO players (name, clean_name, first_seen, last_seen)
-			VALUES (?, ?, ?, ?)
-		`, name, cleanName, formatTimestamp(now), formatTimestamp(now))
+			INSERT INTO players (name, clean_name, first_seen, last_seen, is_vr)
+			VALUES (?, ?, ?, ?, ?)
+		`, name, cleanName, formatTimestamp(now), formatTimestamp(now), isVR)
 		if err != nil {
 			return nil, fmt.Errorf("creating player: %w", err)
 		}
 		playerID, _ := result.LastInsertId()
 
 		result, err = tx.ExecContext(ctx, `
-			INSERT INTO player_guids (player_id, guid, name, clean_name, first_seen, last_seen)
-			VALUES (?, ?, ?, ?, ?, ?)
-		`, playerID, guid, name, cleanName, formatTimestamp(now), formatTimestamp(now))
+			INSERT INTO player_guids (player_id, guid, name, clean_name, first_seen, last_seen, is_vr)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
+		`, playerID, guid, name, cleanName, formatTimestamp(now), formatTimestamp(now), isVR)
 		if err != nil {
 			return nil, fmt.Errorf("creating player_guid: %w", err)
 		}
@@ -178,14 +178,16 @@ func (s *Store) UpsertPlayerGUID(ctx context.Context, guid, name, cleanName stri
 			CleanName: cleanName,
 			FirstSeen: now,
 			LastSeen:  now,
+			IsVR:      isVR,
 		}
 	} else if err != nil {
 		return nil, err
 	} else {
+		// Sticky VR: once set to true, never reset to false
 		_, err = tx.ExecContext(ctx, `
-			UPDATE player_guids SET name = ?, clean_name = ?, last_seen = ?
+			UPDATE player_guids SET name = ?, clean_name = ?, last_seen = ?, is_vr = is_vr OR ?
 			WHERE id = ?
-		`, name, cleanName, formatTimestamp(now), pg.ID)
+		`, name, cleanName, formatTimestamp(now), isVR, pg.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -194,9 +196,9 @@ func (s *Store) UpsertPlayerGUID(ctx context.Context, guid, name, cleanName stri
 		pg.LastSeen = now
 
 		_, err = tx.ExecContext(ctx, `
-			UPDATE players SET name = ?, clean_name = ?, last_seen = ?
+			UPDATE players SET name = ?, clean_name = ?, last_seen = ?, is_vr = is_vr OR ?
 			WHERE id = ?
-		`, name, cleanName, formatTimestamp(now), pg.PlayerID)
+		`, name, cleanName, formatTimestamp(now), isVR, pg.PlayerID)
 		if err != nil {
 			return nil, err
 		}
@@ -327,7 +329,7 @@ func (s *Store) GetPlayerGUIDByGUID(ctx context.Context, guid string) (*domain.P
 // GetPlayerGUIDs returns all GUIDs for a player
 func (s *Store) GetPlayerGUIDs(ctx context.Context, playerID int64) ([]domain.PlayerGUID, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, player_id, guid, name, clean_name, first_seen, last_seen
+		SELECT id, player_id, guid, name, clean_name, first_seen, last_seen, is_vr
 		FROM player_guids WHERE player_id = ?
 		ORDER BY last_seen DESC
 	`, playerID)
@@ -339,7 +341,7 @@ func (s *Store) GetPlayerGUIDs(ctx context.Context, playerID int64) ([]domain.Pl
 	var guids []domain.PlayerGUID
 	for rows.Next() {
 		var pg domain.PlayerGUID
-		if err := rows.Scan(&pg.ID, &pg.PlayerID, &pg.GUID, &pg.Name, &pg.CleanName, &pg.FirstSeen, &pg.LastSeen); err != nil {
+		if err := rows.Scan(&pg.ID, &pg.PlayerID, &pg.GUID, &pg.Name, &pg.CleanName, &pg.FirstSeen, &pg.LastSeen, &pg.IsVR); err != nil {
 			return nil, err
 		}
 		guids = append(guids, pg)
@@ -361,9 +363,9 @@ func (s *Store) GetPlayerByID(ctx context.Context, id int64) (*domain.Player, er
 				JOIN player_guids pg ON s.player_guid_id = pg.id
 				WHERE pg.player_id = p.id AND s.left_at IS NOT NULL
 			), 0) as total_playtime_seconds,
-			p.is_bot
+			p.is_bot, p.is_vr
 		FROM players p WHERE p.id = ?
-	`, id).Scan(&p.ID, &p.Name, &p.CleanName, &p.FirstSeen, &p.LastSeen, &p.TotalPlaytimeSeconds, &p.IsBot)
+	`, id).Scan(&p.ID, &p.Name, &p.CleanName, &p.FirstSeen, &p.LastSeen, &p.TotalPlaytimeSeconds, &p.IsBot, &p.IsVR)
 	if err != nil {
 		return nil, err
 	}
@@ -417,7 +419,7 @@ func (s *Store) SearchPlayers(ctx context.Context, query string, limit int, incl
 					JOIN player_guids pg2 ON s.player_guid_id = pg2.id
 					WHERE pg2.player_id = p.id AND s.left_at IS NOT NULL
 				), 0) as total_playtime_seconds,
-				p.is_bot
+				p.is_bot, p.is_vr
 			FROM players p
 			LEFT JOIN player_guids pg ON pg.player_id = p.id
 			WHERE p.clean_name LIKE ? OR p.name LIKE ? OR pg.guid LIKE ?
@@ -434,7 +436,7 @@ func (s *Store) SearchPlayers(ctx context.Context, query string, limit int, incl
 					JOIN player_guids pg ON s.player_guid_id = pg.id
 					WHERE pg.player_id = p.id AND s.left_at IS NOT NULL
 				), 0) as total_playtime_seconds,
-				p.is_bot
+				p.is_bot, p.is_vr
 			FROM players p
 			WHERE p.clean_name LIKE ? OR p.name LIKE ?
 			ORDER BY p.last_seen DESC
@@ -449,7 +451,7 @@ func (s *Store) SearchPlayers(ctx context.Context, query string, limit int, incl
 	var players []domain.Player
 	for rows.Next() {
 		var p domain.Player
-		if err := rows.Scan(&p.ID, &p.Name, &p.CleanName, &p.FirstSeen, &p.LastSeen, &p.TotalPlaytimeSeconds, &p.IsBot); err != nil {
+		if err := rows.Scan(&p.ID, &p.Name, &p.CleanName, &p.FirstSeen, &p.LastSeen, &p.TotalPlaytimeSeconds, &p.IsBot, &p.IsVR); err != nil {
 			return nil, err
 		}
 		players = append(players, p)
@@ -479,7 +481,7 @@ func (s *Store) GetPlayers(ctx context.Context, limit, offset int) ([]domain.Pla
 				JOIN player_guids pg ON s.player_guid_id = pg.id
 				WHERE pg.player_id = p.id AND s.left_at IS NOT NULL
 			), 0) as total_playtime_seconds,
-			p.is_bot
+			p.is_bot, p.is_vr
 		FROM players p ORDER BY p.last_seen DESC
 		LIMIT ? OFFSET ?
 	`, limit, offset)
@@ -491,7 +493,7 @@ func (s *Store) GetPlayers(ctx context.Context, limit, offset int) ([]domain.Pla
 	var players []domain.Player
 	for rows.Next() {
 		var p domain.Player
-		if err := rows.Scan(&p.ID, &p.Name, &p.CleanName, &p.FirstSeen, &p.LastSeen, &p.TotalPlaytimeSeconds, &p.IsBot); err != nil {
+		if err := rows.Scan(&p.ID, &p.Name, &p.CleanName, &p.FirstSeen, &p.LastSeen, &p.TotalPlaytimeSeconds, &p.IsBot, &p.IsVR); err != nil {
 			return nil, 0, err
 		}
 		players = append(players, p)
@@ -549,15 +551,16 @@ func (s *Store) MergePlayers(ctx context.Context, targetPlayerID, sourcePlayerID
 		return err
 	}
 
-	// Update target player's first_seen and last_seen timestamps
+	// Update target player's first_seen, last_seen, and recompute is_vr
 	// Note: name/clean_name are NOT updated here - we preserve the target player's name
 	// The name will update naturally when any of the merged GUIDs become active again
 	_, err = s.db.ExecContext(ctx, `
 		UPDATE players SET
 			first_seen = (SELECT MIN(first_seen) FROM player_guids WHERE player_id = ?),
-			last_seen = (SELECT MAX(last_seen) FROM player_guids WHERE player_id = ?)
+			last_seen = (SELECT MAX(last_seen) FROM player_guids WHERE player_id = ?),
+			is_vr = EXISTS(SELECT 1 FROM player_guids WHERE player_id = ? AND is_vr = TRUE)
 		WHERE id = ?
-	`, targetPlayerID, targetPlayerID, targetPlayerID)
+	`, targetPlayerID, targetPlayerID, targetPlayerID, targetPlayerID)
 	if err != nil {
 		return err
 	}
@@ -572,9 +575,9 @@ func (s *Store) SplitGUID(ctx context.Context, playerGUIDID int64) (*domain.Play
 	// Get the GUID info
 	var pg domain.PlayerGUID
 	err := s.db.QueryRowContext(ctx, `
-		SELECT id, player_id, guid, name, clean_name, first_seen, last_seen
+		SELECT id, player_id, guid, name, clean_name, first_seen, last_seen, is_vr
 		FROM player_guids WHERE id = ?
-	`, playerGUIDID).Scan(&pg.ID, &pg.PlayerID, &pg.GUID, &pg.Name, &pg.CleanName, &pg.FirstSeen, &pg.LastSeen)
+	`, playerGUIDID).Scan(&pg.ID, &pg.PlayerID, &pg.GUID, &pg.Name, &pg.CleanName, &pg.FirstSeen, &pg.LastSeen, &pg.IsVR)
 	if err != nil {
 		return nil, err
 	}
@@ -591,11 +594,11 @@ func (s *Store) SplitGUID(ctx context.Context, playerGUIDID int64) (*domain.Play
 		return nil, fmt.Errorf("cannot split: player only has one GUID")
 	}
 
-	// Create new player
+	// Create new player (inherit is_vr from the GUID being split)
 	result, err := s.db.ExecContext(ctx, `
-		INSERT INTO players (name, clean_name, first_seen, last_seen)
-		VALUES (?, ?, ?, ?)
-	`, pg.Name, pg.CleanName, formatTimestamp(pg.FirstSeen), formatTimestamp(pg.LastSeen))
+		INSERT INTO players (name, clean_name, first_seen, last_seen, is_vr)
+		VALUES (?, ?, ?, ?, ?)
+	`, pg.Name, pg.CleanName, formatTimestamp(pg.FirstSeen), formatTimestamp(pg.LastSeen), pg.IsVR)
 	if err != nil {
 		return nil, err
 	}
@@ -605,6 +608,16 @@ func (s *Store) SplitGUID(ctx context.Context, playerGUIDID int64) (*domain.Play
 	_, err = s.db.ExecContext(ctx, `
 		UPDATE player_guids SET player_id = ? WHERE id = ?
 	`, newPlayerID, playerGUIDID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Recompute source player's is_vr from remaining GUIDs
+	_, err = s.db.ExecContext(ctx, `
+		UPDATE players SET is_vr = EXISTS(
+			SELECT 1 FROM player_guids WHERE player_id = ? AND is_vr = TRUE
+		) WHERE id = ?
+	`, pg.PlayerID, pg.PlayerID)
 	if err != nil {
 		return nil, err
 	}
@@ -901,7 +914,7 @@ func (s *Store) GetActiveMatch(ctx context.Context, serverID int64) (*domain.Mat
 func (s *Store) FlushMatchPlayerStats(ctx context.Context, matchID, playerGUIDID int64, clientID int,
 	frags, deaths int, completed bool, score *int, team *int, model string, skill float64, victory bool,
 	captures, flagReturns, assists, impressives, excellents, humiliations, defends int,
-	isBot bool, joinedLate bool, joinedAt time.Time) error {
+	isBot bool, joinedLate bool, joinedAt time.Time, isVR bool) error {
 
 	if isBot {
 		// Bots: upsert by full primary key (allows multiple same-GUID bots)
@@ -909,8 +922,8 @@ func (s *Store) FlushMatchPlayerStats(ctx context.Context, matchID, playerGUIDID
 			INSERT INTO match_player_stats (
 				match_id, player_guid_id, client_id, frags, deaths, completed, score, team,
 				model, skill, victories, captures, flag_returns, assists, impressives,
-				excellents, humiliations, defends, joined_late, joined_at
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				excellents, humiliations, defends, joined_late, joined_at, is_vr
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(match_id, player_guid_id, client_id) DO UPDATE SET
 				frags = frags + excluded.frags,
 				deaths = deaths + excluded.deaths,
@@ -926,10 +939,11 @@ func (s *Store) FlushMatchPlayerStats(ctx context.Context, matchID, playerGUIDID
 				impressives = impressives + excluded.impressives,
 				excellents = excellents + excluded.excellents,
 				humiliations = humiliations + excluded.humiliations,
-				defends = defends + excluded.defends
+				defends = defends + excluded.defends,
+				is_vr = is_vr OR excluded.is_vr
 		`, matchID, playerGUIDID, clientID, frags, deaths, completed, score, team,
 			model, skill, boolToInt(victory), captures, flagReturns, assists, impressives,
-			excellents, humiliations, defends, joinedLate, formatTimestamp(joinedAt))
+			excellents, humiliations, defends, joinedLate, formatTimestamp(joinedAt), isVR)
 		return err
 	}
 
@@ -952,11 +966,12 @@ func (s *Store) FlushMatchPlayerStats(ctx context.Context, matchID, playerGUIDID
 			impressives = impressives + ?,
 			excellents = excellents + ?,
 			humiliations = humiliations + ?,
-			defends = defends + ?
+			defends = defends + ?,
+			is_vr = is_vr OR ?
 		WHERE match_id = ? AND player_guid_id = ?
 	`, clientID, frags, deaths, completed, score, team, model, skill, boolToInt(victory),
 		captures, flagReturns, assists, impressives, excellents, humiliations, defends,
-		matchID, playerGUIDID)
+		isVR, matchID, playerGUIDID)
 	if err != nil {
 		return err
 	}
@@ -969,18 +984,37 @@ func (s *Store) FlushMatchPlayerStats(ctx context.Context, matchID, playerGUIDID
 		INSERT INTO match_player_stats (
 			match_id, player_guid_id, client_id, frags, deaths, completed, score, team,
 			model, skill, victories, captures, flag_returns, assists, impressives,
-			excellents, humiliations, defends, joined_late, joined_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			excellents, humiliations, defends, joined_late, joined_at, is_vr
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, matchID, playerGUIDID, clientID, frags, deaths, completed, score, team,
 		model, skill, boolToInt(victory), captures, flagReturns, assists, impressives,
-		excellents, humiliations, defends, joinedLate, formatTimestamp(joinedAt))
+		excellents, humiliations, defends, joinedLate, formatTimestamp(joinedAt), isVR)
 	if err != nil {
 		return err
 	}
 
 	// Mark match as having a human player
 	_, err = s.db.ExecContext(ctx, `UPDATE matches SET has_human_player = TRUE WHERE id = ? AND has_human_player = FALSE`, matchID)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// Propagate VR status to player_guids and players (sticky: never reset to false)
+	if isVR {
+		_, err = s.db.ExecContext(ctx, `UPDATE player_guids SET is_vr = TRUE WHERE id = ? AND is_vr = FALSE`, playerGUIDID)
+		if err != nil {
+			return err
+		}
+		_, err = s.db.ExecContext(ctx, `
+			UPDATE players SET is_vr = TRUE
+			WHERE id = (SELECT player_id FROM player_guids WHERE id = ?) AND is_vr = FALSE
+		`, playerGUIDID)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func boolToInt(b bool) int {
@@ -1047,7 +1081,7 @@ func (s *Store) GetLeaderboard(ctx context.Context, category, period string, lim
 					JOIN player_guids pg3 ON s.player_guid_id = pg3.id
 					WHERE pg3.player_id = p.id AND s.left_at IS NOT NULL
 				), 0) as total_playtime_seconds,
-				p.is_bot,
+				p.is_bot, p.is_vr,
 				COALESCE(SUM(mps.frags), 0) as total_frags,
 				COALESCE(SUM(mps.deaths), 0) as total_deaths,
 				COUNT(DISTINCT mps.match_id) as total_matches,
@@ -1109,7 +1143,7 @@ func (s *Store) GetLeaderboard(ctx context.Context, category, period string, lim
 					JOIN player_guids pg3 ON s.player_guid_id = pg3.id
 					WHERE pg3.player_id = p.id AND s.left_at IS NOT NULL
 				), 0) as total_playtime_seconds,
-				p.is_bot,
+				p.is_bot, p.is_vr,
 				COALESCE(SUM(mps.frags), 0) as total_frags,
 				COALESCE(SUM(mps.deaths), 0) as total_deaths,
 				COUNT(DISTINCT mps.match_id) as total_matches,
@@ -1162,7 +1196,7 @@ func (s *Store) GetLeaderboard(ctx context.Context, category, period string, lim
 		var skill sql.NullFloat64
 		if err := rows.Scan(
 			&e.Player.ID, &e.Player.Name, &e.Player.CleanName,
-			&e.Player.FirstSeen, &e.Player.LastSeen, &e.Player.TotalPlaytimeSeconds, &e.Player.IsBot,
+			&e.Player.FirstSeen, &e.Player.LastSeen, &e.Player.TotalPlaytimeSeconds, &e.Player.IsBot, &e.Player.IsVR,
 			&e.TotalFrags, &e.TotalDeaths, &e.TotalMatches, &e.CompletedMatches, &e.UncompletedMatches,
 			&e.Captures, &e.FlagReturns, &e.Assists, &e.Impressives, &e.Excellents,
 			&e.Humiliations, &e.Defends, &e.Victories,
@@ -1494,7 +1528,7 @@ func (s *Store) attachPlayersToMatches(ctx context.Context, matches []domain.Mat
 
 	// Get player stats for all matches
 	playerRows, err := s.db.QueryContext(ctx, `
-		SELECT mps.match_id, p.id, pg.name, pg.clean_name, mps.frags, mps.deaths, mps.completed, p.is_bot, mps.skill, mps.score, mps.team, mps.model, mps.impressives, mps.excellents, mps.humiliations, mps.defends, mps.captures, mps.assists
+		SELECT mps.match_id, p.id, pg.name, pg.clean_name, mps.frags, mps.deaths, mps.completed, p.is_bot, mps.skill, mps.score, mps.team, mps.model, mps.impressives, mps.excellents, mps.humiliations, mps.defends, mps.captures, mps.assists, mps.is_vr
 		FROM match_player_stats mps
 		JOIN player_guids pg ON mps.player_guid_id = pg.id
 		JOIN players p ON pg.player_id = p.id
@@ -1734,7 +1768,7 @@ func (s *Store) GetMatchSummaryByID(ctx context.Context, matchID int64) (*domain
 
 	// Get player stats for this match
 	playerRows, err := s.db.QueryContext(ctx, `
-		SELECT p.id, pg.name, pg.clean_name, mps.frags, mps.deaths, mps.completed, p.is_bot, mps.skill, mps.score, mps.team, mps.model, mps.impressives, mps.excellents, mps.humiliations, mps.defends, mps.captures, mps.assists
+		SELECT p.id, pg.name, pg.clean_name, mps.frags, mps.deaths, mps.completed, p.is_bot, mps.skill, mps.score, mps.team, mps.model, mps.impressives, mps.excellents, mps.humiliations, mps.defends, mps.captures, mps.assists, mps.is_vr
 		FROM match_player_stats mps
 		JOIN player_guids pg ON mps.player_guid_id = pg.id
 		JOIN players p ON pg.player_id = p.id

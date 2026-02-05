@@ -14,6 +14,7 @@ type Player struct {
 	LastSeen             time.Time    `json:"last_seen"`
 	TotalPlaytimeSeconds int64        `json:"total_playtime_seconds"`
 	IsBot                bool         `json:"is_bot"`
+	IsVR                 bool         `json:"is_vr"`
 	Model                string       `json:"model,omitempty"`  // most recent model used
 	Skill                float64      `json:"skill,omitempty"`  // bot skill level (1-5), 0 if human
 	GUIDs                []PlayerGUID `json:"guids,omitempty"`  // populated when fetching with details
@@ -29,6 +30,7 @@ type PlayerGUID struct {
 	FirstSeen time.Time `json:"first_seen"`
 	LastSeen  time.Time `json:"last_seen"`
 	IsBot     bool      `json:"is_bot"`
+	IsVR      bool      `json:"is_vr"`
 }
 
 // Session represents a player's time on a server (linked to a GUID)
@@ -137,6 +139,7 @@ type PlayerProfile struct {
 	FirstSeen            string `json:"first_seen"`
 	LastSeen             string `json:"last_seen"`
 	TotalPlaytimeSeconds int64  `json:"total_playtime_seconds"`
+	IsVR                 bool   `json:"is_vr"`
 }
 
 // q3ColorCodeRegex matches Quake 3 color codes like ^1, ^2, etc.

@@ -16,6 +16,7 @@ export interface Player {
   assists?: number
   player_id?: number
   model?: string
+  is_vr?: boolean
 }
 
 export interface TeamScores {
@@ -190,6 +191,7 @@ export interface ActivityPlayer {
   cleanName: string
   playerId?: number
   isBot?: boolean
+  isVR?: boolean
   skill?: number
 }
 
@@ -227,6 +229,7 @@ export interface MatchPlayerSummary {
   deaths: number
   completed: boolean
   is_bot: boolean
+  is_vr?: boolean
   skill?: number
   score?: number
   team?: number
@@ -324,6 +327,7 @@ export interface PlayerGUID {
   clean_name: string
   first_seen: string
   last_seen: string
+  is_vr?: boolean
 }
 
 export interface PlayerSession {
@@ -351,6 +355,7 @@ export interface PlayerProfile {
   last_seen: string
   total_playtime_seconds: number
   is_bot?: boolean
+  is_vr?: boolean
   model?: string
   skill?: number
   guids?: PlayerGUID[]
