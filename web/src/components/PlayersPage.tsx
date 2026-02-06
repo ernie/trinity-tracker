@@ -313,8 +313,8 @@ export function PlayersPage() {
                 </div>
               )}
 
-              {/* Admin: Sessions section */}
-              {auth.isAdmin && auth.token && (
+              {/* Admin: Sessions section (hidden for bots) */}
+              {auth.isAdmin && auth.token && !stats.player.is_bot && (
                 <PlayerSessions playerId={stats.player.id} token={auth.token} />
               )}
 

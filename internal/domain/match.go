@@ -58,6 +58,7 @@ type MatchPlayerSummary struct {
 	Excellents   int      `json:"excellents,omitempty"`
 	Humiliations int      `json:"humiliations,omitempty"`
 	Defends      int      `json:"defends,omitempty"`
+	Victories    int      `json:"victories,omitempty"`
 	Captures     int      `json:"captures,omitempty"`
 	Assists      int      `json:"assists,omitempty"`
 }

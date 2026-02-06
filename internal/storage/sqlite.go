@@ -1027,7 +1027,7 @@ func boolToInt(b bool) int {
 // --- Stats methods ---
 
 // GetLeaderboard returns top players ranked by the specified category and time period
-func (s *Store) GetLeaderboard(ctx context.Context, category, period string, limit int, botsOnly bool, gameType string) (*domain.LeaderboardResponse, error) {
+func (s *Store) GetLeaderboard(ctx context.Context, category, period string, limit int, gameType string) (*domain.LeaderboardResponse, error) {
 	start, end := getTimePeriodBounds(period)
 
 	// Determine ORDER BY clause based on category
@@ -1059,11 +1059,7 @@ func (s *Store) GetLeaderboard(ctx context.Context, category, period string, lim
 		orderBy = "total_frags DESC"
 	}
 
-	// For kd_ratio, require minimum 5 matches to filter outliers
-	havingClause := ""
-	if category == "kd_ratio" {
-		havingClause = "HAVING total_matches >= 5"
-	}
+	havingClause := "HAVING completed_matches >= 5"
 
 	var query string
 	var args []interface{}
@@ -1111,16 +1107,15 @@ func (s *Store) GetLeaderboard(ctx context.Context, category, period string, lim
 			FROM players p
 			JOIN player_guids pg ON p.id = pg.player_id
 			LEFT JOIN match_player_stats mps ON pg.id = mps.player_guid_id
-			WHERE p.is_bot = ?
+			WHERE p.is_bot = FALSE AND p.clean_name NOT LIKE '[VR] Player#%'
 			GROUP BY p.id
 			` + havingClause + `
 			ORDER BY ` + orderBy + `
 			LIMIT ?`
-		args = []interface{}{botsOnly, limit}
+		args = []interface{}{limit}
 	} else {
 		// Build WHERE conditions
-		whereConditions := "p.is_bot = ?"
-		args = append(args, botsOnly)
+		whereConditions := "p.is_bot = FALSE AND p.clean_name NOT LIKE '[VR] Player#%'"
 
 		if period != "all" {
 			whereConditions += " AND m.started_at >= ? AND m.started_at < ?"
@@ -1528,7 +1523,7 @@ func (s *Store) attachPlayersToMatches(ctx context.Context, matches []domain.Mat
 
 	// Get player stats for all matches
 	playerRows, err := s.db.QueryContext(ctx, `
-		SELECT mps.match_id, p.id, pg.name, pg.clean_name, mps.frags, mps.deaths, mps.completed, p.is_bot, mps.skill, mps.score, mps.team, mps.model, mps.impressives, mps.excellents, mps.humiliations, mps.defends, mps.captures, mps.assists, mps.is_vr
+		SELECT mps.match_id, p.id, pg.name, pg.clean_name, mps.frags, mps.deaths, mps.completed, p.is_bot, mps.skill, mps.score, mps.team, mps.model, mps.impressives, mps.excellents, mps.humiliations, mps.defends, mps.victories, mps.captures, mps.assists, mps.is_vr
 		FROM match_player_stats mps
 		JOIN player_guids pg ON mps.player_guid_id = pg.id
 		JOIN players p ON pg.player_id = p.id
@@ -1768,7 +1763,7 @@ func (s *Store) GetMatchSummaryByID(ctx context.Context, matchID int64) (*domain
 
 	// Get player stats for this match
 	playerRows, err := s.db.QueryContext(ctx, `
-		SELECT p.id, pg.name, pg.clean_name, mps.frags, mps.deaths, mps.completed, p.is_bot, mps.skill, mps.score, mps.team, mps.model, mps.impressives, mps.excellents, mps.humiliations, mps.defends, mps.captures, mps.assists, mps.is_vr
+		SELECT p.id, pg.name, pg.clean_name, mps.frags, mps.deaths, mps.completed, p.is_bot, mps.skill, mps.score, mps.team, mps.model, mps.impressives, mps.excellents, mps.humiliations, mps.defends, mps.victories, mps.captures, mps.assists, mps.is_vr
 		FROM match_player_stats mps
 		JOIN player_guids pg ON mps.player_guid_id = pg.id
 		JOIN players p ON pg.player_id = p.id

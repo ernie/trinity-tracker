@@ -5,7 +5,7 @@ const NAV_ITEMS = [
   { path: '/players', label: 'Players' },
   { path: '/matches', label: 'Matches' },
   { path: '/leaderboard', label: 'Leaderboard' },
-  { path: '/bots', label: 'Bots' },
+  { path: '/about', label: 'About' },
 ]
 
 export function PageNav() {

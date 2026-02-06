@@ -4,7 +4,6 @@ import { AppLogo } from "./AppLogo";
 import { ColoredText } from "./ColoredText";
 import { PlayerPortrait } from "./PlayerPortrait";
 import { PlayerBadge } from "./PlayerBadge";
-import { BotBadge } from "./BotBadge";
 import { FlagIcon } from "./FlagIcon";
 import { MedalIcon } from "./MedalIcon";
 import { PageNav } from "./PageNav";
@@ -49,10 +48,6 @@ function CategoryIcon({ category }: { category: LeaderboardCategory }) {
     return <FlagIcon team="red" status="base" size="sm" />;
   }
   return null;
-}
-
-interface LeaderboardPageProps {
-  botsOnly?: boolean;
 }
 
 const CATEGORY_LABELS: Record<LeaderboardCategory, string> = {
@@ -123,7 +118,7 @@ function getCategoriesForGameType(
   }
 }
 
-export function LeaderboardPage({ botsOnly = false }: LeaderboardPageProps) {
+export function LeaderboardPage() {
   const { auth, login, logout } = useAuth();
   const [gameType, setGameType] = useState<GameTypeFilter>("all");
   const [category, setCategory] = useState<LeaderboardCategory>("matches");
@@ -146,10 +141,9 @@ export function LeaderboardPage({ botsOnly = false }: LeaderboardPageProps) {
     setLoading(true);
     setError(null);
 
-    const botsParam = botsOnly ? "&bots_only=true" : "";
     const gameTypeParam = gameType !== "all" ? `&game_type=${gameType}` : "";
     fetch(
-      `/api/stats/leaderboard?category=${category}&period=${period}&limit=50${botsParam}${gameTypeParam}`,
+      `/api/stats/leaderboard?category=${category}&period=${period}&limit=50${gameTypeParam}`,
     )
       .then((res) => {
         if (!res.ok) throw new Error("Failed to load leaderboard");
@@ -158,14 +152,14 @@ export function LeaderboardPage({ botsOnly = false }: LeaderboardPageProps) {
       .then((data) => setData(data))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [category, period, botsOnly, gameType]);
+  }, [category, period, gameType]);
 
   return (
     <div className="leaderboard-page">
       <header className="leaderboard-header">
         <h1>
           <AppLogo />
-          {botsOnly ? "Bot Hall of Shame" : "Leaderboard"}
+          Leaderboard
         </h1>
         <PageNav />
         <div className="auth-section">
@@ -221,7 +215,6 @@ export function LeaderboardPage({ botsOnly = false }: LeaderboardPageProps) {
           <LeaderboardTable
             entries={data.entries}
             category={category}
-            botsOnly={botsOnly}
           />
         ) : (
           <div className="leaderboard-empty">
@@ -244,7 +237,6 @@ export function LeaderboardPage({ botsOnly = false }: LeaderboardPageProps) {
 interface LeaderboardTableProps {
   entries: LeaderboardEntry[];
   category: LeaderboardCategory;
-  botsOnly: boolean;
 }
 
 const CORE_STATS_CATEGORIES = [
@@ -257,7 +249,6 @@ const CORE_STATS_CATEGORIES = [
 function LeaderboardTable({
   entries,
   category,
-  botsOnly,
 }: LeaderboardTableProps) {
   const isCoreStats = CORE_STATS_CATEGORIES.includes(
     category as (typeof CORE_STATS_CATEGORIES)[number],
@@ -310,12 +301,13 @@ function LeaderboardTable({
             >
               <td className="rank-col">{index + 1}</td>
               <td className="player-col">
-                <PlayerPortrait model={entry.player.model} size="sm" />
-                {botsOnly && <BotBadge isBot skill={entry.player.skill || 5} />}
-                {!botsOnly && <PlayerBadge playerId={entry.player.id} isVR={entry.player.is_vr} />}
-                <Link to={`/players/${entry.player.id}`}>
-                  <ColoredText text={entry.player.is_vr ? stripVRPrefix(entry.player.name) : entry.player.name} />
-                </Link>
+                <span className="player-name">
+                  <PlayerPortrait model={entry.player.model} size="sm" />
+                  <PlayerBadge playerId={entry.player.id} isVR={entry.player.is_vr} />
+                  <Link to={`/players/${entry.player.id}`}>
+                    <ColoredText text={entry.player.is_vr ? stripVRPrefix(entry.player.name) : entry.player.name} />
+                  </Link>
+                </span>
               </td>
               <td className={colClass("matches")} title={
                 entry.uncompleted_matches > 0
@@ -355,12 +347,13 @@ function LeaderboardTable({
           >
             <td className="rank-col">{index + 1}</td>
             <td className="player-col">
-              <PlayerPortrait model={entry.player.model} size="sm" />
-              {botsOnly && <BotBadge isBot skill={entry.player.skill || 5} />}
-              {!botsOnly && <PlayerBadge playerId={entry.player.id} isVR={entry.player.is_vr} />}
-              <Link to={`/players/${entry.player.id}`}>
-                <ColoredText text={entry.player.is_vr ? stripVRPrefix(entry.player.name) : entry.player.name} />
-              </Link>
+              <span className="player-name">
+                <PlayerPortrait model={entry.player.model} size="sm" />
+                <PlayerBadge playerId={entry.player.id} isVR={entry.player.is_vr} />
+                <Link to={`/players/${entry.player.id}`}>
+                  <ColoredText text={entry.player.is_vr ? stripVRPrefix(entry.player.name) : entry.player.name} />
+                </Link>
+              </span>
             </td>
             <td className="stat-col sorted-col">{getAwardValue(entry)}</td>
           </tr>
@@ -369,5 +362,3 @@ function LeaderboardTable({
     </table>
   );
 }
-
-export const BotLeaderboardPage = () => <LeaderboardPage botsOnly />;

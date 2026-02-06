@@ -238,6 +238,7 @@ export interface MatchPlayerSummary {
   excellents?: number
   humiliations?: number
   defends?: number
+  victories?: number
   captures?: number
   assists?: number
 }

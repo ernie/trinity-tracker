@@ -271,9 +271,7 @@ func (r *Router) handleGetLeaderboard(w http.ResponseWriter, req *http.Request) 
 		return
 	}
 
-	botsOnly := req.URL.Query().Get("bots_only") == "true"
-
-	response, err := r.store.GetLeaderboard(req.Context(), category, period, limit, botsOnly, gameType)
+	response, err := r.store.GetLeaderboard(req.Context(), category, period, limit, gameType)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

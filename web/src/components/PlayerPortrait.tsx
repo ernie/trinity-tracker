@@ -35,7 +35,14 @@ function getPortraitPath(model: string): string {
   return `/assets/portraits/${modelName}/icon_${skin}.png`
 }
 
-const DEFAULT_PORTRAIT = '/assets/portraits/sarge/icon_default.png'
+// Simple head-and-shoulders silhouette for players with no known/loadable portrait
+const DEFAULT_PORTRAIT = `data:image/svg+xml,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">' +
+  '<rect width="128" height="128" rx="4" fill="#2a2a2a"/>' +
+  '<circle cx="64" cy="46" r="28" fill="#555"/>' +
+  '<path d="M64,78 C39,78 16,96 16,110 L16,128 L112,128 L112,110 C112,96 89,78 64,78Z" fill="#555"/>' +
+  '</svg>'
+)}`
 
 export function PlayerPortrait({ model, size = 'sm', fallback, className = '' }: PlayerPortraitProps) {
   const [hasError, setHasError] = useState(false)
@@ -49,7 +56,11 @@ export function PlayerPortrait({ model, size = 'sm', fallback, className = '' }:
     if (fallback) {
       return <span className={`player-portrait ${sizeClass} ${className}`}>{fallback}</span>
     }
-    return null
+    return (
+      <span className={`player-portrait ${sizeClass} ${className}`}>
+        <img src={DEFAULT_PORTRAIT} alt="unknown" />
+      </span>
+    )
   }
 
   const src = hasError ? DEFAULT_PORTRAIT : getPortraitPath(model)

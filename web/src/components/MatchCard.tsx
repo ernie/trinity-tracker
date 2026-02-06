@@ -77,23 +77,9 @@ export function MatchCard({ match, onPlayerClick, highlightPlayerId, showPermali
 
   const levelshotUrl = match.map_name ? `/assets/levelshots/${match.map_name.toLowerCase()}.jpg` : undefined
 
-  // Determine winning team for team games
-  const winningTeam = isTeam && match.red_score != null && match.blue_score != null
-    ? (match.red_score > match.blue_score ? 1 : match.blue_score > match.red_score ? 2 : null)
-    : null
-
-  // Determine max score for FFA games
-  const maxScore = !isTeam && players.length > 0
-    ? Math.max(...players.map(p => p.score ?? 0))
-    : null
-
   // Helper to check if player is winner
   const isPlayerWinner = (player: MatchPlayerSummary) => {
-    if (isTeam) {
-      return winningTeam !== null && player.team === winningTeam
-    } else {
-      return maxScore !== null && (player.score ?? 0) === maxScore
-    }
+    return (player.victories ?? 0) > 0
   }
 
   return (
@@ -152,7 +138,7 @@ export function MatchCard({ match, onPlayerClick, highlightPlayerId, showPermali
       )}
 
       {!isTeam && players.length > 0 && (() => {
-        const winners = players.filter(p => (p.score ?? 0) === maxScore)
+        const winners = players.filter(p => (p.victories ?? 0) > 0)
         return (
           <div className="ffa-winners">
             {winners.map((winner, idx) => (
