@@ -286,7 +286,7 @@ export function PlayersPage() {
               {/* Admin: GUIDs section */}
               {auth.isAuthenticated && stats.player.guids && stats.player.guids.length > 0 && (
                 <div className="player-guids-section">
-                  <h4>Linked Accounts ({stats.player.guids.length})</h4>
+                  <h4>Linked GUIDs ({stats.player.guids.length})</h4>
                   <div className="guids-list">
                     {stats.player.guids.map((guid: PlayerGUID) => (
                       <div key={guid.id} className="guid-item">
@@ -313,12 +313,7 @@ export function PlayersPage() {
                 </div>
               )}
 
-              {/* Admin: Sessions section (hidden for bots) */}
-              {auth.isAdmin && auth.token && !stats.player.is_bot && (
-                <PlayerSessions playerId={stats.player.id} token={auth.token} />
-              )}
-
-              {/* Admin: Merge controls */}
+              {/* Admin: Link GUID controls */}
               {auth.isAuthenticated && (
                 <div className="admin-controls">
                   {!showMergeSearch ? (
@@ -326,23 +321,10 @@ export function PlayersPage() {
                       className="merge-toggle-btn"
                       onClick={() => setShowMergeSearch(true)}
                     >
-                      Merge Another Player
+                      Link GUID
                     </button>
                   ) : (
                     <div className="merge-search-panel">
-                      <div className="merge-search-header">
-                        <h4>Merge Player Into This One</h4>
-                        <button
-                          className="close-btn"
-                          onClick={() => {
-                            setShowMergeSearch(false)
-                            setMergeQuery('')
-                            setMergeResults([])
-                          }}
-                        >
-                          Cancel
-                        </button>
-                      </div>
                       <div className="merge-search-input">
                         <input
                           type="text"
@@ -353,6 +335,16 @@ export function PlayersPage() {
                         />
                         <button onClick={handleMergeSearch} disabled={mergeSearching}>
                           {mergeSearching ? 'Searching...' : 'Search'}
+                        </button>
+                        <button
+                          className="close-btn"
+                          onClick={() => {
+                            setShowMergeSearch(false)
+                            setMergeQuery('')
+                            setMergeResults([])
+                          }}
+                        >
+                          Cancel
                         </button>
                       </div>
                       {mergeResults.length > 0 && (
@@ -370,7 +362,7 @@ export function PlayersPage() {
                                 onClick={() => handleMerge(player.id)}
                                 disabled={merging}
                               >
-                                {merging ? 'Merging...' : 'Merge'}
+                                {merging ? 'Linking...' : 'Link'}
                               </button>
                             </div>
                           ))}
@@ -379,6 +371,11 @@ export function PlayersPage() {
                     </div>
                   )}
                 </div>
+              )}
+
+              {/* Admin: Sessions section (hidden for bots) */}
+              {auth.isAdmin && auth.token && !stats.player.is_bot && (
+                <PlayerSessions playerId={stats.player.id} token={auth.token} />
               )}
 
               <PlayerRecentMatches playerId={stats.player.id} />
