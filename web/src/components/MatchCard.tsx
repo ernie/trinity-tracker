@@ -55,7 +55,12 @@ export function isTeamGame(gameType: string): boolean {
 function getTeamClass(team?: number): string {
   if (team === 1) return 'team-red'
   if (team === 2) return 'team-blue'
+  if (team === 3) return 'team-spec'
   return ''
+}
+
+function isSpectator(player: MatchPlayerSummary): boolean {
+  return player.team === 3 && player.frags === 0 && player.deaths === 0
 }
 
 interface MatchCardProps {
@@ -194,6 +199,7 @@ interface MatchPlayerRowProps {
 
 function MatchPlayerRow({ player, showTeam, isWinner, highlightPlayerId, onPlayerClick }: MatchPlayerRowProps) {
   const teamClass = showTeam ? getTeamClass(player.team) : ''
+  const spectator = isSpectator(player)
   const isHighlighted = highlightPlayerId === player.player_id
   const awardsRef = useRef<HTMLSpanElement>(null)
   const [isOverflowing, setIsOverflowing] = useState(false)
@@ -215,11 +221,11 @@ function MatchPlayerRow({ player, showTeam, isWinner, highlightPlayerId, onPlaye
 
   return (
     <li
-      className={`match-player-row ${teamClass} ${onPlayerClick ? 'clickable' : ''} ${isHighlighted ? 'highlighted' : ''}`}
+      className={`match-player-row ${teamClass} ${spectator ? 'spectator' : ''} ${onPlayerClick ? 'clickable' : ''} ${isHighlighted ? 'highlighted' : ''}`}
       onClick={onPlayerClick ? (e: React.MouseEvent) => { e.stopPropagation(); onPlayerClick(player.name, player.clean_name, player.player_id) } : undefined}
     >
       <span className="player-name">
-        <span className={`completion-dot ${player.completed ? 'completed' : 'left-early'}`} />
+        <span className={`completion-dot ${spectator ? 'spectator' : player.completed ? 'completed' : 'left-early'}`} />
         <PlayerPortrait model={player.model} size="sm" />
         {player.is_bot && <BotBadge isBot skill={player.skill!} />}
         {!player.is_bot && <PlayerBadge playerId={player.player_id} isVR={player.is_vr} />}
@@ -252,16 +258,22 @@ function MatchPlayerRow({ player, showTeam, isWinner, highlightPlayerId, onPlaye
           )}
         </span>
       </span>
-      <span className="player-stats">
-        <span className="kd">
-          <span className="frags">{formatNumber(player.frags)}</span>
-          <span className="sep">/</span>
-          <span className="deaths">{formatNumber(player.deaths)}</span>
+      {spectator ? (
+        <span className="player-stats">
+          <span className="spectator-label">Spectator</span>
         </span>
-        {player.score != null && (
-          <span className="score">{formatNumber(player.score)}</span>
-        )}
-      </span>
+      ) : (
+        <span className="player-stats">
+          <span className="kd">
+            <span className="frags">{formatNumber(player.frags)}</span>
+            <span className="sep">/</span>
+            <span className="deaths">{formatNumber(player.deaths)}</span>
+          </span>
+          {player.score != null && (
+            <span className="score">{formatNumber(player.score)}</span>
+          )}
+        </span>
+      )}
     </li>
   )
 }

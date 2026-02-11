@@ -1274,6 +1274,25 @@ h2 {
   padding-left: 8px;
 }
 
+.match-player-row.team-spec {
+  border-left: 3px solid #888888;
+  padding-left: 8px;
+}
+
+.match-player-row.spectator {
+  opacity: 0.6;
+}
+
+.completion-dot.spectator {
+  background: #9c27b0;
+}
+
+.spectator-label {
+  font-style: italic;
+  opacity: 0.7;
+  font-size: 0.85em;
+}
+
 .match-player-row .player-name {
   font-weight: bold;
   display: inline-flex;
