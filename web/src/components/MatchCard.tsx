@@ -70,6 +70,14 @@ interface MatchCardProps {
   showPermalink?: boolean
 }
 
+function demoFilename(match: MatchSummary): string {
+  const d = new Date(match.started_at)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const date = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`
+  const time = `${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`
+  return `${date}_${time}_${match.map_name}.tvd`
+}
+
 export function MatchCard({ match, onPlayerClick, highlightPlayerId, showPermalink = false }: MatchCardProps) {
   const isTeam = isTeamGame(match.game_type)
   const players = [...(match.players ?? [])].sort((a, b) => {
@@ -109,7 +117,7 @@ export function MatchCard({ match, onPlayerClick, highlightPlayerId, showPermali
               href={match.demo_url}
               className="demo-download-btn"
               title="Download demo"
-              download
+              download={demoFilename(match)}
               onClick={(e) => e.stopPropagation()}
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
