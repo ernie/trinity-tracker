@@ -100,10 +100,14 @@ export function MatchCard({ match, onPlayerClick, highlightPlayerId, showPermali
       className="match-card"
       style={levelshotUrl ? { '--levelshot': `url(${levelshotUrl})` } as React.CSSProperties : undefined}
     >
+      <span className="server-name-badge">
+        <span className="badge-label">Server</span> {match.server_name}
+        <span className="badge-sep">/</span>
+        <span className="badge-label">Mode</span> {formatGameType(match.game_type)}
+      </span>
       <div className="match-header">
         <div className="match-title">
           <span className="match-map">{match.map_name}</span>
-          <span className="match-gametype">{formatGameType(match.game_type)}</span>
         </div>
         <div className="match-header-right">
           {match.ended_at && (
@@ -178,16 +182,37 @@ export function MatchCard({ match, onPlayerClick, highlightPlayerId, showPermali
         </div>
       )}
 
-      {!isTeam && players.length > 0 && (() => {
+      {!isTeam && match.ended_at && players.length > 0 && (() => {
         const winners = players.filter(p => (p.victories ?? 0) > 0)
+        if (winners.length > 0) {
+          return (
+            <div className="ffa-winners">
+              {winners.map((winner, idx) => (
+                <div key={`winner-${winner.player_id}-${idx}`} className="ffa-winner-row">
+                  <PlayerPortrait model={winner.model} size="md" />
+                  {winner.is_bot && <BotBadge isBot skill={winner.skill!} size="md" />}
+                  {!winner.is_bot && <PlayerBadge playerId={winner.player_id} isVR={winner.is_vr} size="md" />}
+                  <ColoredText text={winner.is_vr ? stripVRPrefix(winner.name) : winner.name} />
+                </div>
+              ))}
+            </div>
+          )
+        }
+        const nonSpectators = players.filter(p => !isSpectator(p))
+        const maxScore = Math.max(...nonSpectators.map(p => p.score ?? p.frags ?? 0))
+        if (maxScore === 0) {
+          return <div className="match-status-label">No contest</div>
+        }
+        const tiedPlayers = nonSpectators.filter(p => (p.score ?? p.frags ?? 0) === maxScore)
         return (
-          <div className="ffa-winners">
-            {winners.map((winner, idx) => (
-              <div key={`winner-${winner.player_id}-${idx}`} className="ffa-winner-row">
-                <PlayerPortrait model={winner.model} size="md" />
-                {winner.is_bot && <BotBadge isBot skill={winner.skill!} size="md" />}
-                {!winner.is_bot && <PlayerBadge playerId={winner.player_id} isVR={winner.is_vr} size="md" />}
-                <ColoredText text={winner.is_vr ? stripVRPrefix(winner.name) : winner.name} />
+          <div className="ffa-winners tie">
+            <span className="tie-label">Tie</span>
+            {tiedPlayers.map((player, idx) => (
+              <div key={`tie-${player.player_id}-${idx}`} className="ffa-winner-row">
+                <PlayerPortrait model={player.model} size="md" />
+                {player.is_bot && <BotBadge isBot skill={player.skill!} size="md" />}
+                {!player.is_bot && <PlayerBadge playerId={player.player_id} isVR={player.is_vr} size="md" />}
+                <ColoredText text={player.is_vr ? stripVRPrefix(player.name) : player.name} />
               </div>
             ))}
           </div>

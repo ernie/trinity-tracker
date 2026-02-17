@@ -29,6 +29,8 @@ type ServerConfig struct {
 	PollInterval time.Duration `yaml:"poll_interval"`
 	StaticDir    string        `yaml:"static_dir"`
 	Quake3Dir    string        `yaml:"quake3_dir"`
+	ServiceUser  string        `yaml:"service_user,omitempty"`
+	UseSystemd   *bool         `yaml:"use_systemd,omitempty"`
 }
 
 // DatabaseConfig holds SQLite settings
@@ -80,4 +82,45 @@ func Load(path string) (*Config, error) {
 	}
 
 	return &cfg, nil
+}
+
+// Save writes the configuration to a YAML file, backing up the original first
+func Save(path string, cfg *Config) error {
+	// Back up existing file
+	if _, err := os.Stat(path); err == nil {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("reading existing config for backup: %w", err)
+		}
+		if err := os.WriteFile(path+".bak", data, 0640); err != nil {
+			return fmt.Errorf("writing backup: %w", err)
+		}
+	}
+
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("marshaling config: %w", err)
+	}
+
+	if err := os.WriteFile(path, data, 0640); err != nil {
+		return fmt.Errorf("writing config: %w", err)
+	}
+
+	return nil
+}
+
+// AddServer appends a server to the config's Q3Servers slice
+func AddServer(cfg *Config, server Q3Server) {
+	cfg.Q3Servers = append(cfg.Q3Servers, server)
+}
+
+// RemoveServerByName removes a server by name and returns whether it was found
+func RemoveServerByName(cfg *Config, name string) bool {
+	for i, s := range cfg.Q3Servers {
+		if s.Name == name {
+			cfg.Q3Servers = append(cfg.Q3Servers[:i], cfg.Q3Servers[i+1:]...)
+			return true
+		}
+	}
+	return false
 }

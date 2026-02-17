@@ -3,6 +3,7 @@ import type { ServerStatus, Player } from '../types'
 import { FlagIcon } from './FlagIcon'
 import { PlayerItem } from './PlayerItem'
 import { formatNumber } from '../utils'
+import { formatGameType } from './MatchCard'
 
 interface ServerCardProps {
   server: ServerStatus
@@ -84,22 +85,6 @@ function getDisplayTime(server: ServerStatus, timeLimitMinutes: number | null): 
   return { time: formatGameTime(server.game_time_ms), isWarmup: false, isOvertime: false }
 }
 
-// Get match state badge class and label
-function getMatchStateBadge(state?: string): { className: string; label: string } | null {
-  switch (state) {
-    case 'overtime':
-      return { className: 'match-state-overtime', label: 'Overtime' }
-    case 'warmup':
-      return { className: 'match-state-warmup', label: 'Warmup' }
-    case 'waiting':
-      return { className: 'match-state-waiting', label: 'Waiting' }
-    case 'intermission':
-      return { className: 'match-state-intermission', label: 'Intermission' }
-    case 'active':
-    default:
-      return null // Don't show badge for active - it's the normal state
-  }
-}
 
 // Hook to interpolate game time between server updates
 // timeLimitMinutes is used to clamp interpolated time so we don't falsely flag overtime
@@ -184,28 +169,26 @@ export function ServerCard({ server, newPlayers, isSelected, onSelect, onPlayerC
   const { gameTimeMs, warmupRemaining } = useInterpolatedTime(server, timeLimit)
   const interpolatedServer = { ...server, game_time_ms: gameTimeMs, warmup_remaining: warmupRemaining }
   const displayTime = getDisplayTime(interpolatedServer, timeLimit)
-  const matchStateBadge = getMatchStateBadge(server.match_state)
-
-  // Determine dot color and tooltip based on server state
-  const getStatusInfo = (): { className: string; tooltip: string } => {
+  // Determine state class and label for top-right badge
+  const getStateBadge = (): { className: string; label: string } => {
     if (!server.online) {
-      return { className: 'offline', tooltip: 'Server Offline' }
+      return { className: 'state-offline', label: 'Offline' }
     }
     switch (server.match_state) {
       case 'overtime':
-        return { className: 'overtime', tooltip: 'Overtime' }
+        return { className: 'state-overtime', label: 'Overtime' }
       case 'warmup':
-        return { className: 'warmup', tooltip: 'Warmup' }
+        return { className: 'state-warmup', label: 'Warmup' }
       case 'waiting':
-        return { className: 'waiting', tooltip: 'Waiting for Players' }
+        return { className: 'state-waiting', label: 'Waiting' }
       case 'intermission':
-        return { className: 'intermission', tooltip: 'Intermission' }
+        return { className: 'state-intermission', label: 'Intermission' }
       case 'active':
       default:
-        return { className: 'online', tooltip: 'In Progress' }
+        return { className: 'state-active', label: 'Active' }
     }
   }
-  const statusInfo = getStatusInfo()
+  const stateBadge = getStateBadge()
 
   // Generate levelshot URL from map name
   const levelshotUrl = server.map ? `/assets/levelshots/${server.map.toLowerCase()}.jpg` : undefined
@@ -218,17 +201,22 @@ export function ServerCard({ server, newPlayers, isSelected, onSelect, onPlayerC
       role={onSelect ? 'button' : undefined}
       tabIndex={onSelect ? 0 : undefined}
     >
+      <span className="server-name-badge">
+        <span className="badge-label">Server</span> {server.name}
+        <span className="badge-sep">/</span>
+        <span className="badge-label">Mode</span> {formatGameType(server.game_type)}
+      </span>
+      <span className={`server-state-badge ${stateBadge.className}`}>{stateBadge.label}</span>
       <div className="server-header">
-        <span className="server-name">{server.name}</span>
-        <span className="server-info">
-          <span className={`status-dot ${statusInfo.className}`} title={statusInfo.tooltip} />
-          <span className="server-map">{server.map || 'Unknown'}</span>
-          {matchStateBadge && (
-            <span className={`match-state-badge ${matchStateBadge.className}`} title={matchStateBadge.label}>
-              {matchStateBadge.label}
-            </span>
-          )}
-        </span>
+        <span className="server-map">{server.map || 'Unknown'}</span>
+        {(scoreLimit || timeLimit || gameTimeMs > 0 || displayTime.isWarmup) && (
+          <span className="server-limits">
+            {scoreLimit && <span className="score-limit">Limit: {scoreLimit}</span>}
+            {scoreLimit && (timeLimit || gameTimeMs > 0 || displayTime.isWarmup) && <span className="limit-sep"> | </span>}
+            <span className={displayTime.isOvertime ? 'overtime-time' : displayTime.isWarmup ? 'warmup-time' : ''}>{displayTime.time}</span>
+            {timeLimit && <span className="time-limit"> / {timeLimit}m</span>}
+          </span>
+        )}
       </div>
 
       {showTeamScores && server.team_scores && (
@@ -261,25 +249,6 @@ export function ServerCard({ server, newPlayers, isSelected, onSelect, onPlayerC
               })()}
             </span>
           </span>
-          <span className="score-limit">
-            {scoreLimit && <>/ {scoreLimit}</>}
-            {scoreLimit && timeLimit && ' | '}
-            {timeLimit && (
-              <><span className={displayTime.isOvertime ? 'overtime-time' : displayTime.isWarmup ? 'warmup-time' : ''}>{displayTime.time}</span> / {timeLimit} min</>
-            )}
-            {!timeLimit && (gameTimeMs > 0 || displayTime.isWarmup) && <>{scoreLimit && ' | '}<span className={displayTime.isWarmup ? 'warmup-time' : ''}>{displayTime.time}</span></>}
-          </span>
-        </div>
-      )}
-
-      {!showTeamScores && (scoreLimit || timeLimit || gameTimeMs > 0 || displayTime.isWarmup) && (
-        <div className="game-limits">
-          {scoreLimit && <span>{scoreLimit}</span>}
-          {scoreLimit && (timeLimit || gameTimeMs > 0 || displayTime.isWarmup) && <span className="limit-separator"> | </span>}
-          {timeLimit && (
-            <span className={displayTime.isOvertime ? 'overtime-time' : displayTime.isWarmup ? 'warmup-time' : ''}>{displayTime.time} / {timeLimit} min</span>
-          )}
-          {!timeLimit && (gameTimeMs > 0 || displayTime.isWarmup) && <span className={displayTime.isWarmup ? 'warmup-time' : ''}>{displayTime.time}</span>}
         </div>
       )}
 

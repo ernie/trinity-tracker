@@ -20,32 +20,23 @@ wget https://github.com/ernie/trinity-tracker/releases/download/v1.0.0/trinity-v
 tar -xzf trinity-v1.0.0-linux-arm64.tar.gz
 cd trinity-v1.0.0-linux-arm64
 
-# Create service user
-sudo useradd -r -s /usr/sbin/nologin quake
+# Install binary
+sudo install -m 755 trinity /usr/local/bin/
+
+# Bootstrap the system (creates user, dirs, config, systemd units)
+sudo trinity init
 
 # Add yourself to quake group for CLI access (log out/in to take effect)
 sudo usermod -aG quake $USER
 
-# Create directories
-sudo mkdir -p /var/lib/trinity /etc/trinity
-sudo chown -R quake:quake /var/lib/trinity /etc/trinity
-
-# Install binary
-sudo install -m 755 trinity /usr/local/bin/
-
 # Install web assets
-sudo cp -r web /var/lib/trinity/
+sudo cp -r web/* /var/lib/trinity/web/
 sudo chown -R quake:quake /var/lib/trinity/web
 
-# Install config
-sudo -u quake cp config.example.yml /etc/trinity/config.yml
-sudo chmod 640 /etc/trinity/config.yml
-# Edit /etc/trinity/config.yml with your settings
+# Edit config with your settings
+sudo -u quake vi /etc/trinity/config.yml
 
-# Install and enable service
-sudo cp trinity.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable trinity
+# Start trinity
 sudo systemctl start trinity
 
 # Verify
@@ -79,24 +70,55 @@ Options:
 ### CLI Commands
 
 ```bash
-trinity status                             Show all servers status
-trinity players [--humans]                 Show current players across all servers
-trinity matches [--recent N]               Show recent matches (default: 20)
-trinity leaderboard [--top N]              Show top players (default: 20)
+trinity init [--no-systemd] [--user quake]  Bootstrap system (create user, dirs, config)
+trinity serve                               Start the stats server
+trinity server list                         Show configured game servers
+trinity server add <name> [--port N] [flags]
+                                            Add a game server instance
+trinity server remove <name>                Remove a game server instance
+trinity status                              Show all servers status
+trinity players [--humans]                  Show current players across all servers
+trinity matches [--recent N]                Show recent matches (default: 20)
+trinity leaderboard [--top N]               Show top players (default: 20)
 trinity user add [--admin] [--player-id N] <username>
-                                           Add a user (prompts for password)
-trinity user remove <username>             Remove a user
-trinity user list                          List all users
-trinity user reset <username>              Reset a user's password
-trinity user admin <username>              Toggle admin status for a user
-trinity levelshots [path]                  Extract levelshots from pk3 file(s)
-trinity portraits [path]                   Extract player portraits from pk3 file(s)
-trinity medals [path]                      Extract medal icons from pk3 file(s)
-trinity skills [path]                      Extract skill icons from pk3 file(s)
-trinity assets [path]                      Extract all assets (levelshots, portraits, medals, skills)
-trinity version                            Show version
-trinity help                               Show help
+                                            Add a user (prompts for password)
+trinity user remove <username>              Remove a user
+trinity user list                           List all users
+trinity user reset <username>               Reset a user's password
+trinity user admin <username>               Toggle admin status for a user
+trinity levelshots [path]                   Extract levelshots from pk3 file(s)
+trinity portraits [path]                    Extract player portraits from pk3 file(s)
+trinity medals [path]                       Extract medal icons from pk3 file(s)
+trinity skills [path]                       Extract skill icons from pk3 file(s)
+trinity assets [path]                       Extract all assets (levelshots, portraits, medals, skills)
+trinity version                             Show version
+trinity help                                Show help
 ```
+
+### Server Management
+
+Add, remove, and list game server instances:
+
+```bash
+# List configured servers (includes systemd status if available)
+trinity server list
+
+# Add a new server (auto-assigns next available port if --port omitted)
+sudo trinity server add ctf --port 27962 --game missionpack
+
+# Add with all options
+sudo trinity server add tdm --port 27961 --game missionpack --display-name "Team DM" --rcon-password secret
+
+# Remove a server (stops service, removes env file and config entry)
+sudo trinity server remove ctf
+```
+
+`server add` flags:
+- `--port` - server port (default: next available starting from 27960)
+- `--game` - game directory, e.g. `missionpack` (default: `baseq3`)
+- `--display-name` - display name (default: uppercase of name)
+- `--rcon-password` - RCON password (optional)
+- `--log-path` - log file path (default: `<quake3_dir>/<game>/logs/<name>.log`)
 
 ### Extracting Assets
 
@@ -143,6 +165,8 @@ server:
   poll_interval: 5s
   static_dir: "/var/lib/trinity/web"
   quake3_dir: "/usr/lib/quake3" # For asset extraction commands
+  service_user: "quake"         # Service user for privilege dropping
+  use_systemd: true             # Set by `trinity init`, or override manually
 
 database:
   path: "/var/lib/trinity/trinity.db"
@@ -167,6 +191,8 @@ q3_servers:
 | `server.poll_interval`       | UDP polling interval (e.g., `5s`, `10s`)                           |
 | `server.static_dir`          | Path to built web frontend                                         |
 | `server.quake3_dir`          | Path to Quake 3 install (default: `/usr/lib/quake3`)               |
+| `server.service_user`        | Service user for privilege dropping (default: `quake`)             |
+| `server.use_systemd`         | Enable systemd integration (auto-detected by `trinity init`)      |
 | `database.path`              | SQLite database file path                                          |
 | `q3_servers[].name`          | Display name for the server                                        |
 | `q3_servers[].address`       | UDP address for server queries                                     |
@@ -186,35 +212,24 @@ Open <http://localhost:8080> in your browser.
 For prebuilt binaries, see [Installation](#installation) above.
 
 ```bash
-# Create service user (if not using existing quake user)
-sudo useradd -r -s /usr/sbin/nologin quake
-
-# Add yourself to quake group for CLI access (log out/in to take effect)
-sudo usermod -aG quake $USER
-
-# Create directories
-sudo mkdir -p /var/lib/trinity/web
-sudo chown -R quake:quake /var/lib/trinity
-sudo mkdir -p /etc/trinity
-sudo chown -R quake:quake /etc/trinity
-
 # Build and install binary
 make
 sudo make install
 
+# Bootstrap the system (creates user, dirs, config, systemd units)
+sudo trinity init
+
+# Add yourself to quake group for CLI access (log out/in to take effect)
+sudo usermod -aG quake $USER
+
 # Copy web frontend
-sudo -u quake cp -r web/dist/* /var/lib/trinity/web/
+sudo cp -r web/dist/* /var/lib/trinity/web/
 sudo chown -R quake:quake /var/lib/trinity/web
 
-# Create config
-sudo -u quake cp config.example.yml /etc/trinity/config.yml
-sudo chmod 640 /etc/trinity/config.yml
-# Edit /etc/trinity/config.yml with your settings
+# Edit config with your settings
+sudo -u quake vi /etc/trinity/config.yml
 
-# Install and enable service
-sudo cp trinity.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable trinity
+# Start trinity
 sudo systemctl start trinity
 
 # Check status
@@ -225,9 +240,9 @@ sudo journalctl -u trinity -f
 sudo -u quake trinity user add admin --admin
 ```
 
-## Systemd Service
+## Systemd Services
 
-The `trinity.service` file is included in the repository. It runs as the `quake` user and automatically uses `/etc/trinity/config.yml`. Copy it to `/etc/systemd/system/trinity.service` and modify as needed.
+The systemd unit files are embedded in the binary (source: `cmd/trinity/systemd/`) and installed automatically by `trinity init`. See [Systemd Setup](#systemd-setup) under Quake 3 Server Log Configuration for details.
 
 ## Nginx Configuration
 
@@ -386,26 +401,61 @@ This produces timestamped log output like:
 
 The log file will be written relative to `fs_homepath`/`fs_game` (e.g., `~/.q3a/baseq3/games.log` or `~/.q3a/missionpack/games.log`). Point `log_path` in your trinity config to this file, or create a symlink to a preferred location.
 
-Example systemd service for the Q3 server:
+### Systemd Setup
 
-```ini
-[Unit]
-Description=Quake 3 FFA
-After=network-online.target
-Wants=network-online.target
+The systemd units are embedded in the binary and installed by `trinity init`. The source files are in `cmd/trinity/systemd/`:
 
-[Service]
-Type=simple
-User=quake
-WorkingDirectory=/usr/lib/quake3
-ExecStart=/usr/bin/screen -DmS quake3-ffa -L -Logfile /var/log/quake3/ffa-console.log /usr/lib/quake3/trinity.ded.aarch64 +set com_hunkmegs 256 +set net_port 27960 +exec ffa.cfg
-Restart=on-failure
+- `trinity.service` - the Trinity tracker service
+- `quake3-servers.target` - groups all game server instances
+- `quake3-server@.service` - template unit for game server instances
 
-[Install]
-WantedBy=multi-user.target
+The target ensures proper shutdown ordering: when the system stops, game servers receive a `quit` command (via `ExecStop`) and shut down cleanly before Trinity, so match data is never lost.
+
+**Manage all servers at once** via the target:
+
+```bash
+sudo systemctl start quake3-servers.target    # Start all enabled instances
+sudo systemctl stop quake3-servers.target     # Clean shutdown (sends quit)
+sudo systemctl restart quake3-servers.target  # Restart all
+sudo systemctl status 'quake3-server@*'       # Status of all instances
 ```
 
-This uses screen for interactive console access (`screen -r quake3-ffa`), with console output logged separately from the game event log.
+**Attach to a server console** (detach with `Ctrl-A D`):
+
+```bash
+sudo -u quake screen -r quake3-ffa
+```
+
+**Adding a new server instance:**
+
+```bash
+# Add the server (creates env file, updates config, enables systemd unit)
+sudo trinity server add tdm --port 27961 --game missionpack
+
+# Create the game config
+vi /usr/lib/quake3/missionpack/tdm.cfg
+
+# Restart trinity to pick up the config change, then start the game server
+sudo systemctl restart trinity
+sudo systemctl start quake3-server@tdm
+```
+
+The new instance automatically joins the `quake3-servers.target` group and will be included in target operations. If using the shell aliases below, log in again to pick up the new `q3tdm` alias.
+
+**Handy shell aliases** (zsh):
+
+```bash
+# Auto-create q3<name> aliases for attaching to server consoles
+for f in /etc/trinity/*.env(N); do
+  alias q3${f:t:r}="sudo -u quake screen -r quake3-${f:t:r}"
+done
+
+# Manage all servers
+alias q3status="sudo systemctl status 'quake3-server@*'"
+alias q3stop="sudo systemctl stop quake3-servers.target"
+alias q3start="sudo systemctl start quake3-servers.target"
+alias q3restart="sudo systemctl restart quake3-servers.target"
+```
 
 ## License
 

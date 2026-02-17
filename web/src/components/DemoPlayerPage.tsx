@@ -263,6 +263,14 @@ export function DemoPlayerPage() {
     return () => { observer.disconnect(); if (timer) clearTimeout(timer) }
   }, [loading])
 
+  useEffect(() => {
+    const handler = () => {
+      canvasRef.current?.classList.toggle('no-pointerlock', !document.pointerLockElement)
+    }
+    document.addEventListener('pointerlockchange', handler)
+    return () => document.removeEventListener('pointerlockchange', handler)
+  }, [])
+
   // Prevent Tab key from leaving the canvas
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -366,7 +374,7 @@ export function DemoPlayerPage() {
       {mapName && !engineReady && (
         <div
           className="demo-levelshot"
-          style={{ backgroundImage: `url(/assets/levelshots/${mapName}.jpg)` }}
+          style={{ backgroundImage: `url(/assets/levelshots/${mapName.toLowerCase()}.jpg)` }}
         />
       )}
 

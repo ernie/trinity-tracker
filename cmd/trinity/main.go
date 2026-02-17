@@ -3,7 +3,9 @@ package main
 
 import (
 	"archive/zip"
+	"bufio"
 	"context"
+	"embed"
 	"encoding/json"
 	"fmt"
 	"image"
@@ -13,9 +15,12 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
+	"os/user"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"syscall"
 	"text/tabwriter"
@@ -33,6 +38,9 @@ import (
 	"golang.org/x/term"
 )
 
+//go:embed systemd/*
+var systemdFiles embed.FS
+
 var version = "dev"
 
 const defaultConfigPath = "/etc/trinity/config.yml"
@@ -44,8 +52,12 @@ func main() {
 	}
 
 	switch os.Args[1] {
+	case "init":
+		cmdInit(os.Args[2:])
 	case "serve":
 		cmdServe(os.Args[2:])
+	case "server":
+		cmdServer(os.Args[2:])
 	case "status":
 		cmdStatus(os.Args[2:])
 	case "players":
@@ -83,31 +95,38 @@ func printUsage() {
 	fmt.Println("Usage: trinity <command> [options] [args]")
 	fmt.Println()
 	fmt.Println("Commands:")
-	fmt.Println("  serve                              Start the stats server")
-	fmt.Println("  status                             Show all servers status")
-	fmt.Println("  players [--humans]                 Show current players across all servers")
-	fmt.Println("  matches [--recent N]               Show recent matches (default: 20)")
-	fmt.Println("  leaderboard [--top N]              Show top players (default: 20)")
+	fmt.Println("  init [--no-systemd] [--user quake]  Bootstrap system (create user, dirs, config)")
+	fmt.Println("  serve                               Start the stats server")
+	fmt.Println("  server list                         Show configured game servers")
+	fmt.Println("  server add <name> [--port N] [flags]")
+	fmt.Println("                                      Add a game server instance")
+	fmt.Println("  server remove <name>                Remove a game server instance")
+	fmt.Println("  status                              Show all servers status")
+	fmt.Println("  players [--humans]                  Show current players across all servers")
+	fmt.Println("  matches [--recent N]                Show recent matches (default: 20)")
+	fmt.Println("  leaderboard [--top N]               Show top players (default: 20)")
 	fmt.Println("  user add [--admin] [--player-id N] <username>")
-	fmt.Println("                                     Add a user (prompts for password)")
-	fmt.Println("  user remove <username>             Remove a user")
-	fmt.Println("  user list                          List all users")
-	fmt.Println("  user reset <username>              Reset a user's password")
-	fmt.Println("  user admin <username>              Toggle admin status for a user")
-	fmt.Println("  levelshots [path]                  Extract levelshots from pk3 file(s)")
-	fmt.Println("  portraits [path]                   Extract player portraits from pk3 file(s)")
-	fmt.Println("  medals [path]                      Extract medal icons from pk3 file(s)")
-	fmt.Println("  skills [path]                      Extract skill icons from pk3 file(s)")
-	fmt.Println("  assets [path]                      Extract all assets (portraits, medals, skills, levelshots)")
-	fmt.Println("  demobake [path]                    Build baseline pk3, map pk3s, and manifest for web demo playback")
-	fmt.Println("  version                            Show version")
-	fmt.Println("  help                               Show this help")
+	fmt.Println("                                      Add a user (prompts for password)")
+	fmt.Println("  user remove <username>              Remove a user")
+	fmt.Println("  user list                           List all users")
+	fmt.Println("  user reset <username>               Reset a user's password")
+	fmt.Println("  user admin <username>               Toggle admin status for a user")
+	fmt.Println("  levelshots [path]                   Extract levelshots from pk3 file(s)")
+	fmt.Println("  portraits [path]                    Extract player portraits from pk3 file(s)")
+	fmt.Println("  medals [path]                       Extract medal icons from pk3 file(s)")
+	fmt.Println("  skills [path]                       Extract skill icons from pk3 file(s)")
+	fmt.Println("  assets [path]                       Extract all assets (portraits, medals, skills, levelshots)")
+	fmt.Println("  demobake [path]                     Build baseline pk3, map pk3s, and manifest for web demo playback")
+	fmt.Println("  version                             Show version")
+	fmt.Println("  help                                Show this help")
 	fmt.Println()
 	fmt.Println("Global Options:")
 	fmt.Println("  --config <path>    Path to configuration file (default /etc/trinity/config.yml)")
 	fmt.Println("  --url <url>        Base URL of the trinity server (default: derived from config)")
 	fmt.Println()
 	fmt.Println("Examples:")
+	fmt.Println("  sudo trinity init")
+	fmt.Println("  sudo trinity server add ffa --port 27960")
 	fmt.Println("  trinity serve --config /etc/trinity/config.yml")
 	fmt.Println("  trinity players --humans")
 	fmt.Println("  trinity matches --recent 50")
@@ -1252,6 +1271,534 @@ func cmdDemobake(args []string) {
 	fmt.Println("Demobake complete")
 }
 
+
+// dropPrivileges switches to the given service user. No-op if not root.
+func dropPrivileges(username string) error {
+	if os.Getuid() != 0 {
+		return nil
+	}
+	u, err := user.Lookup(username)
+	if err != nil {
+		return fmt.Errorf("looking up user %s: %w", username, err)
+	}
+	gid, _ := strconv.Atoi(u.Gid)
+	uid, _ := strconv.Atoi(u.Uid)
+	if err := syscall.Setgid(gid); err != nil {
+		return fmt.Errorf("setgid: %w", err)
+	}
+	if err := syscall.Setuid(uid); err != nil {
+		return fmt.Errorf("setuid: %w", err)
+	}
+	return nil
+}
+
+// serviceUser returns the service user from config, defaulting to "quake"
+func serviceUser(cfg *config.Config) string {
+	if cfg != nil && cfg.Server.ServiceUser != "" {
+		return cfg.Server.ServiceUser
+	}
+	return "quake"
+}
+
+// useSystemd returns whether systemd integration is enabled
+func useSystemd(cfg *config.Config) bool {
+	if cfg != nil && cfg.Server.UseSystemd != nil {
+		return *cfg.Server.UseSystemd
+	}
+	return detectSystemd()
+}
+
+// detectSystemd checks if the system is running systemd
+func detectSystemd() bool {
+	_, err := os.Stat("/run/systemd/system")
+	return err == nil
+}
+
+// systemctlRun executes a systemctl command, printing stderr on failure
+func systemctlRun(args ...string) error {
+	cmd := exec.Command("systemctl", args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+// systemctlIsActive returns the active state of a systemd unit
+func systemctlIsActive(unit string) string {
+	out, err := exec.Command("systemctl", "is-active", unit).Output()
+	if err != nil {
+		return "not-found"
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// writeEnvFile creates a server environment file
+func writeEnvFile(path string, port int, game string) error {
+	opts := fmt.Sprintf("+set net_port %d", port)
+	if game != "" && game != "baseq3" {
+		opts += fmt.Sprintf(" +set fs_game %s", game)
+	}
+	content := fmt.Sprintf("SERVER_OPTS=%s\n", opts)
+	return os.WriteFile(path, []byte(content), 0644)
+}
+
+// readEnvFile parses a server environment file for port and game
+func readEnvFile(path string) (port int, game string, err error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return 0, "", err
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if !strings.HasPrefix(line, "SERVER_OPTS=") {
+			continue
+		}
+		opts := strings.TrimPrefix(line, "SERVER_OPTS=")
+		parts := strings.Fields(opts)
+		for i := 0; i < len(parts)-1; i++ {
+			if parts[i] == "+set" && i+2 < len(parts) {
+				switch parts[i+1] {
+				case "net_port":
+					port, _ = strconv.Atoi(parts[i+2])
+				case "fs_game":
+					game = parts[i+2]
+				}
+			}
+		}
+		break
+	}
+	if game == "" {
+		game = "baseq3"
+	}
+	return port, game, scanner.Err()
+}
+
+// cmdInit bootstraps the system: creates user, dirs, config, and systemd units
+func cmdInit(args []string) {
+	fs := flag.NewFlagSet("init", flag.ExitOnError)
+	noSystemd := fs.Bool("no-systemd", false, "skip systemd unit installation")
+	userName := fs.String("user", "quake", "service user name")
+	fs.Parse(args)
+
+	if os.Getuid() != 0 {
+		fmt.Fprintf(os.Stderr, "Error: trinity init must be run as root\n")
+		os.Exit(1)
+	}
+
+	// Bail out if already initialized
+	configPath := "/etc/trinity/config.yml"
+	if _, err := os.Stat(configPath); err == nil {
+		fmt.Printf("Trinity is already initialized (%s exists).\n", configPath)
+		fmt.Println("To re-initialize, remove the config file first.")
+		return
+	}
+
+	sysUser := *userName
+	useSd := !*noSystemd && detectSystemd()
+
+	// 1. Create service user/group if they don't exist
+	if _, err := user.Lookup(sysUser); err != nil {
+		fmt.Printf("Creating service user '%s'...\n", sysUser)
+		cmd := exec.Command("useradd", "-r", "-s", "/usr/sbin/nologin", sysUser)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating user: %v\n", err)
+			os.Exit(1)
+		}
+	} else {
+		fmt.Printf("Service user '%s' already exists\n", sysUser)
+	}
+
+	// Look up the user for chown
+	u, err := user.Lookup(sysUser)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error looking up user '%s': %v\n", sysUser, err)
+		os.Exit(1)
+	}
+	uid, _ := strconv.Atoi(u.Uid)
+	gid, _ := strconv.Atoi(u.Gid)
+
+	// 2. Create directories
+	dirs := []string{"/etc/trinity", "/var/lib/trinity/web"}
+	for _, dir := range dirs {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating %s: %v\n", dir, err)
+			os.Exit(1)
+		}
+		if err := os.Chown(dir, uid, gid); err != nil {
+			fmt.Fprintf(os.Stderr, "Error chowning %s: %v\n", dir, err)
+			os.Exit(1)
+		}
+		fmt.Printf("Directory: %s\n", dir)
+	}
+	// Also chown /var/lib/trinity itself
+	os.Chown("/var/lib/trinity", uid, gid)
+
+	// 3. Install default config.yml
+	sdVal := useSd
+	defaultCfg := &config.Config{
+		Server: config.ServerConfig{
+			ListenAddr:  "127.0.0.1",
+			HTTPPort:    8080,
+			StaticDir:   "/var/lib/trinity/web",
+			Quake3Dir:   "/usr/lib/quake3",
+			ServiceUser: sysUser,
+			UseSystemd:  &sdVal,
+		},
+		Database: config.DatabaseConfig{
+			Path: "/var/lib/trinity/trinity.db",
+		},
+	}
+	if err := config.Save(configPath, defaultCfg); err != nil {
+		fmt.Fprintf(os.Stderr, "Error writing config: %v\n", err)
+		os.Exit(1)
+	}
+	os.Chown(configPath, uid, gid)
+	fmt.Printf("Config: %s\n", configPath)
+
+	// 4. Install systemd units if enabled
+	if useSd {
+		unitFiles := []string{
+			"systemd/trinity.service",
+			"systemd/quake3-server@.service",
+			"systemd/quake3-servers.target",
+		}
+		for _, name := range unitFiles {
+			data, err := systemdFiles.ReadFile(name)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error reading embedded %s: %v\n", name, err)
+				os.Exit(1)
+			}
+			// Replace User= and Group= with the configured service user
+			content := string(data)
+			if sysUser != "quake" {
+				content = strings.ReplaceAll(content, "User=quake", "User="+sysUser)
+				content = strings.ReplaceAll(content, "Group=quake", "Group="+sysUser)
+			}
+			dest := filepath.Join("/etc/systemd/system", filepath.Base(name))
+			if err := os.WriteFile(dest, []byte(content), 0644); err != nil {
+				fmt.Fprintf(os.Stderr, "Error writing %s: %v\n", dest, err)
+				os.Exit(1)
+			}
+			fmt.Printf("Systemd: %s\n", dest)
+		}
+
+		fmt.Println("Running systemctl daemon-reload...")
+		systemctlRun("daemon-reload")
+
+		fmt.Println("Enabling trinity.service and quake3-servers.target...")
+		systemctlRun("enable", "trinity.service")
+		systemctlRun("enable", "quake3-servers.target")
+	} else {
+		fmt.Println("Systemd: skipped")
+	}
+
+	// 5. Print next steps
+	fmt.Println()
+	fmt.Println("Next steps:")
+	fmt.Println("  1. Edit /etc/trinity/config.yml with your settings")
+	fmt.Println("  2. Copy web frontend: sudo cp -r web/dist/* /var/lib/trinity/web/")
+	fmt.Printf("  3. Extract assets: sudo -u %s trinity assets\n", sysUser)
+	if useSd {
+		fmt.Println("  4. Start trinity: sudo systemctl start trinity")
+		fmt.Println("  5. Add game servers: sudo trinity server add <name> --port <port>")
+	} else {
+		fmt.Println("  4. Start trinity: trinity serve")
+	}
+}
+
+// cmdServer dispatches server subcommands
+func cmdServer(args []string) {
+	if len(args) < 1 {
+		fmt.Fprintf(os.Stderr, "Error: server subcommand required: list, add, remove\n")
+		os.Exit(1)
+	}
+
+	switch args[0] {
+	case "list":
+		cmdServerList(args[1:])
+	case "add":
+		cmdServerAdd(args[1:])
+	case "remove":
+		cmdServerRemove(args[1:])
+	default:
+		fmt.Fprintf(os.Stderr, "Error: unknown server command: %s (use: list, add, remove)\n", args[0])
+		os.Exit(1)
+	}
+}
+
+// cmdServerList shows configured game servers with optional systemd status
+func cmdServerList(args []string) {
+	fs := flag.NewFlagSet("server list", flag.ExitOnError)
+	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
+	fs.Parse(args)
+
+	cfg, err := config.Load(*configPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	if len(cfg.Q3Servers) == 0 {
+		fmt.Println("No servers configured")
+		return
+	}
+
+	useSd := useSystemd(cfg)
+	configDir := filepath.Dir(*configPath)
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	if useSd {
+		fmt.Fprintln(w, "NAME\tPORT\tGAME\tSERVICE\tSTATUS")
+	} else {
+		fmt.Fprintln(w, "NAME\tPORT\tGAME")
+	}
+
+	for _, srv := range cfg.Q3Servers {
+		// Extract port from address
+		port := ""
+		if parts := strings.SplitN(srv.Address, ":", 2); len(parts) == 2 {
+			port = parts[1]
+		}
+
+		// Try to read game from env file
+		serverName := strings.ToLower(srv.Name)
+		game := "baseq3"
+		envPath := filepath.Join(configDir, serverName+".env")
+		if envPort, envGame, err := readEnvFile(envPath); err == nil {
+			game = envGame
+			if port == "" {
+				port = strconv.Itoa(envPort)
+			}
+		}
+
+		if useSd {
+			unit := "quake3-server@" + serverName
+			status := systemctlIsActive(unit)
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", srv.Name, port, game, unit, status)
+		} else {
+			fmt.Fprintf(w, "%s\t%s\t%s\n", srv.Name, port, game)
+		}
+	}
+	w.Flush()
+}
+
+// nextAvailablePort finds the lowest unused port >= 27960 based on existing config entries and env files
+func nextAvailablePort(cfg *config.Config, configDir string) int {
+	used := make(map[int]bool)
+
+	// Scan config entries for ports in addresses
+	for _, srv := range cfg.Q3Servers {
+		if parts := strings.SplitN(srv.Address, ":", 2); len(parts) == 2 {
+			if p, err := strconv.Atoi(parts[1]); err == nil {
+				used[p] = true
+			}
+		}
+	}
+
+	// Scan env files
+	entries, _ := os.ReadDir(configDir)
+	for _, e := range entries {
+		if strings.HasSuffix(e.Name(), ".env") {
+			if p, _, err := readEnvFile(filepath.Join(configDir, e.Name())); err == nil && p > 0 {
+				used[p] = true
+			}
+		}
+	}
+
+	for port := 27960; ; port++ {
+		if !used[port] {
+			return port
+		}
+	}
+}
+
+// cmdServerAdd adds a new game server instance
+func cmdServerAdd(args []string) {
+	fs := flag.NewFlagSet("server add", flag.ExitOnError)
+	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
+	port := fs.Int("port", 0, "server port (default: next available)")
+	game := fs.String("game", "", "game directory (e.g. missionpack)")
+	displayName := fs.String("display-name", "", "display name (default: uppercase of name)")
+	rconPassword := fs.String("rcon-password", "", "RCON password")
+	logPath := fs.String("log-path", "", "log file path")
+	fs.Parse(args)
+
+	remaining := fs.Args()
+	if len(remaining) < 1 {
+		fmt.Fprintf(os.Stderr, "Usage: trinity server add <name> [--port N] [--game G] [--display-name N] [--rcon-password P] [--log-path P]\n")
+		os.Exit(1)
+	}
+
+	name := strings.ToLower(remaining[0])
+
+	cfg, err := config.Load(*configPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Check for duplicate
+	for _, srv := range cfg.Q3Servers {
+		if strings.EqualFold(srv.Name, name) || strings.EqualFold(srv.Name, *displayName) {
+			fmt.Fprintf(os.Stderr, "Error: server '%s' already exists\n", name)
+			os.Exit(1)
+		}
+	}
+
+	configDir := filepath.Dir(*configPath)
+	sysUser := serviceUser(cfg)
+	useSd := useSystemd(cfg)
+
+	// Determine port
+	serverPort := *port
+	if serverPort == 0 {
+		serverPort = nextAvailablePort(cfg, configDir)
+	}
+
+	// Determine display name
+	dName := *displayName
+	if dName == "" {
+		dName = strings.ToUpper(name)
+	}
+
+	// Determine game
+	gameDir := *game
+	if gameDir == "" {
+		gameDir = "baseq3"
+	}
+
+	// Determine log path
+	lPath := *logPath
+	if lPath == "" {
+		lPath = filepath.Join(cfg.Server.Quake3Dir, gameDir, "logs", name+".log")
+	}
+
+	// Do root-only operations first
+	if useSd && os.Getuid() == 0 {
+		unit := "quake3-server@" + name
+		fmt.Printf("Enabling %s...\n", unit)
+		if err := systemctlRun("enable", unit); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: systemctl enable failed: %v\n", err)
+		}
+	}
+
+	// Drop privileges for file I/O
+	if err := dropPrivileges(sysUser); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to drop privileges: %v\n", err)
+	}
+
+	// Write env file
+	envPath := filepath.Join(configDir, name+".env")
+	if err := writeEnvFile(envPath, serverPort, gameDir); err != nil {
+		fmt.Fprintf(os.Stderr, "Error writing env file: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Env file: %s\n", envPath)
+
+	// Add server to config
+	server := config.Q3Server{
+		Name:    dName,
+		Address: fmt.Sprintf("127.0.0.1:%d", serverPort),
+		LogPath: lPath,
+	}
+	if *rconPassword != "" {
+		server.RconPassword = *rconPassword
+	}
+	config.AddServer(cfg, server)
+
+	if err := config.Save(*configPath, cfg); err != nil {
+		fmt.Fprintf(os.Stderr, "Error saving config: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Config: %s updated\n", *configPath)
+
+	fmt.Println()
+	fmt.Println("Next steps:")
+	fmt.Printf("  1. Create game config: %s/%s/%s.cfg\n", cfg.Server.Quake3Dir, gameDir, name)
+	fmt.Println("  2. Restart trinity: sudo systemctl restart trinity")
+	if useSd {
+		fmt.Printf("  3. Start the server: sudo systemctl start quake3-server@%s\n", name)
+	}
+}
+
+// cmdServerRemove removes a game server instance
+func cmdServerRemove(args []string) {
+	fs := flag.NewFlagSet("server remove", flag.ExitOnError)
+	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
+	fs.Parse(args)
+
+	remaining := fs.Args()
+	if len(remaining) < 1 {
+		fmt.Fprintf(os.Stderr, "Usage: trinity server remove <name>\n")
+		os.Exit(1)
+	}
+
+	name := strings.ToLower(remaining[0])
+
+	cfg, err := config.Load(*configPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
+		os.Exit(1)
+	}
+
+	sysUser := serviceUser(cfg)
+	useSd := useSystemd(cfg)
+	configDir := filepath.Dir(*configPath)
+
+	// Do root-only operations first
+	if useSd && os.Getuid() == 0 {
+		unit := "quake3-server@" + name
+		fmt.Printf("Stopping %s...\n", unit)
+		systemctlRun("stop", unit)
+		fmt.Printf("Disabling %s...\n", unit)
+		systemctlRun("disable", unit)
+	}
+
+	// Drop privileges for file I/O
+	if err := dropPrivileges(sysUser); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to drop privileges: %v\n", err)
+	}
+
+	// Remove env file
+	envPath := filepath.Join(configDir, name+".env")
+	if err := os.Remove(envPath); err != nil && !os.IsNotExist(err) {
+		fmt.Fprintf(os.Stderr, "Warning: failed to remove %s: %v\n", envPath, err)
+	} else if err == nil {
+		fmt.Printf("Removed: %s\n", envPath)
+	}
+
+	// Remove from config (try both the raw name and uppercase as display name)
+	found := config.RemoveServerByName(cfg, name)
+	if !found {
+		found = config.RemoveServerByName(cfg, strings.ToUpper(name))
+	}
+	if !found {
+		// Try case-insensitive match
+		for _, srv := range cfg.Q3Servers {
+			if strings.EqualFold(srv.Name, name) {
+				found = config.RemoveServerByName(cfg, srv.Name)
+				break
+			}
+		}
+	}
+
+	if found {
+		if err := config.Save(*configPath, cfg); err != nil {
+			fmt.Fprintf(os.Stderr, "Error saving config: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Config: %s updated\n", *configPath)
+	} else {
+		fmt.Fprintf(os.Stderr, "Warning: no matching server entry found in config\n")
+	}
+
+	fmt.Println()
+	fmt.Println("Restart trinity to apply: sudo systemctl restart trinity")
+}
 
 // collectPk3FilesOrdered returns pk3 files in Quake 3 load order (later files override earlier)
 // Order: pak0-9 numerically, then remaining pk3s alphabetically

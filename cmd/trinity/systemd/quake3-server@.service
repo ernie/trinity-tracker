@@ -1,0 +1,18 @@
+[Unit]
+Description=Quake 3 %i
+After=network-online.target trinity.service
+Wants=network-online.target
+PartOf=quake3-servers.target
+
+[Service]
+Type=simple
+User=quake
+WorkingDirectory=/usr/lib/quake3
+EnvironmentFile=-/etc/trinity/%i.env
+ExecStart=/usr/bin/screen -Dm -S quake3-%i /usr/lib/quake3/trinity.ded.aarch64 +set fs_homepath /usr/lib/quake3 +set com_hunkmegs 256 $SERVER_OPTS +set g_botsfile scripts/matrix-bots.txt +set g_log "logs/%i.log" +exec %i.cfg
+ExecStop=/usr/bin/screen -S quake3-%i -X stuff "quit\n"
+TimeoutStopSec=10
+Restart=on-failure
+
+[Install]
+WantedBy=quake3-servers.target

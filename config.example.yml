@@ -4,6 +4,8 @@ server:
   poll_interval: 5s
   static_dir: "./web/dist"
   quake3_dir: "/usr/lib/quake3"  # For asset extraction commands
+  service_user: "quake"          # Service user for privilege dropping
+  use_systemd: true              # Enable systemd integration
 
 database:
   path: "/var/lib/trinity/trinity.db"
