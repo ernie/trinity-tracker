@@ -4291,6 +4291,89 @@ h2 {
   color: var(--blue);
 }
 
+.ctrl-volume-wrap {
+  position: relative;
+}
+
+.ctrl-volume-panel {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  padding: 10px 12px;
+  z-index: 30;
+}
+
+.ctrl-volume-panel::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 10px;
+}
+
+.ctrl-volume-wrap:hover .ctrl-volume-panel {
+  display: block;
+}
+
+.ctrl-volume-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ctrl-volume-row + .ctrl-volume-row {
+  margin-top: 8px;
+}
+
+.ctrl-volume-row svg {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.ctrl-volume-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.ctrl-volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  border: none;
+  cursor: pointer;
+}
+
+.ctrl-volume-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  border: none;
+  cursor: pointer;
+}
+
+.ctrl-volume-slider::-moz-range-track {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  border: none;
+}
+
 .ctrl-help-wrap {
   position: relative;
   margin-left: auto;
@@ -4411,6 +4494,10 @@ h2 {
   .ctrl-help-wrap { display: none; }
   .ctrl-player-wrap:hover .ctrl-player-list { display: none; }
   .ctrl-player-wrap.open .ctrl-player-list { display: block; }
+  .ctrl-volume-wrap:hover .ctrl-volume-panel { display: none; }
+  .ctrl-volume-wrap.open .ctrl-volume-panel { display: block; }
+  .ctrl-volume-panel { left: auto; right: 0; transform: none; }
+  .ctrl-volume-slider { width: 80px; }
 }
 
 .demo-move-pad {
