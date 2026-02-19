@@ -458,10 +458,11 @@ export function DemoPlayerPage() {
               {playerList.map(p => (
                 <button
                   key={p.clientNum}
-                  className={`ctrl-player-item${p.clientNum === viewpoint ? ' active' : ''}${p.team === 1 || p.team === 2 ? ` team-${p.team}` : ''}`}
+                  className={`ctrl-player-item${p.clientNum === viewpoint ? ' active' : ''}${p.team === 1 || p.team === 2 ? ` team-${p.team}` : ''}${p.team === 3 ? ' spectator' : ''}`}
                   onMouseDown={e => {
                     e.preventDefault()
                     e.stopPropagation()
+                    if (p.team === 3) return
                     const mod = moduleRef.current
                     if (mod?.ccall) {
                       mod.ccall('Cbuf_AddText', null, ['string'], [`tv_view ${p.clientNum}\n`])
@@ -473,6 +474,7 @@ export function DemoPlayerPage() {
                   onTouchStart={e => {
                     e.preventDefault()
                     e.stopPropagation()
+                    if (p.team === 3) return
                     const mod = moduleRef.current
                     if (mod?.ccall) {
                       mod.ccall('Cbuf_AddText', null, ['string'], [`tv_view ${p.clientNum}\n`])

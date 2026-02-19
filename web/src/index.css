@@ -4472,6 +4472,7 @@ h2 {
 
 .ctrl-player-item.team-1 { border-left: 3px solid #ff4444; }
 .ctrl-player-item.team-2 { border-left: 3px solid #6699ff; }
+.ctrl-player-item.spectator { border-left: 3px solid #9c27b0; opacity: 0.6; }
 
 .ctrl-player-vr-slot {
   width: 16px;
