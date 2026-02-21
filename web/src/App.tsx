@@ -598,10 +598,12 @@ function App() {
   if (loading) {
     return (
       <div className="app">
-        <h1>
-          <AppLogo linkToHome={false} />
-          Trinity
-        </h1>
+        <header className="app-header">
+          <h1>
+            <AppLogo linkToHome={false} />
+            Trinity
+          </h1>
+        </header>
         <div className="loading">Loading servers...</div>
       </div>
     );
@@ -626,9 +628,6 @@ function App() {
         <div className="auth-section">
           {auth.isAuthenticated ? (
             <div className="user-info">
-              <Link to="/account" className="username-link">
-                {auth.username}
-              </Link>
               {auth.isAdmin && (
                 <>
                   <Link to="/play" className="admin-btn">
@@ -642,6 +641,9 @@ function App() {
                   </button>
                 </>
               )}
+              <Link to="/account" className="username-link">
+                {auth.username}
+              </Link>
               <button onClick={logout} className="logout-btn">
                 Logout
               </button>

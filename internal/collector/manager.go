@@ -67,6 +67,7 @@ type clientState struct {
 	team               int
 	joinedAt           time.Time
 	ipAddress          string          // client IP address from ClientConnect
+	began              bool            // true after ClientBegin (actually entered the game)
 	frags              int             // frags accumulated this session (flushed on leave/match end)
 	deaths             int             // deaths accumulated this session (flushed on leave/match end)
 	impressives        int             // impressive awards this match
@@ -524,6 +525,8 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 	case EventTypeClientBegin:
 		data := event.Data.(ClientConnectData)
 		if client, ok := state.clients[data.ClientID]; ok {
+			client.began = true
+
 			// Track whether this is a new connection (for greeting logic)
 			isNewSession := false
 
@@ -611,7 +614,8 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 			}
 
 			// Preserve stats for match-end flush (unless match already flushed)
-			if !state.matchFlushed && client.playerGUID > 0 &&
+			// Skip clients that never began (connected but never spawned)
+			if !state.matchFlushed && client.began && client.playerGUID > 0 &&
 				(state.matchState == "active" || state.matchState == "overtime") &&
 				(client.team != 3 || client.frags > 0 || client.deaths > 0) {
 				state.savePreviousClient(client)
@@ -938,6 +942,7 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 						team:       data.NewTeam,
 						joinedAt:   event.Timestamp,
 						ipAddress:  client.ipAddress,
+						began:      client.began,
 					}
 				} else {
 					// No active match — just update team
@@ -1304,7 +1309,7 @@ func (m *ServerManager) flushAllMatchStats(ctx context.Context, state *serverSta
 	// Flush connected players (completed=true, present at match end)
 	// Goes last so their metadata is authoritative in the DB row
 	for clientID, client := range state.clients {
-		if client.playerGUID > 0 {
+		if client.playerGUID > 0 && client.began {
 			var team *int
 			if client.team > 0 {
 				team = &client.team

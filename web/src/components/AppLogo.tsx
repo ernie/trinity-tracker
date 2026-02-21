@@ -5,7 +5,7 @@ interface AppLogoProps {
 }
 
 export function AppLogo({ linkToHome = true }: AppLogoProps) {
-  const img = <img src="/assets/skills/skill4.png" alt="Trinity" className="app-logo" />;
+  const img = <img src="/assets/icon-128.png" alt="Trinity" className="app-logo" />;
 
   if (linkToHome) {
     return <Link to="/">{img}</Link>;

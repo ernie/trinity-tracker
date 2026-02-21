@@ -165,10 +165,10 @@ export function LeaderboardPage() {
         <div className="auth-section">
           {auth.isAuthenticated ? (
             <div className="user-info">
-              <Link to="/account" className="username-link">{auth.username}</Link>
               {auth.isAdmin && (
                 <button onClick={() => setShowUserManagement(true)} className="admin-btn">Users</button>
               )}
+              <Link to="/account" className="username-link">{auth.username}</Link>
               <button onClick={logout} className="logout-btn">Logout</button>
             </div>
           ) : (
@@ -315,7 +315,6 @@ function LeaderboardTable({
                   : undefined
               }>
                 {formatNumber(entry.completed_matches)}
-                {entry.uncompleted_matches > 0 && <sub>{formatNumber(entry.uncompleted_matches)}</sub>}
               </td>
               <td className={colClass("kd_ratio")}>
                 {entry.kd_ratio.toFixed(2)}

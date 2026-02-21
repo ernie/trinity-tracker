@@ -176,10 +176,10 @@ export function PlayersPage() {
         <div className="auth-section">
           {auth.isAuthenticated ? (
             <div className="user-info">
-              <Link to="/account" className="username-link">{auth.username}</Link>
               {auth.isAdmin && (
                 <button onClick={() => setShowUserManagement(true)} className="admin-btn">Users</button>
               )}
+              <Link to="/account" className="username-link">{auth.username}</Link>
               <button onClick={logout} className="logout-btn">Logout</button>
             </div>
           ) : (
@@ -249,7 +249,6 @@ export function PlayersPage() {
                 <StatItem
                   label="Matches"
                   value={stats.stats.completed_matches}
-                  subscript={stats.stats.uncompleted_matches > 0 ? stats.stats.uncompleted_matches : undefined}
                   title={stats.stats.uncompleted_matches > 0
                     ? `${stats.stats.completed_matches} completed, ${stats.stats.uncompleted_matches} incomplete`
                     : undefined}

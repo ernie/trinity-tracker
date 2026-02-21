@@ -1,6 +1,46 @@
+@font-face {
+  font-family: 'Cinzel';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/assets/fonts/cinzel-bold.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Barlow';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/assets/fonts/barlow-400.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Barlow';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/assets/fonts/barlow-500.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Barlow';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/assets/fonts/barlow-600.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Barlow';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/assets/fonts/barlow-700.woff2') format('woff2');
+}
+
 :root {
-  --bg: #1a1a2e;
-  --bg-card: #16213e;
+  --bg: #0a0a0a;
+  --bg-card: #141414;
   --text: #f0ece4;
   --text-dim: #a8a090;
   --accent: #fff8f0;
@@ -17,7 +57,9 @@
 }
 
 body {
-  font-family: 'Consolas', 'Monaco', monospace;
+  font-family: 'Barlow', sans-serif;
+  letter-spacing: 0.05em;
+  font-variant-numeric: tabular-nums;
   background: var(--bg);
   color: var(--text);
   line-height: 1.6;
@@ -1541,9 +1583,21 @@ h2 {
   gap: 10px;
 }
 
-.app-header h1 {
+.app-header h1,
+.players-header h1,
+.matches-header h1,
+.match-detail-header h1,
+.leaderboard-header h1,
+.about-header h1,
+.account-header h1 {
+  display: flex;
+  align-items: center;
   margin-right: auto;
   margin-bottom: 0;
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .app.sidebar-collapsed .app-header {
@@ -1551,12 +1605,9 @@ h2 {
 }
 
 .app-logo {
-  width: 32px;
-  height: 32px;
-  margin-right: 0.75rem;
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: 4px;
-  vertical-align: middle;
+  height: 64px;
+  width: auto;
+  margin: 0;
 }
 
 .header-nav,
@@ -1566,17 +1617,18 @@ h2 {
 }
 
 .nav-link {
-  color: var(--blue);
+  color: var(--accent-dim);
   text-decoration: none;
   font-size: 0.95rem;
 }
 
 .nav-link:hover {
+  color: var(--accent);
   text-decoration: underline;
 }
 
 .nav-link.active {
-  color: var(--text);
+  color: var(--red);
   font-weight: 600;
 }
 
@@ -1588,9 +1640,9 @@ h2 {
 }
 
 .login-toggle {
-  background: transparent;
-  border: 1px solid var(--text-dim);
-  color: var(--text-dim);
+  background: var(--red);
+  border: 1px solid var(--red);
+  color: #fff;
   padding: 5px 12px;
   border-radius: 4px;
   cursor: pointer;
@@ -1599,8 +1651,9 @@ h2 {
 }
 
 .login-toggle:hover {
-  border-color: var(--text);
-  color: var(--text);
+  background: #c73550;
+  border-color: #c73550;
+  color: #fff;
 }
 
 .login-form {
@@ -1623,7 +1676,7 @@ h2 {
 
 .login-form input:focus {
   outline: none;
-  border-color: var(--blue);
+  border-color: var(--red);
 }
 
 .login-form button {
@@ -1636,7 +1689,7 @@ h2 {
 }
 
 .login-form button[type="submit"] {
-  background: var(--blue);
+  background: var(--red);
   color: #fff;
 }
 
@@ -1687,8 +1740,8 @@ h2 {
 .admin-btn,
 .change-pwd-btn {
   background: transparent;
-  border: 1px solid var(--blue);
-  color: var(--blue);
+  border: 1px solid var(--text-dim);
+  color: var(--text-dim);
   padding: 6px 10px;
   border-radius: 4px;
   cursor: pointer;
@@ -1700,8 +1753,8 @@ h2 {
 
 .admin-btn:hover,
 .change-pwd-btn:hover {
-  background: var(--blue);
-  color: #fff;
+  border-color: var(--text);
+  color: var(--text);
 }
 
 /* Modal overlay and styles */
@@ -1797,7 +1850,7 @@ h2 {
 
 .modal .form-group input:focus {
   outline: none;
-  border-color: var(--blue);
+  border-color: var(--red);
 }
 
 .modal .error-message {
@@ -1816,7 +1869,7 @@ h2 {
 }
 
 .modal button[type="submit"] {
-  background: var(--blue);
+  background: var(--red);
   border: none;
   color: #fff;
   padding: 8px 16px;
@@ -1826,7 +1879,7 @@ h2 {
 }
 
 .modal button[type="submit"]:hover:not(:disabled) {
-  background: #1976d2;
+  background: #c73550;
 }
 
 .modal button[type="submit"]:disabled {
@@ -1953,8 +2006,8 @@ h2 {
 
 .users-table td.actions button {
   background: transparent;
-  border: 1px solid var(--blue);
-  color: var(--blue);
+  border: 1px solid var(--red);
+  color: var(--red);
   padding: 4px 8px;
   border-radius: 4px;
   cursor: pointer;
@@ -1964,7 +2017,7 @@ h2 {
 }
 
 .users-table td.actions button:hover {
-  background: var(--blue);
+  background: var(--red);
   color: #fff;
 }
 
@@ -2041,8 +2094,8 @@ h2 {
 }
 
 .edit-link-btn:hover {
-  border-color: var(--blue);
-  color: var(--blue);
+  border-color: var(--red);
+  color: var(--red);
 }
 
 .edit-player-inline {
@@ -2111,11 +2164,11 @@ h2 {
 }
 
 .server-card.selectable:hover {
-  border-color: var(--blue);
+  border-color: var(--red);
 }
 
 .server-card.selected {
-  border-color: var(--blue);
+  border-color: var(--red);
   box-shadow: 0 0 10px rgba(33, 150, 243, 0.3);
 }
 
@@ -2150,7 +2203,7 @@ h2 {
 
 .resize-handle:hover,
 .rcon-sidebar.resizing .resize-handle {
-  background: var(--blue);
+  background: var(--red);
 }
 
 .rcon-header {
@@ -2193,7 +2246,7 @@ h2 {
 }
 
 .rcon-command {
-  color: var(--blue);
+  color: var(--red);
   margin-bottom: 4px;
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   font-size: 0.85rem;
@@ -2249,8 +2302,8 @@ h2 {
 }
 
 .sidebar-tab.active {
-  color: var(--blue);
-  border-bottom: 2px solid var(--blue);
+  color: var(--red);
+  border-bottom: 2px solid var(--red);
   margin-bottom: -1px;
 }
 
@@ -2359,12 +2412,12 @@ h2 {
 
 .rcon-input-form input:focus {
   outline: none;
-  border-color: var(--blue);
+  border-color: var(--red);
 }
 
 .rcon-input-form button {
   padding: 8px 15px;
-  background: var(--blue);
+  background: var(--red);
   border: none;
   color: #fff;
   cursor: pointer;
@@ -2448,13 +2501,13 @@ h2 {
 }
 
 .period-btn:hover {
-  border-color: var(--blue);
+  border-color: var(--red);
   color: var(--text);
 }
 
 .period-btn.active {
-  background: var(--blue);
-  border-color: var(--blue);
+  background: var(--red);
+  border-color: var(--red);
   color: #fff;
 }
 
@@ -2696,13 +2749,15 @@ h2 {
 }
 
 .players-header h1 {
+  display: flex;
+  align-items: center;
   color: var(--accent);
   margin: 0;
   margin-right: auto;
 }
 
 .back-link {
-  color: var(--blue);
+  color: var(--red);
   text-decoration: none;
 }
 
@@ -2729,12 +2784,12 @@ h2 {
 
 .search-input:focus {
   outline: none;
-  border-color: var(--blue);
+  border-color: var(--red);
 }
 
 .search-btn {
   padding: 10px 20px;
-  background: var(--blue);
+  background: var(--red);
   border: none;
   color: #000;
   border-radius: 6px;
@@ -2967,8 +3022,8 @@ h2 {
 .merge-toggle-btn {
   padding: 8px 16px;
   background: transparent;
-  border: 1px solid var(--blue);
-  color: var(--blue);
+  border: 1px solid var(--red);
+  color: var(--red);
   border-radius: 4px;
   cursor: pointer;
   font-family: inherit;
@@ -2976,7 +3031,7 @@ h2 {
 }
 
 .merge-toggle-btn:hover {
-  background: var(--blue);
+  background: var(--red);
   color: #fff;
 }
 
@@ -3033,12 +3088,26 @@ h2 {
 
 .merge-search-input input:focus {
   outline: none;
-  border-color: var(--blue);
+  border-color: var(--red);
 }
 
-.merge-search-input button {
+.merge-search-input .close-btn {
+  background: transparent;
+  border: 1px solid var(--text-dim);
+  color: var(--text-dim);
   padding: 8px 14px;
-  background: var(--blue);
+  font-size: 0.85rem;
+  border-radius: 4px;
+}
+
+.merge-search-input .close-btn:hover {
+  border-color: var(--text);
+  color: var(--text);
+}
+
+.merge-search-input button:not(.close-btn) {
+  padding: 8px 14px;
+  background: var(--red);
   border: none;
   color: #fff;
   border-radius: 4px;
@@ -3080,7 +3149,7 @@ h2 {
 
 .merge-btn {
   padding: 5px 12px;
-  background: var(--blue);
+  background: var(--red);
   border: none;
   color: #fff;
   border-radius: 4px;
@@ -3107,7 +3176,7 @@ h2 {
 }
 
 .view-profile-link {
-  color: var(--blue);
+  color: var(--red);
   text-decoration: none;
   font-size: 0.9rem;
 }
@@ -3133,6 +3202,8 @@ h2 {
 }
 
 .account-header h1 {
+  display: flex;
+  align-items: center;
   color: var(--accent);
   margin: 0;
   margin-right: auto;
@@ -3232,9 +3303,9 @@ h2 {
 }
 
 .account-section .period-btn.active {
-  background: var(--blue);
-  border-color: var(--blue);
-  color: #000;
+  background: var(--red);
+  border-color: var(--red);
+  color: #fff;
 }
 
 /* Stats grid in account page */
@@ -3289,7 +3360,7 @@ h2 {
 
 .view-stats-btn {
   padding: 8px 16px;
-  background: var(--blue);
+  background: var(--red);
   border: none;
   color: #000;
   border-radius: 6px;
@@ -3407,7 +3478,7 @@ h2 {
 
 .generate-btn {
   padding: 10px 20px;
-  background: var(--blue);
+  background: var(--red);
   border: none;
   color: #000;
   border-radius: 6px;
@@ -3457,7 +3528,7 @@ h2 {
 
 .password-form input:focus {
   outline: none;
-  border-color: var(--blue);
+  border-color: var(--red);
 }
 
 .password-form .form-actions {
@@ -3468,7 +3539,7 @@ h2 {
 
 .password-form button[type="submit"] {
   padding: 10px 20px;
-  background: var(--blue);
+  background: var(--red);
   border: none;
   color: #000;
   border-radius: 6px;
@@ -3525,8 +3596,8 @@ h2 {
 /* Username link in header */
 .username-link {
   background: transparent;
-  border: 1px solid var(--green);
-  color: var(--green);
+  border: 1px solid var(--text-dim);
+  color: var(--text-dim);
   padding: 6px 10px;
   border-radius: 4px;
   text-decoration: none;
@@ -3537,8 +3608,8 @@ h2 {
 }
 
 .username-link:hover {
-  background: var(--green);
-  color: #000;
+  border-color: var(--text);
+  color: var(--text);
 }
 
 /* Leaderboard page */
@@ -3558,6 +3629,8 @@ h2 {
 }
 
 .leaderboard-header h1 {
+  display: flex;
+  align-items: center;
   color: var(--accent);
   margin: 0;
   margin-right: auto;
@@ -3592,8 +3665,8 @@ h2 {
 }
 
 .game-type-btn.active {
-  background: var(--blue);
-  border-color: var(--blue);
+  background: var(--red);
+  border-color: var(--red);
   color: #fff;
 }
 
@@ -3633,7 +3706,7 @@ h2 {
 }
 
 .category-btn.active {
-  background: var(--blue);
+  background: var(--red);
   color: #fff;
 }
 
@@ -3838,6 +3911,8 @@ h2 {
 }
 
 .matches-header h1 {
+  display: flex;
+  align-items: center;
   color: var(--accent);
   margin: 0;
   margin-right: auto;
@@ -3936,6 +4011,8 @@ h2 {
 }
 
 .match-detail-header h1 {
+  display: flex;
+  align-items: center;
   color: var(--accent);
   margin: 0;
   margin-right: auto;
@@ -4054,6 +4131,8 @@ h2 {
 }
 
 .about-header h1 {
+  display: flex;
+  align-items: center;
   color: var(--accent);
   margin: 0;
   margin-right: auto;
@@ -4104,7 +4183,7 @@ h2 {
 }
 
 .about-section a {
-  color: var(--blue);
+  color: var(--red);
 }
 
 .about-section code {
@@ -4233,7 +4312,7 @@ h2 {
 }
 
 .demo-player-error a {
-  color: var(--blue);
+  color: var(--red);
   display: block;
   margin-top: 1rem;
 }
@@ -4288,8 +4367,8 @@ h2 {
 }
 
 .ctrl-btn.active {
-  background: rgba(33, 150, 243, 0.3);
-  color: var(--blue);
+  background: rgba(233, 69, 96, 0.3);
+  color: var(--red);
 }
 
 .ctrl-volume-wrap {

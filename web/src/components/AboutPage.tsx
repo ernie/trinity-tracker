@@ -21,9 +21,6 @@ export function AboutPage() {
         <div className="auth-section">
           {auth.isAuthenticated ? (
             <div className="user-info">
-              <Link to="/account" className="username-link">
-                {auth.username}
-              </Link>
               {auth.isAdmin && (
                 <button
                   onClick={() => setShowUserManagement(true)}
@@ -32,6 +29,9 @@ export function AboutPage() {
                   Users
                 </button>
               )}
+              <Link to="/account" className="username-link">
+                {auth.username}
+              </Link>
               <button onClick={logout} className="logout-btn">
                 Logout
               </button>
