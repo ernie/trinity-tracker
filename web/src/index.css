@@ -1627,9 +1627,11 @@ h2 {
   text-decoration: underline;
 }
 
-.nav-link.active {
+.nav-link.active,
+.nav-link.active:hover {
   color: var(--red);
   font-weight: 600;
+  text-decoration: none;
 }
 
 /* Auth section */
