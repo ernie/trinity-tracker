@@ -1580,7 +1580,7 @@ h2 {
   margin-bottom: 20px;
   margin-left: 450px;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 15px;
 }
 
 .app-header h1,
@@ -1592,8 +1592,8 @@ h2 {
 .account-header h1 {
   display: flex;
   align-items: center;
+  margin: 0;
   margin-right: auto;
-  margin-bottom: 0;
   font-family: 'Cinzel', serif;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -1605,6 +1605,7 @@ h2 {
 }
 
 .app-logo {
+  display: block;
   height: 64px;
   width: auto;
   margin: 0;
@@ -2704,11 +2705,6 @@ h2 {
   .rcon-sidebar {
     width: 100%;
     max-width: 100%;
-  }
-
-  .app-header {
-    flex-direction: column;
-    align-items: flex-start;
   }
 
   .login-form {
