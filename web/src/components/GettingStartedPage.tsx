@@ -75,16 +75,6 @@ const FEATURES: FeatureItem[] = [
     desc: "Pause and resume TV demo playback.",
     video: "tvd_pause",
   },
-  {
-    name: "Hit Sounds",
-    cvar: "cg_hitSounds 1",
-    desc: "Damage-scaled hit sounds — pitch varies with the amount of damage dealt (lower pitch = higher damage).",
-  },
-  {
-    name: "TV Demos",
-    cvar: "cl_tvDownload",
-    desc: "Server-side TV demos are recorded automatically. Set cl_tvDownload to control whether you're prompted to download the demo at end of match.",
-  },
 ];
 
 export function GettingStartedPage() {
