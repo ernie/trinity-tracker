@@ -14,30 +14,12 @@ export function AboutPage() {
             Software, more generally. I'd argue that the rate at which PC gaming
             advanced during the 1990s has not really been matched since then. I
             don't think it would have happened nearly so quickly without id.
+            Quake 3 Arena remains the best arena shooter of all time, in my
+            opinion. Yes, I've played Unreal Tournament. I said what I said.
           </p>
-          <p>
-            This whole journey started after I rediscovered my love for Quake 3
-            in VR, thanks to{" "}
-            <a href="https://quake3.quakevr.com">Quake3Quest</a>, and then{" "}
-            <a href="https://ripper37.github.io/q3vr/">Quake 3 VR</a>. I wanted
-            to port some <a href="https://github.com/ec-/baseq3a">baseq3a</a>{" "}
-            features over to it. That led to another idea, and another. And,
-            well, here we are. I hope a new generation of players get to
-            experience a Quake 3 Arena even better than it was when I first fell
-            in love with it. It remains the best arena shooter of all time, in
-            my opinion. Yes, I've played Unreal Tournament. I said what I said.
-          </p>
-          <p>
-            This site is powered by{" "}
-            <a href="https://github.com/ernie/trinity-tools">trinity-tracker</a>
-            , which is also open source. Stop by the{" "}
-            <a href="https://discord.gg/tuDB2YNc7h">Team Beef Discord</a> if you
-            have questions or want to connect.
-          </p>
-          <p>
-            Want to get started?{" "}
-            <Link to="/getting-started">Go here first.</Link>
-          </p>
+          <Link to="/getting-started" className="getting-started-cta">
+            Get started with Trinity
+          </Link>
         </div>
 
         <div className="about-section">
@@ -47,7 +29,8 @@ export function AboutPage() {
             <a href="https://ernie.io">Ernie Miller</a>. But really, the folks
             who made this are the people who built the projects my work is based
             on:
-            <ul>
+          </p>
+          <ul>
               <li>
                 Team Beef:{" "}
                 <a href="https://github.com/Team-Beef-Studios/ioq3quest">
@@ -73,7 +56,10 @@ export function AboutPage() {
                 <a href="https://github.com/ioquake/ioq3">ioquake3</a> project
                 over the years
               </li>
-            </ul>
+          </ul>
+          <p>
+            If you'd like to connect, stop by the{" "}
+            <a href="https://discord.gg/tuDB2YNc7h">Team Beef Discord</a>.
           </p>
         </div>
 

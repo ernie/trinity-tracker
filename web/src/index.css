@@ -4219,6 +4219,10 @@ h2 {
   color: var(--red);
 }
 
+.about-section .getting-started-cta {
+  color: #fff;
+}
+
 .about-section code {
   background: rgba(0, 0, 0, 0.3);
   padding: 2px 6px;
@@ -4936,28 +4940,28 @@ h2 {
   }
 }
 
-.download-panel-getting-started {
-  padding: 7px 14px;
-  margin-top: 4px;
-  border-top: 1px solid #222;
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.download-panel-getting-started-label {
-  display: block;
-  color: var(--text);
+.getting-started-cta {
+  display: inline-block;
+  padding: 10px 20px;
+  margin-top: 8px;
+  background: var(--red);
+  color: #fff;
   font-weight: 600;
-}
-
-.download-panel-getting-started a {
-  color: var(--text-dim);
+  font-size: 0.95rem;
+  border-radius: 6px;
   text-decoration: none;
-  transition: color 0.1s;
+  transition: filter 0.15s;
 }
 
-.download-panel-getting-started a:hover {
-  color: var(--text);
+.getting-started-cta:hover {
+  filter: brightness(1.15);
+}
+
+.getting-started-cta-sm {
+  font-size: 12px;
+  padding: 6px 14px;
+  margin: 4px 7px 3px;
+  border-radius: 4px;
 }
 
 /* Claim page */

@@ -82,10 +82,9 @@ export function PageNav() {
                 {r.version && <span className="download-item-version">{r.version}</span>}
               </a>
             ))}
-            <div className="download-panel-getting-started">
-              <span className="download-panel-getting-started-label">Just getting started?</span>
-              <Link to="/getting-started">Go here first.</Link>
-            </div>
+            <Link to="/getting-started" className="getting-started-cta getting-started-cta-sm">
+              Get started with Trinity
+            </Link>
           </div>
         )}
       </div>
