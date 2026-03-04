@@ -4958,6 +4958,8 @@ h2 {
 }
 
 .getting-started-cta-sm {
+  display: block;
+  text-align: center;
   font-size: 12px;
   padding: 6px 14px;
   margin: 4px 7px 3px;
