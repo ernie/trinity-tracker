@@ -1422,9 +1422,20 @@ func (m *ServerManager) handleCommand(ctx context.Context, serverID int64, state
 		m.handleLinkCommand(ctx, serverID, state, clientID, args)
 	case "claim":
 		m.handleClaimCommand(ctx, serverID, state, clientID)
+	case "help":
+		m.handleHelpCommand(serverID, clientID)
 	default:
-		m.sendTell(serverID, clientID, "^1Unknown command: ^7"+cmd)
+		m.sendTell(serverID, clientID, "^1Unknown command: ^7"+cmd+". Type ^3!help ^7for available commands.")
 	}
+}
+
+// handleHelpCommand shows available commands to a player
+func (m *ServerManager) handleHelpCommand(serverID int64, clientID int) {
+	go func() {
+		m.sendTellSync(serverID, clientID, "^3Available commands:")
+		m.sendTellSync(serverID, clientID, "^3!claim ^7- Link your identity to an account")
+		m.sendTellSync(serverID, clientID, "^3!link <code> ^7- Link current identity to your account")
+	}()
 }
 
 // handleLinkCommand processes a link command from a player
@@ -1452,20 +1463,20 @@ func (m *ServerManager) handleLinkCommand(ctx context.Context, serverID int64, s
 
 	// Check if the GUID has a valid player record
 	if client.playerGUID == 0 || client.guid == "" {
-		m.sendTell(serverID, clientID, "^1Error: Could not identify your GUID. Try reconnecting.")
+		m.sendTell(serverID, clientID, "^1Error: Current identity unknown. Try reconnecting.")
 		return
 	}
 
 	// Get the player record for this GUID (the source player to merge)
 	sourcePlayerGUID, err := m.store.GetPlayerGUIDByGUID(ctx, client.guid)
 	if err != nil || sourcePlayerGUID == nil {
-		m.sendTell(serverID, clientID, "^1Error: Could not find player record for your GUID.")
+		m.sendTell(serverID, clientID, "^1Error: Could not find player record for this identity.")
 		return
 	}
 
 	// Check if this GUID already belongs to the target player
 	if sourcePlayerGUID.PlayerID == linkCode.PlayerID {
-		m.sendTell(serverID, clientID, "^3This GUID is already linked to your account.")
+		m.sendTell(serverID, clientID, "^3This identity is already linked to your account.")
 		return
 	}
 
@@ -1485,7 +1496,7 @@ func (m *ServerManager) handleLinkCommand(ctx context.Context, serverID int64, s
 	// Update client state to reflect new player_id
 	client.playerID = linkCode.PlayerID
 
-	m.sendTell(serverID, clientID, "^2Link successful! ^7Your GUID has been linked to your account.")
+	m.sendTell(serverID, clientID, "^2Link successful! ^7This identity has been linked to your account.")
 	log.Printf("Link successful: GUID %s merged into player %d via code %s", client.guid, linkCode.PlayerID, code)
 }
 
@@ -1499,7 +1510,7 @@ func (m *ServerManager) handleClaimCommand(ctx context.Context, serverID int64, 
 
 	// Validate client has a resolvable GUID and player_id
 	if client.playerGUID == 0 || client.guid == "" {
-		m.sendTell(serverID, clientID, "^1Error: Could not identify your GUID. Try reconnecting.")
+		m.sendTell(serverID, clientID, "^1Error: Current identity unknown. Try reconnecting.")
 		return
 	}
 
@@ -1516,7 +1527,7 @@ func (m *ServerManager) handleClaimCommand(ctx context.Context, serverID int64, 
 		return
 	}
 	if claimed {
-		m.sendTell(serverID, clientID, "^3This GUID is already linked to an account.")
+		m.sendTell(serverID, clientID, "^3This identity is already linked to an account.")
 		return
 	}
 
@@ -1577,17 +1588,17 @@ func (m *ServerManager) greetPlayer(ctx context.Context, serverID int64, clientI
 
 	if claimed {
 		if hasStats {
-			message = fmt.Sprintf("Welcome back, %s^7! K/D: ^3%.2f ^7| Matches: ^3%d",
+			message = fmt.Sprintf("Welcome back, %s^7! K/D: ^3%.2f ^7| Matches: ^3%d ^7(^3!help ^7for help)",
 				playerName, stats.Stats.KDRatio, stats.Stats.CompletedMatches)
 		} else {
-			message = fmt.Sprintf("Welcome back, %s^7!", playerName)
+			message = fmt.Sprintf("Welcome back, %s^7! (^3!help ^7for help)", playerName)
 		}
 	} else {
 		if hasStats {
-			message = fmt.Sprintf("Welcome, %s^7! K/D: ^3%.2f ^7| Matches: ^3%d ^7- Type ^3!claim ^7to link your account!",
+			message = fmt.Sprintf("Welcome, %s^7! K/D: ^3%.2f ^7| Matches: ^3%d ^7- ^3!claim ^7to link your identity! (^3!help ^7for help)",
 				playerName, stats.Stats.KDRatio, stats.Stats.CompletedMatches)
 		} else {
-			message = fmt.Sprintf("Welcome, %s^7! Type ^3!claim ^7to link your account!",
+			message = fmt.Sprintf("Welcome, %s^7! ^3!claim ^7to link your identity! (^3!help ^7for help)",
 				playerName)
 		}
 	}

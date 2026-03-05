@@ -140,35 +140,29 @@ export function GettingStartedPage() {
         <div className="about-section">
           <h2>Game Files</h2>
           <p>
-            Trinity includes all of the free content needed to play online, but
-            if you own Quake 3 Arena or Quake 3: Team Arena, you can copy your
-            retail <code>.pk3</code> files into the install directory for the
-            full game experience, including the single-player campaign and many
-            additional maps. Most public servers are dedicated to full game
-            clients, so having these files also means you can play on the
-            majority of them. The{" "}
+            The engines include all of the free content needed to play online,
+            but the majority of public servers only work with full game clients.
+            The{" "}
             <a href="https://store.steampowered.com/app/2200/Quake_III_Arena/">
               Steam version of Quake 3 Arena
             </a>{" "}
-            includes both Q3A and Team Arena.
+            includes both Q3A and Team Arena, and is frequently on sale. Once
+            you have it installed:
           </p>
           <ul>
             <li>
-              Copy your Quake 3 Arena <code>.pk3</code> files to the{" "}
-              <code>baseq3</code> folder
+              Copy Quake 3 Arena's <code>baseq3</code>{" "}
+              <code>.pk3</code> files to the <code>baseq3</code> folder in
+              your Trinity install (<code>pak0.pk3</code> through{" "}
+              <code>pak8.pk3</code>)
             </li>
             <li>
-              Copy your Team Arena <code>.pk3</code> files to the{" "}
-              <code>missionpack</code> folder
+              Copy Team Arena's <code>missionpack</code>{" "}
+              <code>.pk3</code> files to the <code>missionpack</code> folder
+              in your Trinity install (<code>pak0.pk3</code> through{" "}
+              <code>pak3.pk3</code>)
             </li>
           </ul>
-          <p>
-            These files are typically named <code>pak0.pk3</code> through{" "}
-            <code>pak8.pk3</code> for Quake 3 Arena and{" "}
-            <code>pak0.pk3</code> through <code>pak3.pk3</code> for Team Arena.
-            You can find them in your existing Quake 3 install directory, or
-            from a Steam or GOG copy of the game.
-          </p>
         </div>
 
         <div className="about-section">
@@ -186,19 +180,20 @@ export function GettingStartedPage() {
               share the same identity
             </li>
             <li>
-              Set <code>cl_guidServerUniq 0</code> in your config for a
-              consistent GUID across all servers
+              Ensure <code>cl_guidServerUniq</code> is set to{" "}
+              <code>0</code> so your identity is the same across servers
             </li>
           </ul>
           <p>
-            Trinity Engine defaults <code>cl_guidServerUniq</code> to{" "}
-            <code>0</code>, so no action is needed there. Quake 3 VR and
-            Quake3Quest default to <code>1</code>, which produces a different
-            GUID per server — setting it to <code>0</code> is recommended.
-          </p>
-          <p>
-            If you end up with multiple GUIDs, you can link them together on
-            your <a href="/account">Account</a> page.
+            To claim your identity here, type{" "}
+            <code>!claim</code> in the in-game chat. You'll receive a code
+            you can use to set up a new account or enter on your existing{" "}
+            Account page. If you
+            end up with multiple identities, you can use <code>!link</code> to
+            merge them — generate a link code on your Account page, then type{" "}
+            <code>!link &lt;code&gt;</code> in-game from the identity you want
+            to link. Both work essentially the same way — it's just about
+            whether you want to start the process in-game or on this site.
           </p>
         </div>
 
@@ -259,7 +254,10 @@ export function GettingStartedPage() {
         <div className="about-section">
           <h2>Server Administration</h2>
           <p>
-            These cvars are available for server operators running Trinity.
+            These cvars are available for server admins running Trinity. Note
+            that running your own server doesn't make it show up on this site —
+            Tracking only covers my servers at the moment. If there's enough
+            interest, I'll consider adding support for distributed tracking.
           </p>
           <ul>
             <li>
