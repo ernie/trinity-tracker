@@ -8,7 +8,6 @@ import (
 
 	"github.com/ernie/trinity-tools/internal/auth"
 	"github.com/ernie/trinity-tools/internal/domain"
-	"github.com/ernie/trinity-tools/internal/storage"
 )
 
 // LoginRequest is the request body for login
@@ -396,19 +395,6 @@ func (r *Router) handleUpdateUser(w http.ResponseWriter, req *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"message": "user updated"})
-}
-
-// handleGetVerifiedPlayers returns all players linked to user accounts
-func (r *Router) handleGetVerifiedPlayers(w http.ResponseWriter, req *http.Request) {
-	players, err := r.store.GetVerifiedPlayers(req.Context())
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to get verified players")
-		return
-	}
-	if players == nil {
-		players = []storage.VerifiedPlayer{}
-	}
-	writeJSON(w, http.StatusOK, players)
 }
 
 // LinkCodeResponse is the response for creating a link code

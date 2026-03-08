@@ -1,7 +1,6 @@
-import { useVerifiedPlayers } from '../hooks/useVerifiedPlayers'
-
 interface PlayerBadgeProps {
-  playerId: number
+  isVerified?: boolean
+  isAdmin?: boolean
   isVR?: boolean
   size?: 'sm' | 'md' | 'lg'
 }
@@ -18,27 +17,32 @@ const CheckIcon = () => (
   </svg>
 )
 
-export function PlayerBadge({ playerId, isVR, size = 'sm' }: PlayerBadgeProps) {
-  const { isVerifiedById, isAdminById } = useVerifiedPlayers()
-  const verified = isVerifiedById(playerId)
-  const admin = isAdminById(playerId)
+const QuestionIcon = () => (
+  <svg viewBox="0 0 16 16" fill="currentColor">
+    <path d="M8 1.5C5.8 1.5 4 3.1 4 5.2h2.2c0-1 .8-1.7 1.8-1.7s1.8.7 1.8 1.7c0 .8-.5 1.2-1.3 1.8-.9.7-1.5 1.5-1.5 2.8h2.2c0-.9.4-1.3 1.2-1.9.9-.7 1.6-1.5 1.6-2.7C12 3.1 10.2 1.5 8 1.5zM7 12.5h2V14.5H7z" />
+  </svg>
+)
+
+export function PlayerBadge({ isVerified, isAdmin, isVR, size = 'sm' }: PlayerBadgeProps) {
   const sizeClass = `player-badge-${size}`
 
   // Unverified player: show placeholder badge
-  if (!verified && !isVR) {
+  if (!isVerified && !isVR) {
     return (
       <span
         className={`player-badge ${sizeClass} unverified`}
         title="Unverified"
-      />
+      >
+        <QuestionIcon />
+      </span>
     )
   }
 
   // VR only (not verified): VR icon with dotted outline
-  if (isVR && !verified) {
+  if (isVR && !isVerified) {
     return (
       <span className={`player-badge ${sizeClass} unverified vr`} title="Unverified (VR)">
-        <img src="/assets/vr/vr.png" alt="VR" />
+        <QuestionIcon />
       </span>
     )
   }
@@ -47,10 +51,10 @@ export function PlayerBadge({ playerId, isVR, size = 'sm' }: PlayerBadgeProps) {
   if (!isVR) {
     return (
       <span
-        className={`player-badge ${sizeClass} ${admin ? 'admin' : 'user'}`}
-        title={admin ? 'Verified Admin' : 'Verified User'}
+        className={`player-badge ${sizeClass} ${isAdmin ? 'admin' : 'user'}`}
+        title={isAdmin ? 'Verified Admin' : 'Verified User'}
       >
-        {admin ? <StarIcon /> : <CheckIcon />}
+        {isAdmin ? <StarIcon /> : <CheckIcon />}
       </span>
     )
   }
@@ -58,10 +62,10 @@ export function PlayerBadge({ playerId, isVR, size = 'sm' }: PlayerBadgeProps) {
   // Both VR + verified: symbol on top of VR icon background
   return (
     <span
-      className={`player-badge ${sizeClass} ${admin ? 'admin' : 'user'} vr`}
-      title={admin ? 'Verified Admin (VR)' : 'Verified User (VR)'}
+      className={`player-badge ${sizeClass} ${isAdmin ? 'admin' : 'user'} vr`}
+      title={isAdmin ? 'Verified Admin (VR)' : 'Verified User (VR)'}
     >
-      {admin ? <StarIcon /> : <CheckIcon />}
+      {isAdmin ? <StarIcon /> : <CheckIcon />}
     </span>
   )
 }

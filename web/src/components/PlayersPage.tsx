@@ -189,7 +189,7 @@ export function PlayersPage() {
             >
               <span className="player-name-with-badges">
                 {player.is_bot && <BotBadge isBot skill={5} />}
-                {!player.is_bot && <PlayerBadge playerId={player.id} isVR={player.is_vr} />}
+                {!player.is_bot && <PlayerBadge isVerified={player.is_verified} isAdmin={player.is_admin} isVR={player.is_vr} />}
                 <ColoredText text={player.is_vr ? stripVRPrefix(player.name) : player.name} />
               </span>
               <span className="player-last-seen">Last seen: {formatDate(player.last_seen)}</span>
@@ -211,7 +211,7 @@ export function PlayersPage() {
               <h2>
                 <PlayerPortrait model={stats.player.model} size="lg" />
                 {stats.player.is_bot && <BotBadge isBot skill={5} size="lg" />}
-                {!stats.player.is_bot && <PlayerBadge playerId={stats.player.id} isVR={stats.player.is_vr} size="lg" />}
+                {!stats.player.is_bot && <PlayerBadge isVerified={stats.player.is_verified} isAdmin={stats.player.is_admin} isVR={stats.player.is_vr} size="lg" />}
                 <ColoredText text={stats.player.is_vr ? stripVRPrefix(stats.player.name) : stats.player.name} />
               </h2>
 

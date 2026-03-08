@@ -50,6 +50,8 @@ type MatchPlayerSummary struct {
 	Completed    bool     `json:"completed"`
 	IsBot        bool     `json:"is_bot"`
 	IsVR         bool     `json:"is_vr"`
+	IsVerified   bool     `json:"is_verified"`
+	IsAdmin      bool     `json:"is_admin"`
 	Skill        *float64 `json:"skill,omitempty"`
 	Score        *int     `json:"score,omitempty"`
 	Team         *int     `json:"team,omitempty"`

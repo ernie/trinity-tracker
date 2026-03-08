@@ -76,7 +76,7 @@ export function PlayerItem({ player, isNew, carryingFlag, onClick }: PlayerItemP
       <span className={nameClasses}>
         <PlayerPortrait model={player.model} size="sm" />
         {player.is_bot && <BotBadge isBot skill={player.skill!} />}
-        {!player.is_bot && <PlayerBadge playerId={player.player_id!} isVR={player.is_vr} />}
+        {!player.is_bot && <PlayerBadge isVerified={player.is_verified} isAdmin={player.is_admin} isVR={player.is_vr} />}
         <ColoredText text={player.is_vr ? stripVRPrefix(player.name) : player.name} />
         {carryingFlag && (
           <span className="player-flag">

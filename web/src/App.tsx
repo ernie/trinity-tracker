@@ -99,16 +99,16 @@ function App() {
     return name;
   }, []);
 
-  // Get bot info (isBot and skill) by looking up player in server status
+  // Get player info by looking up player in server status
   const getPlayerBotInfo = useCallback(
     (
       serverId: number,
       cleanName: string,
-    ): { isBot: boolean; skill?: number; isVR?: boolean } => {
+    ): { isBot: boolean; skill?: number; isVR?: boolean; isVerified?: boolean; isAdmin?: boolean } => {
       const server = serversRef.current.get(serverId);
       if (!server?.players) return { isBot: false };
       const player = server.players.find((p) => p.clean_name === cleanName);
-      return { isBot: player?.is_bot ?? false, skill: player?.skill, isVR: player?.is_vr };
+      return { isBot: player?.is_bot ?? false, skill: player?.skill, isVR: player?.is_vr, isVerified: player?.is_verified, isAdmin: player?.is_admin };
     },
     [],
   );
@@ -175,6 +175,8 @@ function App() {
             playerId: data.player_id,
             isBot: data.player.is_bot,
             skill: data.player.skill,
+            isVerified: data.player.is_verified,
+            isAdmin: data.player.is_admin,
           };
           addActivity("join", `${data.player.name}${COLOR_RESET} joined`, {
             player,

@@ -1,9 +1,31 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, createContext, useContext, createElement, type ReactNode } from 'react'
 import type { AuthState, LoginCredentials } from '../types'
 
 const TOKEN_KEY = 'q3a_auth_token'
 
-export function useAuth() {
+interface AuthContextType {
+  auth: AuthState
+  loading: boolean
+  login: (credentials: LoginCredentials) => Promise<boolean>
+  logout: () => void
+  changePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>
+}
+
+const AuthContext = createContext<AuthContextType | null>(null)
+
+export function useAuth(): AuthContextType {
+  const context = useContext(AuthContext)
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider')
+  }
+  return context
+}
+
+interface AuthProviderProps {
+  children: ReactNode
+}
+
+export function AuthProvider({ children }: AuthProviderProps) {
   const [auth, setAuth] = useState<AuthState>({
     isAuthenticated: false,
     username: null,
@@ -121,5 +143,7 @@ export function useAuth() {
     }
   }, [auth.token])
 
-  return { auth, loading, login, logout, changePassword }
+  const value = { auth, loading, login, logout, changePassword }
+
+  return createElement(AuthContext.Provider, { value }, children)
 }

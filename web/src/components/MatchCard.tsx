@@ -191,7 +191,7 @@ export function MatchCard({ match, onPlayerClick, highlightPlayerId, showPermali
                 <div key={`winner-${winner.player_id}-${idx}`} className="ffa-winner-row">
                   <PlayerPortrait model={winner.model} size="md" />
                   {winner.is_bot && <BotBadge isBot skill={winner.skill!} size="md" />}
-                  {!winner.is_bot && <PlayerBadge playerId={winner.player_id} isVR={winner.is_vr} size="md" />}
+                  {!winner.is_bot && <PlayerBadge isVerified={winner.is_verified} isAdmin={winner.is_admin} isVR={winner.is_vr} size="md" />}
                   <ColoredText text={winner.is_vr ? stripVRPrefix(winner.name) : winner.name} />
                 </div>
               ))}
@@ -211,7 +211,7 @@ export function MatchCard({ match, onPlayerClick, highlightPlayerId, showPermali
               <div key={`tie-${player.player_id}-${idx}`} className="ffa-winner-row">
                 <PlayerPortrait model={player.model} size="md" />
                 {player.is_bot && <BotBadge isBot skill={player.skill!} size="md" />}
-                {!player.is_bot && <PlayerBadge playerId={player.player_id} isVR={player.is_vr} size="md" />}
+                {!player.is_bot && <PlayerBadge isVerified={player.is_verified} isAdmin={player.is_admin} isVR={player.is_vr} size="md" />}
                 <ColoredText text={player.is_vr ? stripVRPrefix(player.name) : player.name} />
               </div>
             ))}
@@ -274,7 +274,7 @@ function MatchPlayerRow({ player, showTeam, isWinner, highlightPlayerId, onPlaye
         <span className={`completion-dot ${spectator ? 'spectator' : player.completed ? 'completed' : 'left-early'}`} />
         <PlayerPortrait model={player.model} size="sm" />
         {player.is_bot && <BotBadge isBot skill={player.skill!} />}
-        {!player.is_bot && <PlayerBadge playerId={player.player_id} isVR={player.is_vr} />}
+        {!player.is_bot && <PlayerBadge isVerified={player.is_verified} isAdmin={player.is_admin} isVR={player.is_vr} />}
         <ColoredText text={player.is_vr ? stripVRPrefix(player.name) : player.name} />
         <span
           ref={awardsRef}

@@ -17,6 +17,8 @@ export interface Player {
   player_id?: number
   model?: string
   is_vr?: boolean
+  is_verified?: boolean
+  is_admin?: boolean
 }
 
 export interface TeamScores {
@@ -192,6 +194,8 @@ export interface ActivityPlayer {
   playerId?: number
   isBot?: boolean
   isVR?: boolean
+  isVerified?: boolean
+  isAdmin?: boolean
   skill?: number
 }
 
@@ -230,6 +234,8 @@ export interface MatchPlayerSummary {
   completed: boolean
   is_bot: boolean
   is_vr?: boolean
+  is_verified?: boolean
+  is_admin?: boolean
   skill?: number
   score?: number
   team?: number
@@ -287,12 +293,6 @@ export interface AccountProfile {
   user: User
   player?: PlayerProfile
   guids?: PlayerGUID[]
-}
-
-export interface VerifiedPlayer {
-  player_id: number
-  clean_name: string
-  is_admin: boolean
 }
 
 export interface RconCommand {
@@ -358,6 +358,8 @@ export interface PlayerProfile {
   total_playtime_seconds: number
   is_bot?: boolean
   is_vr?: boolean
+  is_verified?: boolean
+  is_admin?: boolean
   model?: string
   skill?: number
   guids?: PlayerGUID[]

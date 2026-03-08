@@ -39,7 +39,7 @@ export function PlayerStatsModal({ playerName, playerId, onClose }: PlayerStatsM
           <h3>
             {stats && <PlayerPortrait model={stats.player.model} size="md" />}
             {stats?.player.is_bot && <BotBadge isBot skill={5} size="md" />}
-            {stats && !stats.player.is_bot && <PlayerBadge playerId={stats.player.id} isVR={stats.player.is_vr} size="md" />}
+            {stats && !stats.player.is_bot && <PlayerBadge isVerified={stats.player.is_verified} isAdmin={stats.player.is_admin} isVR={stats.player.is_vr} size="md" />}
             <ColoredText text={playerName} />
           </h3>
           <button onClick={onClose} className="close-btn" aria-label="Close">×</button>

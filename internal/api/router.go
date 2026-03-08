@@ -45,7 +45,6 @@ func NewRouter(store *storage.Store, manager *collector.ServerManager, authServi
 	r.mux.HandleFunc("GET /api/servers/{id}/players", r.handleGetServerPlayers)
 
 	r.mux.HandleFunc("GET /api/players", r.handleGetPlayers)
-	r.mux.HandleFunc("GET /api/players/verified", r.handleGetVerifiedPlayers)
 	r.mux.HandleFunc("GET /api/players/{id}", r.handleGetPlayer)
 	r.mux.HandleFunc("GET /api/players/{id}/stats", r.handleGetPlayerStatsByID)
 	r.mux.HandleFunc("GET /api/players/{id}/matches", r.handleGetPlayerMatches)

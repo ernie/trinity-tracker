@@ -69,5 +69,7 @@ type PlayerStatus struct {
 	Captures     int       `json:"captures,omitempty"`     // flag captures this match
 	Assists      int       `json:"assists,omitempty"`      // assist awards this match
 	PlayerID     *int64    `json:"player_id,omitempty"`    // database player ID if known
+	IsVerified   bool      `json:"is_verified"`
+	IsAdmin      bool      `json:"is_admin"`
 	Model        string    `json:"model,omitempty"`        // player model (e.g., "sarge/krusade")
 }

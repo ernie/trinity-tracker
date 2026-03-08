@@ -365,9 +365,13 @@ func (s *Store) GetPlayerByID(ctx context.Context, id int64) (*domain.Player, er
 				JOIN player_guids pg ON s.player_guid_id = pg.id
 				WHERE pg.player_id = p.id AND s.left_at IS NOT NULL
 			), 0) as total_playtime_seconds,
-			p.is_bot, p.is_vr
-		FROM players p WHERE p.id = ?
-	`, id).Scan(&p.ID, &p.Name, &p.CleanName, &p.FirstSeen, &p.LastSeen, &p.TotalPlaytimeSeconds, &p.IsBot, &p.IsVR)
+			p.is_bot, p.is_vr,
+			CASE WHEN u.id IS NOT NULL THEN 1 ELSE 0 END as is_verified,
+			COALESCE(u.is_admin, 0) as is_admin
+		FROM players p
+		LEFT JOIN users u ON u.player_id = p.id
+		WHERE p.id = ?
+	`, id).Scan(&p.ID, &p.Name, &p.CleanName, &p.FirstSeen, &p.LastSeen, &p.TotalPlaytimeSeconds, &p.IsBot, &p.IsVR, &p.IsVerified, &p.IsAdmin)
 	if err != nil {
 		return nil, err
 	}
@@ -421,9 +425,12 @@ func (s *Store) SearchPlayers(ctx context.Context, query string, limit int, incl
 					JOIN player_guids pg2 ON s.player_guid_id = pg2.id
 					WHERE pg2.player_id = p.id AND s.left_at IS NOT NULL
 				), 0) as total_playtime_seconds,
-				p.is_bot, p.is_vr
+				p.is_bot, p.is_vr,
+				CASE WHEN u.id IS NOT NULL THEN 1 ELSE 0 END as is_verified,
+				COALESCE(u.is_admin, 0) as is_admin
 			FROM players p
 			LEFT JOIN player_guids pg ON pg.player_id = p.id
+			LEFT JOIN users u ON u.player_id = p.id
 			WHERE p.clean_name LIKE ? OR p.name LIKE ? OR pg.guid LIKE ?
 			ORDER BY p.last_seen DESC
 			LIMIT ?
@@ -438,8 +445,11 @@ func (s *Store) SearchPlayers(ctx context.Context, query string, limit int, incl
 					JOIN player_guids pg ON s.player_guid_id = pg.id
 					WHERE pg.player_id = p.id AND s.left_at IS NOT NULL
 				), 0) as total_playtime_seconds,
-				p.is_bot, p.is_vr
+				p.is_bot, p.is_vr,
+				CASE WHEN u.id IS NOT NULL THEN 1 ELSE 0 END as is_verified,
+				COALESCE(u.is_admin, 0) as is_admin
 			FROM players p
+			LEFT JOIN users u ON u.player_id = p.id
 			WHERE p.clean_name LIKE ? OR p.name LIKE ?
 			ORDER BY p.last_seen DESC
 			LIMIT ?
@@ -453,7 +463,7 @@ func (s *Store) SearchPlayers(ctx context.Context, query string, limit int, incl
 	var players []domain.Player
 	for rows.Next() {
 		var p domain.Player
-		if err := rows.Scan(&p.ID, &p.Name, &p.CleanName, &p.FirstSeen, &p.LastSeen, &p.TotalPlaytimeSeconds, &p.IsBot, &p.IsVR); err != nil {
+		if err := rows.Scan(&p.ID, &p.Name, &p.CleanName, &p.FirstSeen, &p.LastSeen, &p.TotalPlaytimeSeconds, &p.IsBot, &p.IsVR, &p.IsVerified, &p.IsAdmin); err != nil {
 			return nil, err
 		}
 		players = append(players, p)
@@ -483,8 +493,12 @@ func (s *Store) GetPlayers(ctx context.Context, limit, offset int) ([]domain.Pla
 				JOIN player_guids pg ON s.player_guid_id = pg.id
 				WHERE pg.player_id = p.id AND s.left_at IS NOT NULL
 			), 0) as total_playtime_seconds,
-			p.is_bot, p.is_vr
-		FROM players p ORDER BY p.last_seen DESC
+			p.is_bot, p.is_vr,
+			CASE WHEN u.id IS NOT NULL THEN 1 ELSE 0 END as is_verified,
+			COALESCE(u.is_admin, 0) as is_admin
+		FROM players p
+		LEFT JOIN users u ON u.player_id = p.id
+		ORDER BY p.last_seen DESC
 		LIMIT ? OFFSET ?
 	`, limit, offset)
 	if err != nil {
@@ -495,7 +509,7 @@ func (s *Store) GetPlayers(ctx context.Context, limit, offset int) ([]domain.Pla
 	var players []domain.Player
 	for rows.Next() {
 		var p domain.Player
-		if err := rows.Scan(&p.ID, &p.Name, &p.CleanName, &p.FirstSeen, &p.LastSeen, &p.TotalPlaytimeSeconds, &p.IsBot, &p.IsVR); err != nil {
+		if err := rows.Scan(&p.ID, &p.Name, &p.CleanName, &p.FirstSeen, &p.LastSeen, &p.TotalPlaytimeSeconds, &p.IsBot, &p.IsVR, &p.IsVerified, &p.IsAdmin); err != nil {
 			return nil, 0, err
 		}
 		players = append(players, p)
@@ -1080,6 +1094,8 @@ func (s *Store) GetLeaderboard(ctx context.Context, category, period string, lim
 					WHERE pg3.player_id = p.id AND s.left_at IS NOT NULL
 				), 0) as total_playtime_seconds,
 				p.is_bot, p.is_vr,
+				CASE WHEN u.id IS NOT NULL THEN 1 ELSE 0 END as is_verified,
+				COALESCE(u.is_admin, 0) as is_admin,
 				COALESCE(SUM(mps.frags), 0) as total_frags,
 				COALESCE(SUM(mps.deaths), 0) as total_deaths,
 				COUNT(DISTINCT mps.match_id) as total_matches,
@@ -1109,6 +1125,7 @@ func (s *Store) GetLeaderboard(ctx context.Context, category, period string, lim
 			FROM players p
 			JOIN player_guids pg ON p.id = pg.player_id
 			LEFT JOIN match_player_stats mps ON pg.id = mps.player_guid_id
+			LEFT JOIN users u ON u.player_id = p.id
 			WHERE p.is_bot = FALSE AND p.clean_name NOT LIKE '[VR] Player#%'
 			GROUP BY p.id
 			` + havingClause + `
@@ -1141,6 +1158,8 @@ func (s *Store) GetLeaderboard(ctx context.Context, category, period string, lim
 					WHERE pg3.player_id = p.id AND s.left_at IS NOT NULL
 				), 0) as total_playtime_seconds,
 				p.is_bot, p.is_vr,
+				CASE WHEN u.id IS NOT NULL THEN 1 ELSE 0 END as is_verified,
+				COALESCE(u.is_admin, 0) as is_admin,
 				COALESCE(SUM(mps.frags), 0) as total_frags,
 				COALESCE(SUM(mps.deaths), 0) as total_deaths,
 				COUNT(DISTINCT mps.match_id) as total_matches,
@@ -1171,6 +1190,7 @@ func (s *Store) GetLeaderboard(ctx context.Context, category, period string, lim
 			JOIN player_guids pg ON p.id = pg.player_id
 			LEFT JOIN match_player_stats mps ON pg.id = mps.player_guid_id
 			LEFT JOIN matches m ON mps.match_id = m.id
+			LEFT JOIN users u ON u.player_id = p.id
 			WHERE ` + whereConditions + `
 			GROUP BY p.id
 			` + havingClause + `
@@ -1194,6 +1214,7 @@ func (s *Store) GetLeaderboard(ctx context.Context, category, period string, lim
 		if err := rows.Scan(
 			&e.Player.ID, &e.Player.Name, &e.Player.CleanName,
 			&e.Player.FirstSeen, &e.Player.LastSeen, &e.Player.TotalPlaytimeSeconds, &e.Player.IsBot, &e.Player.IsVR,
+			&e.Player.IsVerified, &e.Player.IsAdmin,
 			&e.TotalFrags, &e.TotalDeaths, &e.TotalMatches, &e.CompletedMatches, &e.UncompletedMatches,
 			&e.Captures, &e.FlagReturns, &e.Assists, &e.Impressives, &e.Excellents,
 			&e.Humiliations, &e.Defends, &e.Victories,
@@ -1462,6 +1483,18 @@ func (s *Store) IsPlayerClaimed(ctx context.Context, playerID int64) (bool, erro
 	return count > 0, err
 }
 
+// GetPlayerVerifiedStatus returns whether a player is verified (linked to a user) and whether they are an admin
+func (s *Store) GetPlayerVerifiedStatus(ctx context.Context, playerID int64) (isVerified, isAdmin bool) {
+	var admin bool
+	err := s.db.QueryRowContext(ctx, `
+		SELECT is_admin FROM users WHERE player_id = ?
+	`, playerID).Scan(&admin)
+	if err != nil {
+		return false, false
+	}
+	return true, admin
+}
+
 // UpdateUserPlayerLink links or unlinks a player to a user
 func (s *Store) UpdateUserPlayerLink(ctx context.Context, userID int64, playerID *int64) error {
 	_, err := s.db.ExecContext(ctx, `
@@ -1476,37 +1509,6 @@ func (s *Store) UpdateUserAdmin(ctx context.Context, userID int64, isAdmin bool)
 		UPDATE users SET is_admin = ? WHERE id = ?
 	`, isAdmin, userID)
 	return err
-}
-
-// VerifiedPlayer represents a player linked to a user account
-type VerifiedPlayer struct {
-	PlayerID  int64  `json:"player_id"`
-	CleanName string `json:"clean_name"`
-	IsAdmin   bool   `json:"is_admin"`
-}
-
-// GetVerifiedPlayers returns all players linked to user accounts
-func (s *Store) GetVerifiedPlayers(ctx context.Context) ([]VerifiedPlayer, error) {
-	rows, err := s.db.QueryContext(ctx, `
-		SELECT u.player_id, p.clean_name, u.is_admin
-		FROM users u
-		JOIN players p ON p.id = u.player_id
-		WHERE u.player_id IS NOT NULL
-	`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var players []VerifiedPlayer
-	for rows.Next() {
-		var p VerifiedPlayer
-		if err := rows.Scan(&p.PlayerID, &p.CleanName, &p.IsAdmin); err != nil {
-			return nil, err
-		}
-		players = append(players, p)
-	}
-	return players, rows.Err()
 }
 
 // attachPlayersToMatches loads player stats for a list of matches and attaches them
@@ -1525,10 +1527,13 @@ func (s *Store) attachPlayersToMatches(ctx context.Context, matches []domain.Mat
 
 	// Get player stats for all matches
 	playerRows, err := s.db.QueryContext(ctx, `
-		SELECT mps.match_id, p.id, pg.name, pg.clean_name, mps.frags, mps.deaths, mps.completed, p.is_bot, mps.skill, mps.score, mps.team, mps.model, mps.impressives, mps.excellents, mps.humiliations, mps.defends, mps.victories, mps.captures, mps.assists, mps.is_vr
+		SELECT mps.match_id, p.id, pg.name, pg.clean_name, mps.frags, mps.deaths, mps.completed, p.is_bot, mps.skill, mps.score, mps.team, mps.model, mps.impressives, mps.excellents, mps.humiliations, mps.defends, mps.victories, mps.captures, mps.assists, mps.is_vr,
+			CASE WHEN u.id IS NOT NULL THEN 1 ELSE 0 END as is_verified,
+			COALESCE(u.is_admin, 0) as is_admin
 		FROM match_player_stats mps
 		JOIN player_guids pg ON mps.player_guid_id = pg.id
 		JOIN players p ON pg.player_id = p.id
+		LEFT JOIN users u ON u.player_id = p.id
 		WHERE mps.match_id IN (`+strings.Join(placeholders, ",")+`)
 		ORDER BY mps.score DESC NULLS LAST, mps.frags DESC
 	`, args...)
@@ -1949,10 +1954,13 @@ func (s *Store) GetMatchSummaryByID(ctx context.Context, matchID int64) (*domain
 
 	// Get player stats for this match
 	playerRows, err := s.db.QueryContext(ctx, `
-		SELECT p.id, pg.name, pg.clean_name, mps.frags, mps.deaths, mps.completed, p.is_bot, mps.skill, mps.score, mps.team, mps.model, mps.impressives, mps.excellents, mps.humiliations, mps.defends, mps.victories, mps.captures, mps.assists, mps.is_vr
+		SELECT p.id, pg.name, pg.clean_name, mps.frags, mps.deaths, mps.completed, p.is_bot, mps.skill, mps.score, mps.team, mps.model, mps.impressives, mps.excellents, mps.humiliations, mps.defends, mps.victories, mps.captures, mps.assists, mps.is_vr,
+			CASE WHEN u.id IS NOT NULL THEN 1 ELSE 0 END as is_verified,
+			COALESCE(u.is_admin, 0) as is_admin
 		FROM match_player_stats mps
 		JOIN player_guids pg ON mps.player_guid_id = pg.id
 		JOIN players p ON pg.player_id = p.id
+		LEFT JOIN users u ON u.player_id = p.id
 		WHERE mps.match_id = ?
 		ORDER BY mps.score DESC NULLS LAST, mps.frags DESC
 	`, matchID)

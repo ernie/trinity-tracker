@@ -3,12 +3,12 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import App from './App'
 import { PlayersPage, AccountPage, LeaderboardPage, MatchesPage, MatchDetailPage, DemoPlayerPage, PlayPage, AboutPage, GettingStartedPage, ClaimPage } from './components'
-import { VerifiedPlayersProvider } from './hooks/useVerifiedPlayers'
+import { AuthProvider } from './hooks/useAuth'
 import './index.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <VerifiedPlayersProvider>
+    <AuthProvider>
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<App />} />
@@ -25,6 +25,6 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/claim" element={<ClaimPage />} />
         </Routes>
       </BrowserRouter>
-    </VerifiedPlayersProvider>
+    </AuthProvider>
   </StrictMode>,
 )

@@ -272,7 +272,7 @@ function LeaderboardTable({
               <td className="player-col">
                 <span className="player-name">
                   <PlayerPortrait model={entry.player.model} size="sm" />
-                  <PlayerBadge playerId={entry.player.id} isVR={entry.player.is_vr} />
+                  <PlayerBadge isVerified={entry.player.is_verified} isAdmin={entry.player.is_admin} isVR={entry.player.is_vr} />
                   <Link to={`/players/${entry.player.id}`}>
                     <ColoredText text={entry.player.is_vr ? stripVRPrefix(entry.player.name) : entry.player.name} />
                   </Link>
@@ -317,7 +317,7 @@ function LeaderboardTable({
             <td className="player-col">
               <span className="player-name">
                 <PlayerPortrait model={entry.player.model} size="sm" />
-                <PlayerBadge playerId={entry.player.id} isVR={entry.player.is_vr} />
+                <PlayerBadge isVerified={entry.player.is_verified} isAdmin={entry.player.is_admin} isVR={entry.player.is_vr} />
                 <Link to={`/players/${entry.player.id}`}>
                   <ColoredText text={entry.player.is_vr ? stripVRPrefix(entry.player.name) : entry.player.name} />
                 </Link>

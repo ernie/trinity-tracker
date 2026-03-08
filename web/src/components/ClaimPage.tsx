@@ -25,7 +25,7 @@ function ClaimPlayerCard({ player, stats }: { player: PlayerProfile; stats?: Agg
         <PlayerPortrait model={player.model} size="xl" />
         <div className="player-name-info">
           <div className="player-name-large">
-            <PlayerBadge playerId={player.id} isVR={player.is_vr} size="md" />
+            <PlayerBadge isVerified={player.is_verified} isAdmin={player.is_admin} isVR={player.is_vr} size="md" />
             <ColoredText text={player.name} />
           </div>
           <div className="player-dates">

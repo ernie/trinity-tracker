@@ -17,6 +17,8 @@ type Player struct {
 	IsVR                 bool         `json:"is_vr"`
 	Model                string       `json:"model,omitempty"`  // most recent model used
 	Skill                float64      `json:"skill,omitempty"`  // bot skill level (1-5), 0 if human
+	IsVerified           bool         `json:"is_verified"`
+	IsAdmin              bool         `json:"is_admin"`
 	GUIDs                []PlayerGUID `json:"guids,omitempty"`  // populated when fetching with details
 }
 

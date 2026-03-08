@@ -759,9 +759,11 @@ h2 {
   justify-content: center;
   width: 16px;
   height: 16px;
+  min-width: 16px;
   border-radius: 3px;
   vertical-align: middle;
   box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .player-badge svg {
@@ -780,14 +782,20 @@ h2 {
 }
 
 .player-badge.unverified {
-  background: none;
-  border: 1px dashed rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px dashed rgba(255, 255, 255, 0.8);
 }
 
-.player-badge.unverified img {
-  width: 100%;
-  height: 100%;
-  opacity: 0.5;
+.player-badge.unverified svg {
+  width: 70%;
+  height: 70%;
+  fill: white;
+  stroke: rgba(0, 0, 0, 0.7);
+  stroke-width: 1.5px;
+}
+
+.player-badge.unverified.vr {
+  background: rgba(255, 255, 255, 0.5) url('/assets/vr/vr.png') center/contain no-repeat;
 }
 
 /* Verified badge sizes */
@@ -927,6 +935,7 @@ h2 {
   justify-content: center;
   margin: 0 4px;
   vertical-align: middle;
+  flex-shrink: 0;
 }
 
 .player-portrait img {
@@ -1425,19 +1434,23 @@ h2 {
 
 .match-player-row .player-name {
   font-weight: bold;
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  flex-wrap: wrap;
   gap: 2px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .match-player-row .completion-dot {
   display: inline-block;
   width: 6px;
   height: 6px;
+  min-width: 6px;
   border-radius: 50%;
   margin-right: 4px;
   vertical-align: middle;
+  flex-shrink: 0;
 }
 
 .match-player-row .completion-dot.completed {

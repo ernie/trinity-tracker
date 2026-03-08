@@ -219,7 +219,7 @@ function ActivityMessage({ activity, onPlayerClick }: ActivityMessageProps) {
       <ColoredText text={before} />
       {icon}
       {!icon && isBot && <BotBadge isBot skill={skill!} />}
-      {!icon && !isBot && playerId && <PlayerBadge playerId={playerId} isVR={activity.player?.isVR} />}
+      {!icon && !isBot && playerId && <PlayerBadge isVerified={activity.player?.isVerified} isAdmin={activity.player?.isAdmin} isVR={activity.player?.isVR} />}
       <span
         className="clickable-player"
         onClick={() => onPlayerClick(playerName, cleanName, playerId)}

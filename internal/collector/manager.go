@@ -57,6 +57,8 @@ type clientState struct {
 	clientID           int
 	playerGUID         int64 // ID of the player_guids record
 	playerID           int64 // ID of the players record (for events)
+	isVerified         bool  // player has a linked user account
+	isAdmin            bool  // player's linked user is an admin
 	sessionID          int64
 	name               string
 	cleanName          string
@@ -374,6 +376,8 @@ func (m *ServerManager) enrichPlayersFromClients(state *serverState, status *dom
 			player.Model = client.model
 			player.IsVR = client.isVR
 			player.PlayerID = client.getPlayerIDPtr()
+			player.IsVerified = client.isVerified
+			player.IsAdmin = client.isAdmin
 		} else {
 			// No tracked client yet - assume bot until GUID data arrives from logs
 			player.IsBot = true
@@ -525,6 +529,11 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 			}
 		}
 
+		// Look up verified/admin status for this player
+		if client.playerID > 0 {
+			client.isVerified, client.isAdmin = m.store.GetPlayerVerifiedStatus(ctx, client.playerID)
+		}
+
 	case EventTypeClientBegin:
 		data := event.Data.(ClientConnectData)
 		if client, ok := state.clients[data.ClientID]; ok {
@@ -587,12 +596,14 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 					Timestamp: event.Timestamp,
 					Data: domain.PlayerJoinEvent{
 						Player: domain.PlayerStatus{
-							Name:      client.name,
-							CleanName: client.cleanName,
-							IsBot:     client.isBot,
-							IsVR:      client.isVR,
-							Team:      client.team,
-							JoinedAt:  event.Timestamp,
+							Name:       client.name,
+							CleanName:  client.cleanName,
+							IsBot:      client.isBot,
+							IsVR:       client.isVR,
+							IsVerified: client.isVerified,
+							IsAdmin:    client.isAdmin,
+							Team:       client.team,
+							JoinedAt:   event.Timestamp,
 						},
 						PlayerID: client.getPlayerIDPtr(),
 					},
@@ -941,6 +952,8 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 						model:      client.model,
 						isBot:      client.isBot,
 						isVR:       client.isVR,
+						isVerified: client.isVerified,
+						isAdmin:    client.isAdmin,
 						skill:      client.skill,
 						team:       data.NewTeam,
 						joinedAt:   event.Timestamp,
