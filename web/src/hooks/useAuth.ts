@@ -38,7 +38,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Check existing token on mount
   useEffect(() => {
-    const token = sessionStorage.getItem(TOKEN_KEY)
+    const token = localStorage.getItem(TOKEN_KEY)
     if (token) {
       checkToken(token)
     } else {
@@ -62,10 +62,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
           passwordChangeRequired: data.password_change_required || false,
         })
       } else {
-        sessionStorage.removeItem(TOKEN_KEY)
+        localStorage.removeItem(TOKEN_KEY)
       }
     } catch {
-      sessionStorage.removeItem(TOKEN_KEY)
+      localStorage.removeItem(TOKEN_KEY)
     } finally {
       setLoading(false)
     }
@@ -82,7 +82,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (!res.ok) return false
 
       const data = await res.json()
-      sessionStorage.setItem(TOKEN_KEY, data.token)
+      localStorage.setItem(TOKEN_KEY, data.token)
       setAuth({
         isAuthenticated: true,
         username: data.username,
@@ -98,7 +98,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [])
 
   const logout = useCallback(() => {
-    sessionStorage.removeItem(TOKEN_KEY)
+    localStorage.removeItem(TOKEN_KEY)
     setAuth({
       isAuthenticated: false,
       username: null,
@@ -130,7 +130,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       // Update token after password change
       if (data.token) {
-        sessionStorage.setItem(TOKEN_KEY, data.token)
+        localStorage.setItem(TOKEN_KEY, data.token)
         setAuth(prev => ({
           ...prev,
           token: data.token,
