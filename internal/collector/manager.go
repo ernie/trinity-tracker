@@ -1438,16 +1438,16 @@ func (m *ServerManager) handleCommand(ctx context.Context, serverID int64, state
 	case "help":
 		m.handleHelpCommand(serverID, clientID)
 	default:
-		m.sendTell(serverID, clientID, "^1Unknown command: ^7"+cmd+". Type ^3!help ^7for available commands.")
+		m.sendPrint(serverID, clientID, "^1Unknown command: ^7"+cmd+". Type ^3!help ^7for available commands.")
 	}
 }
 
 // handleHelpCommand shows available commands to a player
 func (m *ServerManager) handleHelpCommand(serverID int64, clientID int) {
 	go func() {
-		m.sendTellSync(serverID, clientID, "^3Available commands:")
-		m.sendTellSync(serverID, clientID, "^3!claim ^7- Link your identity to an account")
-		m.sendTellSync(serverID, clientID, "^3!link <code> ^7- Link current identity to your account")
+		m.sendPrintSync(serverID, clientID, "^3Available commands:")
+		m.sendPrintSync(serverID, clientID, "^3!claim ^7- Link your identity to an account")
+		m.sendPrintSync(serverID, clientID, "^3!link <code> ^7- Link current identity to your account")
 	}()
 }
 
@@ -1463,53 +1463,53 @@ func (m *ServerManager) handleLinkCommand(ctx context.Context, serverID int64, s
 
 	// Validate code format (6 digits)
 	if len(code) != 6 || !isNumeric(code) {
-		m.sendTell(serverID, clientID, "^3Usage: ^7!link <6-digit-code>")
+		m.sendPrint(serverID, clientID, "^3Usage: ^7!link <6-digit-code>")
 		return
 	}
 
 	// Look up the link code
 	linkCode, err := m.store.GetValidLinkCode(ctx, code)
 	if err != nil {
-		m.sendTell(serverID, clientID, "^1Invalid or expired link code.")
+		m.sendPrint(serverID, clientID, "^1Invalid or expired link code.")
 		return
 	}
 
 	// Check if the GUID has a valid player record
 	if client.playerGUID == 0 || client.guid == "" {
-		m.sendTell(serverID, clientID, "^1Error: Current identity unknown. Try reconnecting.")
+		m.sendPrint(serverID, clientID, "^1Error: Current identity unknown. Try reconnecting.")
 		return
 	}
 
 	// Get the player record for this GUID (the source player to merge)
 	sourcePlayerGUID, err := m.store.GetPlayerGUIDByGUID(ctx, client.guid)
 	if err != nil || sourcePlayerGUID == nil {
-		m.sendTell(serverID, clientID, "^1Error: Could not find player record for this identity.")
+		m.sendPrint(serverID, clientID, "^1Error: Could not find player record for this identity.")
 		return
 	}
 
 	// Check if this GUID already belongs to the target player
 	if sourcePlayerGUID.PlayerID == linkCode.PlayerID {
-		m.sendTell(serverID, clientID, "^3This identity is already linked to your account.")
+		m.sendPrint(serverID, clientID, "^3This identity is already linked to your account.")
 		return
 	}
 
 	// Atomically: mark code as used, then merge
 	if err := m.store.MarkLinkCodeUsed(ctx, linkCode.ID, client.guid); err != nil {
-		m.sendTell(serverID, clientID, "^1Code already used or expired.")
+		m.sendPrint(serverID, clientID, "^1Code already used or expired.")
 		return
 	}
 
 	// Merge the source player (with this GUID) into the target primary player
 	if err := m.store.MergePlayers(ctx, linkCode.PlayerID, sourcePlayerGUID.PlayerID); err != nil {
 		log.Printf("Error merging players during link: %v", err)
-		m.sendTell(serverID, clientID, "^1Error linking account. Please contact admin.")
+		m.sendPrint(serverID, clientID, "^1Error linking account. Please contact admin.")
 		return
 	}
 
 	// Update client state to reflect new player_id
 	client.playerID = linkCode.PlayerID
 
-	m.sendTell(serverID, clientID, "^2Link successful! ^7This identity has been linked to your account.")
+	m.sendPrint(serverID, clientID, "^2Link successful! ^7This identity has been linked to your account.")
 	log.Printf("Link successful: GUID %s merged into player %d via code %s", client.guid, linkCode.PlayerID, code)
 }
 
@@ -1523,12 +1523,12 @@ func (m *ServerManager) handleClaimCommand(ctx context.Context, serverID int64, 
 
 	// Validate client has a resolvable GUID and player_id
 	if client.playerGUID == 0 || client.guid == "" {
-		m.sendTell(serverID, clientID, "^1Error: Current identity unknown. Try reconnecting.")
+		m.sendPrint(serverID, clientID, "^1Error: Current identity unknown. Try reconnecting.")
 		return
 	}
 
 	if client.playerID == 0 {
-		m.sendTell(serverID, clientID, "^1Error: Could not identify your player record. Try reconnecting.")
+		m.sendPrint(serverID, clientID, "^1Error: Could not identify your player record. Try reconnecting.")
 		return
 	}
 
@@ -1536,11 +1536,11 @@ func (m *ServerManager) handleClaimCommand(ctx context.Context, serverID int64, 
 	claimed, err := m.store.IsPlayerClaimed(ctx, client.playerID)
 	if err != nil {
 		log.Printf("Error checking claim status for player %d: %v", client.playerID, err)
-		m.sendTell(serverID, clientID, "^1Error checking account status. Please try again.")
+		m.sendPrint(serverID, clientID, "^1Error checking account status. Please try again.")
 		return
 	}
 	if claimed {
-		m.sendTell(serverID, clientID, "^3This identity is already linked to an account.")
+		m.sendPrint(serverID, clientID, "^3This identity is already linked to an account.")
 		return
 	}
 
@@ -1554,29 +1554,37 @@ func (m *ServerManager) handleClaimCommand(ctx context.Context, serverID int64, 
 	claimCode, err := m.store.CreateClaimCode(ctx, client.playerID, expiresAt)
 	if err != nil {
 		log.Printf("Error creating claim code for player %d: %v", client.playerID, err)
-		m.sendTell(serverID, clientID, "^1Error generating claim code. Please try again.")
+		m.sendPrint(serverID, clientID, "^1Error generating claim code. Please try again.")
 		return
 	}
 
-	m.sendTell(serverID, clientID, fmt.Sprintf("Your claim code is: ^3%s^7 - Visit ^5trinity.ernie.io ^7to claim this identity. Expires in 30 minutes.", claimCode.Code))
+	m.sendPrint(serverID, clientID, fmt.Sprintf("Your claim code is: ^3%s^7 - Visit ^5trinity.ernie.io ^7to claim this identity. Expires in 30 minutes.", claimCode.Code))
 	log.Printf("Claim code %s generated for player %d on server %d", claimCode.Code, client.playerID, serverID)
 }
 
-// sendTell sends a private message to a player via RCON (runs async to avoid deadlock)
-func (m *ServerManager) sendTell(serverID int64, clientID int, message string) {
-	go m.sendTellSync(serverID, clientID, message)
+// sendPrint sends a console print to a player via RCON (runs async).
+func (m *ServerManager) sendPrint(serverID int64, clientID int, message string) {
+	go m.sendPrintSync(serverID, clientID, message)
 }
 
-// sendTellSync sends a private message to a player via RCON synchronously.
+// sendPrintSync sends a console print to a player via RCON synchronously.
 // Use this when ordering matters (e.g., sending multiple messages in sequence).
-func (m *ServerManager) sendTellSync(serverID int64, clientID int, message string) {
-	cmd := fmt.Sprintf("tell %d ^7%s", clientID, message)
-	log.Printf("Sending RCON tell: %q", cmd)
-	response, err := m.ExecuteRcon(serverID, cmd)
-	if err != nil {
-		log.Printf("Error sending tell to client %d on server %d: %v", clientID, serverID, err)
-	} else {
-		log.Printf("RCON response: %q", response)
+func (m *ServerManager) sendPrintSync(serverID int64, clientID int, message string) {
+	cmd := fmt.Sprintf("sv_cmd print %d ^7%s\\n", clientID, message)
+	log.Printf("Sending print to client %d: %q", clientID, message)
+	if _, err := m.ExecuteRcon(serverID, cmd); err != nil {
+		log.Printf("Error sending print to client %d on server %d: %v", clientID, serverID, err)
+	}
+}
+
+// sendCenterPrint sends a center print to a player via RCON.
+func (m *ServerManager) sendCenterPrint(serverID int64, clientID int, message string) {
+	// Replace real newlines with literal \n so they survive RCON transport
+	// and get interpreted as line breaks by the engine's centerprint renderer.
+	escaped := strings.ReplaceAll(message, "\n", "\\n")
+	cmd := fmt.Sprintf("sv_cmd cp %d ^7%s", clientID, escaped)
+	if _, err := m.ExecuteRcon(serverID, cmd); err != nil {
+		log.Printf("Error sending cp to client %d on server %d: %v", clientID, serverID, err)
 	}
 }
 
@@ -1596,36 +1604,52 @@ func (m *ServerManager) greetPlayer(ctx context.Context, serverID int64, clientI
 		return
 	}
 
-	var message string
+	var message, cpMessage string
 	hasStats := stats.Stats.CompletedMatches > 0
 
 	if claimed {
 		if hasStats {
 			message = fmt.Sprintf("Welcome back, %s^7! K/D: ^3%.2f ^7| Matches: ^3%d ^7(^3!help ^7for help)",
 				playerName, stats.Stats.KDRatio, stats.Stats.CompletedMatches)
+			cpMessage = fmt.Sprintf("Welcome back, %s^7!\nK/D: ^3%.2f ^7| Matches: ^3%d\n^3!help ^7for help",
+				playerName, stats.Stats.KDRatio, stats.Stats.CompletedMatches)
 		} else {
 			message = fmt.Sprintf("Welcome back, %s^7! (^3!help ^7for help)", playerName)
+			cpMessage = fmt.Sprintf("Welcome back, %s^7!\n^3!help ^7for help", playerName)
 		}
 	} else {
 		if hasStats {
 			message = fmt.Sprintf("Welcome, %s^7! K/D: ^3%.2f ^7| Matches: ^3%d ^7- ^3!claim ^7to link your identity! (^3!help ^7for help)",
 				playerName, stats.Stats.KDRatio, stats.Stats.CompletedMatches)
+			cpMessage = fmt.Sprintf("Welcome, %s^7!\nK/D: ^3%.2f ^7| Matches: ^3%d\n^3!claim ^7to link your identity!",
+				playerName, stats.Stats.KDRatio, stats.Stats.CompletedMatches)
 		} else {
 			message = fmt.Sprintf("Welcome, %s^7! ^3!claim ^7to link your identity! (^3!help ^7for help)",
+				playerName)
+			cpMessage = fmt.Sprintf("Welcome, %s^7!\n^3!claim ^7to link your identity!",
 				playerName)
 		}
 	}
 
-	m.sendTellSync(serverID, clientID, message)
+	time.Sleep(3 * time.Second)
+	m.sendPrintSync(serverID, clientID, message)
+	m.sendCenterPrint(serverID, clientID, cpMessage)
 
 	if !isVR {
+		var upgradeMsg, upgradeCpMsg string
 		if strings.Contains(cleanName, "[VR]") {
-			m.sendTellSync(serverID, clientID, "Your VR client is outdated. Upgrade to enjoy all Trinity features! More info at ^5trinity.ernie.io/getting-started")
+			upgradeMsg = "Your VR client is outdated. Upgrade to enjoy all Trinity features! More info at ^5trinity.ernie.io/getting-started"
+			upgradeCpMsg = "Your VR client is outdated.\nUpgrade to enjoy all Trinity features!\n^5trinity.ernie.io/getting-started"
 		} else if !isTrinityEngine {
-			m.sendTellSync(serverID, clientID, "It looks like you're missing out on Trinity-specific features on this server. Go to ^5trinity.ernie.io/getting-started ^7to upgrade.")
+			upgradeMsg = "It looks like you're missing out on Trinity-specific features on this server. Go to ^5trinity.ernie.io/getting-started ^7to upgrade."
+			upgradeCpMsg = "Get Trinity for the best experience!\n^5trinity.ernie.io/getting-started"
 		} else {
-			m.sendTellSync(serverID, clientID, "Haven't tried Quake 3 in VR yet? It's a whole new dimension (literally). Visit ^5trinity.ernie.io/getting-started ^7to learn more.")
+			upgradeMsg = "Haven't tried Quake 3 in VR yet? It's a whole new dimension (literally). Visit ^5trinity.ernie.io/getting-started ^7to learn more."
+			upgradeCpMsg = "Do you play VR?\nGet the VR client!\n^5trinity.ernie.io/getting-started"
 		}
+		time.Sleep(3 * time.Second)
+		m.sendPrintSync(serverID, clientID, upgradeMsg)
+		m.sendCenterPrint(serverID, clientID, upgradeCpMsg)
 	}
 }
 
