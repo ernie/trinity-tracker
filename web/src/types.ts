@@ -262,6 +262,7 @@ export interface MatchSummary {
   red_score?: number
   blue_score?: number
   demo_url?: string
+  physics?: string
 }
 
 // Auth types

@@ -6,6 +6,7 @@ import { ColoredText } from './ColoredText'
 import { MedalIcon } from './MedalIcon'
 import { PlayerPortrait } from './PlayerPortrait'
 import { PlayerBadge } from './PlayerBadge'
+import { PhysicsIcon } from './ServerCard'
 import { formatNumber, stripVRPrefix } from '../utils'
 
 export function formatDuration(startedAt: string, endedAt: string): string {
@@ -101,7 +102,7 @@ export function MatchCard({ match, onPlayerClick, highlightPlayerId, showPermali
       style={levelshotUrl ? { '--levelshot': `url(${levelshotUrl})` } as React.CSSProperties : undefined}
     >
       <span className="server-name-badge">
-        <span className="badge-label">Server</span> {match.server_name}
+        <PhysicsIcon physics={match.physics} /> {match.server_name}
         <span className="badge-sep">/</span>
         <span className="badge-label">Mode</span> {formatGameType(match.game_type)}
       </span>

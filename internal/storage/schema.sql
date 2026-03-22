@@ -84,7 +84,8 @@ CREATE TABLE IF NOT EXISTS matches (
     exit_reason TEXT,
     red_score INTEGER,
     blue_score INTEGER,
-    has_human_player BOOLEAN DEFAULT FALSE
+    has_human_player BOOLEAN DEFAULT FALSE,
+    physics TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_matches_server_id ON matches(server_id);

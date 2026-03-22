@@ -780,9 +780,9 @@ func (s *Store) GetActiveSessions(ctx context.Context, serverID int64) ([]domain
 // CreateMatch starts a new match
 func (s *Store) CreateMatch(ctx context.Context, m *domain.Match) error {
 	result, err := s.db.ExecContext(ctx, `
-		INSERT INTO matches (uuid, server_id, map_name, game_type, started_at)
-		VALUES (?, ?, ?, ?, ?)
-	`, m.UUID, m.ServerID, m.MapName, m.GameType, formatTimestamp(m.StartedAt))
+		INSERT INTO matches (uuid, server_id, map_name, game_type, started_at, physics)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`, m.UUID, m.ServerID, m.MapName, m.GameType, formatTimestamp(m.StartedAt), m.Physics)
 	if err != nil {
 		return err
 	}
@@ -799,9 +799,9 @@ func (s *Store) GetMatchByUUID(ctx context.Context, uuid string) (*domain.Match,
 	var endedAt sql.NullTime
 	var exitReason sql.NullString
 	err := s.db.QueryRowContext(ctx, `
-		SELECT id, uuid, server_id, map_name, game_type, started_at, ended_at, exit_reason
+		SELECT id, uuid, server_id, map_name, game_type, started_at, ended_at, exit_reason, physics
 		FROM matches WHERE uuid = ?
-	`, uuid).Scan(&m.ID, &m.UUID, &m.ServerID, &m.MapName, &m.GameType, &m.StartedAt, &endedAt, &exitReason)
+	`, uuid).Scan(&m.ID, &m.UUID, &m.ServerID, &m.MapName, &m.GameType, &m.StartedAt, &endedAt, &exitReason, &m.Physics)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -834,6 +834,14 @@ func (s *Store) EndMatch(ctx context.Context, matchID int64, endedAt time.Time, 
 		    last_match_ended_at = ?
 		WHERE id = (SELECT server_id FROM matches WHERE id = ?)
 	`, matchID, formattedEndedAt, matchID)
+	return err
+}
+
+// UpdateMatchPhysics updates the physics mode for a match
+func (s *Store) UpdateMatchPhysics(ctx context.Context, matchID int64, physics string) error {
+	_, err := s.db.ExecContext(ctx, `
+		UPDATE matches SET physics = ? WHERE id = ?
+	`, physics, matchID)
 	return err
 }
 
@@ -1569,7 +1577,7 @@ func (s *Store) GetRecentMatchSummaries(ctx context.Context, limit int) ([]domai
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT DISTINCT
 			m.id, m.uuid, m.server_id, s.name, m.map_name, m.game_type, m.started_at, m.ended_at, m.exit_reason,
-			m.red_score, m.blue_score
+			m.red_score, m.blue_score, m.physics
 		FROM matches m
 		JOIN servers s ON m.server_id = s.id
 		JOIN match_player_stats mps ON m.id = mps.match_id
@@ -1604,7 +1612,7 @@ func (s *Store) GetPlayerRecentMatches(ctx context.Context, playerID int64, limi
 	query := `
 		SELECT DISTINCT
 			m.id, m.uuid, m.server_id, s.name, m.map_name, m.game_type, m.started_at, m.ended_at, m.exit_reason,
-			m.red_score, m.blue_score
+			m.red_score, m.blue_score, m.physics
 		FROM matches m
 		JOIN servers s ON m.server_id = s.id
 		JOIN match_player_stats mps ON m.id = mps.match_id
@@ -1941,7 +1949,7 @@ func (s *Store) ClaimLink(ctx context.Context, codeID, claimPlayerID, userID int
 func (s *Store) GetMatchSummaryByID(ctx context.Context, matchID int64) (*domain.MatchSummary, error) {
 	row := s.db.QueryRowContext(ctx, `
 		SELECT m.id, m.uuid, m.server_id, s.name, m.map_name, m.game_type, m.started_at, m.ended_at, m.exit_reason,
-		       m.red_score, m.blue_score
+		       m.red_score, m.blue_score, m.physics
 		FROM matches m
 		JOIN servers s ON m.server_id = s.id
 		WHERE m.id = ?
@@ -2002,7 +2010,7 @@ func (s *Store) GetFilteredMatchSummaries(ctx context.Context, filter MatchFilte
 	query := `
 		SELECT DISTINCT
 			m.id, m.uuid, m.server_id, s.name, m.map_name, m.game_type, m.started_at, m.ended_at, m.exit_reason,
-			m.red_score, m.blue_score
+			m.red_score, m.blue_score, m.physics
 		FROM matches m
 		JOIN servers s ON m.server_id = s.id
 		JOIN match_player_stats mps ON m.id = mps.match_id

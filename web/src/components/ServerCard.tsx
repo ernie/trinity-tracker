@@ -158,14 +158,14 @@ function sortPlayersByTeam(players: Player[]): Player[] {
   })
 }
 
-const PHYSICS_MODES: Record<string, { icon: string; label: string }> = {
+export const PHYSICS_MODES: Record<string, { icon: string; label: string }> = {
   '0': { icon: '/assets/physics/vq3.png', label: 'Quake 3 Physics' },
   '1': { icon: '/assets/physics/cpm.png', label: 'CPMA Physics' },
   '2': { icon: '/assets/physics/ql.png', label: 'Quake Live Physics' },
   '3': { icon: '/assets/physics/qlt.png', label: 'Quake Live Turbo Physics' },
 }
 
-function PhysicsIcon({ physics }: { physics?: string }) {
+export function PhysicsIcon({ physics }: { physics?: string }) {
   const mode = PHYSICS_MODES[physics ?? '0']
   if (!mode) return null
   return (
