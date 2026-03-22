@@ -294,6 +294,45 @@ h2 {
   z-index: 10;
 }
 
+.physics-icon {
+  position: relative;
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 4px;
+  cursor: pointer;
+}
+
+.physics-icon > img {
+  width: 14px;
+  height: 14px;
+  vertical-align: middle;
+}
+
+.physics-icon-full {
+  display: none;
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.physics-icon-full img {
+  width: 64px;
+  height: 64px;
+  background: rgba(0, 0, 0, 0.75);
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.physics-icon:hover > img {
+  opacity: 0;
+}
+
+.physics-icon:hover .physics-icon-full {
+  display: block;
+}
+
 .server-name-badge .badge-label {
   color: var(--text-dim);
   font-size: 0.65rem;

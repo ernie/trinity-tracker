@@ -158,6 +158,26 @@ function sortPlayersByTeam(players: Player[]): Player[] {
   })
 }
 
+const PHYSICS_MODES: Record<string, { icon: string; label: string }> = {
+  '0': { icon: '/assets/physics/vq3.png', label: 'Quake 3 Physics' },
+  '1': { icon: '/assets/physics/cpm.png', label: 'CPMA Physics' },
+  '2': { icon: '/assets/physics/ql.png', label: 'Quake Live Physics' },
+  '3': { icon: '/assets/physics/qlt.png', label: 'Quake Live Turbo Physics' },
+}
+
+function PhysicsIcon({ physics }: { physics?: string }) {
+  const mode = PHYSICS_MODES[physics ?? '0']
+  if (!mode) return null
+  return (
+    <span className="physics-icon">
+      <img src={mode.icon} alt={mode.label} title={mode.label} />
+      <span className="physics-icon-full">
+        <img src={mode.icon} alt={mode.label} />
+      </span>
+    </span>
+  )
+}
+
 export function ServerCard({ server, newPlayers, isSelected, onSelect, onPlayerClick }: ServerCardProps) {
   const humans = server.players?.filter(p => !p.is_bot) ?? []
   const bots = server.players?.filter(p => p.is_bot) ?? []
@@ -202,7 +222,8 @@ export function ServerCard({ server, newPlayers, isSelected, onSelect, onPlayerC
       tabIndex={onSelect ? 0 : undefined}
     >
       <span className="server-name-badge">
-        <span className="badge-label">Server</span> {server.name}
+        <PhysicsIcon physics={server.server_vars?.g_physics} />
+        {server.name}
         <span className="badge-sep">/</span>
         <span className="badge-label">Mode</span> {formatGameType(server.game_type)}
       </span>
