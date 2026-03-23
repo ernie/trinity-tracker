@@ -51,6 +51,7 @@ const (
 	EventTypeSayRcon          = "say_rcon"
 	EventTypeServerStartup    = "server_startup"
 	EventTypeServerShutdown   = "server_shutdown"
+	EventTypeCvarChange       = "cvar_change"
 )
 
 // Event data structures
@@ -224,6 +225,11 @@ type SayRconData struct {
 	Message string
 }
 
+type CvarChangeData struct {
+	Key   string
+	Value string
+}
+
 // Regular expressions for parsing log lines
 var (
 	// Matches ISO 8601 timestamp at start of line: 2026-01-12T10:58:23 or 2026-01-12T10:58:23.456789Z
@@ -262,6 +268,7 @@ var (
 	sayRconRegex          = regexp.MustCompile(`^SayRcon: (.+)$`)
 	serverStartupRegex    = regexp.MustCompile(`^ServerStartup:$`)
 	serverShutdownRegex   = regexp.MustCompile(`^ServerShutdown:$`)
+	cvarChangeRegex       = regexp.MustCompile(`^CvarChange: (\w+)\\(.+)$`)
 )
 
 // LogTailer watches a log file and parses events
@@ -863,6 +870,15 @@ func ParseLine(line string) (*LogEvent, error) {
 
 	if serverShutdownRegex.MatchString(content) {
 		event.Type = EventTypeServerShutdown
+		return event, nil
+	}
+
+	if match := cvarChangeRegex.FindStringSubmatch(content); match != nil {
+		event.Type = EventTypeCvarChange
+		event.Data = CvarChangeData{
+			Key:   match[1],
+			Value: match[2],
+		}
 		return event, nil
 	}
 

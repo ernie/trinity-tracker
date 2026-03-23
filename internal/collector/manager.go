@@ -1160,6 +1160,15 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 		if err := m.store.EndOpenSessionsBefore(ctx, serverID, event.Timestamp, event.Timestamp); err != nil {
 			log.Printf("Error closing sessions on server shutdown: %v", err)
 		}
+
+	case EventTypeCvarChange:
+		data := event.Data.(CvarChangeData)
+		if data.Key == "g_physics" && state.match != nil {
+			if matchID := m.getMatchID(ctx, state); matchID > 0 {
+				state.match.Physics = data.Value
+				m.store.UpdateMatchPhysics(ctx, matchID, data.Value)
+			}
+		}
 	}
 }
 
