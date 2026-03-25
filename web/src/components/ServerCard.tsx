@@ -158,21 +158,42 @@ function sortPlayersByTeam(players: Player[]): Player[] {
   })
 }
 
-export const PHYSICS_MODES: Record<string, { icon: string; label: string }> = {
-  '0': { icon: '/assets/physics/vq3.png', label: 'Quake 3 Physics' },
-  '1': { icon: '/assets/physics/cpm.png', label: 'CPMA Physics' },
-  '2': { icon: '/assets/physics/ql.png', label: 'Quake Live Physics' },
-  '3': { icon: '/assets/physics/qlt.png', label: 'Quake Live Turbo Physics' },
+export const MOVEMENT_MODES: Record<string, { icon: string; label: string }> = {
+  '0': { icon: '/assets/modes/vq3.png', label: 'Quake 3' },
+  '1': { icon: '/assets/modes/cpm.png', label: 'CPMA' },
+  '2': { icon: '/assets/modes/ql.png', label: 'Quake Live' },
+  '3': { icon: '/assets/modes/qlt.png', label: 'Quake Live Turbo' },
 }
 
-export function PhysicsIcon({ physics }: { physics?: string }) {
-  const mode = PHYSICS_MODES[physics ?? '0']
-  if (!mode) return null
+export const GAMEPLAY_MODES: Record<string, { icon: string; label: string }> = {
+  '0': { icon: '/assets/modes/vq3.png', label: 'Quake 3' },
+  '1': { icon: '/assets/modes/cpm.png', label: 'CPMA' },
+  '2': { icon: '/assets/modes/ql.png', label: 'Quake Live' },
+}
+
+export function ModeIcons({ movement, gameplay }: { movement?: string, gameplay?: string }) {
+  const moveMode = MOVEMENT_MODES[movement ?? '0']
+  const gameMode = GAMEPLAY_MODES[gameplay ?? '0']
+  if (!moveMode && !gameMode) return null
   return (
-    <span className="physics-icon">
-      <img src={mode.icon} alt={mode.label} title={mode.label} />
-      <span className="physics-icon-full">
-        <img src={mode.icon} alt={mode.label} />
+    <span className="mode-icons">
+      <span className="mode-label">M</span>
+      {moveMode && <img className="mode-icon" src={moveMode.icon} alt={moveMode.label} />}
+      <span className="mode-label">G</span>
+      {gameMode && <img className="mode-icon" src={gameMode.icon} alt={gameMode.label} />}
+      <span className="mode-panel">
+        {moveMode && (
+          <span className="mode-panel-row">
+            <img src={moveMode.icon} alt={moveMode.label} />
+            <span>Movement: {moveMode.label}</span>
+          </span>
+        )}
+        {gameMode && (
+          <span className="mode-panel-row">
+            <img src={gameMode.icon} alt={gameMode.label} />
+            <span>Gameplay: {gameMode.label}</span>
+          </span>
+        )}
       </span>
     </span>
   )
@@ -222,7 +243,7 @@ export function ServerCard({ server, newPlayers, isSelected, onSelect, onPlayerC
       tabIndex={onSelect ? 0 : undefined}
     >
       <span className="server-name-badge">
-        <PhysicsIcon physics={server.server_vars?.g_physics} />
+        <ModeIcons movement={server.server_vars?.g_movement} gameplay={server.server_vars?.g_gameplay} />
         {server.name}
         <span className="badge-sep">/</span>
         <span className="badge-label">Mode</span> {formatGameType(server.game_type)}

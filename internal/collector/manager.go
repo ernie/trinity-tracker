@@ -422,7 +422,7 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 	switch event.Type {
 	case EventTypeInitGame:
 		data := event.Data.(InitGameData)
-		m.handleMatchChange(ctx, state, data.MapName, data.GameType, data.UUID, data.Settings["g_physics"], event.Timestamp, replayMode)
+		m.handleMatchChange(ctx, state, data.MapName, data.GameType, data.UUID, data.Settings["g_movement"], data.Settings["g_gameplay"], event.Timestamp, replayMode)
 
 	case EventTypeWarmupEnd:
 		// Persist match to DB now that real gameplay is starting
@@ -455,7 +455,7 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 		if data.State == "intermission" && state.pendingExit != nil &&
 			state.match != nil && !state.matchFlushed && state.match.EndedAt == nil {
 			if matchID := m.getMatchID(ctx, state); matchID > 0 {
-				m.updatePhysicsFromStatus(ctx, state, matchID)
+
 				m.flushAllMatchStats(ctx, state, matchID, true)
 				m.store.EndMatch(ctx, matchID, state.pendingExitAt, *state.pendingExit,
 					state.pendingRedScore, state.pendingBlueScore)
@@ -766,7 +766,7 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 				matchID := m.getMatchID(ctx, state)
 
 				if matchID > 0 && state.match.EndedAt == nil {
-					m.updatePhysicsFromStatus(ctx, state, matchID)
+	
 					if state.pendingExit != nil {
 						// Normal match end: Exit event was received, scores have been captured
 						m.flushAllMatchStats(ctx, state, matchID, true)
@@ -1163,17 +1163,23 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 
 	case EventTypeCvarChange:
 		data := event.Data.(CvarChangeData)
-		if data.Key == "g_physics" && state.match != nil {
+		if state.match != nil {
 			if matchID := m.getMatchID(ctx, state); matchID > 0 {
-				state.match.Physics = data.Value
-				m.store.UpdateMatchPhysics(ctx, matchID, data.Value)
+				switch data.Key {
+				case "g_movement":
+					state.match.Movement = data.Value
+					m.store.UpdateMatchMovement(ctx, matchID, data.Value)
+				case "g_gameplay":
+					state.match.Gameplay = data.Value
+					m.store.UpdateMatchGameplay(ctx, matchID, data.Value)
+				}
 			}
 		}
 	}
 }
 
 // handleMapChange handles a new map starting
-func (m *ServerManager) handleMatchChange(ctx context.Context, state *serverState, mapName string, gameType int, uuid string, physics string, ts time.Time, replayMode bool) {
+func (m *ServerManager) handleMatchChange(ctx context.Context, state *serverState, mapName string, gameType int, uuid string, movement string, gameplay string, ts time.Time, replayMode bool) {
 	// Skip duplicate InitGame at same timestamp (Q3 sometimes logs it twice on server restart)
 	if ts.Equal(state.lastInitGame) {
 		return
@@ -1188,9 +1194,13 @@ func (m *ServerManager) handleMatchChange(ctx context.Context, state *serverStat
 		state.match = nil
 
 		if existing, err := m.store.GetMatchByUUID(ctx, uuid); err == nil && existing != nil {
-			if existing.Physics == "" && physics != "" {
-				existing.Physics = physics
-				m.store.UpdateMatchPhysics(ctx, existing.ID, physics)
+			if existing.Movement == "" && movement != "" {
+				existing.Movement = movement
+				m.store.UpdateMatchMovement(ctx, existing.ID, movement)
+			}
+			if existing.Gameplay == "" && gameplay != "" {
+				existing.Gameplay = gameplay
+				m.store.UpdateMatchGameplay(ctx, existing.ID, gameplay)
 			}
 			state.match = existing
 		}
@@ -1227,9 +1237,13 @@ func (m *ServerManager) handleMatchChange(ctx context.Context, state *serverStat
 	}
 
 	if existing != nil {
-		if existing.Physics == "" && physics != "" {
-			existing.Physics = physics
-			m.store.UpdateMatchPhysics(ctx, existing.ID, physics)
+		if existing.Movement == "" && movement != "" {
+			existing.Movement = movement
+			m.store.UpdateMatchMovement(ctx, existing.ID, movement)
+		}
+		if existing.Gameplay == "" && gameplay != "" {
+			existing.Gameplay = gameplay
+			m.store.UpdateMatchGameplay(ctx, existing.ID, gameplay)
 		}
 		// Match already exists - this is a late replay, not a new match
 		if existing.EndedAt == nil {
@@ -1270,7 +1284,8 @@ func (m *ServerManager) handleMatchChange(ctx context.Context, state *serverStat
 		MapName:   mapName,
 		GameType:  gameTypeStr,
 		StartedAt: ts,
-		Physics:   physics,
+		Movement:  movement,
+		Gameplay:  gameplay,
 	}
 	state.match = match
 
@@ -1293,18 +1308,6 @@ func (m *ServerManager) handleMatchChange(ctx context.Context, state *serverStat
 	})
 }
 
-// updatePhysicsFromStatus checks the live UDP status for the current g_physics value
-// and updates the match if it differs from what was captured at InitGame time.
-// This handles mid-match physics changes (e.g., admin vote). No-op during replay (status is nil).
-func (m *ServerManager) updatePhysicsFromStatus(ctx context.Context, state *serverState, matchID int64) {
-	if state.status == nil || state.match == nil {
-		return
-	}
-	if livePhysics := state.status.ServerVars["g_physics"]; livePhysics != "" && livePhysics != state.match.Physics {
-		state.match.Physics = livePhysics
-		m.store.UpdateMatchPhysics(ctx, matchID, livePhysics)
-	}
-}
 
 // savePreviousClient accumulates stats from a completed stint into previousClients.
 // One entry per playerGUID — counters are added, metadata is updated to latest.

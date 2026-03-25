@@ -14,7 +14,8 @@ type Match struct {
 	ExitReason string     `json:"exit_reason,omitempty"`
 	RedScore   *int       `json:"red_score,omitempty"`
 	BlueScore  *int       `json:"blue_score,omitempty"`
-	Physics    string     `json:"physics,omitempty"`
+	Movement   string     `json:"movement,omitempty"`
+	Gameplay   string     `json:"gameplay,omitempty"`
 }
 
 // GameType constants
@@ -81,5 +82,6 @@ type MatchSummary struct {
 	Players    []MatchPlayerSummary `json:"players"`
 	RedScore   *int                 `json:"red_score,omitempty"`
 	BlueScore  *int                 `json:"blue_score,omitempty"`
-	Physics    string               `json:"physics,omitempty"`
+	Movement   string               `json:"movement,omitempty"`
+	Gameplay   string               `json:"gameplay,omitempty"`
 }

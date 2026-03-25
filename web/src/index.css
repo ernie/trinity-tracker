@@ -294,43 +294,58 @@ h2 {
   z-index: 10;
 }
 
-.physics-icon {
+.mode-icons {
   position: relative;
-  display: inline-block;
-  vertical-align: middle;
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
   margin-right: 4px;
+  vertical-align: middle;
   cursor: pointer;
 }
 
-.physics-icon > img {
+.mode-label {
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  vertical-align: middle;
+}
+
+.mode-icon {
   width: 14px;
   height: 14px;
   vertical-align: middle;
 }
 
-.physics-icon-full {
+.mode-panel {
   display: none;
   position: absolute;
-  top: -4px;
-  left: -4px;
+  top: 100%;
+  left: 0;
   z-index: 20;
-  pointer-events: none;
+  margin-top: 4px;
+  background: rgba(0, 0, 0, 0.85);
+  border-radius: 6px;
+  padding: 6px 10px;
+  white-space: nowrap;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.physics-icon-full img {
-  width: 64px;
-  height: 64px;
-  background: rgba(0, 0, 0, 0.75);
-  border-radius: 8px;
-  padding: 4px;
+.mode-icons:hover .mode-panel {
+  display: flex;
 }
 
-.physics-icon:hover > img {
-  opacity: 0;
+.mode-panel-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--text-primary);
 }
 
-.physics-icon:hover .physics-icon-full {
-  display: block;
+.mode-panel-row img {
+  width: 20px;
+  height: 20px;
 }
 
 .server-name-badge .badge-label {

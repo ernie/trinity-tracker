@@ -79,10 +79,10 @@ func scanMatchSummaryRow(s scanner) (*domain.MatchSummary, error) {
 	var exitReason sql.NullString
 	var gameType sql.NullString
 	var redScore, blueScore sql.NullInt64
-	var physics sql.NullString
+	var movement, gameplay sql.NullString
 
 	err := s.Scan(&m.ID, &m.UUID, &m.ServerID, &m.ServerName, &m.MapName, &gameType,
-		&m.StartedAt, &endedAt, &exitReason, &redScore, &blueScore, &physics)
+		&m.StartedAt, &endedAt, &exitReason, &redScore, &blueScore, &movement, &gameplay)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +92,8 @@ func scanMatchSummaryRow(s scanner) (*domain.MatchSummary, error) {
 	m.GameType = scanNullStringValue(gameType)
 	m.RedScore = scanNullInt64ToIntPtr(redScore)
 	m.BlueScore = scanNullInt64ToIntPtr(blueScore)
-	m.Physics = scanNullStringValue(physics)
+	m.Movement = scanNullStringValue(movement)
+	m.Gameplay = scanNullStringValue(gameplay)
 
 	return &m, nil
 }
