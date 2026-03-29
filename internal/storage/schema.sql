@@ -65,7 +65,9 @@ CREATE TABLE IF NOT EXISTS sessions (
     joined_at TIMESTAMP NOT NULL,
     left_at TIMESTAMP,
     duration_seconds INTEGER,
-    ip_address TEXT DEFAULT ''
+    ip_address TEXT DEFAULT '',
+    client_engine TEXT DEFAULT '',
+    client_version TEXT DEFAULT ''
 );
 
 CREATE INDEX IF NOT EXISTS idx_sessions_player_guid_id ON sessions(player_guid_id);
@@ -135,7 +137,8 @@ CREATE TABLE IF NOT EXISTS users (
     player_id INTEGER UNIQUE REFERENCES players(id) ON DELETE SET NULL,
     password_change_required BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    last_login TIMESTAMP
+    last_login TIMESTAMP,
+    game_token TEXT NOT NULL DEFAULT ''
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);

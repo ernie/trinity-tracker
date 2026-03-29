@@ -48,6 +48,8 @@ export function PlayerSessions({ playerId, token }: PlayerSessionsProps) {
             <th>Server</th>
             <th>Joined</th>
             <th>Duration</th>
+            <th>Engine</th>
+            <th>Trinity</th>
             <th>IP Address</th>
           </tr>
         </thead>
@@ -61,6 +63,8 @@ export function PlayerSessions({ playerId, token }: PlayerSessionsProps) {
                   ? formatDuration(session.duration_seconds)
                   : 'Active'}
               </td>
+              <td className="client-engine">{session.client_engine || '-'}</td>
+              <td className="client-version">{session.client_version || '-'}</td>
               <td className="ip-address">{session.ip_address || '-'}</td>
             </tr>
           ))}

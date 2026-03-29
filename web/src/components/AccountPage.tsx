@@ -35,6 +35,14 @@ export function AccountPage() {
   const [claimError, setClaimError] = useState('')
   const [claimSuccess, setClaimSuccess] = useState(false)
 
+  // Game token state
+  const [gameToken, setGameToken] = useState<string | null>(null)
+  const [gameTokenLoading, setGameTokenLoading] = useState(false)
+  const [gameTokenError, setGameTokenError] = useState('')
+  const [gameTokenCopied, setGameTokenCopied] = useState(false)
+  const [gameTokenVisible, setGameTokenVisible] = useState(false)
+  const [showRotateConfirm, setShowRotateConfirm] = useState(false)
+
   // Password change state
   const [showPasswordForm, setShowPasswordForm] = useState(false)
   const [currentPassword, setCurrentPassword] = useState('')
@@ -94,6 +102,66 @@ export function AccountPage() {
       }
     }
   }, [expiresAt])
+
+  // Fetch game token on mount
+  useEffect(() => {
+    if (!auth.token) return
+
+    setGameTokenLoading(true)
+    fetch('/api/auth/game-token', {
+      headers: {
+        Authorization: `Bearer ${auth.token}`,
+      },
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to load game token')
+        return res.json()
+      })
+      .then((data) => setGameToken(data.token))
+      .catch((err) => setGameTokenError(err.message))
+      .finally(() => setGameTokenLoading(false))
+  }, [auth.token])
+
+  const handleCopyToken = async () => {
+    if (!gameToken) return
+    try {
+      await navigator.clipboard.writeText(gameToken)
+      setGameTokenCopied(true)
+      setTimeout(() => setGameTokenCopied(false), 2000)
+    } catch {
+      setGameTokenError('Failed to copy to clipboard')
+    }
+  }
+
+  const handleRotateToken = async () => {
+    if (!auth.token) return
+
+    setGameTokenLoading(true)
+    setGameTokenError('')
+    setShowRotateConfirm(false)
+
+    try {
+      const res = await fetch('/api/auth/game-token', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${auth.token}`,
+        },
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        setGameTokenError(data.error || 'Failed to rotate token')
+        return
+      }
+
+      const data = await res.json()
+      setGameToken(data.token)
+    } catch {
+      setGameTokenError('Network error')
+    } finally {
+      setGameTokenLoading(false)
+    }
+  }
 
   const handleClaimLink = async () => {
     if (!auth.token || claimCode.length !== 6) return
@@ -385,6 +453,65 @@ export function AccountPage() {
                   Change Password
                 </button>
               )}
+            </section>
+
+            {/* Game Token */}
+            <section className="account-section account-game-token">
+              <h2>Game Token</h2>
+              <p className="link-explanation-text">
+                Use this token with <code>cl_trinityToken</code> in your engine config, or log in from the game menu.
+              </p>
+
+              {gameTokenError && <div className="error-message">{gameTokenError}</div>}
+
+              {gameTokenLoading && !gameToken ? (
+                <div className="loading">Loading...</div>
+              ) : gameToken ? (
+                <div className="game-token-display">
+                  <div className="game-token-value">{gameTokenVisible ? gameToken : gameToken.slice(0, 8) + '…'}</div>
+                  <div className="game-token-actions">
+                    <button
+                      className="generate-btn rotate-btn"
+                      onClick={() => setGameTokenVisible(!gameTokenVisible)}
+                    >
+                      {gameTokenVisible ? 'Hide' : 'Reveal'}
+                    </button>
+                    <button
+                      className="generate-btn rotate-btn"
+                      onClick={handleCopyToken}
+                    >
+                      {gameTokenCopied ? 'Copied!' : 'Copy'}
+                    </button>
+                    {showRotateConfirm ? (
+                      <div className="rotate-confirm">
+                        <span className="rotate-confirm-text">Invalidate current token?</span>
+                        <div className="rotate-confirm-actions">
+                          <button
+                            className="generate-btn"
+                            onClick={handleRotateToken}
+                            disabled={gameTokenLoading}
+                          >
+                            {gameTokenLoading ? 'Rotating...' : 'Confirm'}
+                          </button>
+                          <button
+                            className="cancel-btn"
+                            onClick={() => setShowRotateConfirm(false)}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        className="generate-btn rotate-btn"
+                        onClick={() => setShowRotateConfirm(true)}
+                      >
+                        Rotate
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : null}
             </section>
 
             {/* Link Game Identity */}

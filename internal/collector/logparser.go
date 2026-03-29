@@ -52,6 +52,8 @@ const (
 	EventTypeServerStartup    = "server_startup"
 	EventTypeServerShutdown   = "server_shutdown"
 	EventTypeCvarChange       = "cvar_change"
+	EventTypeTrinityChallenge = "trinity_challenge"
+	EventTypeTrinityHandshake = "trinity_handshake"
 )
 
 // Event data structures
@@ -230,6 +232,21 @@ type CvarChangeData struct {
 	Value string
 }
 
+type TrinityChallengeData struct {
+	ClientNum int
+	GUID      string
+	Nonce     string
+}
+
+type TrinityHandshakeData struct {
+	ClientNum int
+	Proto     int
+	Version   string
+	Engine    string
+	Username  string // empty if not authenticated
+	TokenHash string // empty if not authenticated
+}
+
 // Regular expressions for parsing log lines
 var (
 	// Matches ISO 8601 timestamp at start of line: 2026-01-12T10:58:23 or 2026-01-12T10:58:23.456789Z
@@ -269,6 +286,9 @@ var (
 	serverStartupRegex    = regexp.MustCompile(`^ServerStartup:$`)
 	serverShutdownRegex   = regexp.MustCompile(`^ServerShutdown:$`)
 	cvarChangeRegex       = regexp.MustCompile(`^CvarChange: (\w+)\\(.+)$`)
+	trinityChallengeRegex     = regexp.MustCompile(`^TrinityChallenge: (\d+) (\S+) (\S+)$`)
+	trinityHandshakeAuthRegex = regexp.MustCompile(`^TrinityHandshake: (\d+) (\d+) (\S+) (\S+) (\S+) (\S+)$`)
+	trinityHandshakeRegex     = regexp.MustCompile(`^TrinityHandshake: (\d+) (\d+) (\S+) (\S+)$`)
 )
 
 // LogTailer watches a log file and parses events
@@ -878,6 +898,45 @@ func ParseLine(line string) (*LogEvent, error) {
 		event.Data = CvarChangeData{
 			Key:   match[1],
 			Value: match[2],
+		}
+		return event, nil
+	}
+
+	if match := trinityChallengeRegex.FindStringSubmatch(content); match != nil {
+		clientNum, _ := strconv.Atoi(match[1])
+		event.Type = EventTypeTrinityChallenge
+		event.Data = TrinityChallengeData{
+			ClientNum: clientNum,
+			GUID:      match[2],
+			Nonce:     match[3],
+		}
+		return event, nil
+	}
+
+	if match := trinityHandshakeAuthRegex.FindStringSubmatch(content); match != nil {
+		clientNum, _ := strconv.Atoi(match[1])
+		proto, _ := strconv.Atoi(match[2])
+		event.Type = EventTypeTrinityHandshake
+		event.Data = TrinityHandshakeData{
+			ClientNum: clientNum,
+			Proto:     proto,
+			Version:   match[3],
+			Engine:    match[4],
+			Username:  match[5],
+			TokenHash: match[6],
+		}
+		return event, nil
+	}
+
+	if match := trinityHandshakeRegex.FindStringSubmatch(content); match != nil {
+		clientNum, _ := strconv.Atoi(match[1])
+		proto, _ := strconv.Atoi(match[2])
+		event.Type = EventTypeTrinityHandshake
+		event.Data = TrinityHandshakeData{
+			ClientNum: clientNum,
+			Proto:     proto,
+			Version:   match[3],
+			Engine:    match[4],
 		}
 		return event, nil
 	}

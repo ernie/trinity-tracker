@@ -342,6 +342,8 @@ export interface PlayerSession {
   left_at?: string
   duration_seconds?: number
   ip_address?: string
+  client_engine?: string
+  client_version?: string
 }
 
 export interface PlayerName {

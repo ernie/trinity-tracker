@@ -657,6 +657,14 @@ func (s *Store) CreateSession(ctx context.Context, sess *domain.Session) error {
 	return nil
 }
 
+// UpdateSessionClientInfo sets the client engine and version from the Trinity handshake.
+func (s *Store) UpdateSessionClientInfo(ctx context.Context, sessionID int64, engine, version string) error {
+	_, err := s.db.ExecContext(ctx, `
+		UPDATE sessions SET client_engine = ?, client_version = ? WHERE id = ?
+	`, engine, version, sessionID)
+	return err
+}
+
 // EndSession closes a session with the leave time (idempotent - no-op if already closed)
 func (s *Store) EndSession(ctx context.Context, sessionID int64, leftAt time.Time) error {
 	formattedLeftAt := formatTimestamp(leftAt)
@@ -1402,6 +1410,7 @@ type User struct {
 	PasswordChangeRequired bool
 	CreatedAt              time.Time
 	LastLogin              *time.Time
+	GameToken              string
 }
 
 // CreateUser creates a new user account
@@ -1416,7 +1425,7 @@ func (s *Store) CreateUser(ctx context.Context, username, passwordHash string, i
 // GetUserByUsername retrieves a user by username
 func (s *Store) GetUserByUsername(ctx context.Context, username string) (*User, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, username, password_hash, is_admin, player_id, password_change_required, created_at, last_login
+		SELECT id, username, password_hash, is_admin, player_id, password_change_required, created_at, last_login, game_token
 		FROM users WHERE username = ?
 	`, username)
 	return scanUser(row)
@@ -1425,7 +1434,7 @@ func (s *Store) GetUserByUsername(ctx context.Context, username string) (*User, 
 // GetUserByID retrieves a user by ID
 func (s *Store) GetUserByID(ctx context.Context, id int64) (*User, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, username, password_hash, is_admin, player_id, password_change_required, created_at, last_login
+		SELECT id, username, password_hash, is_admin, player_id, password_change_required, created_at, last_login, game_token
 		FROM users WHERE id = ?
 	`, id)
 	return scanUser(row)
@@ -1447,7 +1456,7 @@ func (s *Store) DeleteUser(ctx context.Context, username string) error {
 // ListUsers returns all users with details
 func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, username, password_hash, is_admin, player_id, password_change_required, created_at, last_login
+		SELECT id, username, password_hash, is_admin, player_id, password_change_required, created_at, last_login, game_token
 		FROM users ORDER BY username
 	`)
 	if err != nil {
@@ -2079,7 +2088,7 @@ func (s *Store) GetPlayerSessions(ctx context.Context, playerID int64, limit int
 	}
 
 	query := `
-		SELECT s.id, s.server_id, srv.name, s.joined_at, s.left_at, s.duration_seconds, s.ip_address
+		SELECT s.id, s.server_id, srv.name, s.joined_at, s.left_at, s.duration_seconds, s.ip_address, s.client_engine, s.client_version
 		FROM sessions s
 		JOIN player_guids pg ON s.player_guid_id = pg.id
 		JOIN servers srv ON s.server_id = srv.id
@@ -2106,8 +2115,8 @@ func (s *Store) GetPlayerSessions(ctx context.Context, playerID int64, limit int
 		var ps domain.PlayerSession
 		var leftAt sql.NullTime
 		var durationSeconds sql.NullInt64
-		var ipAddress sql.NullString
-		if err := rows.Scan(&ps.ID, &ps.ServerID, &ps.ServerName, &ps.JoinedAt, &leftAt, &durationSeconds, &ipAddress); err != nil {
+		var ipAddress, clientEngine, clientVersion sql.NullString
+		if err := rows.Scan(&ps.ID, &ps.ServerID, &ps.ServerName, &ps.JoinedAt, &leftAt, &durationSeconds, &ipAddress, &clientEngine, &clientVersion); err != nil {
 			return nil, err
 		}
 		if leftAt.Valid {
@@ -2118,6 +2127,12 @@ func (s *Store) GetPlayerSessions(ctx context.Context, playerID int64, limit int
 		}
 		if ipAddress.Valid {
 			ps.IPAddress = ipAddress.String
+		}
+		if clientEngine.Valid {
+			ps.ClientEngine = clientEngine.String
+		}
+		if clientVersion.Valid {
+			ps.ClientVersion = clientVersion.String
 		}
 		sessions = append(sessions, ps)
 	}

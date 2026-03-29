@@ -3,11 +3,14 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/ernie/trinity-tools/internal/auth"
 	"github.com/ernie/trinity-tools/internal/domain"
 )
+
+var validUsernameRegex = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
 
 // ClaimValidateRequest is the request body for claim code validation
 type ClaimValidateRequest struct {
@@ -80,6 +83,11 @@ func (r *Router) handleClaimRegister(w http.ResponseWriter, req *http.Request) {
 
 	if body.Username == "" || body.Password == "" {
 		writeError(w, http.StatusBadRequest, "username and password are required")
+		return
+	}
+
+	if len(body.Username) < 2 || len(body.Username) > 16 || !validUsernameRegex.MatchString(body.Username) {
+		writeError(w, http.StatusBadRequest, "username must be 2-16 characters and contain only letters, numbers, and underscores")
 		return
 	}
 

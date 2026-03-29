@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -48,6 +49,11 @@ func (r *Router) handleLogin(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to generate token")
 		return
+	}
+
+	// Successful login — reset rate limiter for this IP
+	if ip, _, err := net.SplitHostPort(req.RemoteAddr); err == nil && ip != "" {
+		r.loginLimiter.Reset(ip)
 	}
 
 	// Update last login timestamp

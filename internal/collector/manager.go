@@ -44,6 +44,9 @@ type serverState struct {
 	pendingExitAt    time.Time                  // timestamp of Exit event
 	pendingRedScore  *int                       // team scores captured at Exit time (before server resets)
 	pendingBlueScore *int
+	// Trinity handshake state
+	trinityNonces    map[int]string           // map[clientNum]nonce
+	pendingGreetings map[int]*pendingGreeting // map[clientNum]greeting awaiting handshake
 }
 
 // gauntletVictim tracks victim info for humiliation awards
@@ -130,8 +133,9 @@ func (m *ServerManager) Start(ctx context.Context) error {
 		}
 
 		m.servers[dbSrv.ID] = &serverState{
-			server:  *fullSrv,
-			clients: make(map[int]*clientState),
+			server:        *fullSrv,
+			clients:       make(map[int]*clientState),
+			trinityNonces: make(map[int]string),
 		}
 
 		// Replay log events synchronously (one server at a time to avoid DB lock contention)
@@ -612,7 +616,12 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 
 				// Greet human players on initial connection only (skip map changes, bots, startup)
 				if m.startupComplete && isNewSession && client.playerID != 0 {
-					go m.greetPlayer(ctx, serverID, data.ClientID, client.playerID, client.name, client.cleanName, client.isVR, client.isTrinityEngine)
+					if m.handshakeRequired(state) {
+						// Delay greeting until handshake completes (or warn on timeout)
+						m.scheduleGreetingAfterHandshake(ctx, state, serverID, data.ClientID, client.playerID, client.name, client.cleanName, client.isVR, client.isTrinityEngine)
+					} else {
+						go m.greetPlayer(ctx, serverID, data.ClientID, client.playerID, client.name, client.cleanName, client.isVR, client.isTrinityEngine, false)
+					}
 				}
 			}
 		}
@@ -647,6 +656,15 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 						PlayerID:   client.getPlayerIDPtr(),
 					},
 				})
+			}
+
+			// Clean up Trinity handshake state
+			delete(state.trinityNonces, data.ClientID)
+			if state.pendingGreetings != nil {
+				if pg, ok := state.pendingGreetings[data.ClientID]; ok {
+					pg.timer.Stop()
+					delete(state.pendingGreetings, data.ClientID)
+				}
 			}
 
 			delete(state.clients, data.ClientID)
@@ -1175,6 +1193,18 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 				}
 			}
 		}
+
+	case EventTypeTrinityChallenge:
+		if !replayMode {
+			data := event.Data.(TrinityChallengeData)
+			state.trinityNonces[data.ClientNum] = data.Nonce
+		}
+
+	case EventTypeTrinityHandshake:
+		if !replayMode {
+			data := event.Data.(TrinityHandshakeData)
+			m.handleTrinityHandshake(ctx, serverID, state, data)
+		}
 	}
 }
 
@@ -1625,7 +1655,7 @@ func (m *ServerManager) sendCenterPrint(serverID int64, clientID int, message st
 }
 
 // greetPlayer sends a welcome message to a player when they join
-func (m *ServerManager) greetPlayer(ctx context.Context, serverID int64, clientID int, playerID int64, playerName string, cleanName string, isVR bool, isTrinityEngine bool) {
+func (m *ServerManager) greetPlayer(ctx context.Context, serverID int64, clientID int, playerID int64, playerName string, cleanName string, isVR bool, isTrinityEngine bool, guidLinked bool) {
 	// Get player stats
 	stats, err := m.store.GetPlayerStatsByID(ctx, playerID, "all")
 	if err != nil {
@@ -1670,6 +1700,11 @@ func (m *ServerManager) greetPlayer(ctx context.Context, serverID int64, clientI
 	time.Sleep(3 * time.Second)
 	m.sendPrintSync(serverID, clientID, message)
 	m.sendCenterPrint(serverID, clientID, cpMessage)
+
+	if guidLinked {
+		time.Sleep(2 * time.Second)
+		m.sendPrint(serverID, clientID, "^2This identity has been linked to your account.")
+	}
 
 	if !isVR {
 		var upgradeMsg, upgradeCpMsg string

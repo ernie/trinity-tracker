@@ -44,6 +44,8 @@ type Session struct {
 	LeftAt          *time.Time `json:"left_at,omitempty"`
 	DurationSeconds int64      `json:"duration_seconds,omitempty"`
 	IPAddress       string     `json:"ip_address,omitempty"`
+	ClientEngine    string     `json:"client_engine,omitempty"`
+	ClientVersion   string     `json:"client_version,omitempty"`
 }
 
 // PlayerSession represents a session for display (includes server name)
@@ -55,6 +57,8 @@ type PlayerSession struct {
 	LeftAt          *time.Time `json:"left_at,omitempty"`
 	DurationSeconds int64      `json:"duration_seconds,omitempty"`
 	IPAddress       string     `json:"ip_address,omitempty"`
+	ClientEngine    string     `json:"client_engine,omitempty"`
+	ClientVersion   string     `json:"client_version,omitempty"`
 }
 
 // PlayerStats holds aggregated stats for a player (for leaderboards)

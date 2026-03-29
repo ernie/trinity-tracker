@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/ernie/trinity-tools/internal/auth"
 	"github.com/ernie/trinity-tools/internal/collector"
@@ -15,27 +16,29 @@ import (
 
 // Router holds the HTTP routes and dependencies
 type Router struct {
-	mux       *http.ServeMux
-	store     *storage.Store
-	manager   *collector.ServerManager
-	wsHub     *WebSocketHub
-	logStream *LogStreamManager
-	auth      *auth.Service
-	staticDir string
-	quake3Dir string
+	mux          *http.ServeMux
+	store        *storage.Store
+	manager      *collector.ServerManager
+	wsHub        *WebSocketHub
+	logStream    *LogStreamManager
+	auth         *auth.Service
+	loginLimiter *rateLimiter
+	staticDir    string
+	quake3Dir    string
 }
 
 // NewRouter creates a new HTTP router
 func NewRouter(store *storage.Store, manager *collector.ServerManager, authService *auth.Service, staticDir, quake3Dir string) *Router {
 	r := &Router{
-		mux:       http.NewServeMux(),
-		store:     store,
-		manager:   manager,
-		wsHub:     NewWebSocketHub(),
-		logStream: NewLogStreamManager(store),
-		auth:      authService,
-		staticDir: staticDir,
-		quake3Dir: quake3Dir,
+		mux:          http.NewServeMux(),
+		store:        store,
+		manager:      manager,
+		wsHub:        NewWebSocketHub(),
+		logStream:    NewLogStreamManager(store),
+		auth:         authService,
+		loginLimiter: newRateLimiter(15*time.Minute, 5),
+		staticDir:    staticDir,
+		quake3Dir:    quake3Dir,
 	}
 
 	// API routes
@@ -55,10 +58,17 @@ func NewRouter(store *storage.Store, manager *collector.ServerManager, authServi
 	r.mux.HandleFunc("GET /api/stats/leaderboard", r.handleGetLeaderboard)
 
 	// Auth routes
-	r.mux.HandleFunc("POST /api/auth/login", r.handleLogin)
+	r.mux.HandleFunc("POST /api/auth/login", r.rateLimit(r.loginLimiter, r.handleLogin))
 	r.mux.HandleFunc("POST /api/auth/logout", r.handleLogout)
 	r.mux.HandleFunc("GET /api/auth/check", r.handleAuthCheck)
 	r.mux.HandleFunc("POST /api/auth/change-password", r.requireAuth(r.handleChangePassword))
+
+	// Game auth (public - no JWT required)
+	r.mux.HandleFunc("POST /api/auth/game-login", r.rateLimit(r.loginLimiter, r.handleGameLogin))
+
+	// Game token management (requires JWT auth)
+	r.mux.HandleFunc("GET /api/auth/game-token", r.requireAuth(r.handleGetGameToken))
+	r.mux.HandleFunc("POST /api/auth/game-token", r.requireAuth(r.handleRotateGameToken))
 
 	// Account routes (authenticated users only)
 	r.mux.HandleFunc("GET /api/account/profile", r.requireAuth(r.handleGetAccountProfile))
