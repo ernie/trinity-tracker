@@ -7,7 +7,7 @@ const NAV_ITEMS = [
   { path: '/players', label: 'Players' },
   { path: '/matches', label: 'Matches' },
   { path: '/leaderboard', label: 'Leaderboard' },
-  { path: '/about', label: 'About' },
+  { path: '/docs', label: 'Docs' },
 ]
 
 export function PageNav() {
@@ -18,7 +18,7 @@ export function PageNav() {
 
   const isActive = (path: string) => {
     if (path === '/') return location.pathname === '/'
-    if (path === '/about') return location.pathname.startsWith('/about') || location.pathname.startsWith('/getting-started')
+    if (path === '/docs') return location.pathname.startsWith('/docs')
     return location.pathname.startsWith(path)
   }
 
@@ -82,7 +82,7 @@ export function PageNav() {
                 {r.version && <span className="download-item-version">{r.version}</span>}
               </a>
             ))}
-            <Link to="/getting-started" className="getting-started-cta getting-started-cta-sm">
+            <Link to="/docs/getting-started" className="getting-started-cta getting-started-cta-sm">
               Get started with Trinity
             </Link>
           </div>

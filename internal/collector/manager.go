@@ -1709,14 +1709,14 @@ func (m *ServerManager) greetPlayer(ctx context.Context, serverID int64, clientI
 	if !isVR {
 		var upgradeMsg, upgradeCpMsg string
 		if strings.Contains(cleanName, "[VR]") {
-			upgradeMsg = "Your VR client is outdated. Upgrade to enjoy all Trinity features! More info at ^5trinity.ernie.io/getting-started"
-			upgradeCpMsg = "Your VR client is outdated.\nUpgrade to enjoy all Trinity features!\n^5trinity.ernie.io/getting-started"
+			upgradeMsg = "Your VR client is outdated. Upgrade to enjoy all Trinity features! More info at ^5trinity.ernie.io/docs"
+			upgradeCpMsg = "Your VR client is outdated.\nUpgrade to enjoy all Trinity features!\n^5trinity.ernie.io/docs"
 		} else if !isTrinityEngine {
-			upgradeMsg = "It looks like you're missing out on Trinity-specific features on this server. Go to ^5trinity.ernie.io/getting-started ^7to upgrade."
-			upgradeCpMsg = "Get Trinity for the best experience!\n^5trinity.ernie.io/getting-started"
+			upgradeMsg = "It looks like you're missing out on Trinity-specific features on this server. Go to ^5trinity.ernie.io/docs ^7to upgrade."
+			upgradeCpMsg = "Get Trinity for the best experience!\n^5trinity.ernie.io/docs"
 		} else {
-			upgradeMsg = "Haven't tried Quake 3 in VR yet? It's a whole new dimension (literally). Visit ^5trinity.ernie.io/getting-started ^7to learn more."
-			upgradeCpMsg = "Do you play VR?\nGet the VR client!\n^5trinity.ernie.io/getting-started"
+			upgradeMsg = "Haven't tried Quake 3 in VR yet? It's a whole new dimension (literally). Visit ^5trinity.ernie.io/docs ^7to learn more."
+			upgradeCpMsg = "Do you play VR?\nGet the VR client!\n^5trinity.ernie.io/docs"
 		}
 		time.Sleep(3 * time.Second)
 		m.sendPrintSync(serverID, clientID, upgradeMsg)

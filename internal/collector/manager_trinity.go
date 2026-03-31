@@ -61,8 +61,8 @@ func (m *ServerManager) scheduleGreetingAfterHandshake(ctx context.Context, stat
 		m.mu.Unlock()
 
 		log.Printf("No Trinity handshake from client %d on server %d — sending warning", clientID, serverID)
-		m.sendCenterPrint(serverID, clientID, "^1Trinity client required\n^7You will be disconnected.\nVisit ^5trinity.ernie.io/getting-started")
-		m.sendPrint(serverID, clientID, "^1This server requires a Trinity client. Visit ^5trinity.ernie.io/getting-started ^1to download.")
+		m.sendCenterPrint(serverID, clientID, "^1Trinity client required\n^7You will be disconnected.\nVisit ^5trinity.ernie.io/docs")
+		m.sendPrint(serverID, clientID, "^1This server requires a Trinity client. Visit ^5trinity.ernie.io/docs ^1to download.")
 	})
 
 	state.pendingGreetings[clientID] = pg

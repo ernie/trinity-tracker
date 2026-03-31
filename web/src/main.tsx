@@ -1,8 +1,12 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import App from './App'
-import { PlayersPage, AccountPage, LeaderboardPage, MatchesPage, MatchDetailPage, DemoPlayerPage, PlayPage, AboutPage, GettingStartedPage, ClaimPage } from './components'
+import { PlayersPage, AccountPage, LeaderboardPage, MatchesPage, MatchDetailPage, DemoPlayerPage, PlayPage, DocsPage, ClaimPage } from './components'
+import { DocsGettingStarted } from './components/docs/DocsGettingStarted'
+import { DocsFeatures } from './components/docs/DocsFeatures'
+import { DocsServerAdmin } from './components/docs/DocsServerAdmin'
+import { DocsCredits } from './components/docs/DocsCredits'
 import { AuthProvider } from './hooks/useAuth'
 import './index.css'
 
@@ -20,8 +24,15 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/matches/:id" element={<MatchDetailPage />} />
           <Route path="/leaderboard" element={<LeaderboardPage />} />
           <Route path="/account" element={<AccountPage />} />
-          <Route path="/about" element={<AboutPage />} />
-          <Route path="/getting-started" element={<GettingStartedPage />} />
+          <Route path="/docs" element={<DocsPage />}>
+            <Route index element={<Navigate to="/docs/getting-started" replace />} />
+            <Route path="getting-started" element={<DocsGettingStarted />} />
+            <Route path="features" element={<DocsFeatures />} />
+            <Route path="server-admin" element={<DocsServerAdmin />} />
+            <Route path="credits" element={<DocsCredits />} />
+          </Route>
+          <Route path="/about" element={<Navigate to="/docs" replace />} />
+          <Route path="/getting-started" element={<Navigate to="/docs/getting-started" replace />} />
           <Route path="/claim" element={<ClaimPage />} />
         </Routes>
       </BrowserRouter>
