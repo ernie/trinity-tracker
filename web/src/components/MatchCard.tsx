@@ -204,19 +204,25 @@ export function MatchCard({ match, onPlayerClick, highlightPlayerId, showPermali
         if (maxScore === 0) {
           return <div className="match-status-label">No contest</div>
         }
+        const is1v1 = match.game_type?.toLowerCase() === 'tournament' || match.game_type?.toLowerCase() === '1v1'
+        if (is1v1) {
+          return <div className="match-status-label">Tie</div>
+        }
         const tiedPlayers = nonSpectators.filter(p => (p.score ?? p.frags ?? 0) === maxScore)
         return (
-          <div className="ffa-winners tie">
-            <span className="tie-label">Tie</span>
-            {tiedPlayers.map((player, idx) => (
-              <div key={`tie-${player.player_id}-${idx}`} className="ffa-winner-row">
-                <PlayerPortrait model={player.model} size="md" />
-                {player.is_bot && <BotBadge isBot skill={player.skill!} size="md" />}
-                {!player.is_bot && <PlayerBadge isVerified={player.is_verified} isAdmin={player.is_admin} isVR={player.is_vr} size="md" />}
-                <ColoredText text={player.is_vr ? stripVRPrefix(player.name) : player.name} />
-              </div>
-            ))}
-          </div>
+          <>
+            <div className="match-status-label">Tie</div>
+            <div className="ffa-winners">
+              {tiedPlayers.map((player, idx) => (
+                <div key={`tie-${player.player_id}-${idx}`} className="ffa-winner-row">
+                  <PlayerPortrait model={player.model} size="md" />
+                  {player.is_bot && <BotBadge isBot skill={player.skill!} size="md" />}
+                  {!player.is_bot && <PlayerBadge isVerified={player.is_verified} isAdmin={player.is_admin} isVR={player.is_vr} size="md" />}
+                  <ColoredText text={player.is_vr ? stripVRPrefix(player.name) : player.name} />
+                </div>
+              ))}
+            </div>
+          </>
         )
       })()}
 
