@@ -113,15 +113,19 @@ func (m *ServerManager) handleTrinityHandshake(ctx context.Context, serverID int
 					m.sendTrinityAuthFail(serverID, data.ClientNum)
 				} else {
 					log.Printf("Trinity auth verified: client %d user %s on server %d", data.ClientNum, data.Username, serverID)
-					// Auto-associate the GUID with the user's player
-					if client, ok := state.clients[data.ClientNum]; ok && client.guid != "" {
-						merged, err := m.store.AssociateGUIDWithPlayer(ctx, client.guid, playerID)
-						if err != nil {
-							log.Printf("Trinity auth: failed to associate GUID %s with player %d: %v", client.guid, playerID, err)
-						} else if merged {
-							log.Printf("Trinity auth: linked GUID %s to player %d", client.guid, playerID)
-							if pg, ok := state.pendingGreetings[data.ClientNum]; ok {
-								pg.guidLinked = true
+					if client, ok := state.clients[data.ClientNum]; ok {
+						client.isVerified = true
+						// Auto-associate the GUID with the user's player
+						if client.guid != "" {
+							merged, err := m.store.AssociateGUIDWithPlayer(ctx, client.guid, playerID)
+							if err != nil {
+								log.Printf("Trinity auth: failed to associate GUID %s with player %d: %v", client.guid, playerID, err)
+							} else if merged {
+								log.Printf("Trinity auth: linked GUID %s to player %d", client.guid, playerID)
+								client.playerID = playerID
+								if pg, ok := state.pendingGreetings[data.ClientNum]; ok {
+									pg.guidLinked = true
+								}
 							}
 						}
 					}

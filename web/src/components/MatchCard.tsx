@@ -82,10 +82,14 @@ function demoFilename(match: MatchSummary): string {
 export function MatchCard({ match, onPlayerClick, highlightPlayerId, showPermalink = false }: MatchCardProps) {
   const isTeam = isTeamGame(match.game_type)
   const players = [...(match.players ?? [])].sort((a, b) => {
-    // Sort by team first (red=1, blue=2, others after), then by score descending
+    // Sort by team first (red=1, blue=2, others after), then completed before incomplete, then by score descending
     const teamA = a.team ?? 99
     const teamB = b.team ?? 99
     if (teamA !== teamB) return teamA - teamB
+    const specA = isSpectator(a) ? 1 : 0
+    const specB = isSpectator(b) ? 1 : 0
+    if (specA !== specB) return specA - specB
+    if (a.completed !== b.completed) return a.completed ? -1 : 1
     return (b.score ?? 0) - (a.score ?? 0)
   })
 
@@ -199,7 +203,7 @@ export function MatchCard({ match, onPlayerClick, highlightPlayerId, showPermali
             </div>
           )
         }
-        const nonSpectators = players.filter(p => !isSpectator(p))
+        const nonSpectators = players.filter(p => p.completed && !isSpectator(p))
         const maxScore = Math.max(...nonSpectators.map(p => p.score ?? p.frags ?? 0))
         if (maxScore === 0) {
           return <div className="match-status-label">No contest</div>
@@ -211,7 +215,7 @@ export function MatchCard({ match, onPlayerClick, highlightPlayerId, showPermali
         const tiedPlayers = nonSpectators.filter(p => (p.score ?? p.frags ?? 0) === maxScore)
         return (
           <>
-            <div className="match-status-label">Tie</div>
+            {tiedPlayers.length > 1 && <div className="match-status-label">Tie</div>}
             <div className="ffa-winners">
               {tiedPlayers.map((player, idx) => (
                 <div key={`tie-${player.player_id}-${idx}`} className="ffa-winner-row">

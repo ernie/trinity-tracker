@@ -469,19 +469,23 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 
 	case EventTypeClientConnect:
 		data := event.Data.(ClientConnectData)
+		initialScore := 0
 		state.clients[data.ClientID] = &clientState{
 			clientID:  data.ClientID,
 			joinedAt:  event.Timestamp,
 			ipAddress: data.IPAddress,
+			score:     &initialScore,
 		}
 
 	case EventTypeClientUserinfo:
 		data := event.Data.(ClientUserinfoData)
 		client, ok := state.clients[data.ClientID]
 		if !ok {
+			initialScore := 0
 			client = &clientState{
 				clientID: data.ClientID,
 				joinedAt: event.Timestamp,
+				score:    &initialScore,
 			}
 			state.clients[data.ClientID] = client
 		}
@@ -961,6 +965,7 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 					state.savePreviousClient(client)
 
 					// Create fresh clientState for new team, carrying forward identity
+					initialScore := 0
 					state.clients[data.ClientID] = &clientState{
 						clientID:   client.clientID,
 						playerGUID: client.playerGUID,
@@ -979,6 +984,7 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 						joinedAt:   event.Timestamp,
 						ipAddress:  client.ipAddress,
 						began:      client.began,
+						score:      &initialScore,
 					}
 				} else {
 					// No active match — just update team
@@ -1367,13 +1373,21 @@ func (state *serverState) savePreviousClient(client *clientState) {
 // flushAllMatchStats flushes stats for all players (previous stints + connected) at match end
 func (m *ServerManager) flushAllMatchStats(ctx context.Context, state *serverState, matchID int64, computeVictory bool) {
 	var maxFFAScore int
+	var hasFFAScores bool
 	if computeVictory {
-		maxFFAScore = computeMaxScore(state.clients)
+		maxFFAScore, hasFFAScores = computeMaxScore(state.clients)
 	}
+
+	// On servers with Trinity handshake enabled, unverified players get auto-kicked,
+	// so skip saving their stats entirely.
+	skipUnverified := m.handshakeRequired(state)
 
 	// Flush previous stints FIRST (completed=false, left or changed teams before match end)
 	// Must go first so connected clients' metadata (model, team, client_id) is the final write
 	for _, client := range state.previousClients {
+		if skipUnverified && !client.isBot && !client.isVerified {
+			continue
+		}
 		if client.playerGUID > 0 && (client.team != 3 || client.frags > 0 || client.deaths > 0) {
 			var team *int
 			if client.team > 0 {
@@ -1391,6 +1405,9 @@ func (m *ServerManager) flushAllMatchStats(ctx context.Context, state *serverSta
 	// Flush connected players (completed=true, present at match end)
 	// Goes last so their metadata is authoritative in the DB row
 	for clientID, client := range state.clients {
+		if skipUnverified && !client.isBot && !client.isVerified {
+			continue
+		}
 		if client.playerGUID > 0 && client.began {
 			var team *int
 			if client.team > 0 {
@@ -1398,7 +1415,7 @@ func (m *ServerManager) flushAllMatchStats(ctx context.Context, state *serverSta
 			}
 			var victory bool
 			if computeVictory {
-				victory = isMatchWinner(client, state, maxFFAScore)
+				victory = isMatchWinner(client, state, maxFFAScore, hasFFAScores)
 			}
 			joinedLate := state.match != nil && client.joinedAt.After(state.match.StartedAt)
 			m.store.FlushMatchPlayerStats(ctx, matchID, client.playerGUID, clientID,
@@ -1445,19 +1462,24 @@ func computeWinningTeam(redScore, blueScore *int) int {
 	return 0 // Tie or unknown
 }
 
-// computeMaxScore returns the maximum score among all clients (for FFA victory)
-func computeMaxScore(clients map[int]*clientState) int {
+// computeMaxScore returns the maximum score among all completed clients (for FFA victory)
+// Returns (maxScore, found) where found indicates at least one eligible client existed
+func computeMaxScore(clients map[int]*clientState) (int, bool) {
+	found := false
 	maxScore := 0
 	for _, client := range clients {
-		if client.playerGUID > 0 && client.score != nil && *client.score > maxScore {
-			maxScore = *client.score
+		if client.playerGUID > 0 && client.score != nil {
+			if !found || *client.score > maxScore {
+				maxScore = *client.score
+				found = true
+			}
 		}
 	}
-	return maxScore
+	return maxScore, found
 }
 
 // isMatchWinner determines if a client won the match based on game type and scores
-func isMatchWinner(client *clientState, state *serverState, maxFFAScore int) bool {
+func isMatchWinner(client *clientState, state *serverState, maxFFAScore int, hasFFAScores bool) bool {
 	if state.match == nil || state.pendingExit == nil {
 		return false // No victory for abnormal shutdown
 	}
@@ -1471,8 +1493,8 @@ func isMatchWinner(client *clientState, state *serverState, maxFFAScore int) boo
 		return winningTeam > 0 && client.team == winningTeam
 	}
 
-	// FFA/Tournament: highest score wins (must be > 0)
-	return maxFFAScore > 0 && client.score != nil && *client.score == maxFFAScore
+	// FFA/Tournament: highest score wins
+	return hasFFAScores && client.score != nil && *client.score == maxFFAScore
 }
 
 // emitEvent sends an event to the event channel
