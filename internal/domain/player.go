@@ -61,6 +61,22 @@ type PlayerSession struct {
 	ClientVersion   string     `json:"client_version,omitempty"`
 }
 
+// AdminSession is a session row for the admin sessions view, with player identity included.
+type AdminSession struct {
+	ID              int64      `json:"id"`
+	ServerID        int64      `json:"server_id"`
+	ServerName      string     `json:"server_name"`
+	PlayerID        int64      `json:"player_id"`
+	PlayerName      string     `json:"player_name"`
+	PlayerCleanName string     `json:"player_clean_name"`
+	JoinedAt        time.Time  `json:"joined_at"`
+	LeftAt          *time.Time `json:"left_at,omitempty"`
+	DurationSeconds int64      `json:"duration_seconds,omitempty"`
+	IPAddress       string     `json:"ip_address,omitempty"`
+	ClientEngine    string     `json:"client_engine,omitempty"`
+	ClientVersion   string     `json:"client_version,omitempty"`
+}
+
 // PlayerStats holds aggregated stats for a player (for leaderboards)
 type PlayerStats struct {
 	Player        Player  `json:"player"`

@@ -7,6 +7,10 @@ import { DocsGettingStarted } from './components/docs/DocsGettingStarted'
 import { DocsFeatures } from './components/docs/DocsFeatures'
 import { DocsServerAdmin } from './components/docs/DocsServerAdmin'
 import { DocsCredits } from './components/docs/DocsCredits'
+import { AdminPage } from './components/admin/AdminPage'
+import { AdminUsers } from './components/admin/AdminUsers'
+import { AdminSessions } from './components/admin/AdminSessions'
+import { AdminPlayers } from './components/admin/AdminPlayers'
 import { AuthProvider } from './hooks/useAuth'
 import './index.css'
 
@@ -30,6 +34,12 @@ createRoot(document.getElementById('root')!).render(
             <Route path="features" element={<DocsFeatures />} />
             <Route path="server-admin" element={<DocsServerAdmin />} />
             <Route path="credits" element={<DocsCredits />} />
+          </Route>
+          <Route path="/admin" element={<AdminPage />}>
+            <Route index element={<Navigate to="/admin/users" replace />} />
+            <Route path="users" element={<AdminUsers />} />
+            <Route path="sessions" element={<AdminSessions />} />
+            <Route path="players" element={<AdminPlayers />} />
           </Route>
           <Route path="/about" element={<Navigate to="/docs" replace />} />
           <Route path="/getting-started" element={<Navigate to="/docs/getting-started" replace />} />

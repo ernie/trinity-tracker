@@ -404,3 +404,31 @@ func (r *Router) handleGetPlayerSessions(w http.ResponseWriter, req *http.Reques
 
 	writeJSON(w, http.StatusOK, sessions)
 }
+
+// handleListAdminSessions returns recent sessions across all players,
+// optionally filtered by server_id and/or player_id. Admin only.
+func (r *Router) handleListAdminSessions(w http.ResponseWriter, req *http.Request) {
+	var filter storage.SessionFilter
+
+	if v := req.URL.Query().Get("server_id"); v != "" {
+		if id, err := strconv.ParseInt(v, 10, 64); err == nil && id > 0 {
+			filter.ServerID = &id
+		}
+	}
+	if v := req.URL.Query().Get("player_id"); v != "" {
+		if id, err := strconv.ParseInt(v, 10, 64); err == nil && id > 0 {
+			filter.PlayerID = &id
+		}
+	}
+
+	limit := parseLimit(req, 50, 200)
+	beforeID := parseBeforeID(req)
+
+	sessions, err := r.store.GetRecentSessions(req.Context(), filter, limit, beforeID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, sessions)
+}

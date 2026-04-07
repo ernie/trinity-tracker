@@ -102,6 +102,7 @@ func NewRouter(store *storage.Store, manager *collector.ServerManager, authServi
 	r.mux.HandleFunc("GET /api/players/{id}/sessions", r.requireAdmin(r.handleGetPlayerSessions))
 	r.mux.HandleFunc("POST /api/admin/players/{id}/merge", r.requireAdmin(r.handleMergePlayers))
 	r.mux.HandleFunc("POST /api/admin/guids/{id}/split", r.requireAdmin(r.handleSplitGUID))
+	r.mux.HandleFunc("GET /api/admin/sessions", r.requireAdmin(r.handleListAdminSessions))
 
 	// Quake 3 file serving (admin only, for web game client)
 	if quake3Dir != "" {

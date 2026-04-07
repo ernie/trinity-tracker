@@ -2138,3 +2138,85 @@ func (s *Store) GetPlayerSessions(ctx context.Context, playerID int64, limit int
 	}
 	return sessions, rows.Err()
 }
+
+// SessionFilter is the filter for GetRecentSessions.
+type SessionFilter struct {
+	ServerID *int64
+	PlayerID *int64
+}
+
+// GetRecentSessions returns a paginated list of recent sessions across all players,
+// optionally filtered by server and/or player.
+func (s *Store) GetRecentSessions(ctx context.Context, filter SessionFilter, limit int, beforeID *int64) ([]domain.AdminSession, error) {
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+
+	query := `
+		SELECT s.id, s.server_id, srv.name,
+		       p.id, p.name, p.clean_name,
+		       s.joined_at, s.left_at, s.duration_seconds,
+		       s.ip_address, s.client_engine, s.client_version
+		FROM sessions s
+		JOIN player_guids pg ON s.player_guid_id = pg.id
+		JOIN players p ON pg.player_id = p.id
+		JOIN servers srv ON s.server_id = srv.id
+		WHERE 1=1`
+
+	var args []interface{}
+
+	if filter.ServerID != nil {
+		query += ` AND s.server_id = ?`
+		args = append(args, *filter.ServerID)
+	}
+	if filter.PlayerID != nil {
+		query += ` AND pg.player_id = ?`
+		args = append(args, *filter.PlayerID)
+	}
+	if beforeID != nil {
+		query += ` AND s.id < ?`
+		args = append(args, *beforeID)
+	}
+
+	query += ` ORDER BY s.id DESC LIMIT ?`
+	args = append(args, limit)
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var sessions []domain.AdminSession
+	for rows.Next() {
+		var as domain.AdminSession
+		var leftAt sql.NullTime
+		var durationSeconds sql.NullInt64
+		var ipAddress, clientEngine, clientVersion sql.NullString
+		if err := rows.Scan(
+			&as.ID, &as.ServerID, &as.ServerName,
+			&as.PlayerID, &as.PlayerName, &as.PlayerCleanName,
+			&as.JoinedAt, &leftAt, &durationSeconds,
+			&ipAddress, &clientEngine, &clientVersion,
+		); err != nil {
+			return nil, err
+		}
+		if leftAt.Valid {
+			as.LeftAt = &leftAt.Time
+		}
+		if durationSeconds.Valid {
+			as.DurationSeconds = durationSeconds.Int64
+		}
+		if ipAddress.Valid {
+			as.IPAddress = ipAddress.String
+		}
+		if clientEngine.Valid {
+			as.ClientEngine = clientEngine.String
+		}
+		if clientVersion.Valid {
+			as.ClientVersion = clientVersion.String
+		}
+		sessions = append(sessions, as)
+	}
+	return sessions, rows.Err()
+}

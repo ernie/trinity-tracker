@@ -346,6 +346,21 @@ export interface PlayerSession {
   client_version?: string
 }
 
+export interface AdminSession {
+  id: number
+  server_id: number
+  server_name: string
+  player_id: number
+  player_name: string
+  player_clean_name: string
+  joined_at: string
+  left_at?: string
+  duration_seconds?: number
+  ip_address?: string
+  client_engine?: string
+  client_version?: string
+}
+
 export interface PlayerName {
   name: string
   clean_name: string

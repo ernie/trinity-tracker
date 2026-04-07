@@ -25,15 +25,7 @@ export function PlayersPage() {
   const [searching, setSearching] = useState(false)
 
   const [period, setPeriod] = useState<TimePeriod>('all')
-  const { stats, loading, error, refetch } = usePlayerStats(id ? Number(id) : undefined, period)
-
-  // Admin state
-  const [showMergeSearch, setShowMergeSearch] = useState(false)
-  const [mergeQuery, setMergeQuery] = useState('')
-  const [mergeResults, setMergeResults] = useState<PlayerProfile[]>([])
-  const [mergeSearching, setMergeSearching] = useState(false)
-  const [merging, setMerging] = useState(false)
-  const [splitting, setSplitting] = useState<number | null>(null)
+  const { stats, loading, error } = usePlayerStats(id ? Number(id) : undefined, period)
 
   // Search for players (includes GUID search if admin)
   const handleSearch = useCallback(() => {
@@ -67,98 +59,6 @@ export function PlayersPage() {
     navigate(`/players/${playerId}`)
     setSearchResults([])
     setSearchQuery('')
-  }
-
-  // Search for players to merge (includes GUID search since admin)
-  const handleMergeSearch = useCallback(() => {
-    if (!mergeQuery.trim()) {
-      setMergeResults([])
-      return
-    }
-
-    const headers: HeadersInit = {}
-    if (auth.token) {
-      headers['Authorization'] = `Bearer ${auth.token}`
-    }
-
-    setMergeSearching(true)
-    fetch(`/api/players?search=${encodeURIComponent(mergeQuery)}&limit=10`, { headers })
-      .then(res => res.json())
-      .then(data => {
-        // Filter out the current player from results
-        const filtered = (data || []).filter((p: PlayerProfile) => p.id !== Number(id))
-        setMergeResults(filtered)
-      })
-      .catch(() => setMergeResults([]))
-      .finally(() => setMergeSearching(false))
-  }, [mergeQuery, id, auth.token])
-
-  // Merge another player into this one
-  const handleMerge = async (mergePlayerId: number) => {
-    if (!auth.token || !id) return
-
-    if (!confirm('Are you sure you want to merge this player? This will move all their GUIDs and stats to the current player.')) {
-      return
-    }
-
-    setMerging(true)
-    try {
-      const res = await fetch(`/api/admin/players/${id}/merge`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${auth.token}`,
-        },
-        body: JSON.stringify({ merge_player_id: mergePlayerId }),
-      })
-
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error || 'Merge failed')
-      }
-
-      // Refresh player data
-      setShowMergeSearch(false)
-      setMergeQuery('')
-      setMergeResults([])
-      refetch()
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Merge failed')
-    } finally {
-      setMerging(false)
-    }
-  }
-
-  // Split a GUID into a new player
-  const handleSplit = async (guidId: number) => {
-    if (!auth.token) return
-
-    if (!confirm('Are you sure you want to split this GUID into a separate player?')) {
-      return
-    }
-
-    setSplitting(guidId)
-    try {
-      const res = await fetch(`/api/admin/guids/${guidId}/split`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${auth.token}`,
-        },
-      })
-
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error || 'Split failed')
-      }
-
-      const newPlayer = await res.json()
-      // Navigate to the new player
-      navigate(`/players/${newPlayer.id}`)
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Split failed')
-    } finally {
-      setSplitting(null)
-    }
   }
 
   return (
@@ -259,7 +159,7 @@ export function PlayersPage() {
                 )
               })()}
 
-              {/* Admin: GUIDs section */}
+              {/* Linked GUIDs (informational) */}
               {auth.isAuthenticated && stats.player.guids && stats.player.guids.length > 0 && (
                 <div className="player-guids-section">
                   <h4>Linked GUIDs ({stats.player.guids.length})</h4>
@@ -273,79 +173,9 @@ export function PlayersPage() {
                             {formatDate(guid.first_seen)} - {formatDate(guid.last_seen)}
                           </span>
                         </div>
-                        {stats.player.guids && stats.player.guids.length > 1 && (
-                          <button
-                            className="split-btn"
-                            onClick={() => handleSplit(guid.id)}
-                            disabled={splitting === guid.id}
-                            title="Split this account into a separate player"
-                          >
-                            {splitting === guid.id ? 'Splitting...' : 'Split'}
-                          </button>
-                        )}
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
-
-              {/* Admin: Link GUID controls */}
-              {auth.isAuthenticated && (
-                <div className="admin-controls">
-                  {!showMergeSearch ? (
-                    <button
-                      className="merge-toggle-btn"
-                      onClick={() => setShowMergeSearch(true)}
-                    >
-                      Link GUID
-                    </button>
-                  ) : (
-                    <div className="merge-search-panel">
-                      <div className="merge-search-input">
-                        <input
-                          type="text"
-                          placeholder="Search players by name or GUID..."
-                          value={mergeQuery}
-                          onChange={(e) => setMergeQuery(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && handleMergeSearch()}
-                        />
-                        <button onClick={handleMergeSearch} disabled={mergeSearching}>
-                          {mergeSearching ? 'Searching...' : 'Search'}
-                        </button>
-                        <button
-                          className="close-btn"
-                          onClick={() => {
-                            setShowMergeSearch(false)
-                            setMergeQuery('')
-                            setMergeResults([])
-                          }}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                      {mergeResults.length > 0 && (
-                        <div className="merge-results">
-                          {mergeResults.map(player => (
-                            <div key={player.id} className="merge-result-item">
-                              <div className="merge-player-info">
-                                <ColoredText text={player.name} />
-                                <span className="merge-player-date">
-                                  Last seen: {formatDate(player.last_seen)}
-                                </span>
-                              </div>
-                              <button
-                                className="merge-btn"
-                                onClick={() => handleMerge(player.id)}
-                                disabled={merging}
-                              >
-                                {merging ? 'Linking...' : 'Link'}
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
               )}
 
