@@ -4687,14 +4687,18 @@ h2 {
   border-radius: 6px;
 }
 
-.about-feature summary {
+.about-feature summary,
+.about-feature-header {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 8px 14px;
-  cursor: pointer;
   list-style: none;
   user-select: none;
+}
+
+.about-feature summary {
+  cursor: pointer;
 }
 
 .about-feature summary::-webkit-details-marker {
@@ -4742,6 +4746,39 @@ h2 {
   width: 100%;
   max-width: 600px;
   border-radius: 6px;
+}
+
+.voip-channel-key {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 10px 0;
+}
+
+.voip-channel-key li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 4px 0;
+}
+
+.voip-channel-key li > span:last-child {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.voip-channel-key code {
+  overflow-wrap: anywhere;
+}
+
+.voip-channel-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  margin-top: 0.35em;
+  border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
 /* Docs tabs */
