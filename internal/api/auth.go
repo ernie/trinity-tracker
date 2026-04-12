@@ -261,6 +261,7 @@ type UserResponse struct {
 	Username               string     `json:"username"`
 	IsAdmin                bool       `json:"is_admin"`
 	PlayerID               *int64     `json:"player_id,omitempty"`
+	PlayerName             *string    `json:"player_name,omitempty"`
 	PasswordChangeRequired bool       `json:"password_change_required"`
 	CreatedAt              time.Time  `json:"created_at"`
 	LastLogin              *time.Time `json:"last_login,omitempty"`
@@ -268,7 +269,7 @@ type UserResponse struct {
 
 // handleListUsers returns all users (admin only)
 func (r *Router) handleListUsers(w http.ResponseWriter, req *http.Request) {
-	users, err := r.store.ListUsers(req.Context())
+	users, err := r.store.ListUsersWithPlayer(req.Context())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -282,6 +283,7 @@ func (r *Router) handleListUsers(w http.ResponseWriter, req *http.Request) {
 			Username:               u.Username,
 			IsAdmin:                u.IsAdmin,
 			PlayerID:               u.PlayerID,
+			PlayerName:             u.PlayerName,
 			PasswordChangeRequired: u.PasswordChangeRequired,
 			CreatedAt:              u.CreatedAt,
 			LastLogin:              u.LastLogin,

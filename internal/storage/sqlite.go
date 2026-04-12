@@ -1475,6 +1475,56 @@ func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
 	return users, rows.Err()
 }
 
+// UserWithPlayer is a User augmented with the linked player's display name.
+type UserWithPlayer struct {
+	User
+	PlayerName *string
+}
+
+// ListUsersWithPlayer returns all users, joined with the linked player's name.
+func (s *Store) ListUsersWithPlayer(ctx context.Context) ([]UserWithPlayer, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT u.id, u.username, u.password_hash, u.is_admin, u.player_id,
+		       u.password_change_required, u.created_at, u.last_login, u.game_token,
+		       p.name
+		FROM users u
+		LEFT JOIN players p ON p.id = u.player_id
+		ORDER BY u.username
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []UserWithPlayer
+	for rows.Next() {
+		var u User
+		var playerID sql.NullInt64
+		var lastLogin sql.NullTime
+		var playerName sql.NullString
+		if err := rows.Scan(
+			&u.ID, &u.Username, &u.PasswordHash, &u.IsAdmin, &playerID,
+			&u.PasswordChangeRequired, &u.CreatedAt, &lastLogin, &u.GameToken,
+			&playerName,
+		); err != nil {
+			return nil, err
+		}
+		if playerID.Valid {
+			u.PlayerID = &playerID.Int64
+		}
+		if lastLogin.Valid {
+			u.LastLogin = &lastLogin.Time
+		}
+		entry := UserWithPlayer{User: u}
+		if playerName.Valid {
+			name := playerName.String
+			entry.PlayerName = &name
+		}
+		out = append(out, entry)
+	}
+	return out, rows.Err()
+}
+
 // UpdateUserLastLogin updates the last login timestamp
 func (s *Store) UpdateUserLastLogin(ctx context.Context, userID int64) error {
 	_, err := s.db.ExecContext(ctx, `

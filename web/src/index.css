@@ -4481,6 +4481,40 @@ h2 {
   border-radius: 4px;
 }
 
+.admin-players-search button {
+  background: var(--green);
+  border: none;
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+
+.admin-players-search button:hover:not(:disabled) {
+  background: #388e3c;
+}
+
+.admin-players-search button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.player-link-display .player-name-link {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.player-link-display .player-name-link:hover {
+  text-decoration: underline;
+}
+
 .admin-player-detail {
   margin-top: 20px;
   padding-top: 20px;

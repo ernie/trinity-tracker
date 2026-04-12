@@ -31,7 +31,7 @@ export function DocsGettingStarted() {
   return (
     <>
       <div className="about-section">
-        <h2>Install or Update Trinity</h2>
+        <h2>Install Trinity</h2>
         <p>
           Downloading these builds is the only way to enjoy all Trinity
           features. All engine downloads include the Trinity mod that was

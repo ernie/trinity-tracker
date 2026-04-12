@@ -286,6 +286,7 @@ export interface User {
   username: string
   is_admin: boolean
   player_id: number | null
+  player_name?: string | null
   password_change_required: boolean
   created_at: string
   last_login: string | null

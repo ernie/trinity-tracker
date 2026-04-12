@@ -1,5 +1,7 @@
 import { useState, useEffect, FormEvent } from 'react'
 import { useAuth } from '../../hooks/useAuth'
+import { ColoredText } from '../ColoredText'
+import { PlayerStatsModal } from '../PlayerStatsModal'
 import type { User, PlayerProfile } from '../../types'
 
 export function AdminUsers() {
@@ -23,6 +25,7 @@ export function AdminUsers() {
   const [editPlayerSearch, setEditPlayerSearch] = useState('')
   const [editPlayerResults, setEditPlayerResults] = useState<PlayerProfile[]>([])
   const [editPlayerId, setEditPlayerId] = useState<number | null>(null)
+  const [modalPlayer, setModalPlayer] = useState<{ id: number; name: string } | null>(null)
 
   const fetchUsers = async () => {
     try {
@@ -352,7 +355,19 @@ export function AdminUsers() {
                   </div>
                 ) : (
                   <span className="player-link-display">
-                    {user.player_id || '—'}
+                    {user.player_id && user.player_name ? (
+                      <button
+                        type="button"
+                        className="player-name-link"
+                        onClick={() =>
+                          setModalPlayer({ id: user.player_id!, name: user.player_name! })
+                        }
+                      >
+                        <ColoredText text={user.player_name} />
+                      </button>
+                    ) : (
+                      '—'
+                    )}
                     <button className="edit-link-btn" onClick={() => startEditingUser(user)}>
                       Edit
                     </button>
@@ -398,6 +413,13 @@ export function AdminUsers() {
           ))}
         </tbody>
       </table>
+      {modalPlayer && (
+        <PlayerStatsModal
+          playerName={modalPlayer.name}
+          playerId={modalPlayer.id}
+          onClose={() => setModalPlayer(null)}
+        />
+      )}
     </div>
   )
 }
