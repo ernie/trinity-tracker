@@ -105,12 +105,7 @@ export function DemoPlayerPage() {
       aborted = true
       const mod = moduleRef.current
       if (mod) {
-        // Close audio immediately to avoid looping the last buffer fragment
-        try {
-          const sdl2 = mod.SDL2
-          if (sdl2?.audio?.scriptProcessorNode) sdl2.audio.scriptProcessorNode.disconnect()
-          if (sdl2?.audioContext) sdl2.audioContext.close()
-        } catch {}
+        try { mod.shutdown(); } catch {}
         // pauseMainLoop decrements the keepalive counter so _exit can shut down
         try { mod.pauseMainLoop(); } catch {}
         try { mod._exit(0); } catch {}

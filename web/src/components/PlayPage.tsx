@@ -55,11 +55,7 @@ export function PlayPage() {
       aborted = true
       const mod = moduleRef.current
       if (mod) {
-        try {
-          const sdl2 = mod.SDL2
-          if (sdl2?.audio?.scriptProcessorNode) sdl2.audio.scriptProcessorNode.disconnect()
-          if (sdl2?.audioContext) sdl2.audioContext.close()
-        } catch {}
+        try { mod.shutdown(); } catch {}
         try { mod.pauseMainLoop(); } catch {}
         try { mod._exit(0); } catch {}
         moduleRef.current = null
