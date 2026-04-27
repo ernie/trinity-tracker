@@ -41,6 +41,7 @@ type PlayerJoinEvent struct {
 // PlayerLeaveEvent is sent when a player disconnects
 type PlayerLeaveEvent struct {
 	PlayerName string `json:"player_name"`
+	GUID       string `json:"guid,omitempty"`
 	PlayerID   *int64 `json:"player_id,omitempty"`
 }
 
@@ -60,6 +61,8 @@ type FragEvent struct {
 	Fragger         string `json:"fragger"`
 	Victim          string `json:"victim"`
 	Weapon          string `json:"weapon"`
+	FraggerGUID     string `json:"fragger_guid,omitempty"`
+	VictimGUID      string `json:"victim_guid,omitempty"`
 	FraggerPlayerID *int64 `json:"fragger_player_id,omitempty"`
 	VictimPlayerID  *int64 `json:"victim_player_id,omitempty"`
 }
@@ -69,6 +72,7 @@ type FlagCaptureEvent struct {
 	ClientNum  int    `json:"client_num"`
 	PlayerName string `json:"player_name"`
 	Team       int    `json:"team"` // team that scored (captured enemy flag)
+	GUID       string `json:"guid,omitempty"`
 	PlayerID   *int64 `json:"player_id,omitempty"`
 }
 
@@ -77,6 +81,7 @@ type FlagTakenEvent struct {
 	ClientNum  int    `json:"client_num"`
 	PlayerName string `json:"player_name"`
 	Team       int    `json:"team"` // team of the flag that was taken
+	GUID       string `json:"guid,omitempty"`
 	PlayerID   *int64 `json:"player_id,omitempty"`
 }
 
@@ -85,6 +90,7 @@ type FlagReturnEvent struct {
 	ClientNum  int    `json:"client_num"` // -1 for auto-return
 	PlayerName string `json:"player_name"` // may be empty for auto-return
 	Team       int    `json:"team"`        // team of the flag that was returned
+	GUID       string `json:"guid,omitempty"`
 	PlayerID   *int64 `json:"player_id,omitempty"`
 }
 
@@ -93,6 +99,7 @@ type FlagDropEvent struct {
 	ClientNum  int    `json:"client_num"`
 	PlayerName string `json:"player_name"`
 	Team       int    `json:"team"` // team of the flag that was dropped
+	GUID       string `json:"guid,omitempty"`
 	PlayerID   *int64 `json:"player_id,omitempty"`
 }
 
@@ -100,6 +107,7 @@ type FlagDropEvent struct {
 type ObeliskDestroyEvent struct {
 	AttackerName string `json:"attacker_name"`
 	Team         int    `json:"team"` // team whose obelisk was destroyed
+	GUID         string `json:"guid,omitempty"`
 	PlayerID     *int64 `json:"player_id,omitempty"`
 }
 
@@ -108,6 +116,7 @@ type SkullScoreEvent struct {
 	PlayerName string `json:"player_name"`
 	Team       int    `json:"team"`
 	Skulls     int    `json:"skulls"`
+	GUID       string `json:"guid,omitempty"`
 	PlayerID   *int64 `json:"player_id,omitempty"`
 }
 
@@ -116,6 +125,7 @@ type TeamChangeEvent struct {
 	PlayerName string `json:"player_name"`
 	OldTeam    int    `json:"old_team"`
 	NewTeam    int    `json:"new_team"`
+	GUID       string `json:"guid,omitempty"`
 	PlayerID   *int64 `json:"player_id,omitempty"`
 }
 
@@ -124,6 +134,7 @@ type SayEvent struct {
 	ClientNum  int    `json:"client_num"`
 	PlayerName string `json:"player_name"`
 	Message    string `json:"message"`
+	GUID       string `json:"guid,omitempty"`
 	PlayerID   *int64 `json:"player_id,omitempty"`
 }
 
@@ -132,6 +143,7 @@ type SayTeamEvent struct {
 	ClientNum  int    `json:"client_num"`
 	PlayerName string `json:"player_name"`
 	Message    string `json:"message"`
+	GUID       string `json:"guid,omitempty"`
 	PlayerID   *int64 `json:"player_id,omitempty"`
 }
 
@@ -142,6 +154,8 @@ type TellEvent struct {
 	FromName       string `json:"from_name"`
 	ToName         string `json:"to_name"`
 	Message        string `json:"message"`
+	FromGUID       string `json:"from_guid,omitempty"`
+	ToGUID         string `json:"to_guid,omitempty"`
 	FromPlayerID   *int64 `json:"from_player_id,omitempty"`
 	ToPlayerID     *int64 `json:"to_player_id,omitempty"`
 }
@@ -157,7 +171,9 @@ type AwardEvent struct {
 	PlayerName     string `json:"player_name"`
 	AwardType      string `json:"award_type"` // impressive, excellent, humiliation, defend, assist
 	Team           int    `json:"team,omitempty"`             // player's team (1=Red, 2=Blue)
+	GUID           string `json:"guid,omitempty"`
 	PlayerID       *int64 `json:"player_id,omitempty"`
 	VictimName     string `json:"victim_name,omitempty"`      // for humiliation awards
+	VictimGUID     string `json:"victim_guid,omitempty"`      // for humiliation awards
 	VictimPlayerID *int64 `json:"victim_player_id,omitempty"` // for humiliation awards
 }

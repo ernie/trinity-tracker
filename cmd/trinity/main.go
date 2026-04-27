@@ -31,6 +31,7 @@ import (
 	"github.com/ernie/trinity-tracker/internal/auth"
 	"github.com/ernie/trinity-tracker/internal/collector"
 	"github.com/ernie/trinity-tracker/internal/config"
+	"github.com/ernie/trinity-tracker/internal/hub"
 	"github.com/ernie/trinity-tracker/internal/storage"
 	"github.com/ftrvxmtrx/tga"
 	flag "github.com/spf13/pflag"
@@ -166,12 +167,18 @@ func cmdServe(args []string) {
 	defer store.Close()
 	log.Printf("Database initialized at %s", cfg.Database.Path)
 
-	// Create server manager
-	manager := collector.NewServerManager(cfg, store)
-
 	// Start the manager
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	// Hub writer owns all DB writes for events. The collector publishes
+	// fact events through it instead of calling the store directly.
+	writer := hub.NewWriter(store)
+	writer.Start(ctx)
+	defer writer.Stop()
+
+	// Create server manager
+	manager := collector.NewServerManager(cfg, writer)
 
 	if err := manager.Start(ctx); err != nil {
 		log.Fatalf("Failed to start server manager: %v", err)
@@ -185,7 +192,7 @@ func cmdServe(args []string) {
 	}
 
 	// Create HTTP router
-	router := api.NewRouter(store, manager, authService, cfg.Server.StaticDir, cfg.Server.Quake3Dir)
+	router := api.NewRouter(store, manager, writer, authService, cfg.Server.StaticDir, cfg.Server.Quake3Dir)
 	router.StartWebSocketHub()
 	log.Printf("Serving static files from %s", cfg.Server.StaticDir)
 
@@ -207,7 +214,7 @@ func cmdServe(args []string) {
 	serverErr := make(chan error, 1)
 	go func() {
 		log.Printf("HTTP server listening on %s", addr)
-		log.Printf("Web UI available at http://localhost%s", addr)
+		log.Printf("Web UI available at http://%s", addr)
 		if err := server.ListenAndServe(); err != http.ErrServerClosed {
 			serverErr <- err
 		}

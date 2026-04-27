@@ -5,18 +5,21 @@ import (
 	"fmt"
 	"log"
 	"time"
+
+	"github.com/ernie/trinity-tracker/internal/domain"
+	"github.com/ernie/trinity-tracker/internal/hub"
 )
 
-// pendingGreeting stores the info needed to greet a player after handshake completes.
+// pendingGreeting holds the client info needed to greet a player after
+// the Trinity handshake arrives (or the timeout fires).
 type pendingGreeting struct {
 	serverID        int64
 	clientID        int
-	playerID        int64
+	guid            string
 	playerName      string
 	cleanName       string
 	isVR            bool
 	isTrinityEngine bool
-	guidLinked      bool
 	timer           *time.Timer
 }
 
@@ -29,9 +32,10 @@ func (m *ServerManager) handshakeRequired(state *serverState) bool {
 }
 
 // scheduleGreetingAfterHandshake stores a pending greeting and starts a timeout.
-// If the handshake arrives before the timeout, the greeting is sent immediately.
-// If the timeout fires, a warning is sent instead (the QVM kicks after 10s).
-func (m *ServerManager) scheduleGreetingAfterHandshake(ctx context.Context, state *serverState, serverID int64, clientID int, playerID int64, playerName, cleanName string, isVR, isTrinityEngine bool) {
+// If the handshake arrives before the timeout, performGreet is called with
+// the auth bundle. If the timeout fires, a warning is sent instead
+// (the QVM kicks after 10s).
+func (m *ServerManager) scheduleGreetingAfterHandshake(ctx context.Context, state *serverState, serverID int64, clientID int, guid, playerName, cleanName string, isVR, isTrinityEngine bool) {
 	if state.pendingGreetings == nil {
 		state.pendingGreetings = make(map[int]*pendingGreeting)
 	}
@@ -45,7 +49,7 @@ func (m *ServerManager) scheduleGreetingAfterHandshake(ctx context.Context, stat
 	pg := &pendingGreeting{
 		serverID:        serverID,
 		clientID:        clientID,
-		playerID:        playerID,
+		guid:            guid,
 		playerName:      playerName,
 		cleanName:       cleanName,
 		isVR:            isVR,
@@ -68,74 +72,57 @@ func (m *ServerManager) scheduleGreetingAfterHandshake(ctx context.Context, stat
 	state.pendingGreetings[clientID] = pg
 }
 
-// completeHandshakeGreeting is called when a TrinityHandshake event is received.
-// It cancels the timeout and sends the normal greeting.
-func (m *ServerManager) completeHandshakeGreeting(ctx context.Context, state *serverState, clientID int) {
-	if state.pendingGreetings == nil {
-		return
-	}
-	pg, ok := state.pendingGreetings[clientID]
-	if !ok {
-		return
-	}
-	pg.timer.Stop()
-	delete(state.pendingGreetings, clientID)
-
-	// Send the normal greeting
-	go m.greetPlayer(ctx, pg.serverID, pg.clientID, pg.playerID, pg.playerName, pg.cleanName, pg.isVR, pg.isTrinityEngine, pg.guidLinked)
-}
-
 func (m *ServerManager) handleTrinityHandshake(ctx context.Context, serverID int64, state *serverState, data TrinityHandshakeData) {
 	nonce, nonceOk := state.trinityNonces[data.ClientNum]
 	delete(state.trinityNonces, data.ClientNum)
 
-	// Store client engine/version on the session
-	if client, clientOk := state.clients[data.ClientNum]; clientOk && client.sessionID > 0 {
-		if err := m.store.UpdateSessionClientInfo(ctx, client.sessionID, data.Engine, data.Version); err != nil {
-			log.Printf("Error updating session client info: %v", err)
+	client, clientOk := state.clients[data.ClientNum]
+
+	// Stamp client engine/version on the session via the hub writer.
+	if clientOk && client.guid != "" && !client.isBot {
+		m.writer.Publish(domain.FactEvent{
+			Type:      domain.FactTrinityHandshake,
+			ServerID:  serverID,
+			Timestamp: time.Now().UTC(),
+			Data: domain.TrinityHandshakeData{
+				GUID:          client.guid,
+				ClientEngine:  data.Engine,
+				ClientVersion: data.Version,
+			},
+		})
+	}
+
+	// Pull the pending greeting (if any) and cancel its timeout. The
+	// greet RPC itself runs whether or not a handshake was scheduled —
+	// for servers without g_trinityhandshake the ClientBegin path
+	// already fired performGreet.
+	var pg *pendingGreeting
+	if state.pendingGreetings != nil {
+		pg = state.pendingGreetings[data.ClientNum]
+		if pg != nil {
+			pg.timer.Stop()
+			delete(state.pendingGreetings, data.ClientNum)
 		}
 	}
 
-	// Validate auth token if provided
-	if data.Username != "" && data.TokenHash != "" {
-		if !nonceOk {
-			log.Printf("Trinity auth: no nonce for client %d on server %d", data.ClientNum, serverID)
-			m.sendTrinityAuthFail(serverID, data.ClientNum)
-		} else {
-			playerID, token, err := m.store.GetGameTokenByUsername(ctx, data.Username)
-			if err != nil {
-				log.Printf("Trinity auth: no game token for user %s: %v", data.Username, err)
-				m.sendTrinityAuthFail(serverID, data.ClientNum)
-			} else {
-				expected := sipHashHex(token, nonce)
-				if expected != data.TokenHash {
-					log.Printf("Trinity auth: hash mismatch for user %s: expected %s got %s", data.Username, expected, data.TokenHash)
-					m.sendTrinityAuthFail(serverID, data.ClientNum)
-				} else {
-					log.Printf("Trinity auth verified: client %d user %s on server %d", data.ClientNum, data.Username, serverID)
-					if client, ok := state.clients[data.ClientNum]; ok {
-						client.isVerified = true
-						// Auto-associate the GUID with the user's player
-						if client.guid != "" {
-							merged, err := m.store.AssociateGUIDWithPlayer(ctx, client.guid, playerID)
-							if err != nil {
-								log.Printf("Trinity auth: failed to associate GUID %s with player %d: %v", client.guid, playerID, err)
-							} else if merged {
-								log.Printf("Trinity auth: linked GUID %s to player %d", client.guid, playerID)
-								client.playerID = playerID
-								if pg, ok := state.pendingGreetings[data.ClientNum]; ok {
-									pg.guidLinked = true
-								}
-							}
-						}
-					}
-				}
-			}
-		}
+	if pg == nil {
+		return
 	}
 
-	// Complete the pending greeting (always — greeting is GUID-based, not auth-dependent)
-	m.completeHandshakeGreeting(ctx, state, data.ClientNum)
+	// Build auth bundle (nil if the client didn't supply credentials or
+	// we never stashed a nonce). The hub treats nil as unauthenticated.
+	var auth *hub.AuthProof
+	if data.Username != "" && data.TokenHash != "" && nonceOk {
+		auth = &hub.AuthProof{
+			Username:  data.Username,
+			Nonce:     nonce,
+			TokenHash: data.TokenHash,
+		}
+	} else if data.Username != "" && data.TokenHash != "" && !nonceOk {
+		log.Printf("Trinity auth: no nonce for client %d on server %d", data.ClientNum, serverID)
+	}
+
+	go m.performGreet(ctx, pg.serverID, pg.clientID, pg.guid, pg.playerName, pg.cleanName, pg.isVR, pg.isTrinityEngine, auth)
 }
 
 func (m *ServerManager) sendTrinityAuthFail(serverID int64, clientNum int) {
@@ -147,97 +134,3 @@ func (m *ServerManager) sendTrinityAuthFail(serverID int64, clientNum int) {
 	}()
 }
 
-// sipHashHex matches the BG_HashKeyed implementation in the QVM:
-// SipHash-2-4 with 128-bit output, keyed by token, message is nonce.
-func sipHashHex(key, message string) string {
-	k0, k1 := deriveKey(key)
-	msg := []byte(message)
-
-	v0 := k0 ^ 0x736f6d6570736575
-	v1 := k1 ^ 0x646f72616e646f6d
-	v2 := k0 ^ 0x6c7967656e657261
-	v3 := k1 ^ 0x7465646279746573
-
-	// 128-bit output tag
-	v1 ^= 0xee
-
-	blocks := len(msg) / 8
-	for i := 0; i < blocks; i++ {
-		m := uint64(msg[i*8]) |
-			uint64(msg[i*8+1])<<8 |
-			uint64(msg[i*8+2])<<16 |
-			uint64(msg[i*8+3])<<24 |
-			uint64(msg[i*8+4])<<32 |
-			uint64(msg[i*8+5])<<40 |
-			uint64(msg[i*8+6])<<48 |
-			uint64(msg[i*8+7])<<56
-		v3 ^= m
-		v0, v1, v2, v3 = sipRound(v0, v1, v2, v3)
-		v0, v1, v2, v3 = sipRound(v0, v1, v2, v3)
-		v0 ^= m
-	}
-
-	// Last block with length byte
-	var m uint64
-	left := len(msg) & 7
-	for j := left - 1; j >= 0; j-- {
-		m <<= 8
-		m |= uint64(msg[blocks*8+j])
-	}
-	m |= uint64(len(msg)&0xff) << 56
-	v3 ^= m
-	v0, v1, v2, v3 = sipRound(v0, v1, v2, v3)
-	v0, v1, v2, v3 = sipRound(v0, v1, v2, v3)
-	v0 ^= m
-
-	// First finalization
-	v2 ^= 0xee
-	v0, v1, v2, v3 = sipRound(v0, v1, v2, v3)
-	v0, v1, v2, v3 = sipRound(v0, v1, v2, v3)
-	v0, v1, v2, v3 = sipRound(v0, v1, v2, v3)
-	v0, v1, v2, v3 = sipRound(v0, v1, v2, v3)
-	hash0 := v0 ^ v1 ^ v2 ^ v3
-
-	// Second finalization
-	v1 ^= 0xdd
-	v0, v1, v2, v3 = sipRound(v0, v1, v2, v3)
-	v0, v1, v2, v3 = sipRound(v0, v1, v2, v3)
-	v0, v1, v2, v3 = sipRound(v0, v1, v2, v3)
-	v0, v1, v2, v3 = sipRound(v0, v1, v2, v3)
-	hash1 := v0 ^ v1 ^ v2 ^ v3
-
-	return fmt.Sprintf("%08x%08x%08x%08x",
-		uint32(hash0), uint32(hash0>>32),
-		uint32(hash1), uint32(hash1>>32))
-}
-
-func sipRound(v0, v1, v2, v3 uint64) (uint64, uint64, uint64, uint64) {
-	v0 += v1
-	v2 += v3
-	v1 = v1<<13 | v1>>(64-13)
-	v3 = v3<<16 | v3>>(64-16)
-	v1 ^= v0
-	v3 ^= v2
-	v0 = v0<<32 | v0>>(64-32)
-	v2 += v1
-	v0 += v3
-	v1 = v1<<17 | v1>>(64-17)
-	v3 = v3<<21 | v3>>(64-21)
-	v1 ^= v2
-	v3 ^= v0
-	v2 = v2<<32 | v2>>(64-32)
-	return v0, v1, v2, v3
-}
-
-// deriveKey folds a variable-length key into two uint64 SipHash key halves.
-// Must match the DeriveKey function in bg_hash.c exactly.
-func deriveKey(key string) (uint64, uint64) {
-	h := [4]uint32{0x736f6d65, 0x646f7261, 0x6c796765, 0x74656462}
-	for i := 0; i < len(key); i++ {
-		h[i&3] ^= uint32(key[i])
-		h[i&3] *= 0x01000193
-	}
-	k0 := uint64(h[0])<<32 | uint64(h[1])
-	k1 := uint64(h[2])<<32 | uint64(h[3])
-	return k0, k1
-}

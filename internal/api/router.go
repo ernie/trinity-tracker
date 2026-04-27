@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"io/fs"
 	"net/http"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"github.com/ernie/trinity-tracker/internal/auth"
 	"github.com/ernie/trinity-tracker/internal/collector"
 	"github.com/ernie/trinity-tracker/internal/domain"
+	"github.com/ernie/trinity-tracker/internal/hub"
 	"github.com/ernie/trinity-tracker/internal/storage"
 )
 
@@ -19,6 +21,7 @@ type Router struct {
 	mux          *http.ServeMux
 	store        *storage.Store
 	manager      *collector.ServerManager
+	writer       *hub.Writer
 	wsHub        *WebSocketHub
 	logStream    *LogStreamManager
 	auth         *auth.Service
@@ -28,11 +31,12 @@ type Router struct {
 }
 
 // NewRouter creates a new HTTP router
-func NewRouter(store *storage.Store, manager *collector.ServerManager, authService *auth.Service, staticDir, quake3Dir string) *Router {
+func NewRouter(store *storage.Store, manager *collector.ServerManager, writer *hub.Writer, authService *auth.Service, staticDir, quake3Dir string) *Router {
 	r := &Router{
 		mux:          http.NewServeMux(),
 		store:        store,
 		manager:      manager,
+		writer:       writer,
 		wsHub:        NewWebSocketHub(),
 		logStream:    NewLogStreamManager(store),
 		auth:         authService,
@@ -135,13 +139,18 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	r.mux.ServeHTTP(w, req)
 }
 
-// StartWebSocketHub starts broadcasting events to WebSocket clients
+// StartWebSocketHub starts broadcasting events to WebSocket clients.
+// Events flow: collector emits with GUIDs → writer enriches to fill
+// player IDs → WebSocket hub broadcasts to browser clients.
 func (r *Router) StartWebSocketHub() {
 	go r.wsHub.Run()
 
-	// Forward events from manager to WebSocket hub
 	go func() {
+		ctx := context.Background()
 		for event := range r.manager.Events() {
+			if r.writer != nil {
+				event = r.writer.EnrichEvent(ctx, event)
+			}
 			r.wsHub.Broadcast(event)
 		}
 	}()

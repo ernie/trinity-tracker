@@ -53,6 +53,7 @@ type FlagStatus struct {
 // PlayerStatus represents a player's current state on a server
 type PlayerStatus struct {
 	ClientNum    int       `json:"client_num"`
+	GUID         string    `json:"guid,omitempty"`
 	Name         string    `json:"name"`
 	CleanName    string    `json:"clean_name"`
 	Score        int       `json:"score"`
