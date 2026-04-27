@@ -8,8 +8,19 @@ CREATE TABLE IF NOT EXISTS servers (
     log_path TEXT,
     last_match_uuid TEXT,
     last_match_ended_at TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    -- Distributed-tracking fields. NULL / default 0 for local servers; set
+    -- when a remote collector registers a server via NATS.
+    source TEXT,
+    source_uuid TEXT,
+    local_id INTEGER,
+    remote_address TEXT,
+    is_remote INTEGER NOT NULL DEFAULT 0,
+    last_heartbeat_at TIMESTAMP,
+    demo_base_url TEXT
 );
+
+CREATE INDEX IF NOT EXISTS idx_servers_source_uuid_local_id ON servers (source_uuid, local_id);
 
 -- Logical players (the "person" - can have multiple GUIDs)
 CREATE TABLE IF NOT EXISTS players (
@@ -159,3 +170,26 @@ CREATE TABLE IF NOT EXISTS link_codes (
 
 CREATE INDEX IF NOT EXISTS idx_link_codes_code ON link_codes(code);
 CREATE INDEX IF NOT EXISTS idx_link_codes_expires_at ON link_codes(expires_at);
+
+-- Distributed tracking (M2): hub bookkeeping for sources/collectors.
+
+-- Per-source event sequence watermark. Primary dedup mechanism against
+-- JetStream redelivery; complement to the stream's Msg-Id dedup window.
+CREATE TABLE IF NOT EXISTS source_progress (
+    source_uuid  TEXT PRIMARY KEY,
+    consumed_seq INTEGER NOT NULL DEFAULT 0,
+    updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Collectors awaiting admin approval. servers_json holds the list of Q3
+-- servers the collector claims (from its registration message).
+-- On approve: row deleted; servers rows upserted with is_remote=1.
+-- On reject: row deleted; future events from same source_uuid dropped at ingest.
+CREATE TABLE IF NOT EXISTS pending_sources (
+    source_uuid  TEXT PRIMARY KEY,
+    source       TEXT NOT NULL,
+    first_seen   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_seen    TIMESTAMP,
+    version      TEXT,
+    servers_json TEXT
+);
