@@ -185,6 +185,8 @@ func cmdServe(args []string) {
 		rpcServer          *natsbus.RPCServer
 		regSubscriber      *natsbus.RegistrationSubscriber
 		registrar          *natsbus.Registrar
+		remotePoller       *hub.RemotePoller
+		bufferedPublisher  *natsbus.BufferedPublisher
 		collectorRPC       hub.RPCClient
 		collectorUUID      string
 		collectorWatermark *natsbus.WatermarkTracker
@@ -210,8 +212,18 @@ func cmdServe(args []string) {
 			// hub+collector.
 			log.Fatalf("tracker.collector is configured without tracker.hub; collector-only mode is not yet supported")
 		}
+		// Collect NATS connection options. The credentials_file hook is
+		// only useful for a remote-hub connection (NKey auth on the
+		// other side); for in-process loopback it is a no-op. It is
+		// still honored here so switching to collector-only mode in
+		// the future is a pure-config change.
+		opts := []nats.Option{nats.InProcessServer(ns.NATSServer()), nats.Name("trinity-collector")}
+		if creds := cfg.Tracker.NATS.CredentialsFile; creds != "" {
+			opts = append(opts, nats.UserCredentials(creds))
+			log.Printf("Collector using credentials file: %s", creds)
+		}
 		var err error
-		collectorNC, err = nats.Connect("", nats.InProcessServer(ns.NATSServer()), nats.Name("trinity-collector"))
+		collectorNC, err = nats.Connect("", opts...)
 		if err != nil {
 			log.Fatalf("Failed to connect in-process NATS client: %v", err)
 		}
@@ -230,21 +242,30 @@ func cmdServe(args []string) {
 		if err != nil {
 			log.Fatalf("Failed to build fact-event publisher: %v", err)
 		}
+		bufPub := natsbus.NewBufferedPublisher(pub, natsbus.BufferedCapacity)
+		bufPub.Start(ctx)
+		bufferedPublisher = bufPub
 		rpcClient, err := natsbus.NewRPCClient(collectorNC, cfg.Tracker.Collector.SourceID, 0)
 		if err != nil {
 			log.Fatalf("Failed to build RPC client: %v", err)
 		}
 		collectorRPC = rpcClient
 		log.Printf("Collector publishing as source=%s uuid=%s (last_seq=%d)", cfg.Tracker.Collector.SourceID, sourceUUID, wm.Current().LastSeq)
-		writerOpts = append(writerOpts, hub.WithFactPublisher(pub))
+		writerOpts = append(writerOpts, hub.WithFactPublisher(bufPub))
 	}
 
 	// preStop: halt outbound registrations, stop inbound subscribers
-	// and RPC handlers, flush the watermark, then shut down the
-	// embedded NATS server.
+	// and RPC handlers, stop the remote poller, flush the watermark,
+	// then shut down the embedded NATS server.
 	writerOpts = append(writerOpts, hub.WithPreStop(func() {
 		if registrar != nil {
 			registrar.Stop()
+		}
+		if bufferedPublisher != nil {
+			bufferedPublisher.Stop()
+		}
+		if remotePoller != nil {
+			remotePoller.Stop()
 		}
 		if subscriber != nil {
 			subscriber.Stop()
@@ -299,6 +320,10 @@ func cmdServe(args []string) {
 			log.Fatalf("Failed to subscribe to registrations: %v", err)
 		}
 		log.Printf("Hub subscribed to %s*", natsbus.RegistrationSubjectPrefix)
+
+		remotePoller = hub.NewRemotePoller(store, collector.NewQ3Client(), cfg.Server.PollInterval)
+		remotePoller.Start(ctx)
+		log.Printf("Hub polling remote servers every %v", cfg.Server.PollInterval)
 	}
 
 	// Create server manager. In distributed mode, collectorRPC is the

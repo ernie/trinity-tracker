@@ -161,6 +161,39 @@ func (s *Store) ResolveServerIDForSource(ctx context.Context, sourceUUID string,
 	return id, nil
 }
 
+// RemoteServer is a lightweight view of a servers row tagged
+// is_remote=1. Used by the hub's poller to loop over remote targets.
+type RemoteServer struct {
+	ID            int64
+	Name          string
+	RemoteAddress string
+	SourceUUID    string
+}
+
+// ListRemoteServers returns all servers rows where is_remote=1 and
+// remote_address is populated. Ordered by id.
+func (s *Store) ListRemoteServers(ctx context.Context) ([]RemoteServer, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, name, COALESCE(remote_address, ''), COALESCE(source_uuid, '')
+		FROM servers
+		WHERE is_remote = 1 AND COALESCE(remote_address, '') <> ''
+		ORDER BY id
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("storage: ListRemoteServers: %w", err)
+	}
+	defer rows.Close()
+	var out []RemoteServer
+	for rows.Next() {
+		var r RemoteServer
+		if err := rows.Scan(&r.ID, &r.Name, &r.RemoteAddress, &r.SourceUUID); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
 // ApproveRemoteServers creates (or updates) servers rows for every
 // entry in the registration's roster, stamping them is_remote=1 and
 // attaching source_uuid/local_id. Idempotent: repeated approvals of

@@ -169,6 +169,16 @@ func RegisterRPCHandlers(nc *nats.Conn, h RPCHandlers) (*RPCServer, error) {
 	}
 	s.subs = append(s.subs, linkSub)
 
+	// Flush so every QueueSubscribe is registered with the server
+	// before RegisterRPCHandlers returns. Otherwise a client that
+	// fires a request immediately after setup can hit
+	// "no responders available" while the subscription is still
+	// propagating.
+	if err := nc.Flush(); err != nil {
+		s.Stop()
+		return nil, fmt.Errorf("natsbus: flush after subscribe: %w", err)
+	}
+
 	return s, nil
 }
 
