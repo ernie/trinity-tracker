@@ -1,0 +1,74 @@
+# /etc/trinity/config.yml — example collector-only configuration.
+#
+# install-collector.sh drops this as /etc/trinity/config.yml.example and
+# does NOT overwrite an existing /etc/trinity/config.yml. To use:
+#
+#   sudo cp /etc/trinity/config.yml.example /etc/trinity/config.yml
+#   sudo chown root:quake /etc/trinity/config.yml
+#   sudo chmod 0640 /etc/trinity/config.yml
+#   sudo nano /etc/trinity/config.yml   # fill in the placeholders
+#
+# See docs/collector-setup.md for the field-by-field walkthrough.
+
+# A collector-only process serves no HTTP UI, so listen_addr / http_port
+# / poll_interval are inert here; static_dir and quake3_dir are only
+# consulted by the `trinity levelshots` and `trinity demobake` CLI
+# subcommands you run by hand to populate the nginx asset tree.
+server:
+    listen_addr: 127.0.0.1
+    http_port: 8080
+    poll_interval: 5s
+    static_dir: /var/lib/trinity/web
+    quake3_dir: /usr/lib/quake3
+
+tracker:
+    collector:
+        # Admin-chosen name your hub knows you by. Must match the source
+        # the hub admin provisioned (and the .creds file's subject).
+        source_id: "REPLACE-ME"
+
+        # Where the collector stores its own state (NATS publisher
+        # watermark, spillover queue during outages, etc.). The
+        # installer creates this directory chowned to quake.
+        data_dir: "/var/lib/trinity"
+
+        heartbeat_interval: "30s"
+
+        # Bare hostname of the trinity hub this collector reports to.
+        # The community hub is trinity.run; override only if you
+        # run your own.
+        hub_host: "trinity.run"
+
+        # Publicly-reachable URL for this host. The bare hostname is
+        # used as the q3 server address advertised to the hub; the full
+        # URL is what the hub stores as the demo download base (so the
+        # hub can 302 users back here for recorded demos).
+        public_url: "https://REPLACE-ME.example.com"
+
+    nats:
+        # The .creds file is the NKey/JWT bundle the hub admin issued.
+        # install-collector.sh installs it at this path with mode 0640
+        # owned by root:quake.
+        credentials_file: "/etc/trinity/source.creds"
+
+# One entry per q3 server you run on this host. The collector tails the
+# log_path file, sends RCON to the address, and identifies the server in
+# the hub by (source, key). See docs/collector-setup.md §"Server identity"
+# for what changes when you rename a key vs. just edit the address/log_path.
+q3_servers:
+    - key: "ffa"
+      # Use the public hostname here (not 127.0.0.1) so the hub stores a
+      # routable address. The collector reaches RCON via this address too;
+      # the q3 server happily accepts rcon on any of its bound interfaces.
+      address: "REPLACE-ME.example.com:27960"
+      log_path: "/var/log/quake3/ffa.log"
+      # Must match `set rconpassword "..."` in your q3 server's
+      # autoexec.cfg. Without this, !claim / !help / welcomes can't be
+      # delivered (you'll see "RCON not configured for this server" in
+      # journalctl). See docs/collector-setup.md §"RCON".
+      rcon_password: "REPLACE-ME"
+
+    - key: "1v1"
+      address: "REPLACE-ME.example.com:27961"
+      log_path: "/var/log/quake3/1v1.log"
+      rcon_password: "REPLACE-ME"

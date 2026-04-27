@@ -208,7 +208,38 @@ func Load(path string) (*Config, error) {
 		}
 	}
 
+	if err := validateNoPlaceholders(&cfg); err != nil {
+		return nil, err
+	}
+
 	return &cfg, nil
+}
+
+// validateNoPlaceholders refuses configs where the operator forgot to
+// edit the REPLACE-ME placeholders shipped in
+// scripts/config.yml.example. Without this, a half-edited config
+// loads "successfully" and the collector publishes against a bogus
+// source name or rcons with the literal word "REPLACE-ME".
+func validateNoPlaceholders(cfg *Config) error {
+	const placeholder = "REPLACE-ME"
+	if cfg.Tracker != nil && cfg.Tracker.Collector != nil {
+		c := cfg.Tracker.Collector
+		if strings.Contains(c.SourceID, placeholder) {
+			return fmt.Errorf("tracker.collector.source_id is still %q — edit your config.yml", c.SourceID)
+		}
+		if strings.Contains(c.PublicURL, placeholder) {
+			return fmt.Errorf("tracker.collector.public_url is still %q — edit your config.yml", c.PublicURL)
+		}
+	}
+	for i, srv := range cfg.Q3Servers {
+		if strings.Contains(srv.Address, placeholder) {
+			return fmt.Errorf("q3_servers[%d].address is still %q — edit your config.yml", i, srv.Address)
+		}
+		if strings.Contains(srv.RconPassword, placeholder) {
+			return fmt.Errorf("q3_servers[%d].rcon_password is still %q — edit your config.yml", i, srv.RconPassword)
+		}
+	}
+	return nil
 }
 
 // applyTrackerDefaults populates cfg.Tracker if absent (single-machine

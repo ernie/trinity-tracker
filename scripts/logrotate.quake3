@@ -1,0 +1,9 @@
+/var/log/quake3/*.log {
+    daily
+    rotate 7
+    compress
+    su quake quake
+    missingok
+    notifempty
+    copytruncate
+}

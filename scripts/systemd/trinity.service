@@ -1,0 +1,26 @@
+[Unit]
+Description=Trinity
+After=network.target
+Before=quake3-servers.target
+
+[Service]
+Type=simple
+User=quake
+Group=quake
+ExecStart=/usr/local/bin/trinity serve
+Restart=on-failure
+RestartSec=5
+
+# Sandboxing. Trinity reads /etc/trinity, writes /var/lib/trinity
+# (SQLite + NATS state), and reads /var/log/quake3 for the log tailer.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/trinity
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target
