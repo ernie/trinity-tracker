@@ -45,6 +45,11 @@ export function DocsGettingStarted() {
           the <a href="https://discord.gg/tuDB2YNc7h">Team Beef Discord</a>{" "}
           if you have questions or want to connect.
         </p>
+        <p>
+          The free Quake 3 demo (evaluation version) is not supported —
+          Trinity targets retail Quake 3 only. Running demo servers or
+          clients against Trinity is entirely on you.
+        </p>
         <div className="about-downloads">
           {releases.map((r) => (
             <div key={r.repo}>

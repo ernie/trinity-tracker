@@ -2,6 +2,15 @@
 
 Real-time statistics tracking system for the [Trinity Quake 3 engine](https://github.com/ernie/trinity-engine) and [Trinity mod](https://github.com/ernie/trinity).
 
+The free Quake 3 demo (evaluation version) is not supported — retail only.
+
+> **Setting up a Trinity server that contributes stats to a hub** (e.g.
+> the canonical hub at `trinity.run`)? See
+> [docs/collector-setup.md](./docs/collector-setup.md) — operator-facing
+> install guide that uses `scripts/install-collector.sh` to handle the
+> boilerplate. The architecture/lifecycle reference for the distributed
+> mode is at [docs/distributed-deployment.md](./docs/distributed-deployment.md).
+
 ## Installation
 
 ### From Prebuilt Release
