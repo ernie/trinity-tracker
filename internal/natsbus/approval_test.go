@@ -120,10 +120,11 @@ func TestPendingSourceApprovalDrainsDLQ(t *testing.T) {
 		ServerID:  reg.Servers[0].LocalID,
 		Timestamp: time.Now().UTC(),
 		Data: domain.MatchStartData{
-			MatchUUID: matchUUID,
-			MapName:   "q3dm17",
-			GameType:  "FFA",
-			StartedAt: time.Now().UTC(),
+			MatchUUID:         matchUUID,
+			MapName:           "q3dm17",
+			GameType:          "FFA",
+			StartedAt:         time.Now().UTC(),
+			HandshakeRequired: true,
 		},
 	}); err != nil {
 		t.Fatalf("publish: %v", err)

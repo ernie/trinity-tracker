@@ -63,7 +63,7 @@ func (r *Router) handleGetServerStatus(w http.ResponseWriter, req *http.Request)
 		return
 	}
 
-	status := r.manager.GetServerStatus(id)
+	status := r.lookupServerStatus(id)
 	if status == nil {
 		writeError(w, http.StatusNotFound, "server status not available")
 		return
@@ -79,7 +79,7 @@ func (r *Router) handleGetServerPlayers(w http.ResponseWriter, req *http.Request
 		return
 	}
 
-	status := r.manager.GetServerStatus(id)
+	status := r.lookupServerStatus(id)
 	if status == nil {
 		writeError(w, http.StatusNotFound, "server status not available")
 		return

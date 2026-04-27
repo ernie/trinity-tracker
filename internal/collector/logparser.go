@@ -494,14 +494,14 @@ func ParseLine(line string) (*LogEvent, error) {
 	event := &LogEvent{Timestamp: timestamp}
 
 	if match := initGameRegex.FindStringSubmatch(content); match != nil {
-		settings := parseUserinfo(match[1])
+		settings := parseInfoString(match[1])
 		gameType := 0
 		if gt, ok := settings["g_gametype"]; ok {
 			gameType, _ = strconv.Atoi(gt)
 		}
-		// Extract match UUID if present
-		matchUUID := settings["g_matchUUID"]
-		delete(settings, "g_matchUUID") // Don't include in settings map
+		// Extract match UUID if present. Key is lowercased by parseInfoString.
+		matchUUID := settings["g_matchuuid"]
+		delete(settings, "g_matchuuid") // Don't include in settings map
 
 		event.Type = EventTypeInitGame
 		event.Data = InitGameData{
@@ -551,7 +551,7 @@ func ParseLine(line string) (*LogEvent, error) {
 
 	if match := clientUserinfoRegex.FindStringSubmatch(content); match != nil {
 		clientID, _ := strconv.Atoi(match[1])
-		userinfo := parseUserinfo(match[2])
+		userinfo := parseInfoString(match[2])
 
 		team := 0
 		if t, ok := userinfo["t"]; ok {
@@ -628,23 +628,25 @@ func ParseLine(line string) (*LogEvent, error) {
 
 	if match := exitRegex.FindStringSubmatch(content); match != nil {
 		// Parse Exit: <reason> \g_matchUUID\<uuid>[\g_redScore\<red>\g_blueScore\<blue>]
+		// Key case in the log tracks the server's cvar registration
+		// order, so detect the kv-boundary and read the map
+		// case-insensitively.
 		exitContent := match[1]
 		reason := exitContent
 		uuid := ""
 		var redScore, blueScore *int
 
-		// Check if there are key-value pairs appended (format: "reason \key\value\key\value...")
-		if idx := strings.Index(exitContent, "\\g_matchUUID\\"); idx != -1 {
+		if idx := strings.Index(strings.ToLower(exitContent), "\\g_matchuuid\\"); idx != -1 {
 			reason = strings.TrimSpace(exitContent[:idx])
 			kvPart := exitContent[idx+1:] // Skip the leading backslash
-			kvPairs := parseUserinfo(kvPart)
-			uuid = kvPairs["g_matchUUID"]
-			if rs, ok := kvPairs["g_redScore"]; ok {
+			kvPairs := parseInfoString(kvPart)
+			uuid = kvPairs["g_matchuuid"]
+			if rs, ok := kvPairs["g_redscore"]; ok {
 				if v, err := strconv.Atoi(rs); err == nil {
 					redScore = &v
 				}
 			}
-			if bs, ok := kvPairs["g_blueScore"]; ok {
+			if bs, ok := kvPairs["g_bluescore"]; ok {
 				if v, err := strconv.Atoi(bs); err == nil {
 					blueScore = &v
 				}
@@ -677,8 +679,9 @@ func ParseLine(line string) (*LogEvent, error) {
 		uuid := ""
 		if len(match) > 1 {
 			shutdownContent := strings.TrimSpace(match[1])
-			if strings.HasPrefix(shutdownContent, "\\g_matchUUID\\") {
-				uuid = shutdownContent[len("\\g_matchUUID\\"):]
+			const prefix = "\\g_matchuuid\\"
+			if lc := strings.ToLower(shutdownContent); strings.HasPrefix(lc, prefix) {
+				uuid = shutdownContent[len(prefix):]
 			}
 		}
 		event.Type = EventTypeShutdown
@@ -945,9 +948,20 @@ func ParseLine(line string) (*LogEvent, error) {
 	return nil, fmt.Errorf("unknown event: %s", content)
 }
 
-// parseUserinfo parses backslash-separated userinfo string
-// Format is \key\value\key\value (starts with backslash)
-func parseUserinfo(info string) map[string]string {
+// parseInfoString parses a Q3 backslash-separated info string of the
+// form \key\value\key\value. Used for userinfo (client connection
+// metadata: n, g, model, skill, vr, te, t, …), serverinfo (InitGame:
+// mapname, g_gametype, g_trinityhandshake, …), and the kv tail on
+// Exit / ShutdownGame log lines (g_matchUUID, g_redScore, g_blueScore).
+//
+// Keys are lowercased on insertion. Q3 cvar names are case-insensitive
+// in practice (Cvar_FindVar uses Q_stricmp), and the case that ends up
+// in the serverinfo string depends on registration order — a cvar
+// first created by a user-typed `set g_trinityhandshake 1` keeps the
+// lowercase spelling even after the mod calls Cvar_Get with
+// "g_trinityHandshake". Canonicalizing to lowercase here gives every
+// lookup a single stable form.
+func parseInfoString(info string) map[string]string {
 	result := make(map[string]string)
 	parts := strings.Split(info, "\\")
 
@@ -958,7 +972,7 @@ func parseUserinfo(info string) map[string]string {
 	}
 
 	for i := start; i+1 < len(parts); i += 2 {
-		result[parts[i]] = parts[i+1]
+		result[strings.ToLower(parts[i])] = parts[i+1]
 	}
 
 	return result

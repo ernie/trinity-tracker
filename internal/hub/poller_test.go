@@ -47,7 +47,7 @@ func TestRemotePollerPollsRegisteredServers(t *testing.T) {
 	q := &fakeQuerier{responses: map[string]*domain.ServerStatus{
 		"r.example:27960": {Map: "q3dm17", GameType: "FFA"},
 	}}
-	poller := NewRemotePoller(store, q, 50*time.Millisecond)
+	poller := NewRemotePoller(store, q, 50*time.Millisecond, nil, nil)
 	pctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	poller.Start(pctx)
@@ -95,7 +95,7 @@ func TestRemotePollerUnreachableMarksOffline(t *testing.T) {
 	}
 
 	q := &fakeQuerier{responses: map[string]*domain.ServerStatus{}} // no response for dead
-	poller := NewRemotePoller(store, q, 50*time.Millisecond)
+	poller := NewRemotePoller(store, q, 50*time.Millisecond, nil, nil)
 	pctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	poller.Start(pctx)

@@ -42,8 +42,14 @@ type ServerManager struct {
 // serverState tracks the current state of a monitored server
 type serverState struct {
 	server           domain.Server
-	status           *domain.ServerStatus
 	match            *domain.Match
+	// handshakeRequired reflects the current match's g_trinityHandshake
+	// cvar read from InitGame settings (keys are downcased on parse so
+	// lookups are case-insensitive). When true, greeting timing waits
+	// for the TrinityHandshake log event so the welcome message can
+	// reflect auth-verified state; it also gates whether match_start
+	// is published (see EventTypeWarmupEnd).
+	handshakeRequired bool
 	clients          map[int]*clientState    // client ID -> client state
 	previousClients  map[string]*clientState // GUID -> accumulated stats from previous stints
 	lastInitGame     time.Time               // dedupe InitGame and skip fake ShutdownGame at same timestamp
@@ -75,12 +81,12 @@ type gauntletVictim struct {
 	guid string
 }
 
-// clientState tracks a connected client
+// clientState tracks a connected client. Identity lives in the hub;
+// the collector only holds what it needs to correlate log events
+// with an outgoing envelope — GUID is the wire handle, ClientNum
+// keys the presence tracker, per-match counters buffer until flush.
 type clientState struct {
 	clientID           int
-	playerID           int64 // ID of the players record (cached from writer)
-	isVerified         bool  // player has a linked user account
-	isAdmin            bool  // player's linked user is an admin
 	name               string
 	cleanName          string
 	guid               string
@@ -104,14 +110,6 @@ type clientState struct {
 	assists            int             // assist awards this match
 	score              *int            // final score from score event at match end (nil if left early)
 	lastGauntletVictim *gauntletVictim // last gauntlet kill victim (for humiliation award)
-}
-
-// getPlayerIDPtr returns a pointer to the player ID if valid, nil otherwise
-func (c *clientState) getPlayerIDPtr() *int64 {
-	if c.playerID > 0 {
-		return &c.playerID
-	}
-	return nil
 }
 
 // NewServerManager creates a new manager.
@@ -207,10 +205,6 @@ func (m *ServerManager) Start(ctx context.Context) error {
 		}
 	}
 
-	// Start UDP polling
-	m.wg.Add(1)
-	go m.pollLoop(ctx)
-
 	// Mark startup complete - enables !link command processing
 	m.mu.Lock()
 	m.startupComplete = true
@@ -232,16 +226,6 @@ func (m *ServerManager) Stop() {
 }
 
 // GetServerStatus returns the current status for a server
-func (m *ServerManager) GetServerStatus(serverID int64) *domain.ServerStatus {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	if state, ok := m.servers[serverID]; ok {
-		return state.status
-	}
-	return nil
-}
-
 // ExecuteRcon sends an RCON command to a server and returns the response
 func (m *ServerManager) ExecuteRcon(serverID int64, command string) (string, error) {
 	m.mu.RLock()
@@ -286,7 +270,6 @@ func (m *ServerManager) HasRconAccess(serverID int64) bool {
 	return false
 }
 
-// GetAllStatuses returns current status for all servers
 // Roster returns the current list of registered servers as RegdServer
 // entries. Used by the distributed-tracking Registrar to broadcast the
 // collector's roster on heartbeat.
@@ -303,149 +286,6 @@ func (m *ServerManager) Roster() []domain.RegdServer {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].LocalID < out[j].LocalID })
 	return out
-}
-
-func (m *ServerManager) GetAllStatuses() []domain.ServerStatus {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	var statuses []domain.ServerStatus
-	for _, state := range m.servers {
-		if state.status != nil {
-			statuses = append(statuses, *state.status)
-		}
-	}
-
-	// Sort by server ID for consistent ordering
-	sort.Slice(statuses, func(i, j int) bool {
-		return statuses[i].ServerID < statuses[j].ServerID
-	})
-
-	return statuses
-}
-
-// pollLoop periodically queries all servers via UDP
-func (m *ServerManager) pollLoop(ctx context.Context) {
-	defer m.wg.Done()
-	ticker := time.NewTicker(m.cfg.Server.PollInterval)
-	defer ticker.Stop()
-
-	// Initial poll
-	m.pollAll(ctx)
-
-	for {
-		select {
-		case <-m.done:
-			return
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			m.pollAll(ctx)
-		}
-	}
-}
-
-// pollAll queries all servers
-func (m *ServerManager) pollAll(ctx context.Context) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	for serverID, state := range m.servers {
-		status, err := m.q3client.QueryStatus(state.server.Address)
-		if err != nil {
-			log.Printf("Error polling %s: %v", state.server.Name, err)
-
-			// Create or update offline status
-			if state.status == nil {
-				state.status = &domain.ServerStatus{
-					ServerID: serverID,
-					Name:     state.server.Name,
-					Address:  state.server.Address,
-				}
-			}
-			state.status.Online = false
-			state.status.LastUpdated = time.Now().UTC()
-
-			// Emit offline status to notify clients
-			m.emitEvent(domain.Event{
-				Type:      domain.EventServerUpdate,
-				ServerID:  serverID,
-				Timestamp: time.Now().UTC(),
-				Data:      state.status,
-			})
-			continue
-		}
-
-		status.ServerID = serverID
-		status.Name = state.server.Name
-
-		// Calculate game time from match start
-		if state.match != nil {
-			status.GameTimeMs = int(time.Since(state.match.StartedAt).Milliseconds())
-		}
-
-		// Enrich UDP players with bot status from tracked clients
-		m.enrichPlayersFromClients(state, status)
-
-		state.status = status
-
-		// Emit server update event
-		m.emitEvent(domain.Event{
-			Type:      domain.EventServerUpdate,
-			ServerID:  serverID,
-			Timestamp: time.Now().UTC(),
-			Data:      status,
-		})
-	}
-}
-
-// enrichPlayersFromClients sets IsBot and other fields based on tracked client data
-func (m *ServerManager) enrichPlayersFromClients(state *serverState, status *domain.ServerStatus) {
-	// Enrich UDP players and recount humans/bots
-	status.HumanCount = 0
-	status.BotCount = 0
-
-	for i := range status.Players {
-		player := &status.Players[i]
-		var client *clientState
-
-		// Match by ClientNum if available (from enhanced UDP response)
-		if player.ClientNum >= 0 {
-			client = state.clients[player.ClientNum]
-		}
-
-		if client != nil {
-			// Found matching tracked client. Bots have canonical "BOT:..."
-			// GUIDs; the isBot flag is authoritative once ClientUserinfo
-			// has fired. An empty guid means we haven't seen userinfo yet —
-			// keep the "assume bot" fallback from below.
-			player.IsBot = client.isBot || client.guid == ""
-			player.Skill = client.skill
-			if !client.joinedAt.IsZero() {
-				player.JoinedAt = client.joinedAt
-			}
-			player.Impressives = client.impressives
-			player.Excellents = client.excellents
-			player.Humiliations = client.humiliations
-			player.Defends = client.defends
-			player.Captures = client.captures
-			player.Assists = client.assists
-			player.Model = client.model
-			player.IsVR = client.isVR
-			player.PlayerID = client.getPlayerIDPtr()
-			player.IsVerified = client.isVerified
-			player.IsAdmin = client.isAdmin
-		} else {
-			// No tracked client yet - assume bot until GUID data arrives from logs
-			player.IsBot = true
-		}
-
-		if player.IsBot {
-			status.BotCount++
-		} else {
-			status.HumanCount++
-		}
-	}
 }
 
 // processLogEvents handles events from a log tailer
@@ -479,27 +319,41 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 	switch event.Type {
 	case EventTypeInitGame:
 		data := event.Data.(InitGameData)
-		m.handleMatchChange(ctx, state, data.MapName, data.GameType, data.UUID, data.Settings["g_movement"], data.Settings["g_gameplay"], event.Timestamp, replayMode)
+		m.handleMatchChange(ctx, state, data.MapName, data.GameType, data.UUID, data.Settings["g_movement"], data.Settings["g_gameplay"], data.Settings["g_trinityhandshake"] == "1", event.Timestamp, replayMode)
 
 	case EventTypeWarmupEnd:
 		// Persist match to DB now that real gameplay is starting
 		if state.match != nil {
 			state.match.StartedAt = event.Timestamp
 			if !replayMode && state.match.UUID != "" {
-				m.pub.Publish(domain.FactEvent{
-					Type:      domain.FactMatchStart,
-					ServerID:  state.server.ID,
-					Timestamp: event.Timestamp,
-					Data: domain.MatchStartData{
-						MatchUUID: state.match.UUID,
-						MapName:   state.match.MapName,
-						GameType:  state.match.GameType,
-						Movement:  state.match.Movement,
-						Gameplay:  state.match.Gameplay,
-						StartedAt: event.Timestamp,
-					},
-				})
-				state.matchStarted = true
+				if !state.handshakeRequired {
+					// g_trinityHandshake off: the server accepts arbitrary
+					// ioquake3 clients (Q3 servers don't run in pure mode
+					// and have few other ways to validate that connecting
+					// clients are really Trinity). Skip match_start so
+					// recorded stats only come from Trinity-client play,
+					// and so server operators are nudged to enable the
+					// cvar — which in turn lets players use hub account
+					// features (claim / link / greet). Sessions and live
+					// events still flow.
+					log.Printf("collector: skipping match_start for %s on server %s — g_trinityHandshake not enabled; set it on the game server to track stats", state.match.UUID, state.server.Name)
+				} else {
+					m.pub.Publish(domain.FactEvent{
+						Type:      domain.FactMatchStart,
+						ServerID:  state.server.ID,
+						Timestamp: event.Timestamp,
+						Data: domain.MatchStartData{
+							MatchUUID:         state.match.UUID,
+							MapName:           state.match.MapName,
+							GameType:          state.match.GameType,
+							Movement:          state.match.Movement,
+							Gameplay:          state.match.Gameplay,
+							StartedAt:         event.Timestamp,
+							HandshakeRequired: true,
+						},
+					})
+					state.matchStarted = true
+				}
 			}
 		}
 		state.matchState = "active"
@@ -517,9 +371,12 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 		}
 
 		// Intermission = match is over. Flush all stats and end match.
+		// matchStarted gate matches the shutdown path: if match_start was
+		// never published (e.g. non-handshake server), the hub has no
+		// match row to attach match_end to.
 		if data.State == "intermission" && state.pendingExit != nil &&
 			state.match != nil && state.match.UUID != "" &&
-			!state.matchFlushed && state.match.EndedAt == nil {
+			state.matchStarted && !state.matchFlushed && state.match.EndedAt == nil {
 			players := m.buildMatchEndPlayers(state, true)
 			m.pub.Publish(domain.FactEvent{
 				Type:      domain.FactMatchEnd,
@@ -591,11 +448,8 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 			}
 			if err != nil {
 				log.Printf("Error resolving player identity for GUID %s: %v", client.guid, err)
-			} else if id.Found {
-				client.playerID = id.PlayerID
-				client.isVerified = id.IsVerified
-				client.isAdmin = id.IsAdmin
 			}
+			_ = id // hub-side presence tracker answers PlayerID / verified / admin now
 		}
 
 	case EventTypeClientBegin:
@@ -608,7 +462,7 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 
 			// Create session for human players only (require resolved identity, not a bot).
 			// Sessions track player presence on server; bots don't need tracking.
-			if client.playerID > 0 && !client.isBot && client.guid != "" {
+			if !client.isBot && client.guid != "" {
 				_, alreadyOpen := state.sessionOpenForGUID[client.guid]
 				if !alreadyOpen {
 					// Record the open session locally regardless of replay
@@ -629,6 +483,7 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 								IsBot:     client.isBot,
 								IsVR:      client.isVR,
 								JoinedAt:  event.Timestamp,
+								ClientNum: data.ClientID,
 							},
 						})
 					}
@@ -646,15 +501,14 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 					Timestamp: event.Timestamp,
 					Data: domain.PlayerJoinEvent{
 						Player: domain.PlayerStatus{
-							GUID:       client.guid,
-							Name:       client.name,
-							CleanName:  client.cleanName,
-							IsBot:      client.isBot,
-							IsVR:       client.isVR,
-							IsVerified: client.isVerified,
-							IsAdmin:    client.isAdmin,
-							Team:       client.team,
-							JoinedAt:   event.Timestamp,
+							GUID:      client.guid,
+							Name:      client.name,
+							CleanName: client.cleanName,
+							IsBot:     client.isBot,
+							IsVR:      client.isVR,
+							Team:      client.team,
+							JoinedAt:  event.Timestamp,
+							ClientNum: data.ClientID,
 						},
 					},
 				})
@@ -1030,22 +884,19 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 					// Create fresh clientState for new team, carrying forward identity
 					initialScore := 0
 					state.clients[data.ClientID] = &clientState{
-						clientID:   client.clientID,
-						playerID:   client.playerID,
-						name:       client.name,
-						cleanName:  client.cleanName,
-						guid:       client.guid,
-						model:      client.model,
-						isBot:      client.isBot,
-						isVR:       client.isVR,
-						isVerified: client.isVerified,
-						isAdmin:    client.isAdmin,
-						skill:      client.skill,
-						team:       data.NewTeam,
-						joinedAt:   event.Timestamp,
-						ipAddress:  client.ipAddress,
-						began:      client.began,
-						score:      &initialScore,
+						clientID:  client.clientID,
+						name:      client.name,
+						cleanName: client.cleanName,
+						guid:      client.guid,
+						model:     client.model,
+						isBot:     client.isBot,
+						isVR:      client.isVR,
+						skill:     client.skill,
+						team:      data.NewTeam,
+						joinedAt:  event.Timestamp,
+						ipAddress: client.ipAddress,
+						began:     client.began,
+						score:     &initialScore,
 					}
 				} else {
 					// No active match — just update team
@@ -1289,7 +1140,8 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 }
 
 // handleMapChange handles a new map starting
-func (m *ServerManager) handleMatchChange(ctx context.Context, state *serverState, mapName string, gameType int, uuid string, movement string, gameplay string, ts time.Time, replayMode bool) {
+func (m *ServerManager) handleMatchChange(ctx context.Context, state *serverState, mapName string, gameType int, uuid string, movement string, gameplay string, handshakeEnabled bool, ts time.Time, replayMode bool) {
+	state.handshakeRequired = handshakeEnabled
 	// Skip duplicate InitGame at same timestamp (Q3 sometimes logs it twice on server restart)
 	if ts.Equal(state.lastInitGame) {
 		return
@@ -1305,11 +1157,15 @@ func (m *ServerManager) handleMatchChange(ctx context.Context, state *serverStat
 	if replayMode {
 		prevMatch := state.match
 
-		// If the previous match has a different UUID and was never ended,
-		// emit match_crashed on its behalf. Hub-side handleMatchCrashed
-		// is idempotent so duplicate publishes are harmless.
+		// If the previous match had a different UUID, reached warmup-end
+		// (matchStarted=true — so the hub created a match row), and was
+		// never ended, emit match_crashed on its behalf. Hub-side
+		// handleMatchCrashed is idempotent so duplicate publishes are
+		// harmless. Skip when matchStarted was false: the hub has no row
+		// and the crashed publish would be a no-op.
 		if prevMatch != nil && prevMatch.UUID != "" &&
-			prevMatch.UUID != uuid && prevMatch.EndedAt == nil {
+			prevMatch.UUID != uuid && prevMatch.EndedAt == nil &&
+			state.matchStarted {
 			m.pub.Publish(domain.FactEvent{
 				Type: domain.FactMatchCrashed, ServerID: state.server.ID, Timestamp: ts,
 				Data: domain.MatchCrashedData{MatchUUID: prevMatch.UUID, EndedAt: ts},
@@ -1428,17 +1284,12 @@ func (m *ServerManager) buildMatchEndPlayers(state *serverState, computeVictory 
 		maxFFAScore, hasFFAScores = computeMaxScore(state.clients)
 	}
 
-	// On servers with Trinity handshake enabled, unverified players get auto-kicked,
-	// so skip saving their stats entirely.
-	skipUnverified := m.handshakeRequired(state)
-
 	var players []domain.MatchEndPlayer
 
-	// Previous stints first (completed=false)
+	// Previous stints first (completed=false). Every player with a
+	// resolvable GUID is emitted — account linkage no longer gates
+	// stats persistence, only public leaderboard visibility.
 	for _, client := range state.previousClients {
-		if skipUnverified && !client.isBot && !client.isVerified {
-			continue
-		}
 		if client.guid == "" {
 			continue
 		}
@@ -1479,9 +1330,6 @@ func (m *ServerManager) buildMatchEndPlayers(state *serverState, computeVictory 
 
 	// Connected players last (completed=true)
 	for clientID, client := range state.clients {
-		if skipUnverified && !client.isBot && !client.isVerified {
-			continue
-		}
 		if client.guid == "" || !client.began {
 			continue
 		}
@@ -1645,7 +1493,6 @@ func (m *ServerManager) handleLinkCommand(ctx context.Context, serverID int64, s
 
 	switch reply.Status {
 	case hub.LinkOK:
-		client.playerID = reply.NewPlayerID
 		m.sendPrint(serverID, clientID, "^2Link successful! ^7This identity has been linked to your account.")
 		log.Printf("Link successful: GUID %s merged into player %d via code %s", client.guid, reply.NewPlayerID, code)
 	case hub.LinkInvalidFormat:
@@ -1670,15 +1517,16 @@ func (m *ServerManager) handleClaimCommand(ctx context.Context, serverID int64, 
 		return
 	}
 
-	// Validate client has a resolvable identity
-	if client.guid == "" || client.playerID == 0 {
+	// Validate client has a resolvable identity. The hub resolves GUID
+	// → player_id on its side now; the collector no longer caches.
+	if client.guid == "" {
 		m.sendPrint(serverID, clientID, "^1Error: Current identity unknown. Try reconnecting.")
 		return
 	}
 
-	reply, err := m.rpc.Claim(ctx, hub.ClaimRequest{GUID: client.guid, PlayerID: client.playerID})
+	reply, err := m.rpc.Claim(ctx, hub.ClaimRequest{GUID: client.guid})
 	if err != nil {
-		log.Printf("claim RPC error for player %d: %v", client.playerID, err)
+		log.Printf("claim RPC error for GUID %s: %v", client.guid, err)
 		m.sendPrint(serverID, clientID, "^1Error generating claim code. Please try again.")
 		return
 	}
@@ -1690,7 +1538,7 @@ func (m *ServerManager) handleClaimCommand(ctx context.Context, serverID int64, 
 	switch reply.Status {
 	case hub.ClaimOK:
 		m.sendPrint(serverID, clientID, fmt.Sprintf("Your claim code is: ^3%s^7 - Visit ^5%s ^7to claim this identity. Expires in 30 minutes.", reply.Code, hubHost))
-		log.Printf("Claim code %s generated for player %d on server %d", reply.Code, client.playerID, serverID)
+		log.Printf("Claim code %s generated for GUID %s on server %d", reply.Code, client.guid, serverID)
 	case hub.ClaimAlreadyClaimed:
 		m.sendPrint(serverID, clientID, "^3This identity is already linked to an account.")
 	case hub.ClaimUnknownPlayer:
@@ -1751,25 +1599,6 @@ func (m *ServerManager) performGreet(ctx context.Context, serverID int64, client
 		m.sendTrinityAuthFail(serverID, clientID)
 		return
 	}
-
-	// Update cached identity on the client record. Best-effort: if the
-	// client has already disconnected by the time the reply lands, this
-	// is a no-op — the state lookup will miss but we still proceed to
-	// send rcon, which is idempotent.
-	m.mu.Lock()
-	for _, state := range m.servers {
-		if state.server.ID != serverID {
-			continue
-		}
-		if client, ok := state.clients[clientID]; ok {
-			if reply.PlayerID != 0 {
-				client.playerID = reply.PlayerID
-			}
-			client.isVerified = reply.IsVerified
-			client.isAdmin = reply.IsAdmin
-		}
-	}
-	m.mu.Unlock()
 
 	var message, cpMessage string
 	hasStats := reply.CompletedMatches > 0

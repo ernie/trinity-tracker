@@ -200,6 +200,7 @@ func cmdServe(args []string) {
 		remotePoller       *hub.RemotePoller
 		bufferedPublisher  *natsbus.BufferedPublisher
 		collectorRPC       *natsbus.RPCClient
+		collectorSpill     *natsbus.SpillQueue
 		livePublisher      *natsbus.LivePublisher
 		liveSubscriber     *natsbus.LiveSubscriber
 		collectorUUID      string
@@ -282,7 +283,12 @@ func cmdServe(args []string) {
 		if err != nil {
 			log.Fatalf("Failed to build fact-event publisher: %v", err)
 		}
-		bufPub := natsbus.NewBufferedPublisher(pub, natsbus.BufferedCapacity)
+		spill, err := natsbus.NewSpillQueue(cfg.Tracker.Collector.DataDir)
+		if err != nil {
+			log.Fatalf("Failed to open publish spill queue: %v", err)
+		}
+		collectorSpill = spill
+		bufPub := natsbus.NewBufferedPublisher(pub, natsbus.BufferedCapacity, spill)
 		bufPub.Start(ctx)
 		bufferedPublisher = bufPub
 		rc, err := natsbus.NewRPCClient(collectorNC, cfg.Tracker.Collector.SourceID, sourceUUID, 0)
@@ -314,6 +320,11 @@ func cmdServe(args []string) {
 		}
 		if bufferedPublisher != nil {
 			bufferedPublisher.Stop()
+		}
+		if collectorSpill != nil {
+			if err := collectorSpill.Close(); err != nil {
+				log.Printf("spill queue close on shutdown: %v", err)
+			}
 		}
 		if collectorWatermark != nil {
 			if err := collectorWatermark.Flush(); err != nil {
@@ -390,9 +401,17 @@ func cmdServe(args []string) {
 		}
 		log.Printf("Hub subscribed to %s*", natsbus.RegistrationSubjectPrefix)
 
-		remotePoller = hub.NewRemotePoller(store, collector.NewQ3Client(), cfg.Server.PollInterval)
+	}
+
+	// Hub-side UDP poller: runs in every hub role (standalone, hub-only,
+	// hub+collector) and polls every pollable servers row — both
+	// is_remote=1 rows from remote collectors and is_remote=0 rows from
+	// local/standalone setups. It feeds the live dashboard via the
+	// wsHub and answers /api/servers/{id}/status.
+	if hubRole {
+		remotePoller = hub.NewRemotePoller(store, collector.NewQ3Client(), cfg.Server.PollInterval, writer.Presence(), writer)
 		remotePoller.Start(ctx)
-		log.Printf("Hub polling remote servers every %v", cfg.Server.PollInterval)
+		log.Printf("Hub polling every %v", cfg.Server.PollInterval)
 	}
 
 	// Wire the manager. Standalone and hub-only-without-collector use
@@ -489,6 +508,9 @@ func cmdServe(args []string) {
 
 	// Create HTTP router
 	router := api.NewRouter(store, manager, writer, authService, cfg.Server.StaticDir, cfg.Server.Quake3Dir)
+	if remotePoller != nil {
+		router.SetPoller(remotePoller)
+	}
 	if ns != nil {
 		router.SetUserProvisioner(ns.Auth())
 	}

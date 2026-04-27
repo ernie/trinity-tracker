@@ -192,6 +192,34 @@ func (s *Store) LookupSourceIDByUUID(ctx context.Context, sourceUUID string) (st
 	return source, nil
 }
 
+// ListPollableServers returns every servers row the hub poller should
+// UDP-poll: all rows with a non-empty address (COALESCE remote_address,
+// address). Covers both is_remote=0 rows (local collectors or
+// standalone) and is_remote=1 rows (remote collectors). Ordered by id.
+func (s *Store) ListPollableServers(ctx context.Context) ([]RemoteServer, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, name,
+		       COALESCE(NULLIF(remote_address, ''), COALESCE(address, '')),
+		       COALESCE(source_uuid, '')
+		FROM servers
+		WHERE COALESCE(NULLIF(remote_address, ''), COALESCE(address, '')) <> ''
+		ORDER BY id
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("storage: ListPollableServers: %w", err)
+	}
+	defer rows.Close()
+	var out []RemoteServer
+	for rows.Next() {
+		var r RemoteServer
+		if err := rows.Scan(&r.ID, &r.Name, &r.RemoteAddress, &r.SourceUUID); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
 // ListRemoteServers returns all servers rows where is_remote=1 and
 // remote_address is populated. Ordered by id.
 func (s *Store) ListRemoteServers(ctx context.Context) ([]RemoteServer, error) {

@@ -40,25 +40,36 @@ type FactEvent struct {
 // MatchStartData is emitted on WarmupEnd when gameplay begins. The
 // collector assigns MatchUUID (same one that lands in the log); the hub
 // writer inserts a `matches` row keyed on that UUID.
+//
+// HandshakeRequired reflects the server's g_trinityHandshake cvar at
+// warmup-end time. The collector refuses to publish match_start when
+// false and warns the operator locally; the hub double-checks and
+// rejects any match_start with HandshakeRequired=false as a safety
+// net. The gate exists so recorded stats only come from play on
+// verified Trinity clients (Q3 servers don't run in pure mode, so
+// g_trinityHandshake is the practical way to keep vanilla ioquake3
+// clients out of the stats pool) and so operators are nudged to
+// enable the hub's account features for their players.
 type MatchStartData struct {
-	MatchUUID string    `json:"match_uuid"`
-	MapName   string    `json:"map"`
-	GameType  string    `json:"gametype"`
-	Movement  string    `json:"movement,omitempty"`
-	Gameplay  string    `json:"gameplay,omitempty"`
-	StartedAt time.Time `json:"started_at"`
+	MatchUUID         string    `json:"match_uuid"`
+	MapName           string    `json:"map"`
+	GameType          string    `json:"gametype"`
+	Movement          string    `json:"movement,omitempty"`
+	Gameplay          string    `json:"gameplay,omitempty"`
+	StartedAt         time.Time `json:"started_at"`
+	HandshakeRequired bool      `json:"handshake_required"`
 }
 
 // MatchEndData is emitted on match shutdown (intermission or abrupt).
 // Players carries the final stats for every participant (current and
 // previous stints) — the hub writer flushes them all in one pass.
 type MatchEndData struct {
-	MatchUUID  string             `json:"match_uuid"`
-	EndedAt    time.Time          `json:"ended_at"`
-	ExitReason string             `json:"exit_reason,omitempty"`
-	RedScore   *int               `json:"red_score,omitempty"`
-	BlueScore  *int               `json:"blue_score,omitempty"`
-	Players    []MatchEndPlayer   `json:"players"`
+	MatchUUID  string           `json:"match_uuid"`
+	EndedAt    time.Time        `json:"ended_at"`
+	ExitReason string           `json:"exit_reason,omitempty"`
+	RedScore   *int             `json:"red_score,omitempty"`
+	BlueScore  *int             `json:"blue_score,omitempty"`
+	Players    []MatchEndPlayer `json:"players"`
 }
 
 // MatchEndPlayer carries one player's final stats for a match. Identity
@@ -120,6 +131,11 @@ type PlayerJoinData struct {
 	IsBot     bool      `json:"is_bot"`
 	IsVR      bool      `json:"is_vr"`
 	JoinedAt  time.Time `json:"joined_at"`
+	// ClientNum is the game server's slot for the player (0-31). The
+	// hub's presence tracker keys on (serverID, ClientNum) so UDP
+	// statusResponse rows — which carry only name, ping, score, and
+	// this slot number — can be enriched with identity.
+	ClientNum int `json:"client_num"`
 }
 
 // PlayerLeaveData is emitted on ClientDisconnect. DurationSeconds is

@@ -23,12 +23,11 @@ type pendingGreeting struct {
 	timer           *time.Timer
 }
 
-// handshakeRequired checks if the server has g_trinityHandshake enabled.
+// handshakeRequired reports whether the server's most recent InitGame
+// settings enabled g_trinityHandshake. Derived from log parsing; no
+// UDP round-trip needed.
 func (m *ServerManager) handshakeRequired(state *serverState) bool {
-	if state.status == nil {
-		return false
-	}
-	return state.status.ServerVars["g_trinityhandshake"] == "1"
+	return state.handshakeRequired
 }
 
 // scheduleGreetingAfterHandshake stores a pending greeting and starts a timeout.
@@ -94,7 +93,7 @@ func (m *ServerManager) handleTrinityHandshake(ctx context.Context, serverID int
 
 	// Pull the pending greeting (if any) and cancel its timeout. The
 	// greet RPC itself runs whether or not a handshake was scheduled —
-	// for servers without g_trinityhandshake the ClientBegin path
+	// for servers without g_trinityHandshake the ClientBegin path
 	// already fired performGreet.
 	var pg *pendingGreeting
 	if state.pendingGreetings != nil {

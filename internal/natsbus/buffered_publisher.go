@@ -15,6 +15,12 @@ import (
 // is ~5 MB resident.
 const BufferedCapacity = 10_000
 
+// BufferedHWMFraction is the fraction of capacity at which the
+// publisher starts spilling new events to disk instead of pushing
+// onto the ring. At 80% we leave the ring some headroom for bursts
+// that arrive while the drain goroutine is mid-publish.
+const BufferedHWMFraction = 0.8
+
 // BufferedRetryBackoff is how long the drain loop waits after a
 // failed publish before retrying. A fresh NATS reconnect inside
 // nats.go's default settings usually happens within hundreds of ms,
@@ -23,37 +29,45 @@ const BufferedRetryBackoff = 250 * time.Millisecond
 
 // BufferedPublisher decouples the collector's log-event path from
 // NATS availability. Publish never blocks on NATS: events are
-// enqueued into an in-memory ring and drained by a background
-// goroutine that retries the underlying Publisher on failure.
+// enqueued into an in-memory ring (for bursts) and, once the ring
+// crosses the high-water mark or the disk spill already has pending
+// entries, into an append-only JSONL file. A background goroutine
+// drains spill-first then ring, retrying the underlying Publisher on
+// failure.
 //
-// Overflow drops the oldest queued event and increments the dropped
-// counter — recent events are more valuable than ancient ones.
-//
-// Disk-spill overflow (the design spec's buffer.jsonl) is deferred:
-// a future phase adds it once the 10k in-memory cap proves
-// insufficient in practice.
+// Only spill-file rotation (entries evicted to stay under the file
+// cap) bumps the dropped counter. Ring-to-spill overflow is a
+// transport decision, not a loss.
 type BufferedPublisher struct {
 	inner *Publisher
 	ch    chan domain.FactEvent
+	cap   int
+	spill *SpillQueue
 
 	dropped atomic.Uint64
 
 	stopOnce sync.Once
 	stopCh   chan struct{}
 	doneCh   chan struct{}
+	wake     chan struct{}
 }
 
 // NewBufferedPublisher wraps the given Publisher in a buffered
 // asynchronous queue. capacity <= 0 falls back to BufferedCapacity.
-func NewBufferedPublisher(inner *Publisher, capacity int) *BufferedPublisher {
+// spill is optional; when non-nil, events that can't fit the ring at
+// the high-water mark spill to disk and drain before new ring events.
+func NewBufferedPublisher(inner *Publisher, capacity int, spill *SpillQueue) *BufferedPublisher {
 	if capacity <= 0 {
 		capacity = BufferedCapacity
 	}
 	return &BufferedPublisher{
 		inner:  inner,
 		ch:     make(chan domain.FactEvent, capacity),
+		cap:    capacity,
+		spill:  spill,
 		stopCh: make(chan struct{}),
 		doneCh: make(chan struct{}),
+		wake:   make(chan struct{}, 1),
 	}
 }
 
@@ -71,29 +85,45 @@ func (b *BufferedPublisher) Stop() {
 	<-b.doneCh
 }
 
-// Publish enqueues the event and returns immediately. Always
-// nil-returning: overflow drops the oldest queued event, counted in
-// Dropped.
+// Publish enqueues the event and returns immediately. When a spill
+// queue is configured, events spill to disk once the ring crosses
+// the high-water mark or once the spill already has pending entries
+// (so drain order remains spill → ring → live). Without a spill
+// queue, the old drop-oldest ring behavior applies.
 func (b *BufferedPublisher) Publish(e domain.FactEvent) error {
+	if b.spill != nil {
+		if !b.spill.IsEmpty() || len(b.ch) >= b.highWaterMark() {
+			if err := b.spill.Append(e); err != nil {
+				return err
+			}
+			b.notifyWake()
+			return nil
+		}
+	}
 	select {
 	case b.ch <- e:
 		return nil
 	default:
 	}
+	if b.spill != nil {
+		// Ring is saturated; spill to disk so the event survives.
+		if err := b.spill.Append(e); err != nil {
+			return err
+		}
+		b.notifyWake()
+		return nil
+	}
+	// No spill configured — fall back to drop-oldest legacy behavior.
 	b.dropped.Add(1)
-	// Drop-oldest: try to discard one queued event, then push.
 	select {
 	case <-b.ch:
 	default:
 	}
-	// The channel may still be full if a concurrent drain already
-	// consumed; loop-send guards against that rare race.
 	for {
 		select {
 		case b.ch <- e:
 			return nil
 		case <-b.ch:
-			// Channel still saturated; drop one more and retry.
 			b.dropped.Add(1)
 		case <-b.stopCh:
 			return nil
@@ -101,13 +131,53 @@ func (b *BufferedPublisher) Publish(e domain.FactEvent) error {
 	}
 }
 
-// Dropped returns the running count of events discarded due to
-// overflow. Exported for metrics.
-func (b *BufferedPublisher) Dropped() uint64 { return b.dropped.Load() }
+// Dropped returns the running count of events discarded. Covers
+// in-memory-ring drops (no-spill mode) plus spill-file rotations
+// (when the 100 MB cap was reached and oldest entries were evicted).
+// Ring-to-spill transfers are not counted — nothing was lost.
+func (b *BufferedPublisher) Dropped() uint64 {
+	if b.spill == nil {
+		return b.dropped.Load()
+	}
+	return b.dropped.Load() + b.spill.Dropped()
+}
+
+func (b *BufferedPublisher) highWaterMark() int {
+	hwm := int(float64(b.cap) * BufferedHWMFraction)
+	if hwm < 1 {
+		hwm = 1
+	}
+	return hwm
+}
+
+func (b *BufferedPublisher) notifyWake() {
+	select {
+	case b.wake <- struct{}{}:
+	default:
+	}
+}
 
 func (b *BufferedPublisher) run(ctx context.Context) {
 	defer close(b.doneCh)
 	for {
+		// Spill first: if the disk queue has entries, drain them
+		// before reading fresh ring events. This keeps the intended
+		// "spill → ring → live" order so the hub's consumed_seq sees
+		// a monotonic publish sequence.
+		if b.spill != nil && !b.spill.IsEmpty() {
+			ev, ok, err := b.spill.Peek()
+			if err != nil {
+				log.Printf("natsbus.BufferedPublisher: spill peek: %v", err)
+				// Fall through to ring to avoid hot-looping on a
+				// broken spill file; operator intervention needed.
+			} else if ok {
+				b.publishWithRetry(ctx, ev)
+				if err := b.spill.Advance(); err != nil {
+					log.Printf("natsbus.BufferedPublisher: spill advance: %v", err)
+				}
+				continue
+			}
+		}
 		select {
 		case <-b.stopCh:
 			b.drainOnce(ctx)
@@ -117,6 +187,9 @@ func (b *BufferedPublisher) run(ctx context.Context) {
 			return
 		case e := <-b.ch:
 			b.publishWithRetry(ctx, e)
+		case <-b.wake:
+			// Publish unblocked to announce a spill append; loop so
+			// the next iteration services the spill queue.
 		}
 	}
 }

@@ -18,19 +18,25 @@ type StatusQuerier interface {
 	QueryStatus(address string) (*domain.ServerStatus, error)
 }
 
-// RemotePoller periodically polls every servers row tagged is_remote=1
-// and caches the latest ServerStatus. Collector-only deployments rely
-// on this for the hub's live dashboards since the collector no longer
-// runs on the hub host.
-//
-// Phase 8 scope: the poller produces unenriched status (no client
-// PlayerID / verified / admin). A follow-up pass will plumb hub-side
-// presence tracking so remote statuses carry the same enrichment the
-// local collector provides today.
+// IdentityResolver answers "what players row is this GUID linked to,
+// and what are its verified/admin flags?". Satisfied by *Writer.
+type IdentityResolver interface {
+	ResolveIdentity(ctx context.Context, guid string) (playerID int64, verified, admin, ok bool)
+}
+
+// RemotePoller periodically polls every servers row that has a usable
+// address and caches the latest ServerStatus. It enriches each
+// PlayerStatus by resolving (serverID, ClientNum) → GUID via the
+// presence tracker and then GUID → player_id / verified / admin via
+// the identity resolver. Originally added for remote-only deployments
+// (M2 phase 8) it is now the unified poller for hub, hub+collector,
+// and standalone modes.
 type RemotePoller struct {
 	store    *storage.Store
 	querier  StatusQuerier
 	interval time.Duration
+	presence *Presence
+	identity IdentityResolver
 
 	mu       sync.RWMutex
 	statuses map[int64]*domain.ServerStatus
@@ -42,8 +48,9 @@ type RemotePoller struct {
 
 // NewRemotePoller constructs a poller. interval <= 0 falls back to a
 // conservative 10s so a misconfigured instance doesn't hammer remote
-// hosts.
-func NewRemotePoller(store *storage.Store, q StatusQuerier, interval time.Duration) *RemotePoller {
+// hosts. presence and identity are both optional — a nil presence
+// skips enrichment, a nil identity leaves verified/admin false.
+func NewRemotePoller(store *storage.Store, q StatusQuerier, interval time.Duration, presence *Presence, identity IdentityResolver) *RemotePoller {
 	if interval <= 0 {
 		interval = 10 * time.Second
 	}
@@ -51,6 +58,8 @@ func NewRemotePoller(store *storage.Store, q StatusQuerier, interval time.Durati
 		store:    store,
 		querier:  q,
 		interval: interval,
+		presence: presence,
+		identity: identity,
 		statuses: make(map[int64]*domain.ServerStatus),
 		stopCh:   make(chan struct{}),
 		doneCh:   make(chan struct{}),
@@ -113,12 +122,12 @@ func (p *RemotePoller) run(ctx context.Context) {
 }
 
 func (p *RemotePoller) pollAll(ctx context.Context) {
-	remotes, err := p.store.ListRemoteServers(ctx)
+	servers, err := p.store.ListPollableServers(ctx)
 	if err != nil {
-		log.Printf("hub.RemotePoller: list remotes: %v", err)
+		log.Printf("hub.RemotePoller: list servers: %v", err)
 		return
 	}
-	for _, r := range remotes {
+	for _, r := range servers {
 		status, err := p.querier.QueryStatus(r.RemoteAddress)
 		if err != nil || status == nil {
 			p.mu.Lock()
@@ -137,8 +146,40 @@ func (p *RemotePoller) pollAll(ctx context.Context) {
 		status.Address = r.RemoteAddress
 		status.Online = true
 		status.LastUpdated = time.Now().UTC()
+		p.enrichPlayers(ctx, r.ID, status.Players)
 		p.mu.Lock()
 		p.statuses[r.ID] = status
 		p.mu.Unlock()
+	}
+}
+
+// enrichPlayers maps each PlayerStatus.ClientNum → GUID via the
+// presence tracker, then GUID → player_id / verified / admin via the
+// identity resolver. Silent no-op when either collaborator is nil.
+func (p *RemotePoller) enrichPlayers(ctx context.Context, serverID int64, players []domain.PlayerStatus) {
+	if p.presence == nil {
+		return
+	}
+	for i := range players {
+		ps := &players[i]
+		if ps.ClientNum < 0 {
+			continue
+		}
+		guid := p.presence.Lookup(serverID, ps.ClientNum)
+		if guid == "" {
+			continue
+		}
+		ps.GUID = guid
+		if p.identity == nil {
+			continue
+		}
+		playerID, verified, admin, ok := p.identity.ResolveIdentity(ctx, guid)
+		if !ok {
+			continue
+		}
+		id := playerID
+		ps.PlayerID = &id
+		ps.IsVerified = verified
+		ps.IsAdmin = admin
 	}
 }

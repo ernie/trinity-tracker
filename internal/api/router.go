@@ -22,6 +22,7 @@ type Router struct {
 	store        *storage.Store
 	manager      *collector.ServerManager
 	writer       *hub.Writer
+	poller       *hub.RemotePoller
 	wsHub        *WebSocketHub
 	logStream    *LogStreamManager
 	auth         *auth.Service
@@ -29,6 +30,24 @@ type Router struct {
 	staticDir    string
 	quake3Dir    string
 	userProv     hub.UserProvisioner
+}
+
+// SetPoller plugs in the hub's UDP poller. Always set in hub mode —
+// the /api/servers/{id}/status and /players endpoints consult it for
+// live state. Unset in collector-only mode (where no HTTP is served)
+// and in rare hub-less test harnesses.
+func (r *Router) SetPoller(p *hub.RemotePoller) {
+	r.poller = p
+}
+
+// lookupServerStatus returns the most recent status the poller has
+// for id, or nil. Wrapper so handlers are insulated from whether the
+// poller is wired.
+func (r *Router) lookupServerStatus(id int64) *domain.ServerStatus {
+	if r.poller == nil {
+		return nil
+	}
+	return r.poller.GetServerStatus(id)
 }
 
 // SetUserProvisioner plugs in a NATS cred-mint/revoke/download backend.

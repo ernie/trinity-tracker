@@ -109,10 +109,11 @@ func TestLoopbackEventRoundTrip(t *testing.T) {
 		ServerID:  srv.ID,
 		Timestamp: ts,
 		Data: domain.MatchStartData{
-			MatchUUID: matchUUID,
-			MapName:   "q3dm17",
-			GameType:  "FFA",
-			StartedAt: ts,
+			MatchUUID:         matchUUID,
+			MapName:           "q3dm17",
+			GameType:          "FFA",
+			StartedAt:         ts,
+			HandshakeRequired: true,
 		},
 	}); err != nil {
 		t.Fatalf("Publish: %v", err)
@@ -156,10 +157,11 @@ func TestLoopbackEventRoundTrip(t *testing.T) {
 		ServerID:  srv.ID,
 		Timestamp: ts,
 		Data: domain.MatchStartData{
-			MatchUUID: matchUUID + "-dup",
-			MapName:   "should-not-persist",
-			GameType:  "FFA",
-			StartedAt: ts,
+			MatchUUID:         matchUUID + "-dup",
+			MapName:           "should-not-persist",
+			GameType:          "FFA",
+			StartedAt:         ts,
+			HandshakeRequired: true,
 		},
 	}); err != nil {
 		// Seq advanced; dedup this time will happen at the JetStream

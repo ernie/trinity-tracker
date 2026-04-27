@@ -46,6 +46,13 @@ type Writer struct {
 	// relies on the natsbus watermark on the publisher side.
 	localWatermark *LocalWatermarkTracker
 
+	// presence tracks (serverID, clientNum) → guid for every
+	// currently-connected human player, fed by handlePlayerJoin /
+	// handlePlayerLeave. The hub poller uses it to enrich UDP
+	// statusResponse rows with identity; EnrichEvent doesn't need it
+	// (live events already carry GUID).
+	presence *Presence
+
 	// sources gates incoming fact-event envelopes by source_uuid.
 	// Owned by the writer so HandleEnvelope can consult it without an
 	// extra parameter.
@@ -112,11 +119,29 @@ func NewWriter(store *storage.Store, opts ...Option) *Writer {
 		events:    make(chan domain.FactEvent, eventBufferSize),
 		guidCache: make(map[string]int64),
 		sources:   NewSourceRegistry(store),
+		presence:  NewPresence(),
 	}
 	for _, opt := range opts {
 		opt(w)
 	}
 	return w
+}
+
+// Presence exposes the hub's (serverID, clientNum) → GUID map so the
+// poller can enrich UDP statusResponse rows with identity.
+func (w *Writer) Presence() *Presence { return w.presence }
+
+// ResolveIdentity satisfies IdentityResolver for the hub poller. It
+// looks up the player_guids row for guid, then the verified/admin
+// flags on the linked players row. ok is false when the GUID is
+// unknown.
+func (w *Writer) ResolveIdentity(ctx context.Context, guid string) (playerID int64, verified, admin, ok bool) {
+	id, found := w.resolveGUIDPlayerID(ctx, guid)
+	if !found {
+		return 0, false, false, false
+	}
+	v, a := w.store.GetPlayerVerifiedStatus(ctx, id)
+	return id, v, a, true
 }
 
 // MarkSourceApproved pre-approves a source_uuid for event dispatch.
@@ -273,7 +298,18 @@ func (w *Writer) dispatch(ctx context.Context, e domain.FactEvent) {
 // handleMatchStart persists a new match or adopts an existing row with
 // the same UUID (idempotent — the collector may emit MatchStart for a
 // match that was already created by a prior run's events).
+//
+// Matches from servers that don't require the Trinity handshake are
+// refused. A well-behaved collector already skips match_start in that
+// case; this is the safety net for anything that slips through. The
+// gate scopes recorded stats to verified Trinity-client play (Q3
+// servers don't run in pure mode, so g_trinityHandshake is the
+// practical bar) and nudges operators toward the hub's account flow.
 func (w *Writer) handleMatchStart(ctx context.Context, serverID int64, data domain.MatchStartData) {
+	if !data.HandshakeRequired {
+		log.Printf("hub: match_start rejected (server %d, uuid=%s): handshake_required=false", serverID, data.MatchUUID)
+		return
+	}
 	if existing, err := w.store.GetMatchByUUID(ctx, data.MatchUUID); err != nil {
 		log.Printf("hub: match_start UUID lookup failed: %v", err)
 		return
@@ -311,7 +347,10 @@ func (w *Writer) handleMatchStart(ctx context.Context, serverID int64, data doma
 
 // handleMatchEnd flushes per-player stats and closes the match row.
 // These are a single atomic operation as far as the collector is
-// concerned: one MatchEndData event produces both writes.
+// concerned: one MatchEndData event produces both writes. Every
+// player with a resolvable GUID is flushed regardless of whether
+// they've linked a users account — account linkage affects public
+// leaderboards and greetings, not whether a match-end row exists.
 func (w *Writer) handleMatchEnd(ctx context.Context, data domain.MatchEndData) {
 	match, err := w.store.GetMatchByUUID(ctx, data.MatchUUID)
 	if err != nil {
@@ -398,6 +437,11 @@ func (w *Writer) handleMatchCrashed(ctx context.Context, data domain.MatchCrashe
 // and map-change re-emission — any case where the collector is uncertain
 // and publishes a belt-and-suspenders player_join.
 func (w *Writer) handlePlayerJoin(ctx context.Context, serverID int64, data domain.PlayerJoinData) {
+	// Record presence regardless of session outcome: a later poll for
+	// server status should be able to identify the slot even when the
+	// GUID is momentarily unknown to the store (late upsert arrival).
+	w.presence.RecordJoin(serverID, data.ClientNum, data.GUID)
+
 	pg, err := w.store.GetPlayerGUIDByGUID(ctx, data.GUID)
 	if notFound(err) || pg == nil {
 		log.Printf("hub: player_join unknown GUID %s; skipping session create", data.GUID)
@@ -429,6 +473,8 @@ func (w *Writer) handlePlayerJoin(ctx context.Context, serverID int64, data doma
 // handlePlayerLeave closes the open session for the given GUID on the
 // given server.
 func (w *Writer) handlePlayerLeave(ctx context.Context, serverID int64, data domain.PlayerLeaveData) {
+	w.presence.RecordLeave(serverID, data.GUID)
+
 	session, err := w.resolveOpenSession(ctx, serverID, data.GUID)
 	if err != nil {
 		log.Printf("hub: player_leave resolve session: %v", err)
@@ -464,6 +510,7 @@ func (w *Writer) handleTrinityHandshake(ctx context.Context, serverID int64, dat
 }
 
 func (w *Writer) handleServerStartup(ctx context.Context, serverID int64, data domain.ServerStartupData) {
+	w.presence.Clear(serverID)
 	if err := w.store.EndOpenSessionsBefore(ctx, serverID, data.StartedAt, data.StartedAt); err != nil {
 		log.Printf("hub: EndOpenSessionsBefore (startup) for server %d: %v", serverID, err)
 		return
@@ -472,6 +519,7 @@ func (w *Writer) handleServerStartup(ctx context.Context, serverID int64, data d
 }
 
 func (w *Writer) handleServerShutdown(ctx context.Context, serverID int64, data domain.ServerShutdownData) {
+	w.presence.Clear(serverID)
 	if err := w.store.EndOpenSessionsBefore(ctx, serverID, data.ShutdownAt, data.ShutdownAt); err != nil {
 		log.Printf("hub: EndOpenSessionsBefore (shutdown) for server %d: %v", serverID, err)
 		return
@@ -625,10 +673,25 @@ func (w *Writer) Greet(ctx context.Context, req GreetRequest) (GreetReply, error
 
 // Claim handles a !claim chat-command RPC. Returns either a newly-minted
 // claim code or a reason for skipping.
+//
+// PlayerID is optional on the wire — the collector no longer caches
+// identity locally, so when it's zero we resolve from GUID.
 func (w *Writer) Claim(ctx context.Context, req ClaimRequest) (ClaimReply, error) {
-	if req.PlayerID == 0 {
+	playerID := req.PlayerID
+	if playerID == 0 && req.GUID != "" {
+		pg, err := w.store.GetPlayerGUIDByGUID(ctx, req.GUID)
+		if notFound(err) || pg == nil {
+			return ClaimReply{Status: ClaimUnknownPlayer}, nil
+		}
+		if err != nil {
+			return ClaimReply{Status: ClaimError, Message: err.Error()}, nil
+		}
+		playerID = pg.PlayerID
+	}
+	if playerID == 0 {
 		return ClaimReply{Status: ClaimUnknownPlayer}, nil
 	}
+	req.PlayerID = playerID
 	claimed, err := w.store.IsPlayerClaimed(ctx, req.PlayerID)
 	if err != nil {
 		return ClaimReply{Status: ClaimError, Message: err.Error()}, nil
@@ -754,6 +817,9 @@ func (w *Writer) EnrichEvent(ctx context.Context, event domain.Event) domain.Eve
 		if id := resolve(d.Player.GUID); id != nil {
 			d.Player.PlayerID = id
 			d.PlayerID = id
+			verified, admin := w.store.GetPlayerVerifiedStatus(ctx, *id)
+			d.Player.IsVerified = verified
+			d.Player.IsAdmin = admin
 		}
 		event.Data = d
 	case domain.PlayerLeaveEvent:
