@@ -45,6 +45,7 @@ func TestHandleEnvelopeDedupsByConsumedSeq(t *testing.T) {
 	w, store := newTestWriter(t)
 	ctx := context.Background()
 	uuid := "aaaa-0000-0000-0000-000000000001"
+	w.MarkSourceApproved(uuid)
 
 	// Seed consumed_seq to 10.
 	if err := store.AdvanceConsumedSeq(ctx, uuid, 10); err != nil {
@@ -67,6 +68,7 @@ func TestHandleEnvelopeAdvancesConsumedSeq(t *testing.T) {
 	w, store := newTestWriter(t)
 	ctx := context.Background()
 	uuid := "aaaa-0000-0000-0000-000000000002"
+	w.MarkSourceApproved(uuid)
 
 	env := envelopeFor(t, uuid, 7, domain.FactServerStartup, domain.ServerStartupData{
 		StartedAt: time.Date(2026, 4, 19, 12, 0, 0, 0, time.UTC),
@@ -81,9 +83,11 @@ func TestHandleEnvelopeAdvancesConsumedSeq(t *testing.T) {
 
 func TestHandleEnvelopeRejectsUnknownEvent(t *testing.T) {
 	w, _ := newTestWriter(t)
+	uuid := "aaaa-0000-0000-0000-000000000003"
+	w.MarkSourceApproved(uuid)
 	env := domain.Envelope{
 		SchemaVersion: 1,
-		SourceUUID:    "aaaa-0000-0000-0000-000000000003",
+		SourceUUID:    uuid,
 		Seq:           1,
 		Timestamp:     time.Now().UTC(),
 		Event:         "not_a_real_event",

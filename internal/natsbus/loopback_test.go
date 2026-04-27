@@ -62,9 +62,12 @@ func TestLoopbackEventRoundTrip(t *testing.T) {
 		t.Fatalf("expected seeded server id=1, got %d", srv.ID)
 	}
 
-	// Writer + subscriber (hub side).
+	// Writer + subscriber (hub side). Pre-approve the test source so
+	// events dispatch immediately instead of accumulating in the DLQ.
 	writer := hub.NewWriter(store)
 	writer.Start(ctx)
+	const sourceUUID = "aaaa-0000-0000-0000-000000000042"
+	writer.MarkSourceApproved(sourceUUID)
 
 	subNC, err := nats.Connect("", nats.InProcessServer(ns.NATSServer()), nats.Name("test-sub"))
 	if err != nil {
@@ -93,7 +96,6 @@ func TestLoopbackEventRoundTrip(t *testing.T) {
 	t.Cleanup(func() { writer.Stop() })
 	t.Cleanup(cancel)
 	t.Cleanup(sub.Stop)
-	const sourceUUID = "aaaa-0000-0000-0000-000000000042"
 	pub, err := natsbus.NewPublisher(pubNC, "ffa-local", sourceUUID, 0)
 	if err != nil {
 		t.Fatalf("NewPublisher: %v", err)

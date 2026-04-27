@@ -31,6 +31,11 @@ type Writer struct {
 	// (tracker.collector configured).
 	publisher FactPublisher
 
+	// sources gates incoming fact-event envelopes by source_uuid.
+	// Owned by the writer so HandleEnvelope can consult it without an
+	// extra parameter.
+	sources *SourceRegistry
+
 	// guidCache memoizes GUID → player_id lookups for broadcast
 	// enrichment. A resolved GUID is permanent until AssociateGUIDWithPlayer
 	// (Trinity auth) or MergePlayers (!link) moves it; both paths
@@ -84,11 +89,45 @@ func NewWriter(store *storage.Store, opts ...Option) *Writer {
 		store:     store,
 		events:    make(chan domain.FactEvent, eventBufferSize),
 		guidCache: make(map[string]int64),
+		sources:   NewSourceRegistry(store),
 	}
 	for _, opt := range opts {
 		opt(w)
 	}
 	return w
+}
+
+// MarkSourceApproved pre-approves a source_uuid for event dispatch.
+// Used in hub+collector deployments to green-light the local
+// collector's own source before any heartbeats have registered it.
+func (w *Writer) MarkSourceApproved(sourceUUID string) {
+	w.sources.MarkApproved(sourceUUID)
+}
+
+// ApproveSource is the admin flow: create/update servers rows for
+// the pending source's roster (is_remote=1) and drain the in-memory
+// DLQ through HandleEnvelope. The demoBaseURL is stamped on each
+// row so Match links resolve to the remote collector's server.
+func (w *Writer) ApproveSource(ctx context.Context, reg domain.Registration, demoBaseURL string) error {
+	if err := w.store.ApproveRemoteServers(ctx, reg, demoBaseURL); err != nil {
+		return err
+	}
+	w.sources.MarkApproved(reg.SourceUUID)
+	for _, env := range w.sources.TakeDLQ(reg.SourceUUID) {
+		if err := w.HandleEnvelope(ctx, env); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// RejectSource blocks a pending source and discards its DLQ.
+func (w *Writer) RejectSource(sourceUUID string) error {
+	if err := w.store.DeletePendingSource(context.Background(), sourceUUID); err != nil {
+		return err
+	}
+	w.sources.Reject(sourceUUID)
+	return nil
 }
 
 // resolveGUIDPlayerID returns the player_id for a GUID, hitting the

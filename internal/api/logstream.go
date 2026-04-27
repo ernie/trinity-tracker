@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ernie/trinity-tools/internal/collector"
-	"github.com/ernie/trinity-tools/internal/storage"
+	"github.com/ernie/trinity-tracker/internal/collector"
+	"github.com/ernie/trinity-tracker/internal/storage"
 	"github.com/gorilla/websocket"
 )
 

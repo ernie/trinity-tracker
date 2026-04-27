@@ -10,17 +10,32 @@ import (
 
 // HandleEnvelope is the hub-side entry point for an event that has
 // arrived over the wire (distributed mode). It dedups against
-// source_progress.consumed_seq, decodes the typed payload, dispatches
-// to the existing fact-event handlers, and advances consumed_seq on
-// success.
+// source_progress.consumed_seq, resolves the envelope's remote server
+// id to a local servers.id (via (source_uuid, local_id)), decodes the
+// typed payload, dispatches through the existing fact-event handlers,
+// and advances consumed_seq on success.
 //
-// Phase 4 uses env.RemoteServerID directly as the local servers.id —
-// correct for hub+collector in one process. Phase 6 will map
-// (source_uuid, RemoteServerID) → servers.id via the registration
-// table once remote collectors exist.
+// If the source has no mapping yet (unknown/pending), we still fall
+// back to treating RemoteServerID as a literal servers.id. This keeps
+// the in-process hub+collector loopback working throughout M2 and
+// degrades gracefully when a remote collector publishes events that
+// arrive before its approval lands (phase 6b will intercept those
+// via the pending DLQ).
 func (w *Writer) HandleEnvelope(ctx context.Context, env domain.Envelope) error {
 	if env.SourceUUID == "" {
 		return fmt.Errorf("hub: envelope missing source_uuid (event=%s seq=%d)", env.Event, env.Seq)
+	}
+
+	state, err := w.sources.State(ctx, env.SourceUUID)
+	if err != nil {
+		return err
+	}
+	switch state {
+	case SourceBlocked:
+		return nil
+	case SourcePending:
+		w.sources.EnqueueDLQ(env.SourceUUID, env)
+		return nil
 	}
 
 	prev, err := w.store.GetConsumedSeq(ctx, env.SourceUUID)
@@ -36,9 +51,14 @@ func (w *Writer) HandleEnvelope(ctx context.Context, env domain.Envelope) error 
 		return err
 	}
 
+	serverID := env.RemoteServerID
+	if resolved, err := w.store.ResolveServerIDForSource(ctx, env.SourceUUID, env.RemoteServerID); err == nil && resolved != 0 {
+		serverID = resolved
+	}
+
 	w.dispatch(ctx, domain.FactEvent{
 		Type:      env.Event,
-		ServerID:  env.RemoteServerID,
+		ServerID:  serverID,
 		Timestamp: env.Timestamp,
 		Data:      payload,
 	})

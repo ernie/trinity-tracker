@@ -177,13 +177,17 @@ func cmdServe(args []string) {
 	// clients (collector publisher + RPC client, hub subscriber + RPC
 	// server). Standalone mode skips all of it.
 	var (
-		writerOpts   []hub.Option
-		ns           *natsbus.Server
-		subNC        *nats.Conn
-		collectorNC  *nats.Conn
-		subscriber   *natsbus.Subscriber
-		rpcServer    *natsbus.RPCServer
-		collectorRPC hub.RPCClient
+		writerOpts         []hub.Option
+		ns                 *natsbus.Server
+		subNC              *nats.Conn
+		collectorNC        *nats.Conn
+		subscriber         *natsbus.Subscriber
+		rpcServer          *natsbus.RPCServer
+		regSubscriber      *natsbus.RegistrationSubscriber
+		registrar          *natsbus.Registrar
+		collectorRPC       hub.RPCClient
+		collectorUUID      string
+		collectorWatermark *natsbus.WatermarkTracker
 	)
 	if cfg.Tracker != nil && cfg.Tracker.Hub != nil {
 		storeParent := filepath.Dir(cfg.Database.Path)
@@ -216,7 +220,13 @@ func cmdServe(args []string) {
 		if err != nil {
 			log.Fatalf("Failed to resolve source_uuid: %v", err)
 		}
-		pub, err := natsbus.NewPublisher(collectorNC, cfg.Tracker.Collector.SourceID, sourceUUID, 0)
+		collectorUUID = sourceUUID
+		wm, err := natsbus.NewWatermarkTracker(cfg.Tracker.Collector.DataDir)
+		if err != nil {
+			log.Fatalf("Failed to load publish watermark: %v", err)
+		}
+		collectorWatermark = wm
+		pub, err := natsbus.NewPublisherWithWatermark(collectorNC, cfg.Tracker.Collector.SourceID, sourceUUID, wm.Current().LastSeq, wm)
 		if err != nil {
 			log.Fatalf("Failed to build fact-event publisher: %v", err)
 		}
@@ -225,18 +235,30 @@ func cmdServe(args []string) {
 			log.Fatalf("Failed to build RPC client: %v", err)
 		}
 		collectorRPC = rpcClient
-		log.Printf("Collector publishing as source=%s uuid=%s", cfg.Tracker.Collector.SourceID, sourceUUID)
+		log.Printf("Collector publishing as source=%s uuid=%s (last_seq=%d)", cfg.Tracker.Collector.SourceID, sourceUUID, wm.Current().LastSeq)
 		writerOpts = append(writerOpts, hub.WithFactPublisher(pub))
 	}
 
-	// preStop: stop the subscriber (quiesces inbound events), tear
-	// down RPC subscriptions, and shut down the embedded NATS server.
+	// preStop: halt outbound registrations, stop inbound subscribers
+	// and RPC handlers, flush the watermark, then shut down the
+	// embedded NATS server.
 	writerOpts = append(writerOpts, hub.WithPreStop(func() {
+		if registrar != nil {
+			registrar.Stop()
+		}
 		if subscriber != nil {
 			subscriber.Stop()
 		}
+		if regSubscriber != nil {
+			regSubscriber.Stop()
+		}
 		if rpcServer != nil {
 			rpcServer.Stop()
+		}
+		if collectorWatermark != nil {
+			if err := collectorWatermark.Flush(); err != nil {
+				log.Printf("watermark flush on shutdown: %v", err)
+			}
 		}
 		if ns != nil {
 			ns.Stop()
@@ -249,7 +271,14 @@ func cmdServe(args []string) {
 	writer.Start(ctx)
 	defer writer.Stop()
 
-	// Hub-side subscriptions: fact-event subscriber + RPC handlers.
+	// Pre-approve the local source before events flow so in-process
+	// hub+collector events bypass the pending-source DLQ.
+	if collectorUUID != "" {
+		writer.MarkSourceApproved(collectorUUID)
+	}
+
+	// Hub-side subscriptions: fact-event subscriber + RPC handlers +
+	// registration subscriber.
 	if cfg.Tracker != nil && cfg.Tracker.Hub != nil {
 		var err error
 		subscriber, err = natsbus.NewSubscriber(subNC, writer)
@@ -264,6 +293,12 @@ func cmdServe(args []string) {
 			log.Fatalf("Failed to register RPC handlers: %v", err)
 		}
 		log.Printf("Hub RPC handlers registered (queue group %s)", natsbus.RPCQueueGroup)
+
+		regSubscriber, err = natsbus.NewRegistrationSubscriber(subNC, writer)
+		if err != nil {
+			log.Fatalf("Failed to subscribe to registrations: %v", err)
+		}
+		log.Printf("Hub subscribed to %s*", natsbus.RegistrationSubjectPrefix)
 	}
 
 	// Create server manager. In distributed mode, collectorRPC is the
@@ -271,10 +306,46 @@ func cmdServe(args []string) {
 	// answers Greet/Claim/Link.
 	manager := collector.NewServerManager(cfg, writer, collectorRPC)
 
+	// Watermark-based replay: known watermark → replay up to its ts;
+	// no watermark (first run) → treat everything in log history as
+	// replay and publish only events past "now".
+	if collectorWatermark != nil {
+		if wm := collectorWatermark.Current(); !wm.LastTS.IsZero() {
+			manager.SetReplayCutoff(wm.LastTS)
+		} else {
+			manager.SetReplayCutoff(time.Now().UTC())
+		}
+	}
+
 	if err := manager.Start(ctx); err != nil {
 		log.Fatalf("Failed to start server manager: %v", err)
 	}
 	log.Printf("Server manager started, polling every %v", cfg.Server.PollInterval)
+
+	// Collector role (post-manager-start): tag local servers with our
+	// own source_uuid so the hub treats them as approved, and launch
+	// the heartbeat registrar.
+	if cfg.Tracker != nil && cfg.Tracker.Collector != nil {
+		for _, rs := range manager.Roster() {
+			if err := store.TagLocalServerSource(ctx, rs.LocalID, collectorUUID, rs.LocalID); err != nil {
+				log.Printf("Failed to tag local server %d with source_uuid: %v", rs.LocalID, err)
+			}
+		}
+		var err error
+		registrar, err = natsbus.NewRegistrar(
+			collectorNC,
+			cfg.Tracker.Collector.SourceID,
+			collectorUUID,
+			version,
+			manager.Roster,
+			cfg.Tracker.Collector.HeartbeatInterval.D(),
+		)
+		if err != nil {
+			log.Fatalf("Failed to build registrar: %v", err)
+		}
+		registrar.Start(ctx)
+		log.Printf("Collector heartbeating every %v", cfg.Tracker.Collector.HeartbeatInterval.D())
+	}
 
 	// Create auth service
 	authService := auth.NewService(cfg.Auth.JWTSecret, cfg.Auth.TokenDuration)

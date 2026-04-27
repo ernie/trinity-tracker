@@ -22,6 +22,13 @@ type ServerManager struct {
 	q3client *Q3Client
 	events   chan domain.Event
 
+	// replayCutoff, when non-zero, overrides the per-server
+	// LastMatchEndedAt as the boundary between replayMode events (no
+	// DB writes, no publishes) and live events. Distributed mode sets
+	// this from the NATS publish watermark so we never re-publish
+	// events that already reached the hub.
+	replayCutoff time.Time
+
 	mu              sync.RWMutex
 	servers         map[int64]*serverState
 	tailers         map[int64]*LogTailer
@@ -115,6 +122,14 @@ func NewServerManager(cfg *config.Config, writer *hub.Writer, rpc hub.RPCClient)
 	}
 }
 
+// SetReplayCutoff pins the boundary between replayMode and live
+// events across every server this manager tails. Must be called
+// before Start so the first replay pass honors it. Zero means "use
+// each server's LastMatchEndedAt" (standalone behavior).
+func (m *ServerManager) SetReplayCutoff(ts time.Time) {
+	m.replayCutoff = ts.UTC()
+}
+
 // Events returns the event channel for WebSocket broadcasting
 func (m *ServerManager) Events() <-chan domain.Event {
 	return m.events
@@ -138,7 +153,9 @@ func (m *ServerManager) Start(ctx context.Context) error {
 		// Replay log events synchronously (one server at a time to avoid DB lock contention)
 		if srv.LogPath != "" {
 			startAfter := time.Time{} // epoch - replay all
-			if fullSrv.LastMatchEndedAt != nil {
+			if !m.replayCutoff.IsZero() {
+				startAfter = m.replayCutoff
+			} else if fullSrv.LastMatchEndedAt != nil {
 				startAfter = *fullSrv.LastMatchEndedAt
 			}
 
@@ -248,6 +265,24 @@ func (m *ServerManager) HasRconAccess(serverID int64) bool {
 }
 
 // GetAllStatuses returns current status for all servers
+// Roster returns the current list of registered servers as RegdServer
+// entries. Used by the distributed-tracking Registrar to broadcast the
+// collector's roster on heartbeat.
+func (m *ServerManager) Roster() []domain.RegdServer {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	out := make([]domain.RegdServer, 0, len(m.servers))
+	for _, state := range m.servers {
+		out = append(out, domain.RegdServer{
+			LocalID: state.server.ID,
+			Name:    state.server.Name,
+			Address: state.server.Address,
+		})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].LocalID < out[j].LocalID })
+	return out
+}
+
 func (m *ServerManager) GetAllStatuses() []domain.ServerStatus {
 	m.mu.RLock()
 	defer m.mu.RUnlock()

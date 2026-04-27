@@ -16,16 +16,14 @@ import (
 // Nats-Msg-Id header of "<source>:<seq>" so JetStream's duplicate
 // window can deduplicate retried publishes.
 //
-// Phase 3 scope: Seq is an in-memory atomic counter seeded at
-// construction. Persistence across restarts arrives in phase 7 with
-// the publish watermark; until then, restarting the collector resets
-// the counter and the dedup window may swallow early events after a
-// fast restart. Acceptable for the transitional state; the phase plan
-// notes it is not shippable on its own.
+// A WatermarkTracker, when provided, records (seq, ts) after each
+// successful publish so a crashed collector can resume from the next
+// seq on restart and skip already-published log events during replay.
 type Publisher struct {
 	js         nats.JetStreamContext
 	source     string
 	sourceUUID string
+	watermark  *WatermarkTracker
 
 	seqMu sync.Mutex
 	seq   uint64
@@ -33,9 +31,15 @@ type Publisher struct {
 
 // NewPublisher constructs a Publisher. initialSeq is the value the
 // next publish will *exceed* — i.e. the first emitted envelope will
-// carry Seq=initialSeq+1. Phase 3 callers pass 0; phase 7 passes the
-// persisted watermark.
+// carry Seq=initialSeq+1. Phase 7 callers pass watermark.LastSeq
+// (via the tracker) so monotonicity survives restarts.
 func NewPublisher(nc *nats.Conn, source, sourceUUID string, initialSeq uint64) (*Publisher, error) {
+	return NewPublisherWithWatermark(nc, source, sourceUUID, initialSeq, nil)
+}
+
+// NewPublisherWithWatermark is the full constructor. Pass a non-nil
+// tracker to enable watermark persistence on each successful publish.
+func NewPublisherWithWatermark(nc *nats.Conn, source, sourceUUID string, initialSeq uint64, wm *WatermarkTracker) (*Publisher, error) {
 	if nc == nil {
 		return nil, fmt.Errorf("natsbus: NATS connection is required")
 	}
@@ -53,6 +57,7 @@ func NewPublisher(nc *nats.Conn, source, sourceUUID string, initialSeq uint64) (
 		js:         js,
 		source:     source,
 		sourceUUID: sourceUUID,
+		watermark:  wm,
 		seq:        initialSeq,
 	}, nil
 }
@@ -96,6 +101,11 @@ func (p *Publisher) Publish(e domain.FactEvent) error {
 
 	if _, err := p.js.PublishMsg(msg); err != nil {
 		return fmt.Errorf("natsbus: publish %s seq=%d: %w", e.Type, seq, err)
+	}
+	if p.watermark != nil {
+		if err := p.watermark.Update(seq, env.Timestamp); err != nil {
+			return fmt.Errorf("natsbus: watermark update seq=%d: %w", seq, err)
+		}
 	}
 	return nil
 }
