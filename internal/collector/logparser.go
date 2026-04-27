@@ -54,7 +54,27 @@ const (
 	EventTypeCvarChange       = "cvar_change"
 	EventTypeTrinityChallenge = "trinity_challenge"
 	EventTypeTrinityHandshake = "trinity_handshake"
+	EventTypeDemoSaved        = "demo_saved"
+	EventTypeDemoDiscarded    = "demo_discarded"
 )
+
+// DemoSavedData carries the structured payload from a trinity-engine
+// "DemoSaved:" log line. MatchUUID is the engine's g_matchUUID cvar at
+// finalization time; the optional fields surface what the engine knows
+// about the recording.
+type DemoSavedData struct {
+	MatchUUID  string
+	Frames     int
+	DurationMS int
+	Bytes      uint64
+}
+
+// DemoDiscardedData is the discard counterpart. The collector logs it
+// for visibility but doesn't emit a fact (the absence of a saved fact
+// is the same signal hub-side).
+type DemoDiscardedData struct {
+	MatchUUID string
+}
 
 // Event data structures
 type InitGameData struct {
@@ -289,6 +309,11 @@ var (
 	trinityChallengeRegex     = regexp.MustCompile(`^TrinityChallenge: (\d+) (\S+) (\S+)$`)
 	trinityHandshakeAuthRegex = regexp.MustCompile(`^TrinityHandshake: (\d+) (\d+) (\S+) (\S+) (\S+) (\S+)$`)
 	trinityHandshakeRegex     = regexp.MustCompile(`^TrinityHandshake: (\d+) (\d+) (\S+) (\S+)$`)
+	// Demo lifecycle (emitted by trinity-engine sv_tv.c). Only the
+	// "saved" path produces a fact; the discard line is a no-op marker
+	// for log review.
+	demoSavedRegex     = regexp.MustCompile(`^DemoSaved: (\S+)(?: frames=(\d+))?(?: duration_ms=(\d+))?(?: bytes=(\d+))?$`)
+	demoDiscardedRegex = regexp.MustCompile(`^DemoDiscarded: (\S+)`)
 )
 
 // LogTailer watches a log file and parses events
@@ -941,6 +966,26 @@ func ParseLine(line string) (*LogEvent, error) {
 			Version:   match[3],
 			Engine:    match[4],
 		}
+		return event, nil
+	}
+
+	if match := demoSavedRegex.FindStringSubmatch(content); match != nil {
+		frames, _ := strconv.Atoi(match[2])
+		duration, _ := strconv.Atoi(match[3])
+		bytes, _ := strconv.ParseUint(match[4], 10, 64)
+		event.Type = EventTypeDemoSaved
+		event.Data = DemoSavedData{
+			MatchUUID:  match[1],
+			Frames:     frames,
+			DurationMS: duration,
+			Bytes:      bytes,
+		}
+		return event, nil
+	}
+
+	if match := demoDiscardedRegex.FindStringSubmatch(content); match != nil {
+		event.Type = EventTypeDemoDiscarded
+		event.Data = DemoDiscardedData{MatchUUID: match[1]}
 		return event, nil
 	}
 

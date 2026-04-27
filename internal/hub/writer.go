@@ -37,6 +37,13 @@ type Writer struct {
 	guidMu    sync.RWMutex
 	guidCache map[string]int64
 
+	// handshakeState memoizes servers.handshake_required by serverID.
+	// Updated authoritatively on every observed match_start (both accept
+	// and reject paths). Lazy-loaded from the column on first lookup so
+	// post-restart we don't have to warm the whole table.
+	handshakeMu    sync.RWMutex
+	handshakeState map[int64]bool
+
 	wg       sync.WaitGroup
 	stopOnce sync.Once
 }
@@ -64,11 +71,12 @@ const eventBufferSize = 1024
 
 func NewWriter(store *storage.Store, opts ...Option) *Writer {
 	w := &Writer{
-		store:     store,
-		events:    make(chan domain.FactEvent, eventBufferSize),
-		guidCache: make(map[string]int64),
-		sources:   NewSourceRegistry(store),
-		presence:  NewPresence(),
+		store:          store,
+		events:         make(chan domain.FactEvent, eventBufferSize),
+		guidCache:      make(map[string]int64),
+		handshakeState: make(map[int64]bool),
+		sources:        NewSourceRegistry(store),
+		presence:       NewPresence(),
 	}
 	for _, opt := range opts {
 		opt(w)
@@ -210,18 +218,63 @@ func (w *Writer) dispatch(ctx context.Context, e domain.FactEvent) {
 		w.handleServerStartup(ctx, e.ServerID, data)
 	case domain.ServerShutdownData:
 		w.handleServerShutdown(ctx, e.ServerID, data)
+	case domain.DemoFinalizedData:
+		w.handleDemoFinalized(ctx, data)
 	default:
 		log.Printf("hub.Writer: received %s event for server %d (dispatch not yet implemented)",
 			e.Type, e.ServerID)
 	}
 }
 
+// IsHandshakeEnforced reports whether the most recently observed
+// match_start for serverID had handshake_required=true. Returns false
+// for servers we've never seen a match_start for. Backs the
+// Router.Broadcast filter so live events for unproven servers don't
+// reach the WebSocket.
+func (w *Writer) IsHandshakeEnforced(ctx context.Context, serverID int64) bool {
+	w.handshakeMu.RLock()
+	v, ok := w.handshakeState[serverID]
+	w.handshakeMu.RUnlock()
+	if ok {
+		return v
+	}
+	srv, err := w.store.GetServerByID(ctx, serverID)
+	if err != nil || srv == nil {
+		// Unknown server — refuse. This includes the FK-violation case
+		// where a misrouted event references a serverID that doesn't
+		// exist in the hub's table.
+		return false
+	}
+	w.handshakeMu.Lock()
+	w.handshakeState[serverID] = srv.HandshakeRequired
+	w.handshakeMu.Unlock()
+	return srv.HandshakeRequired
+}
+
+// recordHandshakeRequired persists the new value to the servers row and
+// updates the in-memory cache. Cache update only happens on a successful
+// DB write so the column stays authoritative — otherwise a transient
+// UPDATE failure would leave the cache claiming "true" while the row
+// stays 0, and a restart would silently flip the server out of the UI.
+func (w *Writer) recordHandshakeRequired(ctx context.Context, serverID int64, required bool) {
+	if err := w.store.SetServerHandshakeRequired(ctx, serverID, required); err != nil {
+		log.Printf("hub: SetServerHandshakeRequired(server=%d, %v): %v", serverID, required, err)
+		return
+	}
+	w.handshakeMu.Lock()
+	w.handshakeState[serverID] = required
+	w.handshakeMu.Unlock()
+}
+
 // handleMatchStart persists a new match or adopts an existing row with
 // the same UUID (idempotent across collector replay and retries). Refuses
 // matches from servers that don't require g_trinityHandshake so stats
 // are scoped to clients that submit a Trinity handshake — independent
-// of whether those handshakes carry valid auth info.
+// of whether those handshakes carry valid auth info. Also latches the
+// handshake state onto the servers row so the Router.Broadcast filter
+// and the pollable-list filter know which servers to surface in the UI.
 func (w *Writer) handleMatchStart(ctx context.Context, serverID int64, data domain.MatchStartData) {
+	w.recordHandshakeRequired(ctx, serverID, data.HandshakeRequired)
 	if !data.HandshakeRequired {
 		log.Printf("hub: match_start rejected (server %d, uuid=%s): handshake_required=false", serverID, data.MatchUUID)
 		return
@@ -455,6 +508,21 @@ func (w *Writer) handleServerShutdown(ctx context.Context, serverID int64, data 
 		return
 	}
 	log.Printf("hub: server_shutdown server=%d swept open sessions before %s", serverID, data.ShutdownAt.Format(time.RFC3339))
+}
+
+// handleDemoFinalized flips matches.demo_available so the UI knows to
+// render a play button. Idempotent — if the match doesn't exist or is
+// already flagged, this is a no-op (the UPDATE just affects 0 rows).
+func (w *Writer) handleDemoFinalized(ctx context.Context, data domain.DemoFinalizedData) {
+	if data.MatchUUID == "" {
+		return
+	}
+	if err := w.store.MarkMatchDemoAvailable(ctx, data.MatchUUID); err != nil {
+		log.Printf("hub: MarkMatchDemoAvailable(%s): %v", data.MatchUUID, err)
+		return
+	}
+	log.Printf("hub: demo_finalized match=%s frames=%d duration_ms=%d bytes=%d",
+		data.MatchUUID, data.Frames, data.DurationMS, data.Bytes)
 }
 
 func (w *Writer) resolveOpenSession(ctx context.Context, serverID int64, guid string) (*domain.Session, error) {

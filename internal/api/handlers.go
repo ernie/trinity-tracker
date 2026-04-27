@@ -29,14 +29,22 @@ func parseID(req *http.Request, param string) (int64, error) {
 	return strconv.ParseInt(idStr, 10, 64)
 }
 
-// handleGetServers returns all servers
+// handleGetServers returns servers the hub has observed enforcing
+// g_trinityHandshake. Unproven servers are omitted so the UI doesn't
+// surface cards for servers whose data we don't trust.
 func (r *Router) handleGetServers(w http.ResponseWriter, req *http.Request) {
 	servers, err := r.store.GetServers(req.Context())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, servers)
+	filtered := servers[:0]
+	for _, s := range servers {
+		if s.HandshakeRequired {
+			filtered = append(filtered, s)
+		}
+	}
+	writeJSON(w, http.StatusOK, filtered)
 }
 
 // handleGetServer returns a single server

@@ -22,14 +22,42 @@ VR clients load the game module as a dll/so rather than a QVM, so
 `sv_pure` isn't available to keep vanilla ioquake3 clients out;
 `g_trinityHandshake` is the practical substitute. The handshake
 confirms each client is a real Trinity client and carries the auth
-credentials that make `!claim` / `!link` / greeted stats actually
-usable. Collectors log a visible warning whenever they see `InitGame`
-on a server without the cvar enabled, and skip publishing match_start
-for those matches. The hub refuses `match_start` with
-`handshake_required=false` as a safety net, so nothing lands in
-`match_player_stats` without this. Sessions and live events still
-flow — you'll see who's on the server in real time; stats just won't
-persist.
+credentials that make `!claim`-ed / `!link`-ed accounts actually
+useful. The hub rejects `match_start` for a server without the cvar
+enabled, so nothing lands in `match_player_stats` for that match.
+
+The hub records the most recently observed `handshake_required` value
+per server in `servers.handshake_required`. The schema default is 0,
+so a brand-new server stays hidden from the UI until a `match_start`
+with `HandshakeRequired=true` flips it on. The collector publishes
+`match_start` for every match regardless of `g_trinityHandshake`, so
+both 0→1 and 1→0 transitions track live traffic — flipping the cvar
+off and waiting for the next match end downgrades the server in the
+hub UI without manual intervention. The only gap is a server that
+flips the cvar and then never runs another match: in that case the
+operator can run `UPDATE servers SET handshake_required = 0 WHERE id = ?`
+and restart the hub, but in normal operation that's never necessary.
+
+The column drives three places, all on the hub:
+
+- `handleGetServers` returns only servers with
+  `handshake_required=1`, so the cards UI doesn't list unproven
+  servers.
+- `Router.Broadcast` consults the column (cached in memory) before
+  fanning out a live event to WebSocket clients, so the activity feed
+  doesn't surface frags / chat / joins / awards for non-enforcing
+  servers.
+- `ListPollableServers` filters on it, so the UDP poller doesn't
+  waste packets querying servers below the bar.
+
+Match-scoped events (`match_end`, `match_settings_update`,
+`match_crashed`, `demo_finalized`, `trinity_handshake`) are implicitly
+gated by their UUID lookups (`GetMatchByUUID`, open-session
+resolution) returning nil when the originating `match_start` was
+rejected. Sessions and presence still flow internally for
+non-enforcing servers — they're presence-only and never feed
+`match_player_stats`, and the UI never surfaces them because the
+server card itself is hidden.
 
 ## Example configs
 
@@ -42,7 +70,7 @@ server:
 database:
   path: /var/lib/trinity/trinity.db
 q3_servers:
-  - name: ffa
+  - key: ffa
     address: 127.0.0.1:27960
     log_path: /var/log/quake3/ffa.log
     rcon_password: ...
@@ -63,7 +91,7 @@ tracker:
     source_id: "remote-1"           # admin-chosen name surfaced in the UI
     data_dir: "/var/lib/trinity"
     heartbeat_interval: "30s"
-    demo_base_url: "https://demos.example.com"
+    public_url: "https://q3.example.com"
     hub_host: "trinity.example.com"
 ```
 
@@ -96,7 +124,7 @@ status.
 
 ```yaml
 q3_servers:
-  - name: ffa
+  - key: ffa
     address: 127.0.0.1:27960
     log_path: /var/log/quake3/ffa.log
     rcon_password: ...
@@ -109,18 +137,20 @@ tracker:
     source_id: "remote-1"                      # must match what the hub admin chose
     data_dir: "/var/lib/trinity"
     heartbeat_interval: "30s"
-    demo_base_url: "https://demos.example.com"
+    public_url: "https://q3.example.com"
     hub_host: "trinity.example.com"
 ```
 
 No `server.http_port`, no `database.path` — the collector has no
 local UI and no SQLite file. State lives under `data_dir`:
 
-- `source_uuid` — UUIDv4 generated on first run, stable forever.
-  Must match the UUID the hub issued when the source was created.
 - `publish_watermark.json` — last NATS-acked `{seq, ts}` for replay.
 - `buffer.jsonl` + `buffer.head.json` — disk spill of events queued
   during NATS outages (see Outage handling below).
+
+Source identity is the admin-chosen `source_id` in the YAML — the same
+name the hub provisioned and the `.creds` file is scoped to. There is
+no separate UUID file to keep in sync.
 
 ### hub_host and the NATS endpoint
 
@@ -158,28 +188,22 @@ status.
 
 2. **Hub admin**: hand the `.creds` file and the source name to the
    remote operator out-of-band (email, encrypted channel, whatever).
-   Also communicate the generated `source_uuid` — the remote
-   operator's `data_dir/source_uuid` file must contain exactly this
-   string. (If that file already exists from a prior run, delete it
-   so it regenerates — otherwise the hub will reject registrations
-   from a UUID it doesn't know.)
 
 3. **Remote operator**: drop the `.creds` file at
    `tracker.nats.credentials_file`, set
-   `tracker.collector.source_id` to the provisioned name, populate
-   `data_dir/source_uuid` with the hub's UUID, and start the
-   collector. It connects, publishes registration (which populates
+   `tracker.collector.source_id` to the provisioned name, and start
+   the collector. It connects, publishes registration (which populates
    the server roster on the hub), and events flow immediately.
 
 ### Rotating credentials
 
 - **Web UI:** Admin → Sources → **Rotate creds** next to the source.
   Confirms, downloads the replacement `.creds`.
-- **API:** `POST /api/admin/sources/<source_uuid>/rotate-creds`
+- **API:** `POST /api/admin/sources/<source>/rotate-creds`
   (admin-scoped JWT).
 
 Rotation mints a fresh user NKey, writes the new `.creds` (the
-source UUID is unchanged), and adds the old pubkey to the TRINITY
+source name is unchanged), and adds the old pubkey to the TRINITY
 account's revocation list + calls `server.UpdateAccountClaims`, so
 any collector still connected with the old creds is dropped
 immediately.
@@ -187,7 +211,7 @@ immediately.
 ### Deleting a source
 
 - **Web UI:** Admin → Sources → **Delete**.
-- **API:** `DELETE /api/admin/sources/<source_uuid>`.
+- **API:** `DELETE /api/admin/sources/<source>`.
 
 Removes the `sources` row, removes any `is_remote=1` servers rows
 tagged with that source, revokes the NKey at the broker, and flips
@@ -196,7 +220,7 @@ refused.
 
 ### Downloading current creds
 
-`GET /api/admin/sources/<source_uuid>/creds` streams the current
+`GET /api/admin/sources/<source>/creds` streams the current
 `.creds` body. Handy for re-issuing to an operator who lost theirs.
 The underlying NKey is unchanged — use rotate-creds if you need to
 invalidate the old file.
@@ -284,19 +308,32 @@ an unnecessary NATS round-trip.
 
 Distributed tracking added the following to `servers`:
 
-- `source`, `source_uuid`, `local_id`
+- `source`, `local_id`
 - `remote_address`
 - `is_remote INTEGER NOT NULL DEFAULT 0`
 - `last_heartbeat_at`
 - `demo_base_url`
 - `source_version`
+- `handshake_required INTEGER NOT NULL DEFAULT 0` — gate that drives
+  the hub-side rejection of session/live events for non-enforcing
+  servers (see "g_trinityHandshake" above).
 
 Plus two new tables:
 
 - `sources` — hub record of provisioned collectors. The hub refuses
-  anything from a `source_uuid` that doesn't have a row here.
+  anything from a `source` name that doesn't have a row here.
 - `source_progress` — per-source `consumed_seq` for idempotent
   replay.
 
-`schema.sql` carries the full target shape for fresh installs; see
-project conventions for applying ALTERs against a deployed DB.
+`schema.sql` carries the full target shape for fresh installs. For
+existing deployments, the operator runs the matching ALTERs by hand
+before deploying the new binary — e.g. for the handshake gate:
+
+```sql
+ALTER TABLE servers ADD COLUMN handshake_required INTEGER NOT NULL DEFAULT 0;
+```
+
+(the default of 0 means every existing server starts in the
+"unenforcing" state until its next `match_start` arrives; if you'd
+rather grandfather currently-enforcing servers, run
+`UPDATE servers SET handshake_required = 1 WHERE …` after the ALTER).

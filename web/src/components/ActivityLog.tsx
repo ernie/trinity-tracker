@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import type { ActivityItem, Player, ServerStatus } from '../types'
 import { BotBadge } from './BotBadge'
 import { ColoredText } from './ColoredText'
@@ -26,7 +26,7 @@ const STORAGE_KEY_SOURCE_FILTER = 'q3a_activity_source_filter'
 const STORAGE_KEY_INCLUDE_BOTS = 'q3a_activity_include_bots'
 
 export function ActivityLog({ activities, servers, onPlayerClick }: ActivityLogProps) {
-  const { hasMultiple: hasMultipleSources } = useSources()
+  const { sources, hasMultiple: hasMultipleSources } = useSources()
   const [serverFilter, setServerFilter] = useState<number | 'all'>(() => {
     const stored = localStorage.getItem(STORAGE_KEY_SERVER_FILTER)
     if (stored === null || stored === 'all') return 'all'
@@ -52,6 +52,30 @@ export function ActivityLog({ activities, servers, onPlayerClick }: ActivityLogP
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_INCLUDE_BOTS, String(includeBots))
   }, [includeBots])
+
+  // Sanitize persisted filters once we have data to validate against.
+  // A filter referencing a deleted/renamed server or source would
+  // silently hide every activity row otherwise — and the user has no
+  // signal as to why. Validate each axis once its own data has loaded;
+  // servers (WebSocket) and sources (/api/sources) arrive on independent
+  // timelines, so a combined gate could fire validation against an
+  // empty sources list and nuke a perfectly valid persisted filter.
+  const serverFilterValidated = useRef(false)
+  const sourceFilterValidated = useRef(false)
+  useEffect(() => {
+    if (!serverFilterValidated.current && servers.size > 0) {
+      if (typeof serverFilter === 'number' && !servers.has(serverFilter)) {
+        setServerFilter('all')
+      }
+      serverFilterValidated.current = true
+    }
+    if (!sourceFilterValidated.current && sources.length > 0) {
+      if (sourceFilter !== '' && !sources.some((s) => s.source === sourceFilter)) {
+        setSourceFilter('')
+      }
+      sourceFilterValidated.current = true
+    }
+  }, [servers, sources, serverFilter, sourceFilter])
 
   // Get servers for filter dropdown - only show servers with a real key
   const availableServers = useMemo(() => {

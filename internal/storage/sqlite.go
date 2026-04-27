@@ -94,7 +94,7 @@ func (s *Store) UpsertServer(ctx context.Context, source string, srv *domain.Ser
 // GetServers returns all servers
 func (s *Store) GetServers(ctx context.Context) ([]domain.Server, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, source, key, address, active, last_match_uuid, last_match_ended_at, created_at FROM servers ORDER BY id
+		SELECT id, source, key, address, active, handshake_required, last_match_uuid, last_match_ended_at, created_at FROM servers ORDER BY id
 	`)
 	if err != nil {
 		return nil, err
@@ -106,7 +106,7 @@ func (s *Store) GetServers(ctx context.Context) ([]domain.Server, error) {
 		var srv domain.Server
 		var lastMatchUUID sql.NullString
 		var lastMatchEndedAt sql.NullTime
-		if err := rows.Scan(&srv.ID, &srv.Source, &srv.Key, &srv.Address, &srv.Active, &lastMatchUUID, &lastMatchEndedAt, &srv.CreatedAt); err != nil {
+		if err := rows.Scan(&srv.ID, &srv.Source, &srv.Key, &srv.Address, &srv.Active, &srv.HandshakeRequired, &lastMatchUUID, &lastMatchEndedAt, &srv.CreatedAt); err != nil {
 			return nil, err
 		}
 		if lastMatchUUID.Valid {
@@ -126,8 +126,8 @@ func (s *Store) GetServerByID(ctx context.Context, id int64) (*domain.Server, er
 	var lastMatchUUID sql.NullString
 	var lastMatchEndedAt sql.NullTime
 	err := s.db.QueryRowContext(ctx, `
-		SELECT id, source, key, address, active, last_match_uuid, last_match_ended_at, created_at FROM servers WHERE id = ?
-	`, id).Scan(&srv.ID, &srv.Source, &srv.Key, &srv.Address, &srv.Active, &lastMatchUUID, &lastMatchEndedAt, &srv.CreatedAt)
+		SELECT id, source, key, address, active, handshake_required, last_match_uuid, last_match_ended_at, created_at FROM servers WHERE id = ?
+	`, id).Scan(&srv.ID, &srv.Source, &srv.Key, &srv.Address, &srv.Active, &srv.HandshakeRequired, &lastMatchUUID, &lastMatchEndedAt, &srv.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -138,6 +138,19 @@ func (s *Store) GetServerByID(ctx context.Context, id int64) (*domain.Server, er
 		srv.LastMatchEndedAt = &lastMatchEndedAt.Time
 	}
 	return &srv, nil
+}
+
+// SetServerHandshakeRequired sets servers.handshake_required for a single
+// row. The hub calls this on every observed match_start (both accept and
+// reject paths), so the column tracks the most recent g_trinityHandshake
+// state observed for the server.
+func (s *Store) SetServerHandshakeRequired(ctx context.Context, serverID int64, required bool) error {
+	v := 0
+	if required {
+		v = 1
+	}
+	_, err := s.db.ExecContext(ctx, `UPDATE servers SET handshake_required = ? WHERE id = ?`, v, serverID)
+	return err
 }
 
 // --- Player GUID methods ---
@@ -867,6 +880,19 @@ func (s *Store) UpdateMatchGameplay(ctx context.Context, matchID int64, gameplay
 	_, err := s.db.ExecContext(ctx, `
 		UPDATE matches SET gameplay = ? WHERE id = ?
 	`, gameplay, matchID)
+	return err
+}
+
+// MarkMatchDemoAvailable flips matches.demo_available=1 for a match
+// by UUID. Idempotent: a missing match or already-flagged row is a
+// no-op (zero rows affected). Called by handleDemoFinalized when
+// trinity-engine logs a "DemoSaved:" line.
+func (s *Store) MarkMatchDemoAvailable(ctx context.Context, uuid string) error {
+	if uuid == "" {
+		return fmt.Errorf("storage.MarkMatchDemoAvailable: uuid is required")
+	}
+	_, err := s.db.ExecContext(ctx,
+		"UPDATE matches SET demo_available = 1 WHERE uuid = ?", uuid)
 	return err
 }
 
@@ -1653,7 +1679,7 @@ func (s *Store) GetRecentMatchSummaries(ctx context.Context, limit int) ([]domai
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT DISTINCT
 			m.id, m.uuid, m.server_id, s.key, s.active, s.source, m.map_name, m.game_type, m.started_at, m.ended_at, m.exit_reason,
-			m.red_score, m.blue_score, m.movement, m.gameplay
+			m.red_score, m.blue_score, m.movement, m.gameplay, m.demo_available
 		FROM matches m
 		JOIN servers s ON m.server_id = s.id
 		JOIN match_player_stats mps ON m.id = mps.match_id
@@ -1688,7 +1714,7 @@ func (s *Store) GetPlayerRecentMatches(ctx context.Context, playerID int64, limi
 	query := `
 		SELECT DISTINCT
 			m.id, m.uuid, m.server_id, s.key, s.active, s.source, m.map_name, m.game_type, m.started_at, m.ended_at, m.exit_reason,
-			m.red_score, m.blue_score, m.movement, m.gameplay
+			m.red_score, m.blue_score, m.movement, m.gameplay, m.demo_available
 		FROM matches m
 		JOIN servers s ON m.server_id = s.id
 		JOIN match_player_stats mps ON m.id = mps.match_id
@@ -2025,7 +2051,7 @@ func (s *Store) ClaimLink(ctx context.Context, codeID, claimPlayerID, userID int
 func (s *Store) GetMatchSummaryByID(ctx context.Context, matchID int64) (*domain.MatchSummary, error) {
 	row := s.db.QueryRowContext(ctx, `
 		SELECT m.id, m.uuid, m.server_id, s.key, s.active, s.source, m.map_name, m.game_type, m.started_at, m.ended_at, m.exit_reason,
-		       m.red_score, m.blue_score, m.movement, m.gameplay
+		       m.red_score, m.blue_score, m.movement, m.gameplay, m.demo_available
 		FROM matches m
 		JOIN servers s ON m.server_id = s.id
 		WHERE m.id = ?
@@ -2087,7 +2113,7 @@ func (s *Store) GetFilteredMatchSummaries(ctx context.Context, filter MatchFilte
 	query := `
 		SELECT DISTINCT
 			m.id, m.uuid, m.server_id, s.key, s.active, s.source, m.map_name, m.game_type, m.started_at, m.ended_at, m.exit_reason,
-			m.red_score, m.blue_score, m.movement, m.gameplay
+			m.red_score, m.blue_score, m.movement, m.gameplay, m.demo_available
 		FROM matches m
 		JOIN servers s ON m.server_id = s.id
 		JOIN match_player_stats mps ON m.id = mps.match_id

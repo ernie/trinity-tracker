@@ -83,7 +83,7 @@ func scanMatchSummaryRow(s scanner) (*domain.MatchSummary, error) {
 	var source sql.NullString
 
 	err := s.Scan(&m.ID, &m.UUID, &m.ServerID, &m.ServerKey, &m.ServerActive, &source, &m.MapName, &gameType,
-		&m.StartedAt, &endedAt, &exitReason, &redScore, &blueScore, &movement, &gameplay)
+		&m.StartedAt, &endedAt, &exitReason, &redScore, &blueScore, &movement, &gameplay, &m.DemoAvailable)
 	if err != nil {
 		return nil, err
 	}

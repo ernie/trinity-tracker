@@ -76,3 +76,56 @@ func TestHandleMatchStartAcceptsWhenHandshakeRequired(t *testing.T) {
 		t.Errorf("MapName = %q, want q3ctf1", m.MapName)
 	}
 }
+
+// TestIsHandshakeEnforcedLatch covers the column behind Router.Broadcast's
+// gate: it must report false until match_start latches it true, and must
+// flip back to false on a subsequent match_start with handshake_required=false
+// (operator downgrade detected on the next match observed by the hub).
+func TestIsHandshakeEnforcedLatch(t *testing.T) {
+	w, store := newTestWriter(t)
+	ctx := context.Background()
+	const source = "aaaa-0000-0000-0000-000000000201"
+	w.MarkSourceApproved(source)
+
+	srv := &domain.Server{Key: "ffa", Address: "127.0.0.1:27960"}
+	if err := store.UpsertServer(ctx, "test", srv); err != nil {
+		t.Fatalf("UpsertServer: %v", err)
+	}
+	if err := store.TagLocalServerSource(ctx, srv.ID, source, srv.ID); err != nil {
+		t.Fatalf("TagLocalServerSource: %v", err)
+	}
+
+	if w.IsHandshakeEnforced(ctx, srv.ID) {
+		t.Fatal("expected IsHandshakeEnforced=false on a freshly-provisioned server")
+	}
+
+	openEnv := envelopeFor(t, source, 1, domain.FactMatchStart, domain.MatchStartData{
+		MatchUUID:         "match-201",
+		MapName:           "q3dm17",
+		GameType:          "FFA",
+		StartedAt:         time.Date(2026, 4, 19, 12, 0, 0, 0, time.UTC),
+		HandshakeRequired: true,
+	})
+	openEnv.RemoteServerID = srv.ID
+	if err := w.HandleEnvelope(ctx, openEnv); err != nil {
+		t.Fatalf("HandleEnvelope(open): %v", err)
+	}
+	if !w.IsHandshakeEnforced(ctx, srv.ID) {
+		t.Fatal("expected IsHandshakeEnforced=true after match_start with handshake_required=true")
+	}
+
+	closeEnv := envelopeFor(t, source, 2, domain.FactMatchStart, domain.MatchStartData{
+		MatchUUID:         "match-201b",
+		MapName:           "q3dm17",
+		GameType:          "FFA",
+		StartedAt:         time.Date(2026, 4, 19, 12, 30, 0, 0, time.UTC),
+		HandshakeRequired: false,
+	})
+	closeEnv.RemoteServerID = srv.ID
+	if err := w.HandleEnvelope(ctx, closeEnv); err != nil {
+		t.Fatalf("HandleEnvelope(close): %v", err)
+	}
+	if w.IsHandshakeEnforced(ctx, srv.ID) {
+		t.Fatal("expected IsHandshakeEnforced=false after match_start with handshake_required=false")
+	}
+}

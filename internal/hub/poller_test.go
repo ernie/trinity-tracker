@@ -42,6 +42,14 @@ func TestRemotePollerPollsRegisteredServers(t *testing.T) {
 	if err := store.UpsertRemoteServers(ctx, reg); err != nil {
 		t.Fatalf("upsert roster: %v", err)
 	}
+	// ListPollableServers requires handshake_required=1; mark the test
+	// server enforcing so the poller treats it as live.
+	for _, s := range reg.Servers {
+		id, _ := store.ResolveServerIDForSource(ctx, reg.Source, s.LocalID)
+		if err := store.SetServerHandshakeRequired(ctx, id, true); err != nil {
+			t.Fatalf("SetServerHandshakeRequired: %v", err)
+		}
+	}
 
 	q := &fakeQuerier{responses: map[string]*domain.ServerStatus{
 		"r.example:27960": {Map: "q3dm17", GameType: "FFA"},
@@ -90,6 +98,12 @@ func TestRemotePollerUnreachableMarksOffline(t *testing.T) {
 	}
 	if err := store.UpsertRemoteServers(ctx, reg); err != nil {
 		t.Fatalf("upsert roster: %v", err)
+	}
+	for _, s := range reg.Servers {
+		id, _ := store.ResolveServerIDForSource(ctx, reg.Source, s.LocalID)
+		if err := store.SetServerHandshakeRequired(ctx, id, true); err != nil {
+			t.Fatalf("SetServerHandshakeRequired: %v", err)
+		}
 	}
 
 	q := &fakeQuerier{responses: map[string]*domain.ServerStatus{}} // no response for dead

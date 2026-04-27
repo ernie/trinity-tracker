@@ -70,16 +70,19 @@ type MatchPlayerSummary struct {
 // MatchSummary represents a match with server and player info.
 // Source + ServerKey are the (source, key) identity of the server
 // the match was played on; UI renders "<source> / <key>". When
-// ServerActive=false the UI dims the card.
+// ServerActive=false the UI dims the card. DemoAvailable=true means
+// the .tvd file has been finalized somewhere (local or remote);
+// populateDemoURLs uses it to decide whether to set DemoURL.
 type MatchSummary struct {
-	ID           int64                `json:"id"`
-	UUID         string               `json:"-"`
-	DemoURL      string               `json:"demo_url,omitempty"`
-	ServerID     int64                `json:"server_id"`
-	ServerKey    string               `json:"server_key"`
-	ServerActive bool                 `json:"server_active"`
-	Source       string               `json:"source"`
-	MapName      string               `json:"map_name"`
+	ID            int64                `json:"id"`
+	UUID          string               `json:"-"`
+	DemoURL       string               `json:"demo_url,omitempty"`
+	ServerID      int64                `json:"server_id"`
+	ServerKey     string               `json:"server_key"`
+	ServerActive  bool                 `json:"server_active"`
+	Source        string               `json:"source"`
+	MapName       string               `json:"map_name"`
+	DemoAvailable bool                 `json:"demo_available"`
 	GameType   string               `json:"game_type"`
 	StartedAt  time.Time            `json:"started_at"`
 	EndedAt    *time.Time           `json:"ended_at,omitempty"`

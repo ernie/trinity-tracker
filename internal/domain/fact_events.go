@@ -17,6 +17,7 @@ const (
 	FactTrinityHandshake     = "trinity_handshake"
 	FactServerStartup        = "server_startup"
 	FactServerShutdown       = "server_shutdown"
+	FactDemoFinalized        = "demo_finalized"
 )
 
 // FactEvent is the in-process envelope carrying a payload from the
@@ -187,4 +188,17 @@ type ServerStartupData struct {
 // timestamp.
 type ServerShutdownData struct {
 	ShutdownAt time.Time `json:"shutdown_at"`
+}
+
+// DemoFinalizedData is emitted when trinity-engine logs a "DemoSaved:"
+// line for a match — i.e. the .tvd file has been finalized on disk
+// and is fetchable from the source's public_url. The hub writer flips
+// matches.demo_available so the UI renders a play button. Discard
+// events aren't emitted: absence of FactDemoFinalized for a match is
+// the same signal.
+type DemoFinalizedData struct {
+	MatchUUID  string `json:"match_uuid"`
+	Frames     int    `json:"frames,omitempty"`
+	DurationMS int    `json:"duration_ms,omitempty"`
+	Bytes      uint64 `json:"bytes,omitempty"`
 }

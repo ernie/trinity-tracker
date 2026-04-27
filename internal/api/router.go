@@ -196,16 +196,38 @@ func (r *Router) StartWebSocketHub() {
 			if r.writer != nil {
 				event = r.writer.EnrichEvent(ctx, event)
 			}
-			r.wsHub.Broadcast(event)
+			r.Broadcast(event)
 		}
 	}()
 }
 
 // Broadcast forwards a pre-enriched event to all connected WebSocket
-// clients. Used by the hub-side live-event NATS subscriber so
+// clients, after dropping events for servers that haven't been
+// observed enforcing g_trinityHandshake. Used by the in-process
+// collector loop and by the hub-side live-event NATS subscriber so
 // remote-collector activity appears on the unified dashboard in real
 // time. *Router satisfies hub.LiveEventSink.
+//
+// The handshake gate is the single chokepoint: events for servers
+// whose handshake_required column is 0 (or unknown) are dropped, as
+// are events with a missing/unresolved ServerID — every legitimate
+// emit site sets a non-zero ID, so a zero here means a misrouted or
+// malformed envelope (e.g. natsbus.LiveSubscriber falling back to an
+// unresolved RemoteServerID). The writer's in-memory cache makes this
+// a hot-path read, falling back to a single SELECT on first
+// observation per serverID. Production wiring always sets r.writer;
+// the nil bypass exists for tests and early bring-up.
 func (r *Router) Broadcast(event domain.Event) {
+	if r.writer == nil {
+		r.wsHub.Broadcast(event)
+		return
+	}
+	if event.ServerID == 0 {
+		return
+	}
+	if !r.writer.IsHandshakeEnforced(context.Background(), event.ServerID) {
+		return
+	}
 	r.wsHub.Broadcast(event)
 }
 
@@ -313,29 +335,14 @@ func getContentType(path string) string {
 	}
 }
 
-// populateDemoURLs sets DemoURL to a relative /demos/<uuid>.tvd if
-// either the .tvd is on the hub's disk OR the match's source advertises
-// a public URL we can redirect to (handled by handleDemo + the nginx
-// try_files fallback). Empty when there's no way to serve the demo —
-// keeps the UI from rendering a play button that 404s.
+// populateDemoURLs sets DemoURL to a relative /demos/<uuid>.tvd for
+// every match flagged demo_available. nginx + handleDemo handle the
+// local-vs-remote dispatch on click. Empty DemoURL = no play button,
+// so users don't see dead links for matches whose recording was
+// discarded or never finalized.
 func (r *Router) populateDemoURLs(matches []domain.MatchSummary) {
 	for i := range matches {
-		if matches[i].UUID == "" {
-			continue
-		}
-		if r.staticDir != "" {
-			local := filepath.Join(r.staticDir, "demos", matches[i].UUID+".tvd")
-			if _, err := os.Stat(local); err == nil {
-				matches[i].DemoURL = "/demos/" + matches[i].UUID + ".tvd"
-				continue
-			}
-		}
-		base, err := r.store.FindSourcePublicURLForDemo(context.Background(), matches[i].UUID)
-		if err != nil {
-			log.Printf("populateDemoURLs: %v", err)
-			continue
-		}
-		if base != "" {
+		if matches[i].UUID != "" && matches[i].DemoAvailable {
 			matches[i].DemoURL = "/demos/" + matches[i].UUID + ".tvd"
 		}
 	}

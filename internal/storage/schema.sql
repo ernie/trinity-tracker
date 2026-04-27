@@ -27,6 +27,13 @@ CREATE TABLE IF NOT EXISTS servers (
     -- a server is removed from cfg.Q3Servers. UI dims inactive rows;
     -- the live cards section filters them out.
     active INTEGER NOT NULL DEFAULT 1,
+    -- 1 once we've observed a match_start with handshake_required=true
+    -- on this server. Until then the hub rejects player_join /
+    -- player_leave / live events for the server (so a collector that
+    -- somehow publishes despite the source-side gate still can't
+    -- pollute the hub). Updated by handleMatchStart on every observed
+    -- match_start, both accept and reject paths.
+    handshake_required INTEGER NOT NULL DEFAULT 0,
     UNIQUE(source, key COLLATE NOCASE)
 );
 
@@ -109,7 +116,10 @@ CREATE TABLE IF NOT EXISTS matches (
     blue_score INTEGER,
     has_human_player BOOLEAN DEFAULT FALSE,
     movement TEXT,
-    gameplay TEXT
+    gameplay TEXT,
+    -- Flipped to 1 by FactDemoFinalized; the UI uses this to decide
+    -- whether to render a "play demo" button for the match.
+    demo_available INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS idx_matches_server_id ON matches(server_id);

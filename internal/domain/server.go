@@ -14,6 +14,12 @@ type Server struct {
 	Key               string     `json:"key"`
 	Address           string     `json:"address"`
 	Active            bool       `json:"active"`
+	// HandshakeRequired latches to true the first time the hub sees a
+	// match_start with handshake_required=true on this server, and
+	// flips back to false on a match_start with handshake_required=false.
+	// New rows default to false so the hub rejects everything from the
+	// server until the cvar is observed.
+	HandshakeRequired bool       `json:"handshake_required"`
 	LastMatchUUID     *string    `json:"last_match_uuid,omitempty"`
 	LastMatchEndedAt  *time.Time `json:"last_match_ended_at,omitempty"`
 	CreatedAt         time.Time  `json:"created_at"`

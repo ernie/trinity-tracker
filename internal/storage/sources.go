@@ -282,15 +282,17 @@ type RemoteServer struct {
 }
 
 // ListPollableServers returns every servers row the hub poller should
-// UDP-poll: active rows with a non-empty address. Covers both
-// is_remote=0 rows (the hub's local collector) and is_remote=1 rows
-// (remote collectors). Inactive rows are skipped — they're
-// decommissioned and shouldn't show up in live status. Ordered by id.
+// UDP-poll: active rows with a non-empty address that have been
+// observed enforcing g_trinityHandshake. Covers both is_remote=0 rows
+// (the hub's local collector) and is_remote=1 rows (remote
+// collectors). Inactive rows and rows that haven't proved they enforce
+// the handshake are skipped — neither should show up in live status.
+// Ordered by id.
 func (s *Store) ListPollableServers(ctx context.Context) ([]RemoteServer, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, source, key, address
 		FROM servers
-		WHERE active = 1 AND address <> ''
+		WHERE active = 1 AND handshake_required = 1 AND address <> ''
 		ORDER BY id
 	`)
 	if err != nil {

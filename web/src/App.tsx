@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useWebSocket } from "./useWebSocket";
 import { useAuth } from "./hooks/useAuth";
+import { useSources } from "./hooks/useSources";
 import {
   ServerCard,
   ActivityLog,
@@ -46,6 +47,7 @@ function cleanQ3Name(name: string): string {
 }
 
 function App() {
+  const { hasMultiple: hasMultipleSources } = useSources();
   const [servers, setServers] = useState<Map<number, ServerStatus>>(new Map());
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [newPlayers, setNewPlayers] = useState<Set<string>>(new Set());
@@ -95,8 +97,8 @@ function App() {
     if (!server?.key) {
       return undefined;
     }
-    return serverDisplay(server.source, server.key);
-  }, []);
+    return serverDisplay(server.source, server.key, { hasMultipleSources });
+  }, [hasMultipleSources]);
 
   // Get player info by looking up player in server status
   const getPlayerBotInfo = useCallback(

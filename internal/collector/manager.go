@@ -352,11 +352,16 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 					// Let a post-restart Shutdown fire match_end against
 					// the hub's existing (pre-watermark) match row.
 					state.matchStarted = true
-				case !replayMode && !state.handshakeRequired:
-					// Stats require g_trinityHandshake; sessions and live
-					// events still flow regardless.
-					log.Printf("collector: skipping match_start for %s on server %s/%s — g_trinityHandshake not enabled; set it on the game server to track stats", state.match.UUID, state.server.Source, state.server.Key)
 				case !replayMode:
+					// Publish match_start regardless of g_trinityHandshake so
+					// the hub's handshake_required column tracks the cvar in
+					// both directions. The hub still gates persistence on
+					// HandshakeRequired, so non-handshake matches don't
+					// produce stats — but the server's UI visibility flips
+					// off without manual intervention. matchStarted gates
+					// match_end below; we only set it when the hub created
+					// a match row, so we don't fire match_end against a
+					// UUID the hub never persisted.
 					m.pub.Publish(domain.FactEvent{
 						Type:      domain.FactMatchStart,
 						ServerID:  state.server.ID,
@@ -368,10 +373,14 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 							Movement:          state.match.Movement,
 							Gameplay:          state.match.Gameplay,
 							StartedAt:         event.Timestamp,
-							HandshakeRequired: true,
+							HandshakeRequired: state.handshakeRequired,
 						},
 					})
-					state.matchStarted = true
+					if state.handshakeRequired {
+						state.matchStarted = true
+					} else {
+						log.Printf("collector: match_start for %s on server %s/%s with g_trinityHandshake not enabled — hub will reject stats and downgrade the server", state.match.UUID, state.server.Source, state.server.Key)
+					}
 				}
 			}
 		}
@@ -557,8 +566,10 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 				// Greet on every fresh begin where userinfo arrived
 				// (client.guid != ""). Map-change continuations have
 				// guid=="" and are skipped naturally; this matches the
-				// PlayerJoin gate above.
-				if m.startupComplete && client.guid != "" {
+				// PlayerJoin gate above. Bots get neither the welcome
+				// nor the handshake warning — they have a synthetic
+				// guid that'd otherwise sneak past client.guid != "".
+				if m.startupComplete && !client.isBot && client.guid != "" {
 					if m.handshakeRequired(state) {
 						// Delay greeting until handshake completes (or warn on timeout).
 						// The handshake handler calls performGreet with auth bundled in.
@@ -1122,6 +1133,26 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 				Data:      domain.ServerShutdownData{ShutdownAt: event.Timestamp},
 			})
 		}
+
+	case EventTypeDemoSaved:
+		data := event.Data.(DemoSavedData)
+		if data.MatchUUID != "" && !replayMode {
+			m.pub.Publish(domain.FactEvent{
+				Type:      domain.FactDemoFinalized,
+				ServerID:  serverID,
+				Timestamp: event.Timestamp,
+				Data: domain.DemoFinalizedData{
+					MatchUUID:  data.MatchUUID,
+					Frames:     data.Frames,
+					DurationMS: data.DurationMS,
+					Bytes:      data.Bytes,
+				},
+			})
+		}
+
+	case EventTypeDemoDiscarded:
+		// No fact emitted — absence of FactDemoFinalized for the match
+		// is the same signal hub-side. Logged for replay/debug.
 
 	case EventTypeCvarChange:
 		data := event.Data.(CvarChangeData)
