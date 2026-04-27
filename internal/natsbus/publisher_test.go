@@ -12,7 +12,7 @@ import (
 
 func connectInProcess(t *testing.T, s *Server) *nats.Conn {
 	t.Helper()
-	nc, err := nats.Connect("", nats.InProcessServer(s.NATSServer()))
+	nc, err := s.ConnectInternal()
 	if err != nil {
 		t.Fatalf("connect: %v", err)
 	}

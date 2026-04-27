@@ -37,7 +37,7 @@ func TestBufferedPublisherDrainsToJetStream(t *testing.T) {
 	}
 	defer ns.Stop()
 
-	nc, err := nats.Connect("", nats.InProcessServer(ns.NATSServer()))
+	nc, err := ns.ConnectInternal()
 	if err != nil {
 		t.Fatalf("connect: %v", err)
 	}
@@ -111,7 +111,7 @@ func TestBufferedPublisherOverflowDropsOldest(t *testing.T) {
 	}
 	defer ns.Stop()
 
-	nc, err := nats.Connect("", nats.InProcessServer(ns.NATSServer()))
+	nc, err := ns.ConnectInternal()
 	if err != nil {
 		t.Fatalf("connect: %v", err)
 	}

@@ -161,21 +161,33 @@ func cmdServe(args []string) {
 	log.Printf("Trinity %s starting...", version)
 	log.Printf("Monitoring %d servers", len(cfg.Q3Servers))
 
-	// Initialize storage
-	store, err := storage.New(cfg.Database.Path)
-	if err != nil {
-		log.Fatalf("Failed to initialize database: %v", err)
+	// Role flags. Standalone (no tracker:) and hub-only / hub+collector
+	// all run the hub side (store, writer, HTTP UI). Collector-only
+	// skips that path entirely — no local DB, no web server, just the
+	// log parser feeding a remote NATS hub.
+	hasTracker := cfg.Tracker != nil
+	hasHub := hasTracker && cfg.Tracker.Hub != nil
+	hasCollector := hasTracker && cfg.Tracker.Collector != nil
+	standalone := !hasTracker
+	hubRole := standalone || hasHub
+
+	// Initialize storage (hub role only — collector-only runs DB-less).
+	var store *storage.Store
+	if hubRole {
+		s, err := storage.New(cfg.Database.Path)
+		if err != nil {
+			log.Fatalf("Failed to initialize database: %v", err)
+		}
+		defer s.Close()
+		store = s
+		log.Printf("Database initialized at %s", cfg.Database.Path)
 	}
-	defer store.Close()
-	log.Printf("Database initialized at %s", cfg.Database.Path)
 
 	// Start the manager
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Tracker plumbing: embedded NATS server (hub), in-process NATS
-	// clients (collector publisher + RPC client, hub subscriber + RPC
-	// server). Standalone mode skips all of it.
+	// Tracker plumbing.
 	var (
 		writerOpts         []hub.Option
 		ns                 *natsbus.Server
@@ -187,11 +199,27 @@ func cmdServe(args []string) {
 		registrar          *natsbus.Registrar
 		remotePoller       *hub.RemotePoller
 		bufferedPublisher  *natsbus.BufferedPublisher
-		collectorRPC       hub.RPCClient
+		collectorRPC       *natsbus.RPCClient
+		livePublisher      *natsbus.LivePublisher
+		liveSubscriber     *natsbus.LiveSubscriber
 		collectorUUID      string
 		collectorWatermark *natsbus.WatermarkTracker
+		localWatermark     *hub.LocalWatermarkTracker
 	)
-	if cfg.Tracker != nil && cfg.Tracker.Hub != nil {
+
+	// Standalone mode (no tracker:) gets a local writer-side watermark
+	// so replay on next boot starts just past the last dispatched event.
+	// Distributed mode relies on natsbus.WatermarkTracker publisher-side
+	// and the hub's source_progress.consumed_seq on the receive side.
+	if standalone && store != nil {
+		var err error
+		localWatermark, err = hub.NewLocalWatermarkTracker(filepath.Dir(cfg.Database.Path))
+		if err != nil {
+			log.Fatalf("Failed to load local watermark: %v", err)
+		}
+		writerOpts = append(writerOpts, hub.WithLocalWatermark(localWatermark))
+	}
+	if hasHub {
 		storeParent := filepath.Dir(cfg.Database.Path)
 		var err error
 		ns, err = natsbus.Start(cfg.Tracker, storeParent)
@@ -199,35 +227,47 @@ func cmdServe(args []string) {
 			log.Fatalf("Failed to start embedded NATS: %v", err)
 		}
 		log.Printf("Embedded NATS listening on %s (store=%s)", ns.ClientURL(), ns.StoreDir())
-		subNC, err = nats.Connect("", nats.InProcessServer(ns.NATSServer()), nats.Name("trinity-hub-subscriber"))
+		subNC, err = ns.ConnectInternal(nats.Name("trinity-hub-subscriber"))
 		if err != nil {
 			log.Fatalf("Failed to connect hub subscriber NATS client: %v", err)
 		}
 		defer subNC.Close()
 	}
-	if cfg.Tracker != nil && cfg.Tracker.Collector != nil {
-		if ns == nil {
-			// collector-only mode against a remote hub is deferred to a
-			// later phase; current phases only support in-process
-			// hub+collector.
-			log.Fatalf("tracker.collector is configured without tracker.hub; collector-only mode is not yet supported")
-		}
-		// Collect NATS connection options. The credentials_file hook is
-		// only useful for a remote-hub connection (NKey auth on the
-		// other side); for in-process loopback it is a no-op. It is
-		// still honored here so switching to collector-only mode in
-		// the future is a pure-config change.
-		opts := []nats.Option{nats.InProcessServer(ns.NATSServer()), nats.Name("trinity-collector")}
-		if creds := cfg.Tracker.NATS.CredentialsFile; creds != "" {
+	if hasCollector {
+		// NATS connection: in-process when co-located with a hub,
+		// otherwise connect to the remote hub URL (derived from
+		// tracker.nats.url or tracker.collector.hub_host).
+		opts := []nats.Option{nats.Name("trinity-collector")}
+		var connURL string
+		switch {
+		case ns != nil:
+			// Local collector under a co-located hub: use the
+			// hub-internal creds (full pub/sub under TRINITY) so the
+			// in-process connection passes JWT auth without needing a
+			// separately-issued per-source creds file.
+			opts = append(opts, nats.InProcessServer(ns.NATSServer()), nats.UserCredentials(ns.Auth().InternalCredsPath()))
+		default:
+			// Remote collector: require tracker.nats.credentials_file.
+			creds := cfg.Tracker.NATS.CredentialsFile
+			if creds == "" {
+				log.Fatalf("tracker.nats.credentials_file is required in collector-only mode")
+			}
 			opts = append(opts, nats.UserCredentials(creds))
 			log.Printf("Collector using credentials file: %s", creds)
+			connURL = cfg.Tracker.NATS.URL
+			if connURL == "" {
+				log.Fatalf("tracker.nats.url or tracker.collector.hub_host must be set in collector-only mode")
+			}
 		}
 		var err error
-		collectorNC, err = nats.Connect("", opts...)
+		collectorNC, err = nats.Connect(connURL, opts...)
 		if err != nil {
-			log.Fatalf("Failed to connect in-process NATS client: %v", err)
+			log.Fatalf("Failed to connect collector NATS client: %v", err)
 		}
 		defer collectorNC.Close()
+		if connURL != "" {
+			log.Printf("Collector connected to NATS hub at %s", connURL)
+		}
 		sourceUUID, err := natsbus.LoadOrCreateSourceUUID(cfg.Tracker.Collector.DataDir)
 		if err != nil {
 			log.Fatalf("Failed to resolve source_uuid: %v", err)
@@ -245,62 +285,91 @@ func cmdServe(args []string) {
 		bufPub := natsbus.NewBufferedPublisher(pub, natsbus.BufferedCapacity)
 		bufPub.Start(ctx)
 		bufferedPublisher = bufPub
-		rpcClient, err := natsbus.NewRPCClient(collectorNC, cfg.Tracker.Collector.SourceID, 0)
+		rc, err := natsbus.NewRPCClient(collectorNC, cfg.Tracker.Collector.SourceID, sourceUUID, 0)
 		if err != nil {
 			log.Fatalf("Failed to build RPC client: %v", err)
 		}
-		collectorRPC = rpcClient
+		collectorRPC = rc
 		log.Printf("Collector publishing as source=%s uuid=%s (last_seq=%d)", cfg.Tracker.Collector.SourceID, sourceUUID, wm.Current().LastSeq)
-		writerOpts = append(writerOpts, hub.WithFactPublisher(bufPub))
+
+		// Live events over NATS: only tee outbound when the collector
+		// isn't co-located with a hub. In hub+collector mode the local
+		// manager.Events() channel feeds the wsHub directly and a NATS
+		// self-loop would duplicate every frag / award / chat line.
+		if !hasHub {
+			lp, err := natsbus.NewLivePublisher(collectorNC, cfg.Tracker.Collector.SourceID, sourceUUID)
+			if err != nil {
+				log.Fatalf("Failed to build live-event publisher: %v", err)
+			}
+			livePublisher = lp
+		}
 	}
 
-	// preStop: halt outbound registrations, stop inbound subscribers
-	// and RPC handlers, stop the remote poller, flush the watermark,
-	// then shut down the embedded NATS server.
-	writerOpts = append(writerOpts, hub.WithPreStop(func() {
+	// collectorShutdown tears down outbound collector-side components.
+	// It runs inside the writer's preStop in hub roles, and directly in
+	// the collector-only shutdown path.
+	collectorShutdown := func() {
 		if registrar != nil {
 			registrar.Stop()
 		}
 		if bufferedPublisher != nil {
 			bufferedPublisher.Stop()
 		}
-		if remotePoller != nil {
-			remotePoller.Stop()
-		}
-		if subscriber != nil {
-			subscriber.Stop()
-		}
-		if regSubscriber != nil {
-			regSubscriber.Stop()
-		}
-		if rpcServer != nil {
-			rpcServer.Stop()
-		}
 		if collectorWatermark != nil {
 			if err := collectorWatermark.Flush(); err != nil {
 				log.Printf("watermark flush on shutdown: %v", err)
 			}
 		}
-		if ns != nil {
-			ns.Stop()
-		}
-	}))
-
-	// Hub writer owns all DB writes for events. The collector publishes
-	// fact events through it instead of calling the store directly.
-	writer := hub.NewWriter(store, writerOpts...)
-	writer.Start(ctx)
-	defer writer.Stop()
-
-	// Pre-approve the local source before events flow so in-process
-	// hub+collector events bypass the pending-source DLQ.
-	if collectorUUID != "" {
-		writer.MarkSourceApproved(collectorUUID)
 	}
 
-	// Hub-side subscriptions: fact-event subscriber + RPC handlers +
-	// registration subscriber.
-	if cfg.Tracker != nil && cfg.Tracker.Hub != nil {
+	// preStop (hub role): halt outbound registrations, stop inbound
+	// subscribers and RPC handlers, stop the remote poller, flush the
+	// watermark, then shut down the embedded NATS server.
+	if hubRole {
+		writerOpts = append(writerOpts, hub.WithPreStop(func() {
+			collectorShutdown()
+			if liveSubscriber != nil {
+				liveSubscriber.Stop()
+			}
+			if remotePoller != nil {
+				remotePoller.Stop()
+			}
+			if subscriber != nil {
+				subscriber.Stop()
+			}
+			if regSubscriber != nil {
+				regSubscriber.Stop()
+			}
+			if rpcServer != nil {
+				rpcServer.Stop()
+			}
+			if localWatermark != nil {
+				if err := localWatermark.Flush(); err != nil {
+					log.Printf("local watermark flush on shutdown: %v", err)
+				}
+			}
+			if ns != nil {
+				ns.Stop()
+			}
+		}))
+	}
+
+	// Hub writer: owns DB writes. Absent in collector-only mode.
+	var writer *hub.Writer
+	if hubRole {
+		writer = hub.NewWriter(store, writerOpts...)
+		writer.Start(ctx)
+		defer writer.Stop()
+
+		// Pre-approve the local source before events flow so in-process
+		// hub+collector events bypass the pending-source DLQ.
+		if collectorUUID != "" {
+			writer.MarkSourceApproved(collectorUUID)
+		}
+	}
+
+	// Hub-side subscriptions.
+	if hasHub {
 		var err error
 		subscriber, err = natsbus.NewSubscriber(subNC, writer)
 		if err != nil {
@@ -326,16 +395,44 @@ func cmdServe(args []string) {
 		log.Printf("Hub polling remote servers every %v", cfg.Server.PollInterval)
 	}
 
-	// Create server manager. In distributed mode, collectorRPC is the
-	// NATS client; in standalone mode it is nil and the writer itself
-	// answers Greet/Claim/Link.
-	manager := collector.NewServerManager(cfg, writer, collectorRPC)
+	// Wire the manager. Standalone and hub-only-without-collector use
+	// *hub.Writer for all three interfaces (direct in-process calls).
+	// Distributed collector modes (hub+collector, collector-only) use
+	// the NATS RPC client for server/identity/session operations and
+	// the buffered publisher for fact events.
+	var (
+		serverClient hub.ServerClient
+		rpcClient    hub.RPCClient
+		factPub      hub.FactPublisher
+	)
+	if hasCollector {
+		serverClient = collectorRPC
+		rpcClient = collectorRPC
+		factPub = bufferedPublisher
+	} else {
+		serverClient = writer
+		rpcClient = writer
+		factPub = writer
+	}
+	manager := collector.NewServerManager(cfg, serverClient, rpcClient, factPub)
+	if livePublisher != nil {
+		manager.SetLivePublisher(livePublisher)
+	}
 
-	// Watermark-based replay: known watermark → replay up to its ts;
-	// no watermark (first run) → treat everything in log history as
-	// replay and publish only events past "now".
-	if collectorWatermark != nil {
+	// Watermark-based replay. Distributed mode uses the NATS publisher
+	// watermark; standalone mode uses the writer-drain watermark.
+	// Known watermark → replay up to its ts; no watermark (first run)
+	// → treat everything in log history as already-replayed and publish
+	// only events past "now".
+	switch {
+	case collectorWatermark != nil:
 		if wm := collectorWatermark.Current(); !wm.LastTS.IsZero() {
+			manager.SetReplayCutoff(wm.LastTS)
+		} else {
+			manager.SetReplayCutoff(time.Now().UTC())
+		}
+	case localWatermark != nil:
+		if wm := localWatermark.Current(); !wm.LastTS.IsZero() {
 			manager.SetReplayCutoff(wm.LastTS)
 		} else {
 			manager.SetReplayCutoff(time.Now().UTC())
@@ -347,15 +444,12 @@ func cmdServe(args []string) {
 	}
 	log.Printf("Server manager started, polling every %v", cfg.Server.PollInterval)
 
-	// Collector role (post-manager-start): tag local servers with our
-	// own source_uuid so the hub treats them as approved, and launch
-	// the heartbeat registrar.
-	if cfg.Tracker != nil && cfg.Tracker.Collector != nil {
-		for _, rs := range manager.Roster() {
-			if err := store.TagLocalServerSource(ctx, rs.LocalID, collectorUUID, rs.LocalID); err != nil {
-				log.Printf("Failed to tag local server %d with source_uuid: %v", rs.LocalID, err)
-			}
-		}
+	// Collector role (post-manager-start): launch the heartbeat
+	// registrar. The (source_uuid, local_id) tag for each server row
+	// is attached by the RegisterServer RPC handler (see
+	// natsbus.RegisterRPCHandlers) — the hub writes the tag as part of
+	// servicing the RPC, so no explicit tagging loop is needed here.
+	if hasCollector {
 		var err error
 		registrar, err = natsbus.NewRegistrar(
 			collectorNC,
@@ -372,6 +466,21 @@ func cmdServe(args []string) {
 		log.Printf("Collector heartbeating every %v", cfg.Tracker.Collector.HeartbeatInterval.D())
 	}
 
+	// Collector-only mode: no HTTP UI, just wait for signal.
+	if !hubRole {
+		log.Printf("Running in collector-only mode; no HTTP server")
+		sigCh := make(chan os.Signal, 1)
+		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+		sig := <-sigCh
+		log.Printf("Received signal %v, shutting down...", sig)
+		log.Println("Stopping server manager...")
+		manager.Stop()
+		collectorShutdown()
+		cancel()
+		log.Println("Shutdown complete")
+		return
+	}
+
 	// Create auth service
 	authService := auth.NewService(cfg.Auth.JWTSecret, cfg.Auth.TokenDuration)
 	if cfg.Auth.JWTSecret == "" {
@@ -380,8 +489,26 @@ func cmdServe(args []string) {
 
 	// Create HTTP router
 	router := api.NewRouter(store, manager, writer, authService, cfg.Server.StaticDir, cfg.Server.Quake3Dir)
+	if ns != nil {
+		router.SetUserProvisioner(ns.Auth())
+	}
 	router.StartWebSocketHub()
 	log.Printf("Serving static files from %s", cfg.Server.StaticDir)
+
+	// Live-event NATS subscriber: forward remote collectors' frag /
+	// flag / chat / award events onto the WebSocket hub. Skipped in
+	// standalone mode (no NATS) and in hub+collector-only-no-remotes
+	// deployments it simply sees no traffic. selfSourceUUID lets the
+	// subscriber skip the in-process collector's own events (they
+	// arrive through manager.Events() already).
+	if hasHub {
+		ls, err := natsbus.NewLiveSubscriber(subNC, store, writer, router, collectorUUID)
+		if err != nil {
+			log.Fatalf("Failed to start live subscriber: %v", err)
+		}
+		liveSubscriber = ls
+		log.Printf("Hub subscribed to %s*", natsbus.SubjectLivePrefix)
+	}
 
 	// Start HTTP server
 	addr := fmt.Sprintf("%s:%d", cfg.Server.ListenAddr, cfg.Server.HTTPPort)

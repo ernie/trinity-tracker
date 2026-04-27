@@ -170,6 +170,28 @@ type RemoteServer struct {
 	SourceUUID    string
 }
 
+// LookupSourceIDByUUID returns the human-readable source name of the
+// first servers row whose source_uuid matches. Empty string if none.
+// Used by the creds-rotation admin endpoint to build new permissions
+// scoped to the collector's actual source_id.
+func (s *Store) LookupSourceIDByUUID(ctx context.Context, sourceUUID string) (string, error) {
+	if sourceUUID == "" {
+		return "", nil
+	}
+	var source string
+	err := s.db.QueryRowContext(ctx, `
+		SELECT COALESCE(source, '') FROM servers
+		WHERE source_uuid = ? LIMIT 1
+	`, sourceUUID).Scan(&source)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("storage: LookupSourceIDByUUID: %w", err)
+	}
+	return source, nil
+}
+
 // ListRemoteServers returns all servers rows where is_remote=1 and
 // remote_address is populated. Ordered by id.
 func (s *Store) ListRemoteServers(ctx context.Context) ([]RemoteServer, error) {

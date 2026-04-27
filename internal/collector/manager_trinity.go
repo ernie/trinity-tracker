@@ -80,7 +80,7 @@ func (m *ServerManager) handleTrinityHandshake(ctx context.Context, serverID int
 
 	// Stamp client engine/version on the session via the hub writer.
 	if clientOk && client.guid != "" && !client.isBot {
-		m.writer.Publish(domain.FactEvent{
+		m.pub.Publish(domain.FactEvent{
 			Type:      domain.FactTrinityHandshake,
 			ServerID:  serverID,
 			Timestamp: time.Now().UTC(),

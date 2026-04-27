@@ -27,7 +27,7 @@ func rpcFreePort(t *testing.T) int {
 	return port
 }
 
-func startRPCRig(t *testing.T) (hub.RPCClient, *storage.Store) {
+func startRPCRig(t *testing.T) (*natsbus.RPCClient, *storage.Store) {
 	t.Helper()
 	port := rpcFreePort(t)
 	trackerCfg := &config.TrackerConfig{
@@ -48,7 +48,7 @@ func startRPCRig(t *testing.T) (hub.RPCClient, *storage.Store) {
 	writer := hub.NewWriter(store)
 	writer.Start(ctx)
 
-	serverNC, err := nats.Connect("", nats.InProcessServer(ns.NATSServer()), nats.Name("rpc-server"))
+	serverNC, err := ns.ConnectInternal(nats.Name("rpc-server"))
 	if err != nil {
 		t.Fatalf("server connect: %v", err)
 	}
@@ -57,11 +57,11 @@ func startRPCRig(t *testing.T) (hub.RPCClient, *storage.Store) {
 		t.Fatalf("RegisterRPCHandlers: %v", err)
 	}
 
-	clientNC, err := nats.Connect("", nats.InProcessServer(ns.NATSServer()), nats.Name("rpc-client"))
+	clientNC, err := ns.ConnectInternal(nats.Name("rpc-client"))
 	if err != nil {
 		t.Fatalf("client connect: %v", err)
 	}
-	client, err := natsbus.NewRPCClient(clientNC, "test-source", 0)
+	client, err := natsbus.NewRPCClient(clientNC, "test-source", "test-source-uuid", 0)
 	if err != nil {
 		t.Fatalf("NewRPCClient: %v", err)
 	}
@@ -147,3 +147,67 @@ func TestRPCClaimRoundTripGeneratesCode(t *testing.T) {
 		t.Errorf("ExpiresAt in past: %v", reply.ExpiresAt)
 	}
 }
+
+func TestRPCRegisterServerUpsertsAndTags(t *testing.T) {
+	client, store := startRPCRig(t)
+	ctx := context.Background()
+
+	srv, err := client.RegisterServer(ctx, "ffa", "example.com:27960", "/log/ffa.log")
+	if err != nil {
+		t.Fatalf("RegisterServer: %v", err)
+	}
+	if srv == nil || srv.ID == 0 {
+		t.Fatalf("got nil/zero server: %+v", srv)
+	}
+	if srv.Name != "ffa" {
+		t.Errorf("Name = %q, want %q", srv.Name, "ffa")
+	}
+	// The handler calls TagLocalServerSource with (source_uuid, local_id=servers.id)
+	// so envelope resolution round-trips.
+	got, err := store.ResolveServerIDForSource(ctx, "test-source-uuid", srv.ID)
+	if err != nil {
+		t.Fatalf("ResolveServerIDForSource: %v", err)
+	}
+	if got != srv.ID {
+		t.Errorf("resolved = %d, want %d", got, srv.ID)
+	}
+}
+
+func TestRPCIdentityRoundTrip(t *testing.T) {
+	client, _ := startRPCRig(t)
+	ctx := context.Background()
+	ts := time.Now().UTC()
+
+	id, err := client.UpsertPlayerIdentity(ctx, "guid-human", "Ernie", "ernie", ts, false)
+	if err != nil {
+		t.Fatalf("UpsertPlayerIdentity: %v", err)
+	}
+	if !id.Found || id.PlayerID == 0 {
+		t.Fatalf("UpsertPlayerIdentity returned %+v", id)
+	}
+
+	bot, err := client.UpsertBotPlayerIdentity(ctx, "Sarge", "sarge", ts)
+	if err != nil {
+		t.Fatalf("UpsertBotPlayerIdentity: %v", err)
+	}
+	if !bot.Found || bot.PlayerID == 0 {
+		t.Fatalf("bot identity: %+v", bot)
+	}
+
+	found, err := client.LookupPlayerIdentity(ctx, "guid-human")
+	if err != nil {
+		t.Fatalf("LookupPlayerIdentity: %v", err)
+	}
+	if found.PlayerID != id.PlayerID {
+		t.Errorf("lookup PlayerID = %d, want %d", found.PlayerID, id.PlayerID)
+	}
+
+	missing, err := client.LookupPlayerIdentity(ctx, "guid-missing")
+	if err != nil {
+		t.Fatalf("LookupPlayerIdentity(missing): %v", err)
+	}
+	if missing.Found {
+		t.Errorf("expected Found=false for unknown GUID, got %+v", missing)
+	}
+}
+

@@ -82,12 +82,17 @@ type HubConfig struct {
 }
 
 // CollectorConfig configures the log-parser / publisher role.
+//
+// HubHost is a bare hostname: it is shown verbatim in !claim chat
+// replies and, when tracker.nats.url is unset, supplies the default
+// NATS connect endpoint for collector-only mode
+// (nats://<hub_host>:4222).
 type CollectorConfig struct {
 	SourceID          string   `yaml:"source_id"`
 	DataDir           string   `yaml:"data_dir"`
 	HeartbeatInterval Duration `yaml:"heartbeat_interval"`
 	DemoBaseURL       string   `yaml:"demo_base_url,omitempty"`
-	ClaimURL          string   `yaml:"claim_url,omitempty"`
+	HubHost           string   `yaml:"hub_host,omitempty"`
 }
 
 // AuthConfig holds authentication settings
@@ -169,9 +174,6 @@ func applyTrackerDefaults(t *TrackerConfig) error {
 	if t == nil {
 		return nil
 	}
-	if t.NATS.URL == "" {
-		t.NATS.URL = "nats://localhost:4222"
-	}
 	if t.Hub != nil {
 		if t.Hub.DedupWindow == 0 {
 			t.Hub.DedupWindow = Duration(30 * time.Minute)
@@ -184,8 +186,20 @@ func applyTrackerDefaults(t *TrackerConfig) error {
 		if t.Collector.HeartbeatInterval == 0 {
 			t.Collector.HeartbeatInterval = Duration(30 * time.Second)
 		}
-		if t.Collector.ClaimURL == "" {
-			t.Collector.ClaimURL = "trinity.ernie.io"
+		if t.Collector.HubHost == "" {
+			t.Collector.HubHost = "trinity.run"
+		}
+	}
+	// NATS URL: embedded hub or in-process collector use localhost;
+	// collector-only mode derives from HubHost. Explicit nats.url in
+	// the YAML always wins.
+	if t.NATS.URL == "" {
+		if t.Hub != nil {
+			t.NATS.URL = "nats://localhost:4222"
+		} else if t.Collector != nil && t.Collector.HubHost != "" {
+			t.NATS.URL = "nats://" + t.Collector.HubHost + ":4222"
+		} else {
+			t.NATS.URL = "nats://localhost:4222"
 		}
 	}
 	return nil

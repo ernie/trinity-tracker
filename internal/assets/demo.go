@@ -226,7 +226,7 @@ func parseOneFrame(frameData []byte, configstrings map[int]string) int {
 		if playerBitmask[i>>3]&(1<<uint(i&7)) == 0 {
 			continue
 		}
-		msg.ReadByte() // clientNum
+		msg.ReadU8() // clientNum
 		skipPlayerDelta(msg)
 	}
 
@@ -261,7 +261,7 @@ func skipEntityDelta(msg *MsgReader) {
 		return
 	}
 
-	lc := int(msg.ReadByte())
+	lc := int(msg.ReadU8())
 	if lc > numEntityFields {
 		return
 	}
@@ -294,7 +294,7 @@ func skipEntityDelta(msg *MsgReader) {
 // skipPlayerDelta skips one MSG_ReadDeltaPlayerstate worth of data.
 // Player fields do NOT have the zero-value optimization that entities have.
 func skipPlayerDelta(msg *MsgReader) {
-	lc := int(msg.ReadByte())
+	lc := int(msg.ReadU8())
 	if lc > numPlayerFields {
 		return
 	}

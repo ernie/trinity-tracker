@@ -86,8 +86,8 @@ tracker:
 	if got := c.HeartbeatInterval.D(); got != 30*time.Second {
 		t.Errorf("HeartbeatInterval default = %v, want 30s", got)
 	}
-	if c.ClaimURL != "trinity.ernie.io" {
-		t.Errorf("ClaimURL default = %q", c.ClaimURL)
+	if c.HubHost != "trinity.run" {
+		t.Errorf("HubHost default = %q", c.HubHost)
 	}
 	if cfg.Tracker.NATS.CredentialsFile != "/etc/trinity/x.creds" {
 		t.Errorf("CredentialsFile = %q", cfg.Tracker.NATS.CredentialsFile)
@@ -149,6 +149,56 @@ tracker:
 `)
 	if _, err := Load(p); err == nil {
 		t.Fatal("expected error when source_id missing")
+	}
+}
+
+func TestLoadTrackerCollectorOnlyDerivesNATSFromHubHost(t *testing.T) {
+	p := writeConfig(t, `
+tracker:
+  collector:
+    source_id: "remote-src"
+    data_dir: "/var/lib/trinity"
+    hub_host: "trinity.example.com"
+`)
+	cfg, err := Load(p)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if got := cfg.Tracker.NATS.URL; got != "nats://trinity.example.com:4222" {
+		t.Errorf("derived NATS URL = %q, want nats://trinity.example.com:4222", got)
+	}
+}
+
+func TestLoadTrackerHubModeKeepsLocalhostNATS(t *testing.T) {
+	p := writeConfig(t, `
+tracker:
+  hub: {}
+`)
+	cfg, err := Load(p)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if got := cfg.Tracker.NATS.URL; got != "nats://localhost:4222" {
+		t.Errorf("hub NATS URL = %q, want nats://localhost:4222", got)
+	}
+}
+
+func TestLoadExplicitNATSURLOverridesDerivation(t *testing.T) {
+	p := writeConfig(t, `
+tracker:
+  nats:
+    url: "nats://10.0.0.5:4222"
+  collector:
+    source_id: "remote-src"
+    data_dir: "/var/lib/trinity"
+    hub_host: "trinity.example.com"
+`)
+	cfg, err := Load(p)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if got := cfg.Tracker.NATS.URL; got != "nats://10.0.0.5:4222" {
+		t.Errorf("explicit NATS URL lost: got %q", got)
 	}
 }
 

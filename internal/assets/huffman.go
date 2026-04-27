@@ -233,8 +233,10 @@ func (m *MsgReader) ReadBits(n int) int {
 	return value
 }
 
-// ReadByte reads one byte (8 bits via Huffman).
-func (m *MsgReader) ReadByte() byte {
+// ReadU8 reads one byte (8 bits via Huffman). Named ReadU8 rather than
+// ReadByte so the receiver does not accidentally satisfy io.ByteReader
+// (which requires a (byte, error) signature).
+func (m *MsgReader) ReadU8() byte {
 	return byte(m.ReadBits(8))
 }
 
@@ -252,7 +254,7 @@ func (m *MsgReader) ReadLong() int {
 func (m *MsgReader) ReadData(n int) []byte {
 	buf := make([]byte, n)
 	for i := 0; i < n; i++ {
-		buf[i] = m.ReadByte()
+		buf[i] = m.ReadU8()
 	}
 	return buf
 }

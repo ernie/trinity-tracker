@@ -39,6 +39,7 @@ type Server struct {
 	mgmtConn *nats.Conn
 	storeDir string
 	url      string
+	auth     *AuthStore
 }
 
 // Start boots the embedded server, waits for it to accept connections,
@@ -63,6 +64,11 @@ func Start(cfg *config.TrackerConfig, storeDirParent string) (*Server, error) {
 		return nil, fmt.Errorf("natsbus: creating JetStream store dir %s: %w", storeDir, err)
 	}
 
+	auth, err := LoadOrCreateAuthStore(storeDirParent)
+	if err != nil {
+		return nil, err
+	}
+
 	opts := &server.Options{
 		Host:              host,
 		Port:              port,
@@ -71,6 +77,9 @@ func Start(cfg *config.TrackerConfig, storeDirParent string) (*Server, error) {
 		JetStreamMaxStore: 2 * EventsMaxBytes,
 		NoLog:             true,
 		NoSigs:            true,
+		TrustedOperators:  auth.TrustedOperators(),
+		SystemAccount:     auth.SystemAccountPublicKey(),
+		AccountResolver:   auth.Resolver(),
 	}
 
 	ns, err := server.NewServer(opts)
@@ -83,8 +92,13 @@ func Start(cfg *config.TrackerConfig, storeDirParent string) (*Server, error) {
 		ns.WaitForShutdown()
 		return nil, fmt.Errorf("natsbus: server not ready within 10s")
 	}
+	auth.AttachServer(ns)
 
-	mgmt, err := nats.Connect("", nats.InProcessServer(ns), nats.Name("trinity-hub-mgmt"))
+	mgmt, err := nats.Connect("",
+		nats.InProcessServer(ns),
+		nats.Name("trinity-hub-mgmt"),
+		nats.UserCredentials(auth.InternalCredsPath()),
+	)
 	if err != nil {
 		ns.Shutdown()
 		ns.WaitForShutdown()
@@ -103,6 +117,7 @@ func Start(cfg *config.TrackerConfig, storeDirParent string) (*Server, error) {
 		mgmtConn: mgmt,
 		storeDir: storeDir,
 		url:      ns.ClientURL(),
+		auth:     auth,
 	}, nil
 }
 
@@ -115,6 +130,22 @@ func (s *Server) ClientURL() string { return s.url }
 
 // StoreDir returns the JetStream storage directory.
 func (s *Server) StoreDir() string { return s.storeDir }
+
+// Auth returns the store of operator/account/user NKey material. Used
+// by the admin flow to mint and rotate per-source credentials.
+func (s *Server) Auth() *AuthStore { return s.auth }
+
+// ConnectInternal opens an in-process NATS client authenticated as the
+// hub-internal user (full pub/sub under TRINITY). Extra nats options
+// (e.g. nats.Name) are appended after the required auth options.
+func (s *Server) ConnectInternal(extra ...nats.Option) (*nats.Conn, error) {
+	opts := []nats.Option{
+		nats.InProcessServer(s.ns),
+		nats.UserCredentials(s.auth.InternalCredsPath()),
+	}
+	opts = append(opts, extra...)
+	return nats.Connect("", opts...)
+}
 
 // Stop shuts down the embedded server and waits for it to drain.
 func (s *Server) Stop() {

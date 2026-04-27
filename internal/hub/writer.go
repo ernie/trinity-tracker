@@ -2,6 +2,8 @@ package hub
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"log"
 	"sync"
 	"time"
@@ -9,6 +11,13 @@ import (
 	"github.com/ernie/trinity-tracker/internal/domain"
 	"github.com/ernie/trinity-tracker/internal/storage"
 )
+
+// notFound returns true when err signals "no rows" from the store. The
+// lookup methods below normalize such errors to a nil-result/nil-error
+// pair so callers can treat absence as a value rather than an error.
+func notFound(err error) bool {
+	return errors.Is(err, sql.ErrNoRows)
+}
 
 // Writer is the hub-side consumer of fact events. It owns the store
 // and serializes all DB writes through a single consume goroutine.
@@ -30,6 +39,12 @@ type Writer struct {
 	// instead of the in-process channel. Populated in distributed mode
 	// (tracker.collector configured).
 	publisher FactPublisher
+
+	// localWatermark, when set, records the timestamp of each
+	// successfully-dispatched event. Standalone mode uses this as its
+	// replay cutoff on next boot; distributed mode leaves it nil and
+	// relies on the natsbus watermark on the publisher side.
+	localWatermark *LocalWatermarkTracker
 
 	// sources gates incoming fact-event envelopes by source_uuid.
 	// Owned by the writer so HandleEnvelope can consult it without an
@@ -76,6 +91,13 @@ type FactPublisher interface {
 // it from a NATS subscriber.
 func WithFactPublisher(p FactPublisher) Option {
 	return func(w *Writer) { w.publisher = p }
+}
+
+// WithLocalWatermark attaches a LocalWatermarkTracker to the writer so
+// each successfully-dispatched event advances the on-disk watermark.
+// Standalone mode uses this for replay cutoff on next boot.
+func WithLocalWatermark(t *LocalWatermarkTracker) Option {
+	return func(w *Writer) { w.localWatermark = t }
 }
 
 // eventBufferSize is the in-process fact-event channel capacity. Chosen
@@ -200,44 +222,25 @@ func (w *Writer) Stop() {
 // Publish sends a fact event to the writer. In standalone mode this
 // blocks on the in-process channel if full — by design: losing fact
 // events silently would corrupt the persistent state. In distributed
-// mode (FactPublisher set) the event is forwarded to NATS; publish
-// errors are logged and the event is dropped.
-func (w *Writer) Publish(e domain.FactEvent) {
+// mode (FactPublisher set) the event is forwarded to NATS and any
+// publish error is returned. Writer.Publish satisfies FactPublisher.
+func (w *Writer) Publish(e domain.FactEvent) error {
 	if w.publisher != nil {
-		if err := w.publisher.Publish(e); err != nil {
-			log.Printf("hub.Writer: publish %s failed: %v", e.Type, err)
-		}
-		return
+		return w.publisher.Publish(e)
 	}
 	w.events <- e
-}
-
-// LookupMatch resolves a match by UUID, going directly to the store.
-// Used by the collector during replay reconciliation to detect whether
-// a match already exists in the DB from a prior run.
-//
-// This is a transitional M1 method: in M2 the collector uses its
-// publish watermark instead of querying match existence on replay. The
-// method can be removed once that landing arrives.
-func (w *Writer) LookupMatch(ctx context.Context, uuid string) (*domain.Match, error) {
-	return w.store.GetMatchByUUID(ctx, uuid)
-}
-
-// EndAllOpenMatchesExcept closes every open match on the given server
-// whose ID is not exceptID, marking them exit_reason="crashed" at ts.
-// Called by the collector on InitGame to sweep up matches that were
-// interrupted by a server crash.
-//
-// This is a transitional M1 method: in M2 the hub derives the sweep
-// implicitly from MatchStartData arrivals.
-func (w *Writer) EndAllOpenMatchesExcept(ctx context.Context, serverID int64, ts time.Time, exceptID int64) error {
-	return w.store.EndAllOpenMatches(ctx, serverID, ts, "crashed", exceptID)
+	return nil
 }
 
 func (w *Writer) run(ctx context.Context) {
 	defer w.wg.Done()
 	for e := range w.events {
 		w.dispatch(ctx, e)
+		if w.localWatermark != nil {
+			if err := w.localWatermark.Observe(e.Timestamp); err != nil {
+				log.Printf("hub: local watermark observe: %v", err)
+			}
+		}
 	}
 }
 
@@ -389,14 +392,25 @@ func (w *Writer) handleMatchCrashed(ctx context.Context, data domain.MatchCrashe
 // handlePlayerJoin creates a session row for a player's arrival. The
 // collector emits this only for human players; bot identity is handled
 // separately and does not generate sessions.
+//
+// Idempotent: if an open session already exists for this (server, guid)
+// we leave it alone. This covers collector crash-replay, NATS retries,
+// and map-change re-emission — any case where the collector is uncertain
+// and publishes a belt-and-suspenders player_join.
 func (w *Writer) handlePlayerJoin(ctx context.Context, serverID int64, data domain.PlayerJoinData) {
 	pg, err := w.store.GetPlayerGUIDByGUID(ctx, data.GUID)
+	if notFound(err) || pg == nil {
+		log.Printf("hub: player_join unknown GUID %s; skipping session create", data.GUID)
+		return
+	}
 	if err != nil {
 		log.Printf("hub: player_join GUID lookup %s: %v", data.GUID, err)
 		return
 	}
-	if pg == nil {
-		log.Printf("hub: player_join unknown GUID %s; skipping session create", data.GUID)
+	if existing, err := w.store.GetOpenSessionForPlayer(ctx, pg.ID, serverID); err != nil && !notFound(err) {
+		log.Printf("hub: player_join open-session check for GUID %s: %v", data.GUID, err)
+		return
+	} else if existing != nil {
 		return
 	}
 	session := &domain.Session{
@@ -469,38 +483,17 @@ func (w *Writer) handleServerShutdown(ctx context.Context, serverID int64, data 
 // to the matching open session row, or nil if none exists.
 func (w *Writer) resolveOpenSession(ctx context.Context, serverID int64, guid string) (*domain.Session, error) {
 	pg, err := w.store.GetPlayerGUIDByGUID(ctx, guid)
-	if err != nil || pg == nil {
+	if notFound(err) || pg == nil {
+		return nil, nil
+	}
+	if err != nil {
 		return nil, err
 	}
-	return w.store.GetOpenSessionForPlayer(ctx, pg.ID, serverID)
-}
-
-// LookupOpenSession returns the currently-open session for a player on
-// a server, or nil. Used by the collector during ClientBegin to detect
-// map-change continuation.
-func (w *Writer) LookupOpenSession(ctx context.Context, serverID int64, guid string) (*domain.Session, error) {
-	return w.resolveOpenSession(ctx, serverID, guid)
-}
-
-// LookupSessionByJoinTime returns a session whose JoinedAt matches the
-// given timestamp exactly. Used for replay idempotency.
-func (w *Writer) LookupSessionByJoinTime(ctx context.Context, serverID int64, guid string, joinedAt time.Time) (*domain.Session, error) {
-	pg, err := w.store.GetPlayerGUIDByGUID(ctx, guid)
-	if err != nil || pg == nil {
-		return nil, err
+	session, err := w.store.GetOpenSessionForPlayer(ctx, pg.ID, serverID)
+	if notFound(err) {
+		return nil, nil
 	}
-	return w.store.GetSessionByPlayerAndJoinTime(ctx, pg.ID, serverID, joinedAt)
-}
-
-// LookupSessionActiveAt returns a (possibly-closed) session that was
-// active at the given timestamp. Used for replay edge cases where a
-// ClientBegin is being re-processed after its matching ClientDisconnect.
-func (w *Writer) LookupSessionActiveAt(ctx context.Context, serverID int64, guid string, at time.Time) (*domain.Session, error) {
-	pg, err := w.store.GetPlayerGUIDByGUID(ctx, guid)
-	if err != nil || pg == nil {
-		return nil, err
-	}
-	return w.store.GetSessionActiveAt(ctx, pg.ID, serverID, at)
+	return session, err
 }
 
 // PlayerIdentity is the result of an identity upsert or lookup. PlayerID
@@ -550,7 +543,10 @@ func (w *Writer) UpsertBotPlayerIdentity(ctx context.Context, name, cleanName st
 // if the GUID is unknown.
 func (w *Writer) LookupPlayerIdentity(ctx context.Context, guid string) (PlayerIdentity, error) {
 	pg, err := w.store.GetPlayerGUIDByGUID(ctx, guid)
-	if err != nil || pg == nil {
+	if notFound(err) || pg == nil {
+		return PlayerIdentity{}, nil
+	}
+	if err != nil {
 		return PlayerIdentity{}, err
 	}
 	verified, admin := w.store.GetPlayerVerifiedStatus(ctx, pg.PlayerID)
@@ -703,6 +699,14 @@ func (w *Writer) RegisterServer(ctx context.Context, name, address, logPath stri
 		return nil, err
 	}
 	return w.store.GetServerByID(ctx, dbSrv.ID)
+}
+
+// TagLocalServerSource attaches (source_uuid, local_id) to an existing
+// servers row so envelope handling can resolve RemoteServerID back to
+// the hub's servers.id. Exposed so the NATS RPC RegisterServer handler
+// can tag rows it just upserted without reaching around to the store.
+func (w *Writer) TagLocalServerSource(ctx context.Context, serverID int64, sourceUUID string, localID int64) error {
+	return w.store.TagLocalServerSource(ctx, serverID, sourceUUID, localID)
 }
 
 // linkCodeCleanupLoop periodically removes expired link codes. Hub-side

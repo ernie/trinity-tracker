@@ -17,8 +17,10 @@ import (
 // ServerManager orchestrates polling and log parsing for all servers
 type ServerManager struct {
 	cfg      *config.Config
-	writer   *hub.Writer
-	rpc      hub.RPCClient // greet/claim/link entry point; falls back to writer in standalone mode
+	server   hub.ServerClient        // identity/session/match lookups and server registration
+	rpc      hub.RPCClient           // greet/claim/link entry point
+	pub      hub.FactPublisher       // fact-event sink (writer or buffered NATS publisher)
+	livePub  hub.LiveEventPublisher  // optional: tee for live events over NATS (collector-only mode)
 	q3client *Q3Client
 	events   chan domain.Event
 
@@ -42,17 +44,26 @@ type serverState struct {
 	server           domain.Server
 	status           *domain.ServerStatus
 	match            *domain.Match
-	clients          map[int]*clientState      // client ID -> client state
-	previousClients  map[string]*clientState    // GUID -> accumulated stats from previous stints
-	lastInitGame     time.Time                  // dedupe InitGame and skip fake ShutdownGame at same timestamp
-	matchState       string                     // "waiting", "warmup", "active", "overtime", "intermission"
-	matchStarted     bool                       // true once MatchStart has been published (at WarmupEnd)
-	matchFlushed     bool                       // true once match stats have been flushed
-	warmupDuration   int                        // warmup duration in seconds (set when warmup starts)
-	pendingExit      *string                    // exit reason from Exit event (deferred until scores captured)
-	pendingExitAt    time.Time                  // timestamp of Exit event
-	pendingRedScore  *int                       // team scores captured at Exit time (before server resets)
+	clients          map[int]*clientState    // client ID -> client state
+	previousClients  map[string]*clientState // GUID -> accumulated stats from previous stints
+	lastInitGame     time.Time               // dedupe InitGame and skip fake ShutdownGame at same timestamp
+	matchState       string                  // "waiting", "warmup", "active", "overtime", "intermission"
+	matchStarted     bool                    // true once MatchStart has been published (at WarmupEnd)
+	matchFlushed     bool                    // true once match stats have been flushed
+	warmupDuration   int                     // warmup duration in seconds (set when warmup starts)
+	pendingExit      *string                 // exit reason from Exit event (deferred until scores captured)
+	pendingExitAt    time.Time               // timestamp of Exit event
+	pendingRedScore  *int                    // team scores captured at Exit time (before server resets)
 	pendingBlueScore *int
+
+	// sessionOpenForGUID marks GUIDs for which player_join has been emitted
+	// and no matching player_leave has followed. It persists across
+	// InitGame boundaries so map-change ClientBegins don't re-emit
+	// player_join for still-connected players. Replay mode populates
+	// this map without publishing so live-mode events past the
+	// watermark don't duplicate.
+	sessionOpenForGUID map[string]time.Time
+
 	// Trinity handshake state
 	trinityNonces    map[int]string           // map[clientNum]nonce
 	pendingGreetings map[int]*pendingGreeting // map[clientNum]greeting awaiting handshake
@@ -103,23 +114,33 @@ func (c *clientState) getPlayerIDPtr() *int64 {
 	return nil
 }
 
-// NewServerManager creates a new manager. rpc is the greet/claim/link
-// entry point; pass writer in standalone mode (it satisfies
-// hub.RPCClient), or a natsbus RPC client in distributed mode.
-func NewServerManager(cfg *config.Config, writer *hub.Writer, rpc hub.RPCClient) *ServerManager {
-	if rpc == nil {
-		rpc = writer
-	}
+// NewServerManager creates a new manager.
+//
+// In standalone mode the caller passes *hub.Writer for all three
+// interfaces — the writer satisfies hub.ServerClient, hub.RPCClient,
+// and hub.FactPublisher directly. In distributed mode, server and rpc
+// are a natsbus.RPCClient and pub is a natsbus.BufferedPublisher.
+func NewServerManager(cfg *config.Config, server hub.ServerClient, rpc hub.RPCClient, pub hub.FactPublisher) *ServerManager {
 	return &ServerManager{
 		cfg:      cfg,
-		writer:   writer,
+		server:   server,
 		rpc:      rpc,
+		pub:      pub,
 		q3client: NewQ3Client(),
 		events:   make(chan domain.Event, 100),
 		servers:  make(map[int64]*serverState),
 		tailers:  make(map[int64]*LogTailer),
 		done:     make(chan struct{}),
 	}
+}
+
+// SetLivePublisher attaches a NATS tee for live events (collector-only
+// deployments). In hub+local-collector setups the publisher stays nil
+// so emitEvent only writes to the in-process channel — the hub's
+// WebSocket hub consumes the local channel directly and no self-loop
+// through NATS occurs.
+func (m *ServerManager) SetLivePublisher(p hub.LiveEventPublisher) {
+	m.livePub = p
 }
 
 // SetReplayCutoff pins the boundary between replayMode and live
@@ -139,15 +160,16 @@ func (m *ServerManager) Events() <-chan domain.Event {
 func (m *ServerManager) Start(ctx context.Context) error {
 	// Register servers through the hub writer and replay logs synchronously
 	for _, srv := range m.cfg.Q3Servers {
-		fullSrv, err := m.writer.RegisterServer(ctx, srv.Name, srv.Address, srv.LogPath)
+		fullSrv, err := m.server.RegisterServer(ctx, srv.Name, srv.Address, srv.LogPath)
 		if err != nil {
 			return err
 		}
 
 		m.servers[fullSrv.ID] = &serverState{
-			server:        *fullSrv,
-			clients:       make(map[int]*clientState),
-			trinityNonces: make(map[int]string),
+			server:             *fullSrv,
+			clients:            make(map[int]*clientState),
+			trinityNonces:      make(map[int]string),
+			sessionOpenForGUID: make(map[string]time.Time),
 		}
 
 		// Replay log events synchronously (one server at a time to avoid DB lock contention)
@@ -464,7 +486,7 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 		if state.match != nil {
 			state.match.StartedAt = event.Timestamp
 			if !replayMode && state.match.UUID != "" {
-				m.writer.Publish(domain.FactEvent{
+				m.pub.Publish(domain.FactEvent{
 					Type:      domain.FactMatchStart,
 					ServerID:  state.server.ID,
 					Timestamp: event.Timestamp,
@@ -499,7 +521,7 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 			state.match != nil && state.match.UUID != "" &&
 			!state.matchFlushed && state.match.EndedAt == nil {
 			players := m.buildMatchEndPlayers(state, true)
-			m.writer.Publish(domain.FactEvent{
+			m.pub.Publish(domain.FactEvent{
 				Type:      domain.FactMatchEnd,
 				ServerID:  state.server.ID,
 				Timestamp: state.pendingExitAt,
@@ -561,11 +583,11 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 			var err error
 			switch {
 			case replayMode:
-				id, err = m.writer.LookupPlayerIdentity(ctx, client.guid)
+				id, err = m.server.LookupPlayerIdentity(ctx, client.guid)
 			case data.IsBot:
-				id, err = m.writer.UpsertBotPlayerIdentity(ctx, data.Name, client.cleanName, event.Timestamp)
+				id, err = m.server.UpsertBotPlayerIdentity(ctx, data.Name, client.cleanName, event.Timestamp)
 			default:
-				id, err = m.writer.UpsertPlayerIdentity(ctx, data.GUID, data.Name, client.cleanName, event.Timestamp, data.IsVR)
+				id, err = m.server.UpsertPlayerIdentity(ctx, data.GUID, data.Name, client.cleanName, event.Timestamp, data.IsVR)
 			}
 			if err != nil {
 				log.Printf("Error resolving player identity for GUID %s: %v", client.guid, err)
@@ -587,41 +609,29 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 			// Create session for human players only (require resolved identity, not a bot).
 			// Sessions track player presence on server; bots don't need tracking.
 			if client.playerID > 0 && !client.isBot && client.guid != "" {
-				// Existing open session? (map change continuation)
-				openSession, _ := m.writer.LookupOpenSession(ctx, serverID, client.guid)
-				adopted := openSession != nil && !openSession.JoinedAt.After(event.Timestamp)
-
-				if !adopted {
-					// Replay idempotency: exact-timestamp match
-					existing, _ := m.writer.LookupSessionByJoinTime(ctx, serverID, client.guid, event.Timestamp)
-					if existing != nil {
-						adopted = true
-					} else {
-						// Closed session that was active at this time (replay edge case)
-						activeSession, _ := m.writer.LookupSessionActiveAt(ctx, serverID, client.guid, event.Timestamp)
-						if activeSession != nil {
-							adopted = true
-						}
+				_, alreadyOpen := state.sessionOpenForGUID[client.guid]
+				if !alreadyOpen {
+					// Record the open session locally regardless of replay
+					// mode — during replay we rebuild this map so that
+					// post-watermark ClientBegins don't re-emit a join.
+					state.sessionOpenForGUID[client.guid] = event.Timestamp
+					if !replayMode {
+						m.pub.Publish(domain.FactEvent{
+							Type:      domain.FactPlayerJoin,
+							ServerID:  serverID,
+							Timestamp: event.Timestamp,
+							Data: domain.PlayerJoinData{
+								GUID:      client.guid,
+								Name:      client.name,
+								CleanName: client.cleanName,
+								Model:     client.model,
+								IP:        client.ipAddress,
+								IsBot:     client.isBot,
+								IsVR:      client.isVR,
+								JoinedAt:  event.Timestamp,
+							},
+						})
 					}
-				}
-
-				if !adopted {
-					// Publish player_join; hub writer creates the session row.
-					m.writer.Publish(domain.FactEvent{
-						Type:      domain.FactPlayerJoin,
-						ServerID:  serverID,
-						Timestamp: event.Timestamp,
-						Data: domain.PlayerJoinData{
-							GUID:      client.guid,
-							Name:      client.name,
-							CleanName: client.cleanName,
-							Model:     client.model,
-							IP:        client.ipAddress,
-							IsBot:     client.isBot,
-							IsVR:      client.isVR,
-							JoinedAt:  event.Timestamp,
-						},
-					})
 					isNewSession = true
 				}
 				// Note: match_player_stats row is created at flush time (disconnect or match end)
@@ -665,24 +675,28 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 	case EventTypeClientDisconnect:
 		data := event.Data.(ClientDisconnectData)
 		if client, ok := state.clients[data.ClientID]; ok {
-			// Publish player_leave for human players. The hub writer resolves
-			// the matching open session by (server, guid) and closes it;
-			// idempotent against duplicate/replay events.
+			// Publish player_leave for human players whose session we
+			// had marked open. Clear the open-session flag regardless
+			// of replay mode so the state rebuild stays accurate.
 			if !client.isBot && client.guid != "" {
-				duration := int(event.Timestamp.Sub(client.joinedAt).Seconds())
-				if duration < 0 {
-					duration = 0
+				_, wasOpen := state.sessionOpenForGUID[client.guid]
+				delete(state.sessionOpenForGUID, client.guid)
+				if wasOpen && !replayMode {
+					duration := int(event.Timestamp.Sub(client.joinedAt).Seconds())
+					if duration < 0 {
+						duration = 0
+					}
+					m.pub.Publish(domain.FactEvent{
+						Type:      domain.FactPlayerLeave,
+						ServerID:  serverID,
+						Timestamp: event.Timestamp,
+						Data: domain.PlayerLeaveData{
+							GUID:            client.guid,
+							LeftAt:          event.Timestamp,
+							DurationSeconds: duration,
+						},
+					})
 				}
-				m.writer.Publish(domain.FactEvent{
-					Type:      domain.FactPlayerLeave,
-					ServerID:  serverID,
-					Timestamp: event.Timestamp,
-					Data: domain.PlayerLeaveData{
-						GUID:            client.guid,
-						LeftAt:          event.Timestamp,
-						DurationSeconds: duration,
-					},
-				})
 			}
 
 			// Preserve stats for match-end flush (unless match already flushed)
@@ -812,37 +826,17 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 
 		// End current match if any
 		if state.match != nil {
-			if state.matchFlushed {
-				// Already flushed at intermission — just end match bookkeeping
-			} else if replayMode {
-				// Replay mode: only flush/end if there was a proper Exit event (pendingExit set).
-				// If pendingExit is nil, this might be a mid-match server restart, and the match
-				// could still be ongoing. EndAllOpenMatchesExcept cleans up truly orphaned matches.
-				if state.pendingExit != nil && state.match.UUID != "" {
-					existing, err := m.writer.LookupMatch(ctx, state.match.UUID)
-					if err != nil {
-						log.Printf("Error looking up match by UUID during replay: %v", err)
-					} else if existing != nil && existing.EndedAt == nil {
-						m.writer.Publish(domain.FactEvent{
-							Type:      domain.FactMatchEnd,
-							ServerID:  state.server.ID,
-							Timestamp: state.pendingExitAt,
-							Data: domain.MatchEndData{
-								MatchUUID:  state.match.UUID,
-								EndedAt:    state.pendingExitAt,
-								ExitReason: *state.pendingExit,
-								RedScore:   state.pendingRedScore,
-								BlueScore:  state.pendingBlueScore,
-								Players:    m.buildMatchEndPlayers(state, true),
-							},
-						})
-					}
-				}
+			if state.matchFlushed || replayMode {
+				// Already flushed at intermission, or we're in replay mode
+				// where match_end emission is deferred to live events past
+				// the watermark. The hub's source_progress.consumed_seq
+				// catches any duplicate publishes that may occur at the
+				// watermark boundary.
 			} else if state.matchStarted && state.match.UUID != "" && state.match.EndedAt == nil {
 				// Live mode: flush all player stats and end match
 				if state.pendingExit != nil {
 					// Normal match end: Exit event was received, scores have been captured
-					m.writer.Publish(domain.FactEvent{
+					m.pub.Publish(domain.FactEvent{
 						Type:      domain.FactMatchEnd,
 						ServerID:  state.server.ID,
 						Timestamp: state.pendingExitAt,
@@ -857,7 +851,7 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 					})
 				} else {
 					// Abnormal shutdown: no Exit event, so no scores or victories
-					m.writer.Publish(domain.FactEvent{
+					m.pub.Publish(domain.FactEvent{
 						Type:      domain.FactMatchEnd,
 						ServerID:  state.server.ID,
 						Timestamp: event.Timestamp,
@@ -1239,7 +1233,7 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 	case EventTypeServerStartup:
 		// Server startup without preceding shutdown indicates crash recovery.
 		// Hub writer closes any open sessions that started before this timestamp.
-		m.writer.Publish(domain.FactEvent{
+		m.pub.Publish(domain.FactEvent{
 			Type:      domain.FactServerStartup,
 			ServerID:  serverID,
 			Timestamp: event.Timestamp,
@@ -1250,7 +1244,7 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 		// Clean server shutdown - hub writer closes open sessions that
 		// started before this timestamp (filter avoids closing sessions
 		// from later events during replay).
-		m.writer.Publish(domain.FactEvent{
+		m.pub.Publish(domain.FactEvent{
 			Type:      domain.FactServerShutdown,
 			ServerID:  serverID,
 			Timestamp: event.Timestamp,
@@ -1263,7 +1257,7 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 			switch data.Key {
 			case "g_movement":
 				state.match.Movement = data.Value
-				m.writer.Publish(domain.FactEvent{
+				m.pub.Publish(domain.FactEvent{
 					Type:      domain.FactMatchSettingsUpdate,
 					ServerID:  state.server.ID,
 					Timestamp: event.Timestamp,
@@ -1271,7 +1265,7 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 				})
 			case "g_gameplay":
 				state.match.Gameplay = data.Value
-				m.writer.Publish(domain.FactEvent{
+				m.pub.Publish(domain.FactEvent{
 					Type:      domain.FactMatchSettingsUpdate,
 					ServerID:  state.server.ID,
 					Timestamp: event.Timestamp,
@@ -1304,46 +1298,37 @@ func (m *ServerManager) handleMatchChange(ctx context.Context, state *serverStat
 
 	gameTypeStr := domain.GameTypeFromInt(gameType)
 
-	// In replay mode, look up existing match from DB (never publish new MatchStart)
+	// In replay mode we only rebuild in-memory state. Any re-publish
+	// risk is handled by the hub's source_progress.consumed_seq (for
+	// distributed mode) or the standalone publish watermark (for
+	// in-process mode).
 	if replayMode {
 		prevMatch := state.match
-		state.match = nil
-		state.matchStarted = false
 
-		if existing, err := m.writer.LookupMatch(ctx, uuid); err == nil && existing != nil {
-			if existing.Movement == "" && movement != "" {
-				existing.Movement = movement
-				m.writer.Publish(domain.FactEvent{
-					Type: domain.FactMatchSettingsUpdate, ServerID: state.server.ID, Timestamp: ts,
-					Data: domain.MatchSettingsUpdateData{MatchUUID: uuid, Movement: movement},
-				})
-			}
-			if existing.Gameplay == "" && gameplay != "" {
-				existing.Gameplay = gameplay
-				m.writer.Publish(domain.FactEvent{
-					Type: domain.FactMatchSettingsUpdate, ServerID: state.server.ID, Timestamp: ts,
-					Data: domain.MatchSettingsUpdateData{MatchUUID: uuid, Gameplay: gameplay},
-				})
-			}
-			state.match = existing
-			// A row in DB means WarmupEnd fired in a prior run (the writer
-			// only creates matches at MatchStart). Mark started so the
-			// live-mode Shutdown that follows doesn't log "Discarding".
-			state.matchStarted = true
-		}
-
-		// If UUID lookup failed and we had a previous match with different UUID,
-		// the previous match was interrupted (server crash). End it.
-		if state.match == nil && prevMatch != nil && prevMatch.UUID != "" &&
+		// If the previous match has a different UUID and was never ended,
+		// emit match_crashed on its behalf. Hub-side handleMatchCrashed
+		// is idempotent so duplicate publishes are harmless.
+		if prevMatch != nil && prevMatch.UUID != "" &&
 			prevMatch.UUID != uuid && prevMatch.EndedAt == nil {
-			m.writer.Publish(domain.FactEvent{
+			m.pub.Publish(domain.FactEvent{
 				Type: domain.FactMatchCrashed, ServerID: state.server.ID, Timestamp: ts,
 				Data: domain.MatchCrashedData{MatchUUID: prevMatch.UUID, EndedAt: ts},
 			})
 		}
 
-		// If no match found in DB, leave state.match = nil
-		// Stats will be reconstructed at ShutdownGame when match is created
+		state.match = &domain.Match{
+			UUID:      uuid,
+			ServerID:  state.server.ID,
+			MapName:   mapName,
+			GameType:  gameTypeStr,
+			StartedAt: ts,
+			Movement:  movement,
+			Gameplay:  gameplay,
+		}
+		// WarmupEnd in this run will set matchStarted=true if the match
+		// gets past warmup; leave it false here so mid-warmup crashes
+		// don't persist as "started".
+		state.matchStarted = false
 		state.clients = make(map[int]*clientState)
 		state.previousClients = make(map[string]*clientState)
 		state.matchFlushed = false
@@ -1356,7 +1341,7 @@ func (m *ServerManager) handleMatchChange(ctx context.Context, state *serverStat
 	// end it now as crashed with whatever player stats we have.
 	if !state.matchFlushed && state.matchStarted && state.match != nil &&
 		state.match.UUID != "" && state.match.EndedAt == nil {
-		m.writer.Publish(domain.FactEvent{
+		m.pub.Publish(domain.FactEvent{
 			Type:      domain.FactMatchEnd,
 			ServerID:  state.server.ID,
 			Timestamp: ts,
@@ -1367,58 +1352,6 @@ func (m *ServerManager) handleMatchChange(ctx context.Context, state *serverStat
 				Players:    m.buildMatchEndPlayers(state, false),
 			},
 		})
-	}
-
-	// Check if a match with this UUID already exists in the database
-	// This handles the "late replay" case where an ongoing match's InitGame
-	// is processed as live mode after a collector restart.
-	existing, err := m.writer.LookupMatch(ctx, uuid)
-	if err != nil {
-		log.Printf("Error checking for existing match UUID: %v", err)
-	}
-
-	if existing != nil {
-		if existing.Movement == "" && movement != "" {
-			existing.Movement = movement
-			m.writer.Publish(domain.FactEvent{
-				Type: domain.FactMatchSettingsUpdate, ServerID: state.server.ID, Timestamp: ts,
-				Data: domain.MatchSettingsUpdateData{MatchUUID: uuid, Movement: movement},
-			})
-		}
-		if existing.Gameplay == "" && gameplay != "" {
-			existing.Gameplay = gameplay
-			m.writer.Publish(domain.FactEvent{
-				Type: domain.FactMatchSettingsUpdate, ServerID: state.server.ID, Timestamp: ts,
-				Data: domain.MatchSettingsUpdateData{MatchUUID: uuid, Gameplay: gameplay},
-			})
-		}
-		if existing.EndedAt == nil {
-			// Match is still open - adopt it and sweep any other open matches
-			log.Printf("Resuming existing open match UUID=%s on %s", uuid, mapName)
-			state.match = existing
-			state.matchStarted = true // already past warmup in DB
-			if err := m.writer.EndAllOpenMatchesExcept(ctx, state.server.ID, ts, existing.ID); err != nil {
-				log.Printf("Error ending other open matches: %v", err)
-			}
-		} else {
-			// Match already ended - duplicate InitGame, load existing
-			log.Printf("Match UUID=%s already ended, loading existing", uuid)
-			state.match = existing
-			state.matchStarted = false // already finished; no more stats expected
-		}
-
-		// Clear client state for state rebuild
-		state.clients = make(map[int]*clientState)
-		state.previousClients = make(map[string]*clientState)
-		state.matchFlushed = false
-		state.matchState = ""
-		state.warmupDuration = 0
-		return
-	}
-
-	// UUID is new - genuinely a new match. Sweep any orphans on this server.
-	if err := m.writer.EndAllOpenMatchesExcept(ctx, state.server.ID, ts, 0); err != nil {
-		log.Printf("Error ending open matches: %v", err)
 	}
 
 	// Create in-memory match object (defer DB persistence until WarmupEnd)
@@ -1638,12 +1571,21 @@ func isMatchWinner(client *clientState, state *serverState, maxFFAScore int, has
 	return hasFFAScores && client.score != nil && *client.score == maxFFAScore
 }
 
-// emitEvent sends an event to the event channel
+// emitEvent sends an event to the local channel and, when configured,
+// tees the same event onto the NATS live-event subject. The tee only
+// fires when m.livePub is non-nil (collector-only deployments) — in
+// standalone and hub+collector modes the local channel is the sole
+// transport and the hub consumes it directly.
 func (m *ServerManager) emitEvent(event domain.Event) {
 	select {
 	case m.events <- event:
 	default:
 		// Channel full, drop event
+	}
+	if m.livePub != nil {
+		if err := m.livePub.PublishLive(event); err != nil {
+			log.Printf("collector: live publish %s failed: %v", event.Type, err)
+		}
 	}
 }
 
@@ -1741,9 +1683,13 @@ func (m *ServerManager) handleClaimCommand(ctx context.Context, serverID int64, 
 		return
 	}
 
+	hubHost := "trinity.run"
+	if m.cfg.Tracker != nil && m.cfg.Tracker.Collector != nil && m.cfg.Tracker.Collector.HubHost != "" {
+		hubHost = m.cfg.Tracker.Collector.HubHost
+	}
 	switch reply.Status {
 	case hub.ClaimOK:
-		m.sendPrint(serverID, clientID, fmt.Sprintf("Your claim code is: ^3%s^7 - Visit ^5trinity.run ^7to claim this identity. Expires in 30 minutes.", reply.Code))
+		m.sendPrint(serverID, clientID, fmt.Sprintf("Your claim code is: ^3%s^7 - Visit ^5%s ^7to claim this identity. Expires in 30 minutes.", reply.Code, hubHost))
 		log.Printf("Claim code %s generated for player %d on server %d", reply.Code, client.playerID, serverID)
 	case hub.ClaimAlreadyClaimed:
 		m.sendPrint(serverID, clientID, "^3This identity is already linked to an account.")

@@ -43,7 +43,7 @@ func startTestServer(t *testing.T) *Server {
 func TestStartAndClientURLListens(t *testing.T) {
 	s := startTestServer(t)
 
-	nc, err := nats.Connect("", nats.InProcessServer(s.NATSServer()))
+	nc, err := s.ConnectInternal()
 	if err != nil {
 		t.Fatalf("InProcessServer connect: %v", err)
 	}
@@ -60,7 +60,7 @@ func TestStartAndClientURLListens(t *testing.T) {
 func TestStreamsDeclared(t *testing.T) {
 	s := startTestServer(t)
 
-	nc, err := nats.Connect("", nats.InProcessServer(s.NATSServer()))
+	nc, err := s.ConnectInternal()
 	if err != nil {
 		t.Fatalf("connect: %v", err)
 	}
@@ -131,7 +131,7 @@ func TestStartIsIdempotentForReboot(t *testing.T) {
 	}
 	defer s2.Stop()
 
-	nc, err := nats.Connect("", nats.InProcessServer(s2.NATSServer()))
+	nc, err := s2.ConnectInternal()
 	if err != nil {
 		t.Fatalf("connect: %v", err)
 	}

@@ -69,7 +69,7 @@ func TestLoopbackEventRoundTrip(t *testing.T) {
 	const sourceUUID = "aaaa-0000-0000-0000-000000000042"
 	writer.MarkSourceApproved(sourceUUID)
 
-	subNC, err := nats.Connect("", nats.InProcessServer(ns.NATSServer()), nats.Name("test-sub"))
+	subNC, err := ns.ConnectInternal(nats.Name("test-sub"))
 	if err != nil {
 		t.Fatalf("sub connect: %v", err)
 	}
@@ -80,7 +80,7 @@ func TestLoopbackEventRoundTrip(t *testing.T) {
 	sub.Start(ctx)
 
 	// Publisher (collector side).
-	pubNC, err := nats.Connect("", nats.InProcessServer(ns.NATSServer()), nats.Name("test-pub"))
+	pubNC, err := ns.ConnectInternal(nats.Name("test-pub"))
 	if err != nil {
 		t.Fatalf("pub connect: %v", err)
 	}

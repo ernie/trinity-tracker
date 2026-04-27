@@ -28,6 +28,14 @@ type Router struct {
 	loginLimiter *rateLimiter
 	staticDir    string
 	quake3Dir    string
+	userProv     hub.UserProvisioner
+}
+
+// SetUserProvisioner plugs in a NATS cred-mint/revoke/download backend.
+// main.go calls this with the embedded AuthStore in hub mode; when
+// unset the /api/admin/sources/*/creds endpoints return 501.
+func (r *Router) SetUserProvisioner(p hub.UserProvisioner) {
+	r.userProv = p
 }
 
 // NewRouter creates a new HTTP router
@@ -106,6 +114,13 @@ func NewRouter(store *storage.Store, manager *collector.ServerManager, writer *h
 	r.mux.HandleFunc("GET /api/players/{id}/sessions", r.requireAdmin(r.handleGetPlayerSessions))
 	r.mux.HandleFunc("POST /api/admin/players/{id}/merge", r.requireAdmin(r.handleMergePlayers))
 	r.mux.HandleFunc("POST /api/admin/guids/{id}/split", r.requireAdmin(r.handleSplitGUID))
+
+	// Distributed-tracking source management
+	r.mux.HandleFunc("GET /api/admin/sources/pending", r.requireAdmin(r.handleListPendingSources))
+	r.mux.HandleFunc("POST /api/admin/sources/{source_uuid}/approve", r.requireAdmin(r.handleApproveSource))
+	r.mux.HandleFunc("POST /api/admin/sources/{source_uuid}/reject", r.requireAdmin(r.handleRejectSource))
+	r.mux.HandleFunc("GET /api/admin/sources/{source_uuid}/creds", r.requireAdmin(r.handleDownloadSourceCreds))
+	r.mux.HandleFunc("POST /api/admin/sources/{source_uuid}/rotate-creds", r.requireAdmin(r.handleRotateSourceCreds))
 	r.mux.HandleFunc("GET /api/admin/sessions", r.requireAdmin(r.handleListAdminSessions))
 
 	// Quake 3 file serving (admin only, for web game client)
@@ -154,6 +169,14 @@ func (r *Router) StartWebSocketHub() {
 			r.wsHub.Broadcast(event)
 		}
 	}()
+}
+
+// Broadcast forwards a pre-enriched event to all connected WebSocket
+// clients. Used by the hub-side live-event NATS subscriber so
+// remote-collector activity appears on the unified dashboard in real
+// time. *Router satisfies hub.LiveEventSink.
+func (r *Router) Broadcast(event domain.Event) {
+	r.wsHub.Broadcast(event)
 }
 
 // handleStatic serves static files from the configured directory
