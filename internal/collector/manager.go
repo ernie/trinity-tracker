@@ -18,6 +18,7 @@ import (
 type ServerManager struct {
 	cfg      *config.Config
 	writer   *hub.Writer
+	rpc      hub.RPCClient // greet/claim/link entry point; falls back to writer in standalone mode
 	q3client *Q3Client
 	events   chan domain.Event
 
@@ -95,11 +96,17 @@ func (c *clientState) getPlayerIDPtr() *int64 {
 	return nil
 }
 
-// NewServerManager creates a new manager
-func NewServerManager(cfg *config.Config, writer *hub.Writer) *ServerManager {
+// NewServerManager creates a new manager. rpc is the greet/claim/link
+// entry point; pass writer in standalone mode (it satisfies
+// hub.RPCClient), or a natsbus RPC client in distributed mode.
+func NewServerManager(cfg *config.Config, writer *hub.Writer, rpc hub.RPCClient) *ServerManager {
+	if rpc == nil {
+		rpc = writer
+	}
 	return &ServerManager{
 		cfg:      cfg,
 		writer:   writer,
+		rpc:      rpc,
 		q3client: NewQ3Client(),
 		events:   make(chan domain.Event, 100),
 		servers:  make(map[int64]*serverState),
@@ -1652,7 +1659,7 @@ func (m *ServerManager) handleLinkCommand(ctx context.Context, serverID int64, s
 		return
 	}
 
-	reply, err := m.writer.Link(ctx, hub.LinkRequest{GUID: client.guid, Code: code})
+	reply, err := m.rpc.Link(ctx, hub.LinkRequest{GUID: client.guid, Code: code})
 	if err != nil {
 		log.Printf("link RPC error: %v", err)
 		m.sendPrint(serverID, clientID, "^1Error linking account. Please try again.")
@@ -1692,7 +1699,7 @@ func (m *ServerManager) handleClaimCommand(ctx context.Context, serverID int64, 
 		return
 	}
 
-	reply, err := m.writer.Claim(ctx, hub.ClaimRequest{GUID: client.guid, PlayerID: client.playerID})
+	reply, err := m.rpc.Claim(ctx, hub.ClaimRequest{GUID: client.guid, PlayerID: client.playerID})
 	if err != nil {
 		log.Printf("claim RPC error for player %d: %v", client.playerID, err)
 		m.sendPrint(serverID, clientID, "^1Error generating claim code. Please try again.")
@@ -1753,7 +1760,7 @@ func (m *ServerManager) performGreet(ctx context.Context, serverID int64, client
 		CleanName:  cleanName,
 		Auth:       auth,
 	}
-	reply, err := m.writer.Greet(ctx, req)
+	reply, err := m.rpc.Greet(ctx, req)
 	if err != nil {
 		log.Printf("greet RPC error for GUID %s: %v", guid, err)
 		return

@@ -21,6 +21,16 @@ type Writer struct {
 	store  *storage.Store
 	events chan domain.FactEvent
 
+	// preStop runs before the events channel is closed, giving an
+	// embedded NATS server (or any other inbound source) a chance to
+	// stop accepting work before the writer drains.
+	preStop func()
+
+	// publisher, when set, diverts Publish calls to a remote transport
+	// instead of the in-process channel. Populated in distributed mode
+	// (tracker.collector configured).
+	publisher FactPublisher
+
 	// guidCache memoizes GUID → player_id lookups for broadcast
 	// enrichment. A resolved GUID is permanent until AssociateGUIDWithPlayer
 	// (Trinity auth) or MergePlayers (!link) moves it; both paths
@@ -35,18 +45,50 @@ type Writer struct {
 	stopOnce sync.Once
 }
 
+// Option configures a Writer at construction.
+type Option func(*Writer)
+
+// WithPreStop registers a function to run at the start of Stop, before
+// the fact-event channel is closed. Used to shut down inbound sources
+// (e.g. the embedded NATS server in hub mode) so the writer can drain
+// cleanly.
+func WithPreStop(fn func()) Option {
+	return func(w *Writer) { w.preStop = fn }
+}
+
+// FactPublisher is the wire-side handoff used when the process has a
+// collector role active under distributed tracking. The collector
+// still calls Writer.Publish; the writer forwards to the publisher
+// rather than dispatching to the local DB pipeline.
+type FactPublisher interface {
+	Publish(e domain.FactEvent) error
+}
+
+// WithFactPublisher swaps the writer's local Publish path for a
+// remote publisher. When set, Writer.Publish serializes and forwards
+// to NATS instead of dispatching in-process. The local dispatch
+// goroutine still runs so hub-side consumption (phase 4+) can feed
+// it from a NATS subscriber.
+func WithFactPublisher(p FactPublisher) Option {
+	return func(w *Writer) { w.publisher = p }
+}
+
 // eventBufferSize is the in-process fact-event channel capacity. Chosen
 // larger than any plausible burst from a single match end (~32 players
 // × a handful of events) to avoid blocking collectors in the hot path.
 const eventBufferSize = 1024
 
 // NewWriter constructs a Writer bound to the given store.
-func NewWriter(store *storage.Store) *Writer {
-	return &Writer{
+func NewWriter(store *storage.Store, opts ...Option) *Writer {
+	w := &Writer{
 		store:     store,
 		events:    make(chan domain.FactEvent, eventBufferSize),
 		guidCache: make(map[string]int64),
 	}
+	for _, opt := range opts {
+		opt(w)
+	}
+	return w
 }
 
 // resolveGUIDPlayerID returns the player_id for a GUID, hitting the
@@ -104,19 +146,30 @@ func (w *Writer) Start(ctx context.Context) {
 }
 
 // Stop signals the consume goroutine to shut down and waits for it to
-// drain. Safe to call more than once.
+// drain. Any registered pre-stop hook runs first so inbound sources
+// can quiesce before the channel closes. Safe to call more than once.
 func (w *Writer) Stop() {
 	w.stopOnce.Do(func() {
+		if w.preStop != nil {
+			w.preStop()
+		}
 		close(w.events)
 	})
 	w.wg.Wait()
 }
 
-// Publish sends a fact event to the writer. Blocks if the buffer is
-// full — by design: losing fact events silently would corrupt the
-// persistent state. If a publisher is observing sustained blocking,
-// that is the signal the writer is not keeping up.
+// Publish sends a fact event to the writer. In standalone mode this
+// blocks on the in-process channel if full — by design: losing fact
+// events silently would corrupt the persistent state. In distributed
+// mode (FactPublisher set) the event is forwarded to NATS; publish
+// errors are logged and the event is dropped.
 func (w *Writer) Publish(e domain.FactEvent) {
+	if w.publisher != nil {
+		if err := w.publisher.Publish(e); err != nil {
+			log.Printf("hub.Writer: publish %s failed: %v", e.Type, err)
+		}
+		return
+	}
 	w.events <- e
 }
 

@@ -32,7 +32,9 @@ import (
 	"github.com/ernie/trinity-tracker/internal/collector"
 	"github.com/ernie/trinity-tracker/internal/config"
 	"github.com/ernie/trinity-tracker/internal/hub"
+	"github.com/ernie/trinity-tracker/internal/natsbus"
 	"github.com/ernie/trinity-tracker/internal/storage"
+	"github.com/nats-io/nats.go"
 	"github.com/ftrvxmtrx/tga"
 	flag "github.com/spf13/pflag"
 	"golang.org/x/image/draw"
@@ -171,14 +173,103 @@ func cmdServe(args []string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	// Tracker plumbing: embedded NATS server (hub), in-process NATS
+	// clients (collector publisher + RPC client, hub subscriber + RPC
+	// server). Standalone mode skips all of it.
+	var (
+		writerOpts   []hub.Option
+		ns           *natsbus.Server
+		subNC        *nats.Conn
+		collectorNC  *nats.Conn
+		subscriber   *natsbus.Subscriber
+		rpcServer    *natsbus.RPCServer
+		collectorRPC hub.RPCClient
+	)
+	if cfg.Tracker != nil && cfg.Tracker.Hub != nil {
+		storeParent := filepath.Dir(cfg.Database.Path)
+		var err error
+		ns, err = natsbus.Start(cfg.Tracker, storeParent)
+		if err != nil {
+			log.Fatalf("Failed to start embedded NATS: %v", err)
+		}
+		log.Printf("Embedded NATS listening on %s (store=%s)", ns.ClientURL(), ns.StoreDir())
+		subNC, err = nats.Connect("", nats.InProcessServer(ns.NATSServer()), nats.Name("trinity-hub-subscriber"))
+		if err != nil {
+			log.Fatalf("Failed to connect hub subscriber NATS client: %v", err)
+		}
+		defer subNC.Close()
+	}
+	if cfg.Tracker != nil && cfg.Tracker.Collector != nil {
+		if ns == nil {
+			// collector-only mode against a remote hub is deferred to a
+			// later phase; current phases only support in-process
+			// hub+collector.
+			log.Fatalf("tracker.collector is configured without tracker.hub; collector-only mode is not yet supported")
+		}
+		var err error
+		collectorNC, err = nats.Connect("", nats.InProcessServer(ns.NATSServer()), nats.Name("trinity-collector"))
+		if err != nil {
+			log.Fatalf("Failed to connect in-process NATS client: %v", err)
+		}
+		defer collectorNC.Close()
+		sourceUUID, err := natsbus.LoadOrCreateSourceUUID(cfg.Tracker.Collector.DataDir)
+		if err != nil {
+			log.Fatalf("Failed to resolve source_uuid: %v", err)
+		}
+		pub, err := natsbus.NewPublisher(collectorNC, cfg.Tracker.Collector.SourceID, sourceUUID, 0)
+		if err != nil {
+			log.Fatalf("Failed to build fact-event publisher: %v", err)
+		}
+		rpcClient, err := natsbus.NewRPCClient(collectorNC, cfg.Tracker.Collector.SourceID, 0)
+		if err != nil {
+			log.Fatalf("Failed to build RPC client: %v", err)
+		}
+		collectorRPC = rpcClient
+		log.Printf("Collector publishing as source=%s uuid=%s", cfg.Tracker.Collector.SourceID, sourceUUID)
+		writerOpts = append(writerOpts, hub.WithFactPublisher(pub))
+	}
+
+	// preStop: stop the subscriber (quiesces inbound events), tear
+	// down RPC subscriptions, and shut down the embedded NATS server.
+	writerOpts = append(writerOpts, hub.WithPreStop(func() {
+		if subscriber != nil {
+			subscriber.Stop()
+		}
+		if rpcServer != nil {
+			rpcServer.Stop()
+		}
+		if ns != nil {
+			ns.Stop()
+		}
+	}))
+
 	// Hub writer owns all DB writes for events. The collector publishes
 	// fact events through it instead of calling the store directly.
-	writer := hub.NewWriter(store)
+	writer := hub.NewWriter(store, writerOpts...)
 	writer.Start(ctx)
 	defer writer.Stop()
 
-	// Create server manager
-	manager := collector.NewServerManager(cfg, writer)
+	// Hub-side subscriptions: fact-event subscriber + RPC handlers.
+	if cfg.Tracker != nil && cfg.Tracker.Hub != nil {
+		var err error
+		subscriber, err = natsbus.NewSubscriber(subNC, writer)
+		if err != nil {
+			log.Fatalf("Failed to create fact-event subscriber: %v", err)
+		}
+		subscriber.Start(ctx)
+		log.Printf("Hub subscribed to %s", natsbus.StreamEvents)
+
+		rpcServer, err = natsbus.RegisterRPCHandlers(subNC, writer)
+		if err != nil {
+			log.Fatalf("Failed to register RPC handlers: %v", err)
+		}
+		log.Printf("Hub RPC handlers registered (queue group %s)", natsbus.RPCQueueGroup)
+	}
+
+	// Create server manager. In distributed mode, collectorRPC is the
+	// NATS client; in standalone mode it is nil and the writer itself
+	// answers Greet/Claim/Link.
+	manager := collector.NewServerManager(cfg, writer, collectorRPC)
 
 	if err := manager.Start(ctx); err != nil {
 		log.Fatalf("Failed to start server manager: %v", err)

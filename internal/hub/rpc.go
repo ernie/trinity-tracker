@@ -1,6 +1,19 @@
 package hub
 
-import "time"
+import (
+	"context"
+	"time"
+)
+
+// RPCClient is the call-site contract for the collector's
+// greet/claim/link flows. In standalone mode *Writer satisfies it
+// directly; in distributed mode it is satisfied by a NATS req/reply
+// wrapper. Routing is chosen by main.go.
+type RPCClient interface {
+	Greet(ctx context.Context, req GreetRequest) (GreetReply, error)
+	Claim(ctx context.Context, req ClaimRequest) (ClaimReply, error)
+	Link(ctx context.Context, req LinkRequest) (LinkReply, error)
+}
 
 // RPC request/reply types for synchronous flows between the collector
 // and the hub writer. In standalone mode these travel through in-process
