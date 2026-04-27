@@ -35,7 +35,8 @@ export interface FlagStatus {
 
 export interface ServerStatus {
   server_id: number
-  name: string
+  source: string
+  key: string
   address: string
   map: string
   game_type: string
@@ -55,9 +56,10 @@ export interface ServerStatus {
 
 export interface Server {
   id: number
-  name: string
+  source: string
+  key: string
   address: string
-  log_path?: string
+  active: boolean
 }
 
 export type EventType =
@@ -252,7 +254,9 @@ export interface MatchPlayerSummary {
 export interface MatchSummary {
   id: number
   server_id: number
-  server_name: string
+  server_key: string
+  server_active: boolean
+  source: string
   map_name: string
   game_type: string
   started_at: string
@@ -338,7 +342,8 @@ export interface PlayerGUID {
 export interface PlayerSession {
   id: number
   server_id: number
-  server_name: string
+  server_source: string
+  server_key: string
   joined_at: string
   left_at?: string
   duration_seconds?: number
@@ -350,7 +355,8 @@ export interface PlayerSession {
 export interface AdminSession {
   id: number
   server_id: number
-  server_name: string
+  server_source: string
+  server_key: string
   player_id: number
   player_name: string
   player_clean_name: string

@@ -5,28 +5,18 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	"time"
 
 	"github.com/nats-io/jwt/v2"
 	"github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nkeys"
 )
 
-// Directory layout under AuthDir(dataDir):
-//
-//	auth/
-//	  operator.seed       identity key for the operator
-//	  operator_sign.seed  operator signing key (signs account JWTs)
-//	  operator.jwt        decoded at startup, fed into server.Options
-//	  sys.seed            SYS account identity
-//	  sys.jwt             SYS account JWT
-//	  trinity.seed        TRINITY account identity
-//	  trinity_sign.seed   TRINITY signing key (signs user JWTs)
-//	  trinity.jwt         TRINITY account JWT (rewritten on revoke)
-//	  hub_internal.creds  in-process hub client creds (admin-ish)
-//	creds/
-//	  <source_uuid>.creds collector user creds (delivered to operator)
-//	  <source_uuid>.pub   cached user pubkey so rotations can revoke it
+// Directory layout under <hubDataDir>:
+//   auth/{operator,operator_sign,sys,trinity,trinity_sign}.seed
+//   auth/{operator,sys,trinity}.jwt (trinity.jwt rewritten on revoke)
+//   auth/hub_internal.creds   in-process hub client creds
+//   creds/<source>.creds      collector user creds
+//   creds/<source>.pub        cached user pubkey for rotation/revocation
 
 const (
 	authSubdir  = "auth"
@@ -34,9 +24,8 @@ const (
 	userPrefix  = "trinity"
 )
 
-// AuthStore owns the NKey/JWT material for the embedded NATS server's
-// JWT auth and knows how to mint + revoke per-source user credentials
-// on the running server.
+// AuthStore owns the NKey/JWT material for the embedded NATS server
+// and mints/revokes per-source user credentials.
 type AuthStore struct {
 	dir string
 
@@ -55,10 +44,9 @@ type AuthStore struct {
 	internalCreds []byte
 }
 
-// LoadOrCreateAuthStore initializes the auth material under
-// `<hubDataDir>/auth/` and prepares an in-memory account resolver
-// loaded with the SYS + TRINITY account JWTs. On first run every seed
-// and JWT is generated; subsequent runs load what's on disk.
+// LoadOrCreateAuthStore initializes auth material under <hubDataDir>/auth/
+// and prepares an account resolver with SYS + TRINITY JWTs. First run
+// generates everything; subsequent runs load from disk.
 func LoadOrCreateAuthStore(hubDataDir string) (*AuthStore, error) {
 	s := &AuthStore{dir: hubDataDir}
 	authDir := filepath.Join(hubDataDir, authSubdir)
@@ -112,65 +100,50 @@ func LoadOrCreateAuthStore(hubDataDir string) (*AuthStore, error) {
 		return nil, fmt.Errorf("natsbus.auth: resolver store TRINITY: %w", err)
 	}
 
-	// Hub-internal client creds: the hub's own subscribers/RPC handlers
-	// connect via nats.UserCredentials(InternalCredsPath). Granted full
-	// pub/sub under TRINITY so every subject we already use keeps
-	// working. The creds file is rewritten on every boot so a lost
-	// operator.seed regenerates cleanly.
+	// Rewritten every boot so regeneration is automatic after any seed loss.
 	if s.internalCreds, err = s.buildInternalCreds(filepath.Join(authDir, "hub_internal.creds")); err != nil {
 		return nil, err
 	}
 	return s, nil
 }
 
-// TrustedOperators returns the operator claims to feed into
-// server.Options.TrustedOperators.
 func (s *AuthStore) TrustedOperators() []*jwt.OperatorClaims {
 	return []*jwt.OperatorClaims{s.opClaims}
 }
 
-// SystemAccountPublicKey returns the SYS account pubkey for
-// server.Options.SystemAccount.
 func (s *AuthStore) SystemAccountPublicKey() string {
 	pk, _ := s.sysKP.PublicKey()
 	return pk
 }
 
-// Resolver returns the in-memory account resolver to set on
-// server.Options.AccountResolver.
 func (s *AuthStore) Resolver() *server.MemAccResolver {
 	return s.resolver
 }
 
-// AttachServer records a running server so later Mint/Revoke calls can
-// push live account-claim updates. Call once after natsbus.Start.
+// AttachServer records a running server so Mint/Revoke can push live
+// account-claim updates. Call once after natsbus.Start.
 func (s *AuthStore) AttachServer(ns *server.Server) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.runningSrv = ns
 }
 
-// InternalCredsPath returns the path to the hub-internal .creds file
-// the hub's own NATS clients should use.
 func (s *AuthStore) InternalCredsPath() string {
 	return filepath.Join(s.dir, authSubdir, "hub_internal.creds")
 }
 
-// CredsPath returns the on-disk location of a source's user creds.
-func (s *AuthStore) CredsPath(sourceUUID string) string {
-	return filepath.Join(s.dir, credsSubdir, sourceUUID+".creds")
+func (s *AuthStore) CredsPath(source string) string {
+	return filepath.Join(s.dir, credsSubdir, source+".creds")
 }
 
-// MintUserCreds issues (or re-issues, revoking the old) a per-source
-// user JWT with subject-scoped publish permissions, persists a .creds
-// file under <dir>/creds/<source_uuid>.creds, and pushes the updated
-// TRINITY account JWT + revocations to the running server if one is
-// attached. Returns the creds file contents for immediate hand-off.
-func (s *AuthStore) MintUserCreds(sourceID, sourceUUID string) ([]byte, error) {
+// MintUserCreds issues a per-source user JWT with subject-scoped
+// publish permissions and persists the .creds file. Revokes the prior
+// user pubkey if one was cached. Returns the creds file contents.
+func (s *AuthStore) MintUserCreds(source string) ([]byte, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	pubPath := filepath.Join(s.dir, credsSubdir, sourceUUID+".pub")
+	pubPath := filepath.Join(s.dir, credsSubdir, source+".pub")
 	var oldPub string
 	if b, err := os.ReadFile(pubPath); err == nil {
 		oldPub = string(b)
@@ -184,10 +157,10 @@ func (s *AuthStore) MintUserCreds(sourceID, sourceUUID string) ([]byte, error) {
 	userSeed, _ := userKP.Seed()
 
 	uc := jwt.NewUserClaims(userPub)
-	uc.Name = userPrefix + "-" + sourceID
+	uc.Name = userPrefix + "-" + source
 	trPub, _ := s.trinityKP.PublicKey()
 	uc.IssuerAccount = trPub
-	addSourcePermissions(uc, sourceID)
+	addSourcePermissions(uc, source)
 
 	userJWT, err := uc.Encode(s.trSignKP)
 	if err != nil {
@@ -197,7 +170,7 @@ func (s *AuthStore) MintUserCreds(sourceID, sourceUUID string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("natsbus.auth: format creds: %w", err)
 	}
-	if err := writeFile(s.CredsPath(sourceUUID), creds, 0o600); err != nil {
+	if err := writeFile(s.CredsPath(source), creds, 0o600); err != nil {
 		return nil, err
 	}
 	if err := writeFile(pubPath, []byte(userPub), 0o600); err != nil {
@@ -209,9 +182,6 @@ func (s *AuthStore) MintUserCreds(sourceID, sourceUUID string) ([]byte, error) {
 			return nil, err
 		}
 	} else {
-		// Always refresh the TRINITY account JWT in the resolver so
-		// newly-added signing-key rotations and revocation-list changes
-		// reach the server.
 		if err := s.refreshAccountClaimsLocked(); err != nil {
 			return nil, err
 		}
@@ -219,13 +189,11 @@ func (s *AuthStore) MintUserCreds(sourceID, sourceUUID string) ([]byte, error) {
 	return creds, nil
 }
 
-// RevokeSource revokes whatever user is currently active for
-// sourceUUID without issuing a replacement. No-op if nothing is
-// recorded.
-func (s *AuthStore) RevokeSource(sourceUUID string) error {
+// RevokeSource revokes the current user for source. No-op if none.
+func (s *AuthStore) RevokeSource(source string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	pubPath := filepath.Join(s.dir, credsSubdir, sourceUUID+".pub")
+	pubPath := filepath.Join(s.dir, credsSubdir, source+".pub")
 	b, err := os.ReadFile(pubPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -303,10 +271,15 @@ func (s *AuthStore) buildInternalCreds(path string) ([]byte, error) {
 	return creds, nil
 }
 
-// addSourcePermissions grants publish on every subject the collector
-// legitimately needs to send on, plus subscribe on inboxes (for RPC
-// replies) and the collector's own live broadcast subjects (none
-// today, but harmless).
+// InboxPrefixFor is the per-source NATS inbox prefix. A collector sets
+// its nats.CustomInboxPrefix to this string; the hub issues its NKey
+// with Sub permission scoped to "<prefix>.>". Without this scoping any
+// collector could subscribe to _INBOX.> and harvest other collectors'
+// RPC replies (e.g. link codes).
+func InboxPrefixFor(sourceID string) string {
+	return "_INBOX." + sourceID
+}
+
 func addSourcePermissions(uc *jwt.UserClaims, sourceID string) {
 	uc.Permissions.Pub.Allow.Add(
 		"trinity.events."+sourceID+".>",
@@ -330,8 +303,7 @@ func addSourcePermissions(uc *jwt.UserClaims, sourceID string) {
 		"trinity.rpc.identity.lookup."+sourceID+".>",
 		"trinity.rpc.identity.lookup."+sourceID,
 	)
-	// Inbox pattern for request/reply responses.
-	uc.Permissions.Sub.Allow.Add("_INBOX.>")
+	uc.Permissions.Sub.Allow.Add(InboxPrefixFor(sourceID) + ".>")
 }
 
 func loadOrCreateSeed(path string, ctor func() (nkeys.KeyPair, error)) (nkeys.KeyPair, error) {
@@ -384,9 +356,7 @@ func loadOrCreateAccountJWT(path string, accKP, opSignKP nkeys.KeyPair, name str
 	for _, sk := range signingKeys {
 		claims.SigningKeys.Add(sk)
 	}
-	// Enable JetStream on TRINITY so the hub can declare its streams.
-	// -1 on every numeric limit means "unlimited" in jwt v2; this
-	// matches the in-process embedded server's no-limits baseline.
+	// -1 limits = unlimited in jwt v2.
 	if name == "TRINITY" {
 		claims.Limits.JetStreamLimits.DiskStorage = -1
 		claims.Limits.JetStreamLimits.MemoryStorage = -1
@@ -413,6 +383,3 @@ func writeFile(path string, data []byte, mode os.FileMode) error {
 	return nil
 }
 
-// ensure time import is used (for future TTLs on revocations if we
-// decide to narrow the revocation window).
-var _ = time.Now

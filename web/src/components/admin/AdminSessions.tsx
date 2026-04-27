@@ -128,7 +128,7 @@ export function AdminSessions() {
             <option value="">All servers</option>
             {servers.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.name}
+                {s.source} / {s.key}
               </option>
             ))}
           </select>
@@ -187,7 +187,7 @@ export function AdminSessions() {
                   <ColoredText text={s.player_name} />
                 </Link>
               </td>
-              <td>{s.server_name}</td>
+              <td>{s.server_source} / {s.server_key}</td>
               <td>{formatDate(s.joined_at)}</td>
               <td>{s.left_at ? formatDate(s.left_at) : <em>active</em>}</td>
               <td>{s.duration_seconds ? formatDuration(s.duration_seconds) : '—'}</td>

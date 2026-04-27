@@ -80,12 +80,14 @@ func scanMatchSummaryRow(s scanner) (*domain.MatchSummary, error) {
 	var gameType sql.NullString
 	var redScore, blueScore sql.NullInt64
 	var movement, gameplay sql.NullString
+	var source sql.NullString
 
-	err := s.Scan(&m.ID, &m.UUID, &m.ServerID, &m.ServerName, &m.MapName, &gameType,
+	err := s.Scan(&m.ID, &m.UUID, &m.ServerID, &m.ServerKey, &m.ServerActive, &source, &m.MapName, &gameType,
 		&m.StartedAt, &endedAt, &exitReason, &redScore, &blueScore, &movement, &gameplay)
 	if err != nil {
 		return nil, err
 	}
+	m.Source = scanNullStringValue(source)
 
 	m.EndedAt = scanNullTime(endedAt)
 	m.ExitReason = scanNullStringValue(exitReason)

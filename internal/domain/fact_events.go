@@ -3,16 +3,8 @@ package domain
 import "time"
 
 // Fact events flow from the collector to the hub writer and drive
-// authoritative database writes. They are distinct from the live events
-// above (which are ephemeral WebSocket broadcasts).
-//
-// In standalone mode these travel through an in-process channel; in
-// distributed mode they are serialized into NATS envelopes. The payload
-// shapes are identical in both transports so the collector and hub code
-// does not change across M1 and M2.
-//
-// Wire identity rule: payloads carry GUIDs and match UUIDs, never DB row
-// IDs. The hub writer owns the translation from wire identity to DB ID.
+// authoritative database writes. Wire identity rule: payloads carry
+// GUIDs and match UUIDs, never DB row IDs.
 
 const (
 	FactMatchStart           = "match_start"
@@ -21,15 +13,15 @@ const (
 	FactMatchCrashed         = "match_crashed"
 	FactPlayerJoin           = "player_join"
 	FactPlayerLeave          = "player_leave"
+	FactPresenceSnapshot     = "presence_snapshot"
 	FactTrinityHandshake     = "trinity_handshake"
 	FactServerStartup        = "server_startup"
 	FactServerShutdown       = "server_shutdown"
 )
 
 // FactEvent is the in-process envelope carrying a payload from the
-// collector to the hub writer. The NATS wire envelope (see distributed
-// tracking design spec) wraps this shape with source/seq/schema_version
-// fields; in M1 we carry just what the writer needs.
+// collector to the hub writer. The NATS wire envelope wraps this with
+// source/seq/schema_version fields.
 type FactEvent struct {
 	Type      string      `json:"type"`
 	ServerID  int64       `json:"server_id"`
@@ -37,19 +29,17 @@ type FactEvent struct {
 	Data      interface{} `json:"data"`
 }
 
-// MatchStartData is emitted on WarmupEnd when gameplay begins. The
-// collector assigns MatchUUID (same one that lands in the log); the hub
-// writer inserts a `matches` row keyed on that UUID.
+// MatchStartData is emitted on WarmupEnd. MatchUUID is assigned by the
+// collector and is the key for subsequent match events.
 //
-// HandshakeRequired reflects the server's g_trinityHandshake cvar at
-// warmup-end time. The collector refuses to publish match_start when
-// false and warns the operator locally; the hub double-checks and
-// rejects any match_start with HandshakeRequired=false as a safety
-// net. The gate exists so recorded stats only come from play on
-// verified Trinity clients (Q3 servers don't run in pure mode, so
-// g_trinityHandshake is the practical way to keep vanilla ioquake3
-// clients out of the stats pool) and so operators are nudged to
-// enable the hub's account features for their players.
+// HandshakeRequired reflects the server's g_trinityHandshake cvar. The
+// collector refuses to publish match_start when false; the hub double-
+// checks. This gates stats to clients that submit a Trinity handshake.
+// Trinity servers typically don't run in pure mode because VR clients
+// load the game module as a dll/so rather than a QVM, so sv_pure isn't
+// available to keep vanilla ioquake3 clients out; g_trinityHandshake is
+// the practical substitute. Whether the handshake carries valid auth
+// info is independent; the gate fires on handshake presence, not auth.
 type MatchStartData struct {
 	MatchUUID         string    `json:"match_uuid"`
 	MapName           string    `json:"map"`
@@ -61,8 +51,7 @@ type MatchStartData struct {
 }
 
 // MatchEndData is emitted on match shutdown (intermission or abrupt).
-// Players carries the final stats for every participant (current and
-// previous stints) — the hub writer flushes them all in one pass.
+// Players carries final stats for every participant.
 type MatchEndData struct {
 	MatchUUID  string           `json:"match_uuid"`
 	EndedAt    time.Time        `json:"ended_at"`
@@ -130,12 +119,38 @@ type PlayerJoinData struct {
 	IP        string    `json:"ip,omitempty"`
 	IsBot     bool      `json:"is_bot"`
 	IsVR      bool      `json:"is_vr"`
-	JoinedAt  time.Time `json:"joined_at"`
+	// Skill is the bot's q3 skill level (1-5). Zero for humans.
+	// Carried so the hub's presence tracker can render the bot badge
+	// tier on the live dashboard.
+	Skill    float64   `json:"skill,omitempty"`
+	JoinedAt time.Time `json:"joined_at"`
 	// ClientNum is the game server's slot for the player (0-31). The
 	// hub's presence tracker keys on (serverID, ClientNum) so UDP
 	// statusResponse rows — which carry only name, ping, score, and
 	// this slot number — can be enriched with identity.
 	ClientNum int `json:"client_num"`
+}
+
+// PresenceSnapshotData restores hub presence for a player the collector
+// already has in state.clients — used after a hub/collector restart
+// while a match is in progress. Distinct from PlayerJoinData because
+// no one is actually joining: no session creation, no "X joined"
+// broadcast, just a state refresh keyed on (ServerID, ClientNum).
+type PresenceSnapshotData struct {
+	GUID         string  `json:"guid"`
+	Name         string  `json:"name"`
+	CleanName    string  `json:"clean_name"`
+	Model        string  `json:"model,omitempty"`
+	IsBot        bool    `json:"is_bot"`
+	IsVR         bool    `json:"is_vr"`
+	Skill        float64 `json:"skill,omitempty"`
+	ClientNum    int     `json:"client_num"`
+	Impressives  int     `json:"impressives,omitempty"`
+	Excellents   int     `json:"excellents,omitempty"`
+	Humiliations int     `json:"humiliations,omitempty"`
+	Defends      int     `json:"defends,omitempty"`
+	Captures     int     `json:"captures,omitempty"`
+	Assists      int     `json:"assists,omitempty"`
 }
 
 // PlayerLeaveData is emitted on ClientDisconnect. DurationSeconds is
@@ -144,14 +159,15 @@ type PlayerJoinData struct {
 // (hub restart).
 type PlayerLeaveData struct {
 	GUID            string    `json:"guid"`
+	ClientNum       int       `json:"client_num"`
 	LeftAt          time.Time `json:"left_at"`
 	DurationSeconds int       `json:"duration_seconds"`
 	Reason          string    `json:"reason,omitempty"`
 }
 
-// TrinityHandshakeData is emitted when the Trinity handshake log line
-// is parsed. It enriches the open session row with engine/mod version.
-// Auth verification is handled out-of-band via the greet RPC, not here.
+// TrinityHandshakeData carries the engine/version portion of a Trinity
+// handshake onto the session row. The optional auth portion of the same
+// handshake flows separately through the greet RPC.
 type TrinityHandshakeData struct {
 	GUID          string `json:"guid"`
 	ClientEngine  string `json:"client_engine"`

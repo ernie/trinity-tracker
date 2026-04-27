@@ -8,58 +8,56 @@ import (
 	"github.com/ernie/trinity-tracker/internal/domain"
 )
 
-func TestHandleRegistrationUnknownSourceGoesToPending(t *testing.T) {
+func TestHandleRegistrationUnknownSourceIsRefused(t *testing.T) {
 	w, store := newTestWriter(t)
 	ctx := context.Background()
 
 	reg := domain.Registration{
-		SourceUUID: "uuid-remote",
-		Source:     "remote",
-		Version:    "1.12.0",
-		Servers:    []domain.RegdServer{{LocalID: 1, Name: "r", Address: "r.example:27960"}},
+		Source:  "remote",
+		Version: "1.12.0",
+		Servers: []domain.RegdServer{{LocalID: 1, Key: "r", Address: "r.example:27960"}},
 	}
 	if err := w.HandleRegistration(ctx, reg); err != nil {
 		t.Fatalf("HandleRegistration: %v", err)
 	}
 
-	list, err := store.ListPendingSources(ctx)
-	if err != nil {
-		t.Fatalf("list pending: %v", err)
+	// No servers row should have been created for an unprovisioned source.
+	if id, _ := store.ResolveServerIDForSource(ctx, reg.Source, 1); id != 0 {
+		t.Errorf("unprovisioned registration created servers row id=%d", id)
 	}
-	if len(list) != 1 || list[0].SourceUUID != "uuid-remote" {
-		t.Errorf("pending list = %+v", list)
+	if ok, _ := store.IsSourceApproved(ctx, reg.Source); ok {
+		t.Error("unprovisioned source is approved")
 	}
 }
 
-func TestHandleRegistrationKnownSourceUpdatesHeartbeat(t *testing.T) {
+func TestHandleRegistrationKnownSourceUpdatesHeartbeatAndRoster(t *testing.T) {
 	w, store := newTestWriter(t)
 	ctx := context.Background()
 
-	srv := &domain.Server{Name: "ffa", Address: "x:27960"}
-	if err := store.UpsertServer(ctx, srv); err != nil {
-		t.Fatalf("seed: %v", err)
-	}
-	if err := store.TagLocalServerSource(ctx, srv.ID, "uuid-local", srv.ID); err != nil {
-		t.Fatalf("tag: %v", err)
+	if err := store.CreateSource(ctx, "remote", true); err != nil {
+		t.Fatalf("create source: %v", err)
 	}
 
-	reg := domain.Registration{SourceUUID: "uuid-local", Source: "ffa"}
+	reg := domain.Registration{
+		Source:  "remote",
+		Version: "1.13.0",
+		Servers: []domain.RegdServer{{LocalID: 1, Key: "r", Address: "r.example:27960"}},
+	}
 	before := time.Now().UTC()
 	if err := w.HandleRegistration(ctx, reg); err != nil {
 		t.Fatalf("HandleRegistration: %v", err)
 	}
 
-	// No pending row was created.
-	list, _ := store.ListPendingSources(ctx)
-	if len(list) != 0 {
-		t.Errorf("unexpected pending rows: %+v", list)
+	id, err := store.ResolveServerIDForSource(ctx, reg.Source, 1)
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
 	}
-	stamp, err := store.GetServerLastHeartbeat(ctx, srv.ID)
+	if id == 0 {
+		t.Fatal("servers row not created from roster")
+	}
+	stamp, err := store.GetServerLastHeartbeat(ctx, id)
 	if err != nil {
 		t.Fatalf("read heartbeat: %v", err)
-	}
-	if stamp.IsZero() {
-		t.Fatal("last_heartbeat_at not set")
 	}
 	if stamp.Before(before.Add(-time.Second)) {
 		t.Errorf("last_heartbeat_at = %v, want ≥ %v", stamp, before)

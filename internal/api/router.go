@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"io/fs"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -24,7 +25,6 @@ type Router struct {
 	writer       *hub.Writer
 	poller       *hub.RemotePoller
 	wsHub        *WebSocketHub
-	logStream    *LogStreamManager
 	auth         *auth.Service
 	loginLimiter *rateLimiter
 	staticDir    string
@@ -65,7 +65,6 @@ func NewRouter(store *storage.Store, manager *collector.ServerManager, writer *h
 		manager:      manager,
 		writer:       writer,
 		wsHub:        NewWebSocketHub(),
-		logStream:    NewLogStreamManager(store),
 		auth:         authService,
 		loginLimiter: newRateLimiter(15*time.Minute, 5),
 		staticDir:    staticDir,
@@ -87,6 +86,10 @@ func NewRouter(store *storage.Store, manager *collector.ServerManager, writer *h
 	r.mux.HandleFunc("GET /api/matches/{id}", r.handleGetMatch)
 
 	r.mux.HandleFunc("GET /api/stats/leaderboard", r.handleGetLeaderboard)
+
+	// Public list of source names; powers the source-filter dropdown
+	// in the activity log and matches list.
+	r.mux.HandleFunc("GET /api/sources", r.handleGetSourceNames)
 
 	// Auth routes
 	r.mux.HandleFunc("POST /api/auth/login", r.rateLimit(r.loginLimiter, r.handleLogin))
@@ -123,10 +126,14 @@ func NewRouter(store *storage.Store, manager *collector.ServerManager, writer *h
 
 	// WebSocket endpoints
 	r.mux.HandleFunc("GET /ws", r.handleWebSocket)
-	r.mux.HandleFunc("GET /ws/logs", r.handleLogWebSocket)
 
-	// Log status endpoint (admin only)
-	r.mux.HandleFunc("GET /api/servers/{id}/log-status", r.requireAdmin(r.handleLogStatus))
+	// Asset fallbacks. nginx serves these paths as static when the file
+	// is on disk; on a miss it forwards the request here via try_files
+	// → @trinity_fallback. The handler then either 404s or 302s to the
+	// source that owns the asset.
+	r.mux.HandleFunc("GET /demos/{filename}",            r.handleDemo)
+	r.mux.HandleFunc("GET /assets/levelshots/{filename}", r.handleLevelshot)
+	r.mux.HandleFunc("GET /demopk3s/maps/{filename}",    r.handleMapPk3)
 
 	// Player management routes (admin only)
 	r.mux.HandleFunc("GET /api/players/{id}/guids", r.handleGetPlayerGUIDs)
@@ -134,12 +141,16 @@ func NewRouter(store *storage.Store, manager *collector.ServerManager, writer *h
 	r.mux.HandleFunc("POST /api/admin/players/{id}/merge", r.requireAdmin(r.handleMergePlayers))
 	r.mux.HandleFunc("POST /api/admin/guids/{id}/split", r.requireAdmin(r.handleSplitGUID))
 
-	// Distributed-tracking source management
-	r.mux.HandleFunc("GET /api/admin/sources/pending", r.requireAdmin(r.handleListPendingSources))
-	r.mux.HandleFunc("POST /api/admin/sources/{source_uuid}/approve", r.requireAdmin(r.handleApproveSource))
-	r.mux.HandleFunc("POST /api/admin/sources/{source_uuid}/reject", r.requireAdmin(r.handleRejectSource))
-	r.mux.HandleFunc("GET /api/admin/sources/{source_uuid}/creds", r.requireAdmin(r.handleDownloadSourceCreds))
-	r.mux.HandleFunc("POST /api/admin/sources/{source_uuid}/rotate-creds", r.requireAdmin(r.handleRotateSourceCreds))
+	// Distributed-tracking source management. Sources are pre-provisioned:
+	// POST /api/admin/sources creates a new source + mints initial creds
+	// in one call. Collectors cannot publish anything (events, live
+	// status, registration) until a row exists here.
+	r.mux.HandleFunc("GET /api/admin/sources", r.requireAdmin(r.handleListApprovedSources))
+	r.mux.HandleFunc("POST /api/admin/sources", r.requireAdmin(r.handleCreateSource))
+	r.mux.HandleFunc("POST /api/admin/sources/{source}/deactivate", r.requireAdmin(r.handleDeactivateSource))
+	r.mux.HandleFunc("POST /api/admin/sources/{source}/reactivate", r.requireAdmin(r.handleReactivateSource))
+	r.mux.HandleFunc("GET /api/admin/sources/{source}/creds", r.requireAdmin(r.handleDownloadSourceCreds))
+	r.mux.HandleFunc("POST /api/admin/sources/{source}/rotate-creds", r.requireAdmin(r.handleRotateSourceCreds))
 	r.mux.HandleFunc("GET /api/admin/sessions", r.requireAdmin(r.handleListAdminSessions))
 
 	// Quake 3 file serving (admin only, for web game client)
@@ -302,20 +313,135 @@ func getContentType(path string) string {
 	}
 }
 
-// populateDemoURLs checks for demo files on disk and sets DemoURL for matches that have one
+// populateDemoURLs sets DemoURL to a relative /demos/<uuid>.tvd if
+// either the .tvd is on the hub's disk OR the match's source advertises
+// a public URL we can redirect to (handled by handleDemo + the nginx
+// try_files fallback). Empty when there's no way to serve the demo —
+// keeps the UI from rendering a play button that 404s.
 func (r *Router) populateDemoURLs(matches []domain.MatchSummary) {
-	if r.staticDir == "" {
-		return
-	}
 	for i := range matches {
 		if matches[i].UUID == "" {
 			continue
 		}
-		demoPath := filepath.Join(r.staticDir, "demos", matches[i].UUID+".tvd")
-		if _, err := os.Stat(demoPath); err == nil {
+		if r.staticDir != "" {
+			local := filepath.Join(r.staticDir, "demos", matches[i].UUID+".tvd")
+			if _, err := os.Stat(local); err == nil {
+				matches[i].DemoURL = "/demos/" + matches[i].UUID + ".tvd"
+				continue
+			}
+		}
+		base, err := r.store.FindSourcePublicURLForDemo(context.Background(), matches[i].UUID)
+		if err != nil {
+			log.Printf("populateDemoURLs: %v", err)
+			continue
+		}
+		if base != "" {
 			matches[i].DemoURL = "/demos/" + matches[i].UUID + ".tvd"
 		}
 	}
+}
+
+// handleDemo serves a recorded demo. Local file wins; otherwise 302 to
+// the source that owns the match's recording. Only invoked from the
+// nginx try_files fallback on misses.
+func (r *Router) handleDemo(w http.ResponseWriter, req *http.Request) {
+	uuid := stripSuffix(req.PathValue("filename"), ".tvd")
+	if uuid == "" {
+		http.NotFound(w, req)
+		return
+	}
+	if r.staticDir != "" {
+		local := filepath.Join(r.staticDir, "demos", uuid+".tvd")
+		if info, err := os.Stat(local); err == nil && !info.IsDir() {
+			http.ServeFile(w, req, local)
+			return
+		}
+	}
+	base, err := r.store.FindSourcePublicURLForDemo(req.Context(), uuid)
+	if err != nil {
+		log.Printf("handleDemo: %v", err)
+		http.Error(w, "lookup error", http.StatusInternalServerError)
+		return
+	}
+	if base == "" {
+		http.NotFound(w, req)
+		return
+	}
+	http.Redirect(w, req,
+		strings.TrimRight(base, "/")+"/demos/"+uuid+".tvd",
+		http.StatusFound)
+}
+
+// stripSuffix returns name without the given extension if it ends in
+// it, otherwise the empty string. Helper for the asset handlers,
+// which match {filename} and extract a name + validate the extension
+// inline (Go ServeMux doesn't allow literal suffixes on wildcards).
+func stripSuffix(name, ext string) string {
+	if !strings.HasSuffix(name, ext) || strings.ContainsAny(name, "/\\") {
+		return ""
+	}
+	return strings.TrimSuffix(name, ext)
+}
+
+// handleMapPk3 serves a demobaked map pk3. Local file wins; otherwise
+// 302 to a source that's served the map. Wired under /demopk3s/maps/
+// so the engine loader's relative URL keeps working.
+func (r *Router) handleMapPk3(w http.ResponseWriter, req *http.Request) {
+	mapName := stripSuffix(req.PathValue("filename"), ".pk3")
+	if mapName == "" {
+		http.NotFound(w, req)
+		return
+	}
+	if r.staticDir != "" {
+		local := filepath.Join(r.staticDir, "demopk3s", "maps", mapName+".pk3")
+		if info, err := os.Stat(local); err == nil && !info.IsDir() {
+			http.ServeFile(w, req, local)
+			return
+		}
+	}
+	base, err := r.store.FindSourcePublicURLForMap(req.Context(), mapName)
+	if err != nil {
+		log.Printf("handleMapPk3: %v", err)
+		http.Error(w, "lookup error", http.StatusInternalServerError)
+		return
+	}
+	if base == "" {
+		http.NotFound(w, req)
+		return
+	}
+	http.Redirect(w, req,
+		strings.TrimRight(base, "/")+"/demopk3s/maps/"+mapName+".pk3",
+		http.StatusFound)
+}
+
+// handleLevelshot serves a map levelshot. Local file wins; otherwise
+// 302 to a source that's served the map.
+func (r *Router) handleLevelshot(w http.ResponseWriter, req *http.Request) {
+	mapName := stripSuffix(req.PathValue("filename"), ".jpg")
+	if mapName == "" {
+		http.NotFound(w, req)
+		return
+	}
+	if r.staticDir != "" {
+		local := filepath.Join(r.staticDir, "assets", "levelshots", mapName+".jpg")
+		if info, err := os.Stat(local); err == nil && !info.IsDir() {
+			http.ServeFile(w, req, local)
+			return
+		}
+	}
+	base, err := r.store.FindSourcePublicURLForMap(req.Context(), mapName)
+	if err != nil {
+		log.Printf("handleLevelshot: %v", err)
+		http.Error(w, "lookup error", http.StatusInternalServerError)
+		return
+	}
+	if base == "" {
+		http.NotFound(w, req)
+		return
+	}
+	http.Redirect(w, req,
+		strings.TrimRight(base, "/")+"/assets/levelshots/"+mapName+".jpg",
+		http.StatusFound)
 }
 
 // Ensure fs.FS is imported for potential future use

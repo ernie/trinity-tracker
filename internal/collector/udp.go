@@ -133,7 +133,7 @@ func parseStatusResponse(address string, data []byte) (*domain.ServerStatus, err
 		status.MaxClients = mc
 	}
 	if name := vars["sv_hostname"]; name != "" {
-		status.Name = domain.CleanQ3Name(name)
+		status.Key = domain.CleanQ3Name(name)
 	}
 
 	// Extract team scores for team game modes (CTF, TDM)

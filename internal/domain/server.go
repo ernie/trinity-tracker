@@ -2,12 +2,18 @@ package domain
 
 import "time"
 
-// Server represents a Quake 3 server being monitored
+// Server represents a Quake 3 server being monitored. Identity is
+// (source, key) — see schema.sql. The pretty display string the UI
+// shows is composed at render time as "<source> / <key>". Active=false
+// means the operator has decommissioned the server (cfg removal or
+// source deactivation cascade); the row sticks around for historical
+// matches and the UI dims it.
 type Server struct {
 	ID                int64      `json:"id"`
-	Name              string     `json:"name"`
+	Source            string     `json:"source"`
+	Key               string     `json:"key"`
 	Address           string     `json:"address"`
-	LogPath           string     `json:"log_path,omitempty"`
+	Active            bool       `json:"active"`
 	LastMatchUUID     *string    `json:"last_match_uuid,omitempty"`
 	LastMatchEndedAt  *time.Time `json:"last_match_ended_at,omitempty"`
 	CreatedAt         time.Time  `json:"created_at"`
@@ -16,7 +22,8 @@ type Server struct {
 // ServerStatus represents the current state of a server from UDP query
 type ServerStatus struct {
 	ServerID        int64             `json:"server_id"`
-	Name            string            `json:"name"`
+	Source          string            `json:"source"`
+	Key             string            `json:"key"`
 	Address         string            `json:"address"`
 	Map             string            `json:"map"`
 	GameType        string            `json:"game_type"`

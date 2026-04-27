@@ -9,29 +9,23 @@ import (
 	"time"
 )
 
-// WatermarkFilename is the on-disk location of the publisher's progress
-// marker, under the collector's data_dir.
 const WatermarkFilename = "publish_watermark.json"
 
-// WatermarkFlushInterval and WatermarkFlushEvery bound how often the
-// batched watermark is fsynced to disk. The first one to trip wins.
 const (
 	WatermarkFlushInterval = 250 * time.Millisecond
 	WatermarkFlushEvery    = 50
 )
 
-// Watermark is the persisted progress marker. LastSeq / LastTS
-// describe the most recent envelope the collector confirmed was
-// published to NATS; on restart we replay logs up to LastTS silently
-// and resume publishing from LastSeq+1.
+// Watermark is the publisher's persisted progress marker. On restart
+// the collector replays logs up to LastTS silently and resumes at
+// LastSeq+1.
 type Watermark struct {
 	LastSeq uint64    `json:"last_seq"`
 	LastTS  time.Time `json:"last_ts"`
 }
 
-// LoadWatermark reads <dataDir>/publish_watermark.json. Returns a zero
-// Watermark when the file is missing — that means "first run"; the
-// caller should publish from now onward rather than replay history.
+// LoadWatermark returns the stored watermark or a zero value on
+// missing file (first run).
 func LoadWatermark(dataDir string) (Watermark, error) {
 	path := filepath.Join(dataDir, WatermarkFilename)
 	data, err := os.ReadFile(path)
@@ -48,10 +42,7 @@ func LoadWatermark(dataDir string) (Watermark, error) {
 	return wm, nil
 }
 
-// SaveWatermark atomically writes the watermark by writing a sibling
-// .tmp file and renaming over the target. The rename is atomic on
-// POSIX, so a mid-fsync crash leaves either the old or new file,
-// never a half-written file.
+// SaveWatermark atomically writes via a .tmp sibling and rename.
 func SaveWatermark(dataDir string, wm Watermark) error {
 	if err := os.MkdirAll(dataDir, 0o755); err != nil {
 		return fmt.Errorf("natsbus: MkdirAll %s: %w", dataDir, err)
@@ -83,13 +74,7 @@ func SaveWatermark(dataDir string, wm Watermark) error {
 	return nil
 }
 
-// WatermarkTracker buffers in-memory watermark updates from the
-// publisher's hot path and flushes them to disk on a batched cadence
-// (every WatermarkFlushEvery updates or WatermarkFlushInterval).
-//
-// Update is cheap: it mutates an in-memory copy. The tracker calls
-// Save when the thresholds trip, carrying the last-update ordering
-// guarantee (monotonic LastSeq).
+// WatermarkTracker batches watermark writes to disk on a flush cadence.
 type WatermarkTracker struct {
 	dataDir string
 
@@ -100,10 +85,6 @@ type WatermarkTracker struct {
 	lastFlush    time.Time
 }
 
-// NewWatermarkTracker seeds the tracker with the on-disk watermark
-// (via LoadWatermark) so callers can immediately query the resumed
-// position. The returned tracker persists subsequent Update calls
-// according to the batching policy.
 func NewWatermarkTracker(dataDir string) (*WatermarkTracker, error) {
 	wm, err := LoadWatermark(dataDir)
 	if err != nil {
@@ -117,17 +98,14 @@ func NewWatermarkTracker(dataDir string) (*WatermarkTracker, error) {
 	}, nil
 }
 
-// Current returns the latest in-memory watermark (may be ahead of
-// the on-disk copy between flushes).
+// Current returns the latest in-memory watermark (may lead the on-disk copy).
 func (t *WatermarkTracker) Current() Watermark {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	return t.current
 }
 
-// Update records a new Seq/TS pair. Monotonic: if seq is not strictly
-// greater than the stored value, nothing changes. Triggers a flush
-// if the batch thresholds are tripped.
+// Update records a monotonically-increasing Seq/TS pair; older seqs are ignored.
 func (t *WatermarkTracker) Update(seq uint64, ts time.Time) error {
 	t.mu.Lock()
 	if seq <= t.current.LastSeq {
@@ -157,8 +135,7 @@ func (t *WatermarkTracker) Update(seq uint64, ts time.Time) error {
 	return nil
 }
 
-// Flush forces an immediate disk write of the current watermark,
-// regardless of batch thresholds. Call on graceful shutdown.
+// Flush forces an immediate disk write. Call on graceful shutdown.
 func (t *WatermarkTracker) Flush() error {
 	t.mu.Lock()
 	wm := t.current

@@ -5,40 +5,26 @@ import (
 	"time"
 )
 
-// RPCClient is the call-site contract for the collector's
-// greet/claim/link flows. In standalone mode *Writer satisfies it
-// directly; in distributed mode it is satisfied by a NATS req/reply
-// wrapper. Routing is chosen by main.go.
+// RPCClient is the collector → hub contract for greet/claim/link.
 type RPCClient interface {
 	Greet(ctx context.Context, req GreetRequest) (GreetReply, error)
 	Claim(ctx context.Context, req ClaimRequest) (ClaimReply, error)
 	Link(ctx context.Context, req LinkRequest) (LinkReply, error)
 }
 
-// RPC request/reply types for synchronous flows between the collector
-// and the hub writer. In standalone mode these travel through in-process
-// channels; in distributed mode they are published as NATS request/reply
-// on `trinity.rpc.<kind>.<source_id>`. The shapes are identical across
-// transports.
-//
-// The collector holds the rcon connection and owns all player-facing
-// output. The hub holds the DB and owns all identity resolution, stats
-// lookups, and claim/link bookkeeping.
-
-// AuthResult enumerates the outcomes of a Trinity auth attempt folded
-// into the greet RPC.
+// AuthResult reports whether the optional auth info inside a Trinity
+// handshake validated this session. Independent of GreetReply.IsVerified,
+// which reflects whether the GUID is already linked to a user account.
 type AuthResult string
 
 const (
-	AuthVerified        AuthResult = "verified"
-	AuthFailed          AuthResult = "failed"
-	AuthUnauthenticated AuthResult = "unauthenticated"
+	AuthVerified        AuthResult = "verified"        // auth info present and validated
+	AuthFailed          AuthResult = "failed"          // auth info present but invalid
+	AuthUnauthenticated AuthResult = "unauthenticated" // no auth info sent
 )
 
-// GreetRequest is sent once per player join. The collector assembles it
-// from its in-memory client state plus (optionally) the Trinity
-// handshake parse. Auth is nil when the client did not attempt a
-// handshake; the hub treats it as unauthenticated.
+// GreetRequest is sent once per player join. Auth is nil when the
+// client did not attempt a Trinity handshake.
 type GreetRequest struct {
 	ServerID      int64      `json:"server_id"`
 	MatchUUID     string     `json:"match_uuid,omitempty"`
@@ -50,30 +36,32 @@ type GreetRequest struct {
 	Auth          *AuthProof `json:"auth,omitempty"`
 }
 
-// AuthProof carries a Trinity auth handshake. The hub looks up
-// `users.game_token` for Username and verifies TokenHash ==
-// sipHashHex(token, Nonce).
+// AuthProof is the optional trailing portion of the Trinity handshake
+// that proves account ownership via SipHash: TokenHash ==
+// sipHashHex(users.game_token[Username], Nonce). When present and
+// valid, the hub auto-links the GUID to the named user's player. A
+// player can still be verified (GUID already linked) without sending
+// AuthProof.
 type AuthProof struct {
 	Username  string `json:"username"`
 	Nonce     string `json:"nonce"`
 	TokenHash string `json:"token_hash"`
 }
 
-// GreetReply tells the collector what welcome to print and gives it the
-// player_id / verified flags needed for downstream event population.
+// GreetReply: IsVerified means the GUID is linked to a user account
+// (green-checkmark state). GUIDLinked means this greet just did the
+// linking. AuthResult reports session-scoped auth outcome.
 type GreetReply struct {
 	AuthResult       AuthResult `json:"auth_result"`
-	PlayerID         int64      `json:"player_id"`
 	CanonicalName    string     `json:"canonical_name"`
 	Claimed          bool       `json:"claimed"`
 	IsVerified       bool       `json:"is_verified"`
 	IsAdmin          bool       `json:"is_admin"`
-	GUIDLinked       bool       `json:"guid_linked"` // set if this greet just merged the GUID onto an authed user's player
+	GUIDLinked       bool       `json:"guid_linked"`
 	KDRatio          float64    `json:"kd_ratio"`
 	CompletedMatches int64      `json:"completed_matches"`
 }
 
-// ClaimStatus enumerates the outcomes of a `!claim` chat command.
 type ClaimStatus string
 
 const (
@@ -83,16 +71,10 @@ const (
 	ClaimError          ClaimStatus = "error"
 )
 
-// ClaimRequest is sent when a player issues `!claim` in chat. The
-// collector forwards the player's current GUID and its best guess at
-// PlayerID (from the most recent greet reply).
 type ClaimRequest struct {
-	GUID     string `json:"guid"`
-	PlayerID int64  `json:"player_id"`
+	GUID string `json:"guid"`
 }
 
-// ClaimReply carries the generated code (when Status == ClaimOK) or the
-// reason for failure. The collector prints the code to the player.
 type ClaimReply struct {
 	Status    ClaimStatus `json:"status"`
 	Code      string      `json:"code,omitempty"`
@@ -100,7 +82,6 @@ type ClaimReply struct {
 	Message   string      `json:"message,omitempty"`
 }
 
-// LinkStatus enumerates the outcomes of a `!link <code>` chat command.
 type LinkStatus string
 
 const (
@@ -112,16 +93,12 @@ const (
 	LinkError         LinkStatus = "error"
 )
 
-// LinkRequest is sent when a player issues `!link <code>` in chat.
 type LinkRequest struct {
 	GUID string `json:"guid"`
 	Code string `json:"code"`
 }
 
-// LinkReply tells the collector the outcome and (on success) the new
-// PlayerID so it can update its in-memory client state.
 type LinkReply struct {
-	Status      LinkStatus `json:"status"`
-	NewPlayerID int64      `json:"new_player_id,omitempty"`
-	Message     string     `json:"message,omitempty"`
+	Status  LinkStatus `json:"status"`
+	Message string     `json:"message,omitempty"`
 }

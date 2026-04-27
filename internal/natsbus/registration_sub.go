@@ -11,24 +11,16 @@ import (
 	"github.com/ernie/trinity-tracker/internal/domain"
 )
 
-// RegistrationHandler processes an incoming Registration. The hub's
-// implementation updates heartbeat timestamps for approved sources
-// and upserts pending_sources rows for unknown ones.
 type RegistrationHandler interface {
 	HandleRegistration(ctx context.Context, reg domain.Registration) error
 }
 
-// RegistrationSubscriber is a core-NATS subscription on
-// trinity.register.>. It is not JetStream-bound: late-joining hubs
-// resync within one heartbeat interval, which is cheaper than a
-// durable consumer for this workload. Use NewRegistrationSubscriber
-// to construct.
+// RegistrationSubscriber listens on trinity.register.> (core NATS, not
+// JetStream — late hubs resync within one heartbeat interval).
 type RegistrationSubscriber struct {
 	sub *nats.Subscription
 }
 
-// NewRegistrationSubscriber subscribes core NATS on
-// trinity.register.> and routes decoded registrations to the handler.
 func NewRegistrationSubscriber(nc *nats.Conn, h RegistrationHandler) (*RegistrationSubscriber, error) {
 	if nc == nil {
 		return nil, fmt.Errorf("natsbus.NewRegistrationSubscriber: NATS connection is required")
@@ -52,7 +44,6 @@ func NewRegistrationSubscriber(nc *nats.Conn, h RegistrationHandler) (*Registrat
 	return &RegistrationSubscriber{sub: sub}, nil
 }
 
-// Stop tears down the subscription.
 func (s *RegistrationSubscriber) Stop() {
 	if s == nil || s.sub == nil {
 		return

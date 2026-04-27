@@ -12,39 +12,32 @@ import (
 	"github.com/ernie/trinity-tracker/internal/hub"
 )
 
-// LiveServerResolver maps (source_uuid, remote_server_id) to a local
-// servers.id for live-event dispatch. Satisfied by *storage.Store via
-// its ResolveServerIDForSource method.
+// LiveServerResolver maps (source, remote_server_id) to a local
+// servers.id for live-event dispatch.
 type LiveServerResolver interface {
-	ResolveServerIDForSource(ctx context.Context, sourceUUID string, remoteServerID int64) (int64, error)
+	ResolveServerIDForSource(ctx context.Context, source string, remoteServerID int64) (int64, error)
 }
 
-// LiveEventEnricher fills in PlayerID fields on live-event payloads so
-// browser clients get stable identity. Satisfied by *hub.Writer.
+// LiveEventEnricher fills in PlayerID fields on live-event payloads.
 type LiveEventEnricher interface {
 	EnrichEvent(ctx context.Context, event domain.Event) domain.Event
 }
 
-// LiveSubscriber consumes trinity.live.> (core NATS, no JetStream)
-// and pushes decoded+enriched events onto the supplied sink.
-//
-// The subscriber skips events whose SourceUUID matches selfSourceUUID
-// (the local collector in a hub+collector deployment) so the local
-// path isn't duplicated by a NATS round-trip.
+// LiveSubscriber pushes trinity.live.> envelopes (decoded + enriched)
+// onto the sink. Skips events matching selfSource so a co-located
+// collector's own events aren't duplicated.
 type LiveSubscriber struct {
-	nc       *nats.Conn
-	sub      *nats.Subscription
-	resolver LiveServerResolver
-	enricher LiveEventEnricher
-	sink     hub.LiveEventSink
-	selfUUID string
+	nc         *nats.Conn
+	sub        *nats.Subscription
+	resolver   LiveServerResolver
+	enricher   LiveEventEnricher
+	sink       hub.LiveEventSink
+	selfSource string
 }
 
-// NewLiveSubscriber subscribes to trinity.live.> and begins forwarding
-// events to sink. In hub+local-collector mode, pass the local
-// collector's source_uuid as selfSourceUUID to skip its own events.
-// Pass "" when no local collector is running.
-func NewLiveSubscriber(nc *nats.Conn, resolver LiveServerResolver, enricher LiveEventEnricher, sink hub.LiveEventSink, selfSourceUUID string) (*LiveSubscriber, error) {
+// NewLiveSubscriber subscribes to trinity.live.>. Pass the local
+// collector's source to skip its own events, or "" if none.
+func NewLiveSubscriber(nc *nats.Conn, resolver LiveServerResolver, enricher LiveEventEnricher, sink hub.LiveEventSink, selfSource string) (*LiveSubscriber, error) {
 	if nc == nil {
 		return nil, fmt.Errorf("natsbus.NewLiveSubscriber: NATS connection is required")
 	}
@@ -55,11 +48,11 @@ func NewLiveSubscriber(nc *nats.Conn, resolver LiveServerResolver, enricher Live
 		return nil, fmt.Errorf("natsbus.NewLiveSubscriber: sink is required")
 	}
 	s := &LiveSubscriber{
-		nc:       nc,
-		resolver: resolver,
-		enricher: enricher,
-		sink:     sink,
-		selfUUID: selfSourceUUID,
+		nc:         nc,
+		resolver:   resolver,
+		enricher:   enricher,
+		sink:       sink,
+		selfSource: selfSource,
 	}
 	sub, err := nc.Subscribe(SubjectLivePrefix+">", s.handle)
 	if err != nil {
@@ -69,7 +62,6 @@ func NewLiveSubscriber(nc *nats.Conn, resolver LiveServerResolver, enricher Live
 	return s, nil
 }
 
-// Stop unsubscribes and ends delivery. Safe to call more than once.
 func (s *LiveSubscriber) Stop() {
 	if s == nil || s.sub == nil {
 		return
@@ -84,25 +76,23 @@ func (s *LiveSubscriber) handle(m *nats.Msg) {
 		log.Printf("natsbus.LiveSubscriber: discarding unparseable envelope: %v", err)
 		return
 	}
-	if env.SourceUUID == "" {
-		log.Printf("natsbus.LiveSubscriber: envelope missing source_uuid (event=%s)", env.Event)
+	if env.Source == "" {
+		log.Printf("natsbus.LiveSubscriber: envelope missing source (event=%s)", env.Event)
 		return
 	}
-	if s.selfUUID != "" && env.SourceUUID == s.selfUUID {
-		// Local collector's event — delivered through the in-process
-		// manager.Events() channel already.
-		return
+	if s.selfSource != "" && env.Source == s.selfSource {
+		return // already delivered via the in-process manager.Events() channel
 	}
 
 	ctx := context.Background()
 	serverID := env.RemoteServerID
-	if resolved, err := s.resolver.ResolveServerIDForSource(ctx, env.SourceUUID, env.RemoteServerID); err == nil && resolved != 0 {
+	if resolved, err := s.resolver.ResolveServerIDForSource(ctx, env.Source, env.RemoteServerID); err == nil && resolved != 0 {
 		serverID = resolved
 	}
 
 	payload, err := decodeLiveEventPayload(env.Event, env.Data)
 	if err != nil {
-		log.Printf("natsbus.LiveSubscriber: decode %s for source %s: %v", env.Event, env.SourceUUID, err)
+		log.Printf("natsbus.LiveSubscriber: decode %s for source %q: %v", env.Event, env.Source, err)
 		return
 	}
 
@@ -155,6 +145,8 @@ func decodeLiveEventPayload(eventType string, raw json.RawMessage) (interface{},
 		target = &domain.SayRconEvent{}
 	case domain.EventAward:
 		target = &domain.AwardEvent{}
+	case domain.EventClientUserinfo:
+		target = &domain.ClientUserinfoEvent{}
 	default:
 		return nil, fmt.Errorf("unknown live event type %q", eventType)
 	}
@@ -163,8 +155,7 @@ func decodeLiveEventPayload(eventType string, raw json.RawMessage) (interface{},
 			return nil, err
 		}
 	}
-	// Return the concrete value (not the pointer) so EnrichEvent's type
-	// switch matches the existing domain.*Event case arms.
+	// Return a value (not a pointer) so EnrichEvent's type switch matches.
 	switch t := target.(type) {
 	case *domain.PlayerJoinEvent:
 		return *t, nil
@@ -199,6 +190,8 @@ func decodeLiveEventPayload(eventType string, raw json.RawMessage) (interface{},
 	case *domain.SayRconEvent:
 		return *t, nil
 	case *domain.AwardEvent:
+		return *t, nil
+	case *domain.ClientUserinfoEvent:
 		return *t, nil
 	}
 	return nil, fmt.Errorf("unreachable: live event %q unmapped after decode", eventType)

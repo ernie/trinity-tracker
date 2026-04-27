@@ -12,59 +12,28 @@ import (
 	"github.com/ernie/trinity-tracker/internal/storage"
 )
 
-// notFound returns true when err signals "no rows" from the store. The
-// lookup methods below normalize such errors to a nil-result/nil-error
-// pair so callers can treat absence as a value rather than an error.
 func notFound(err error) bool {
 	return errors.Is(err, sql.ErrNoRows)
 }
 
 // Writer is the hub-side consumer of fact events. It owns the store
 // and serializes all DB writes through a single consume goroutine.
-//
-// In standalone mode (M1) the collector's ServerManager pushes events
-// into Publish(); in distributed mode (M2) a NATS subscription feeds
-// the same channel. The collector code is identical across both modes
-// because the public API is the same.
 type Writer struct {
 	store  *storage.Store
 	events chan domain.FactEvent
 
-	// preStop runs before the events channel is closed, giving an
-	// embedded NATS server (or any other inbound source) a chance to
-	// stop accepting work before the writer drains.
 	preStop func()
 
-	// publisher, when set, diverts Publish calls to a remote transport
-	// instead of the in-process channel. Populated in distributed mode
-	// (tracker.collector configured).
 	publisher FactPublisher
 
-	// localWatermark, when set, records the timestamp of each
-	// successfully-dispatched event. Standalone mode uses this as its
-	// replay cutoff on next boot; distributed mode leaves it nil and
-	// relies on the natsbus watermark on the publisher side.
-	localWatermark *LocalWatermarkTracker
-
-	// presence tracks (serverID, clientNum) → guid for every
-	// currently-connected human player, fed by handlePlayerJoin /
-	// handlePlayerLeave. The hub poller uses it to enrich UDP
-	// statusResponse rows with identity; EnrichEvent doesn't need it
-	// (live events already carry GUID).
 	presence *Presence
 
-	// sources gates incoming fact-event envelopes by source_uuid.
-	// Owned by the writer so HandleEnvelope can consult it without an
-	// extra parameter.
 	sources *SourceRegistry
 
-	// guidCache memoizes GUID → player_id lookups for broadcast
-	// enrichment. A resolved GUID is permanent until AssociateGUIDWithPlayer
-	// (Trinity auth) or MergePlayers (!link) moves it; both paths
-	// invalidate explicitly. Negative results are not cached — a GUID
-	// may transition from unknown to known at any time via
-	// UpsertPlayerIdentity, and re-querying the store on those
-	// (rare-but-expected) misses is cheap.
+	// guidCache memoizes GUID → player_id. Positive entries are
+	// invalidated explicitly by AssociateGUIDWithPlayer and MergePlayers;
+	// negative results are not cached because a GUID can transition to
+	// known at any time via UpsertPlayerIdentity.
 	guidMu    sync.RWMutex
 	guidCache map[string]int64
 
@@ -72,47 +41,27 @@ type Writer struct {
 	stopOnce sync.Once
 }
 
-// Option configures a Writer at construction.
 type Option func(*Writer)
 
-// WithPreStop registers a function to run at the start of Stop, before
-// the fact-event channel is closed. Used to shut down inbound sources
-// (e.g. the embedded NATS server in hub mode) so the writer can drain
-// cleanly.
+// WithPreStop runs fn before Stop closes the event channel, so inbound
+// sources (e.g. the embedded NATS server) can quiesce first.
 func WithPreStop(fn func()) Option {
 	return func(w *Writer) { w.preStop = fn }
 }
 
-// FactPublisher is the wire-side handoff used when the process has a
-// collector role active under distributed tracking. The collector
-// still calls Writer.Publish; the writer forwards to the publisher
-// rather than dispatching to the local DB pipeline.
+// FactPublisher forwards fact events off-box instead of dispatching
+// in-process.
 type FactPublisher interface {
 	Publish(e domain.FactEvent) error
 }
 
-// WithFactPublisher swaps the writer's local Publish path for a
-// remote publisher. When set, Writer.Publish serializes and forwards
-// to NATS instead of dispatching in-process. The local dispatch
-// goroutine still runs so hub-side consumption (phase 4+) can feed
-// it from a NATS subscriber.
+// WithFactPublisher diverts Publish to a remote transport.
 func WithFactPublisher(p FactPublisher) Option {
 	return func(w *Writer) { w.publisher = p }
 }
 
-// WithLocalWatermark attaches a LocalWatermarkTracker to the writer so
-// each successfully-dispatched event advances the on-disk watermark.
-// Standalone mode uses this for replay cutoff on next boot.
-func WithLocalWatermark(t *LocalWatermarkTracker) Option {
-	return func(w *Writer) { w.localWatermark = t }
-}
-
-// eventBufferSize is the in-process fact-event channel capacity. Chosen
-// larger than any plausible burst from a single match end (~32 players
-// × a handful of events) to avoid blocking collectors in the hot path.
 const eventBufferSize = 1024
 
-// NewWriter constructs a Writer bound to the given store.
 func NewWriter(store *storage.Store, opts ...Option) *Writer {
 	w := &Writer{
 		store:     store,
@@ -127,14 +76,9 @@ func NewWriter(store *storage.Store, opts ...Option) *Writer {
 	return w
 }
 
-// Presence exposes the hub's (serverID, clientNum) → GUID map so the
-// poller can enrich UDP statusResponse rows with identity.
 func (w *Writer) Presence() *Presence { return w.presence }
 
-// ResolveIdentity satisfies IdentityResolver for the hub poller. It
-// looks up the player_guids row for guid, then the verified/admin
-// flags on the linked players row. ok is false when the GUID is
-// unknown.
+// ResolveIdentity satisfies IdentityResolver for the hub poller.
 func (w *Writer) ResolveIdentity(ctx context.Context, guid string) (playerID int64, verified, admin, ok bool) {
 	id, found := w.resolveGUIDPlayerID(ctx, guid)
 	if !found {
@@ -144,43 +88,36 @@ func (w *Writer) ResolveIdentity(ctx context.Context, guid string) (playerID int
 	return id, v, a, true
 }
 
-// MarkSourceApproved pre-approves a source_uuid for event dispatch.
-// Used in hub+collector deployments to green-light the local
-// collector's own source before any heartbeats have registered it.
-func (w *Writer) MarkSourceApproved(sourceUUID string) {
-	w.sources.MarkApproved(sourceUUID)
+// MarkSourceApproved primes the in-memory cache for a source known
+// to exist. Callers must have already created the sources row (or
+// know it was created elsewhere); this just skips the first DB
+// lookup on the ingest path.
+func (w *Writer) MarkSourceApproved(source string) {
+	w.sources.MarkApproved(source)
 }
 
-// ApproveSource is the admin flow: create/update servers rows for
-// the pending source's roster (is_remote=1) and drain the in-memory
-// DLQ through HandleEnvelope. The demoBaseURL is stamped on each
-// row so Match links resolve to the remote collector's server.
-func (w *Writer) ApproveSource(ctx context.Context, reg domain.Registration, demoBaseURL string) error {
-	if err := w.store.ApproveRemoteServers(ctx, reg, demoBaseURL); err != nil {
+// DeactivateSource marks the source + its servers inactive and flips
+// the in-memory cache to Blocked. Rows stay in the DB so historical
+// matches keep their (source, key) reference; the UI dims inactive
+// content. Admin endpoint pairs this with creds revocation at the
+// NATS layer.
+func (w *Writer) DeactivateSource(ctx context.Context, source string) error {
+	if err := w.store.DeactivateSource(ctx, source); err != nil {
 		return err
 	}
-	w.sources.MarkApproved(reg.SourceUUID)
-	for _, env := range w.sources.TakeDLQ(reg.SourceUUID) {
-		if err := w.HandleEnvelope(ctx, env); err != nil {
-			return err
-		}
-	}
+	w.sources.MarkBlocked(source)
 	return nil
 }
 
-// RejectSource blocks a pending source and discards its DLQ.
-func (w *Writer) RejectSource(sourceUUID string) error {
-	if err := w.store.DeletePendingSource(context.Background(), sourceUUID); err != nil {
+// ReactivateSource is the inverse of DeactivateSource.
+func (w *Writer) ReactivateSource(ctx context.Context, source string) error {
+	if err := w.store.ReactivateSource(ctx, source); err != nil {
 		return err
 	}
-	w.sources.Reject(sourceUUID)
+	w.sources.MarkApproved(source)
 	return nil
 }
 
-// resolveGUIDPlayerID returns the player_id for a GUID, hitting the
-// in-memory cache first and falling through to the store on miss.
-// Successful lookups are cached. Returns (0, false) if the GUID does
-// not resolve.
 func (w *Writer) resolveGUIDPlayerID(ctx context.Context, guid string) (int64, bool) {
 	if guid == "" {
 		return 0, false
@@ -201,9 +138,6 @@ func (w *Writer) resolveGUIDPlayerID(ctx context.Context, guid string) (int64, b
 	return pg.PlayerID, true
 }
 
-// invalidateGUID drops a single GUID's cache entry. Called after an
-// AssociateGUIDWithPlayer merge when Trinity auth links a GUID onto a
-// user's player.
 func (w *Writer) invalidateGUID(guid string) {
 	if guid == "" {
 		return
@@ -213,17 +147,12 @@ func (w *Writer) invalidateGUID(guid string) {
 	w.guidMu.Unlock()
 }
 
-// invalidateAllGUIDs flushes the entire cache. Called after MergePlayers
-// (!link) since the mutation can touch every GUID attached to the
-// source player and the writer doesn't track that membership.
 func (w *Writer) invalidateAllGUIDs() {
 	w.guidMu.Lock()
 	w.guidCache = make(map[string]int64)
 	w.guidMu.Unlock()
 }
 
-// Start launches the consume goroutine and any background maintenance
-// loops. Runs until Stop is called or ctx is cancelled.
 func (w *Writer) Start(ctx context.Context) {
 	w.wg.Add(1)
 	go w.run(ctx)
@@ -231,9 +160,7 @@ func (w *Writer) Start(ctx context.Context) {
 	go w.linkCodeCleanupLoop(ctx)
 }
 
-// Stop signals the consume goroutine to shut down and waits for it to
-// drain. Any registered pre-stop hook runs first so inbound sources
-// can quiesce before the channel closes. Safe to call more than once.
+// Stop drains the consume goroutine. Safe to call more than once.
 func (w *Writer) Stop() {
 	w.stopOnce.Do(func() {
 		if w.preStop != nil {
@@ -244,11 +171,8 @@ func (w *Writer) Stop() {
 	w.wg.Wait()
 }
 
-// Publish sends a fact event to the writer. In standalone mode this
-// blocks on the in-process channel if full — by design: losing fact
-// events silently would corrupt the persistent state. In distributed
-// mode (FactPublisher set) the event is forwarded to NATS and any
-// publish error is returned. Writer.Publish satisfies FactPublisher.
+// Publish forwards to the configured FactPublisher if set, otherwise
+// blocks on the in-process channel (losing fact events would corrupt state).
 func (w *Writer) Publish(e domain.FactEvent) error {
 	if w.publisher != nil {
 		return w.publisher.Publish(e)
@@ -261,11 +185,6 @@ func (w *Writer) run(ctx context.Context) {
 	defer w.wg.Done()
 	for e := range w.events {
 		w.dispatch(ctx, e)
-		if w.localWatermark != nil {
-			if err := w.localWatermark.Observe(e.Timestamp); err != nil {
-				log.Printf("hub: local watermark observe: %v", err)
-			}
-		}
 	}
 }
 
@@ -281,6 +200,8 @@ func (w *Writer) dispatch(ctx context.Context, e domain.FactEvent) {
 		w.handleMatchCrashed(ctx, data)
 	case domain.PlayerJoinData:
 		w.handlePlayerJoin(ctx, e.ServerID, data)
+	case domain.PresenceSnapshotData:
+		w.handlePresenceSnapshot(e.ServerID, data)
 	case domain.PlayerLeaveData:
 		w.handlePlayerLeave(ctx, e.ServerID, data)
 	case domain.TrinityHandshakeData:
@@ -296,25 +217,20 @@ func (w *Writer) dispatch(ctx context.Context, e domain.FactEvent) {
 }
 
 // handleMatchStart persists a new match or adopts an existing row with
-// the same UUID (idempotent — the collector may emit MatchStart for a
-// match that was already created by a prior run's events).
-//
-// Matches from servers that don't require the Trinity handshake are
-// refused. A well-behaved collector already skips match_start in that
-// case; this is the safety net for anything that slips through. The
-// gate scopes recorded stats to verified Trinity-client play (Q3
-// servers don't run in pure mode, so g_trinityHandshake is the
-// practical bar) and nudges operators toward the hub's account flow.
+// the same UUID (idempotent across collector replay and retries). Refuses
+// matches from servers that don't require g_trinityHandshake so stats
+// are scoped to clients that submit a Trinity handshake — independent
+// of whether those handshakes carry valid auth info.
 func (w *Writer) handleMatchStart(ctx context.Context, serverID int64, data domain.MatchStartData) {
 	if !data.HandshakeRequired {
 		log.Printf("hub: match_start rejected (server %d, uuid=%s): handshake_required=false", serverID, data.MatchUUID)
 		return
 	}
+	w.presence.ResetCounters(serverID)
 	if existing, err := w.store.GetMatchByUUID(ctx, data.MatchUUID); err != nil {
 		log.Printf("hub: match_start UUID lookup failed: %v", err)
 		return
 	} else if existing != nil {
-		// Already recorded. Fill in any columns that were empty (late replay fill).
 		if existing.Movement == "" && data.Movement != "" {
 			if err := w.store.UpdateMatchMovement(ctx, existing.ID, data.Movement); err != nil {
 				log.Printf("hub: update movement on existing match %d: %v", existing.ID, err)
@@ -346,11 +262,6 @@ func (w *Writer) handleMatchStart(ctx context.Context, serverID int64, data doma
 }
 
 // handleMatchEnd flushes per-player stats and closes the match row.
-// These are a single atomic operation as far as the collector is
-// concerned: one MatchEndData event produces both writes. Every
-// player with a resolvable GUID is flushed regardless of whether
-// they've linked a users account — account linkage affects public
-// leaderboards and greetings, not whether a match-end row exists.
 func (w *Writer) handleMatchEnd(ctx context.Context, data domain.MatchEndData) {
 	match, err := w.store.GetMatchByUUID(ctx, data.MatchUUID)
 	if err != nil {
@@ -428,19 +339,42 @@ func (w *Writer) handleMatchCrashed(ctx context.Context, data domain.MatchCrashe
 	log.Printf("hub: match_crashed match=%d uuid=%s ended_at=%s", match.ID, data.MatchUUID, data.EndedAt.Format(time.RFC3339))
 }
 
-// handlePlayerJoin creates a session row for a player's arrival. The
-// collector emits this only for human players; bot identity is handled
-// separately and does not generate sessions.
-//
-// Idempotent: if an open session already exists for this (server, guid)
-// we leave it alone. This covers collector crash-replay, NATS retries,
-// and map-change re-emission — any case where the collector is uncertain
-// and publishes a belt-and-suspenders player_join.
+// handlePresenceSnapshot restores an in-memory presence entry for a
+// player the collector already has in state.clients — typically after
+// a hub restart while a match was in progress. Unlike handlePlayerJoin
+// it does no session work, because the player didn't actually join;
+// they were already there and their DB session (if any) was persisted
+// on the original join.
+func (w *Writer) handlePresenceSnapshot(serverID int64, data domain.PresenceSnapshotData) {
+	w.presence.RecordJoin(serverID, data.ClientNum, PresenceEntry{
+		GUID:         data.GUID,
+		Model:        data.Model,
+		IsBot:        data.IsBot,
+		IsVR:         data.IsVR,
+		Skill:        data.Skill,
+		Impressives:  data.Impressives,
+		Excellents:   data.Excellents,
+		Humiliations: data.Humiliations,
+		Defends:      data.Defends,
+		Captures:     data.Captures,
+		Assists:      data.Assists,
+	})
+}
+
+// handlePlayerJoin records presence and, for humans, opens a session.
+// Idempotent: existing open sessions for (server, guid) are left alone.
 func (w *Writer) handlePlayerJoin(ctx context.Context, serverID int64, data domain.PlayerJoinData) {
-	// Record presence regardless of session outcome: a later poll for
-	// server status should be able to identify the slot even when the
-	// GUID is momentarily unknown to the store (late upsert arrival).
-	w.presence.RecordJoin(serverID, data.ClientNum, data.GUID)
+	w.presence.RecordJoin(serverID, data.ClientNum, PresenceEntry{
+		GUID:  data.GUID,
+		Model: data.Model,
+		IsBot: data.IsBot,
+		IsVR:  data.IsVR,
+		Skill: data.Skill,
+	})
+
+	if data.IsBot {
+		return
+	}
 
 	pg, err := w.store.GetPlayerGUIDByGUID(ctx, data.GUID)
 	if notFound(err) || pg == nil {
@@ -470,10 +404,8 @@ func (w *Writer) handlePlayerJoin(ctx context.Context, serverID int64, data doma
 	log.Printf("hub: player_join session=%d guid=%s name=%s server=%d", session.ID, data.GUID, data.CleanName, serverID)
 }
 
-// handlePlayerLeave closes the open session for the given GUID on the
-// given server.
 func (w *Writer) handlePlayerLeave(ctx context.Context, serverID int64, data domain.PlayerLeaveData) {
-	w.presence.RecordLeave(serverID, data.GUID)
+	w.presence.RecordLeave(serverID, data.ClientNum, data.GUID)
 
 	session, err := w.resolveOpenSession(ctx, serverID, data.GUID)
 	if err != nil {
@@ -491,8 +423,6 @@ func (w *Writer) handlePlayerLeave(ctx context.Context, serverID int64, data dom
 	log.Printf("hub: player_leave session=%d guid=%s duration=%ds", session.ID, data.GUID, data.DurationSeconds)
 }
 
-// handleTrinityHandshake stamps the open session with client_engine /
-// client_version.
 func (w *Writer) handleTrinityHandshake(ctx context.Context, serverID int64, data domain.TrinityHandshakeData) {
 	session, err := w.resolveOpenSession(ctx, serverID, data.GUID)
 	if err != nil {
@@ -527,8 +457,6 @@ func (w *Writer) handleServerShutdown(ctx context.Context, serverID int64, data 
 	log.Printf("hub: server_shutdown server=%d swept open sessions before %s", serverID, data.ShutdownAt.Format(time.RFC3339))
 }
 
-// resolveOpenSession is a shared helper that resolves (serverID, GUID)
-// to the matching open session row, or nil if none exists.
 func (w *Writer) resolveOpenSession(ctx context.Context, serverID int64, guid string) (*domain.Session, error) {
 	pg, err := w.store.GetPlayerGUIDByGUID(ctx, guid)
 	if notFound(err) || pg == nil {
@@ -544,9 +472,7 @@ func (w *Writer) resolveOpenSession(ctx context.Context, serverID int64, guid st
 	return session, err
 }
 
-// PlayerIdentity is the result of an identity upsert or lookup. PlayerID
-// is zero if the GUID is unknown. IsVerified/IsAdmin reflect the user
-// account linked to the player (false if unlinked).
+// PlayerIdentity is the result of an identity upsert or lookup.
 type PlayerIdentity struct {
 	PlayerID     int64
 	PlayerGUIDID int64
@@ -555,8 +481,6 @@ type PlayerIdentity struct {
 	Found        bool
 }
 
-// UpsertPlayerIdentity upserts a human player_guid row and returns the
-// canonical identity. Called by the collector at ClientUserinfo time.
 func (w *Writer) UpsertPlayerIdentity(ctx context.Context, guid, name, cleanName string, ts time.Time, isVR bool) (PlayerIdentity, error) {
 	pg, err := w.store.UpsertPlayerGUID(ctx, guid, name, cleanName, ts, isVR)
 	if err != nil || pg == nil {
@@ -572,8 +496,6 @@ func (w *Writer) UpsertPlayerIdentity(ctx context.Context, guid, name, cleanName
 	}, nil
 }
 
-// UpsertBotPlayerIdentity upserts a bot's synthetic player_guid row. Bots
-// never have linked user accounts so verified/admin are always false.
 func (w *Writer) UpsertBotPlayerIdentity(ctx context.Context, name, cleanName string, ts time.Time) (PlayerIdentity, error) {
 	pg, err := w.store.UpsertBotPlayerGUID(ctx, name, cleanName, ts)
 	if err != nil || pg == nil {
@@ -586,9 +508,7 @@ func (w *Writer) UpsertBotPlayerIdentity(ctx context.Context, name, cleanName st
 	}, nil
 }
 
-// LookupPlayerIdentity reads an existing player_guid row without
-// creating one. Used by the collector in replay mode. Returns Found=false
-// if the GUID is unknown.
+// LookupPlayerIdentity reads an existing player_guid row without creating one.
 func (w *Writer) LookupPlayerIdentity(ctx context.Context, guid string) (PlayerIdentity, error) {
 	pg, err := w.store.GetPlayerGUIDByGUID(ctx, guid)
 	if notFound(err) || pg == nil {
@@ -607,18 +527,12 @@ func (w *Writer) LookupPlayerIdentity(ctx context.Context, guid string) (PlayerI
 	}, nil
 }
 
-// Greet handles a greet RPC from the collector. It resolves identity,
-// optionally verifies Trinity auth credentials (SipHash), auto-associates
-// the GUID with the user's player on successful auth, and returns the
-// data the collector needs to build the welcome rcon message.
-//
-// In distributed mode (M2) this becomes a NATS request/reply on
-// trinity.rpc.greet.<source_id>. The reply shape is identical.
+// Greet resolves identity, optionally verifies Trinity auth credentials
+// via SipHash, and auto-associates the GUID with the user's player on
+// successful auth.
 func (w *Writer) Greet(ctx context.Context, req GreetRequest) (GreetReply, error) {
 	reply := GreetReply{AuthResult: AuthUnauthenticated}
 
-	// Identity resolution: the collector has already upserted by the time
-	// it calls Greet, so GetPlayerGUIDByGUID must find it.
 	pg, err := w.store.GetPlayerGUIDByGUID(ctx, req.GUID)
 	if err != nil {
 		return reply, err
@@ -650,7 +564,6 @@ func (w *Writer) Greet(ctx context.Context, req GreetRequest) (GreetReply, error
 		}
 	}
 
-	reply.PlayerID = playerID
 	reply.CanonicalName = pg.CleanName
 
 	stats, err := w.store.GetPlayerStatsByID(ctx, playerID, "all")
@@ -671,39 +584,31 @@ func (w *Writer) Greet(ctx context.Context, req GreetRequest) (GreetReply, error
 	return reply, nil
 }
 
-// Claim handles a !claim chat-command RPC. Returns either a newly-minted
-// claim code or a reason for skipping.
-//
-// PlayerID is optional on the wire — the collector no longer caches
-// identity locally, so when it's zero we resolve from GUID.
+// Claim handles a !claim chat-command RPC.
 func (w *Writer) Claim(ctx context.Context, req ClaimRequest) (ClaimReply, error) {
-	playerID := req.PlayerID
-	if playerID == 0 && req.GUID != "" {
-		pg, err := w.store.GetPlayerGUIDByGUID(ctx, req.GUID)
-		if notFound(err) || pg == nil {
-			return ClaimReply{Status: ClaimUnknownPlayer}, nil
-		}
-		if err != nil {
-			return ClaimReply{Status: ClaimError, Message: err.Error()}, nil
-		}
-		playerID = pg.PlayerID
-	}
-	if playerID == 0 {
+	if req.GUID == "" {
 		return ClaimReply{Status: ClaimUnknownPlayer}, nil
 	}
-	req.PlayerID = playerID
-	claimed, err := w.store.IsPlayerClaimed(ctx, req.PlayerID)
+	pg, err := w.store.GetPlayerGUIDByGUID(ctx, req.GUID)
+	if notFound(err) || pg == nil {
+		return ClaimReply{Status: ClaimUnknownPlayer}, nil
+	}
+	if err != nil {
+		return ClaimReply{Status: ClaimError, Message: err.Error()}, nil
+	}
+	playerID := pg.PlayerID
+	claimed, err := w.store.IsPlayerClaimed(ctx, playerID)
 	if err != nil {
 		return ClaimReply{Status: ClaimError, Message: err.Error()}, nil
 	}
 	if claimed {
 		return ClaimReply{Status: ClaimAlreadyClaimed}, nil
 	}
-	if err := w.store.InvalidatePlayerClaimCodes(ctx, req.PlayerID); err != nil {
-		log.Printf("hub: claim invalidate existing codes for player %d: %v", req.PlayerID, err)
+	if err := w.store.InvalidatePlayerClaimCodes(ctx, playerID); err != nil {
+		log.Printf("hub: claim invalidate existing codes for player %d: %v", playerID, err)
 	}
 	expires := time.Now().Add(30 * time.Minute)
-	code, err := w.store.CreateClaimCode(ctx, req.PlayerID, expires)
+	code, err := w.store.CreateClaimCode(ctx, playerID, expires)
 	if err != nil {
 		return ClaimReply{Status: ClaimError, Message: err.Error()}, nil
 	}
@@ -714,8 +619,7 @@ func (w *Writer) Claim(ctx context.Context, req ClaimRequest) (ClaimReply, error
 	}, nil
 }
 
-// Link handles a !link <code> chat-command RPC. Validates the code and
-// merges the GUID's player into the code's target player.
+// Link handles a !link <code> chat-command RPC.
 func (w *Writer) Link(ctx context.Context, req LinkRequest) (LinkReply, error) {
 	if len(req.Code) != 6 || !isNumeric(req.Code) {
 		return LinkReply{Status: LinkInvalidFormat}, nil
@@ -737,11 +641,8 @@ func (w *Writer) Link(ctx context.Context, req LinkRequest) (LinkReply, error) {
 	if err := w.store.MergePlayers(ctx, linkCode.PlayerID, sourcePG.PlayerID); err != nil {
 		return LinkReply{Status: LinkError, Message: err.Error()}, nil
 	}
-	// MergePlayers can have rewritten player_id for any GUID attached to
-	// the source player. The writer doesn't track that list; flush the
-	// whole cache rather than guess.
 	w.invalidateAllGUIDs()
-	return LinkReply{Status: LinkOK, NewPlayerID: linkCode.PlayerID}, nil
+	return LinkReply{Status: LinkOK}, nil
 }
 
 func isNumeric(s string) bool {
@@ -753,28 +654,20 @@ func isNumeric(s string) bool {
 	return true
 }
 
-// RegisterServer upserts a server row from config and returns the
-// fully-populated domain.Server (including ID and last-match pointers).
-// Called by the collector at startup for each configured Q3 server.
-func (w *Writer) RegisterServer(ctx context.Context, name, address, logPath string) (*domain.Server, error) {
-	dbSrv := &domain.Server{Name: name, Address: address, LogPath: logPath}
-	if err := w.store.UpsertServer(ctx, dbSrv); err != nil {
+func (w *Writer) RegisterServer(ctx context.Context, source, key, address string) (*domain.Server, error) {
+	dbSrv := &domain.Server{Key: key, Address: address}
+	if err := w.store.UpsertServer(ctx, source, dbSrv); err != nil {
 		return nil, err
 	}
 	return w.store.GetServerByID(ctx, dbSrv.ID)
 }
 
-// TagLocalServerSource attaches (source_uuid, local_id) to an existing
-// servers row so envelope handling can resolve RemoteServerID back to
-// the hub's servers.id. Exposed so the NATS RPC RegisterServer handler
-// can tag rows it just upserted without reaching around to the store.
-func (w *Writer) TagLocalServerSource(ctx context.Context, serverID int64, sourceUUID string, localID int64) error {
-	return w.store.TagLocalServerSource(ctx, serverID, sourceUUID, localID)
+// TagLocalServerSource attaches (source, local_id) so envelope
+// handling can resolve RemoteServerID back to servers.id.
+func (w *Writer) TagLocalServerSource(ctx context.Context, serverID int64, source string, localID int64) error {
+	return w.store.TagLocalServerSource(ctx, serverID, source, localID)
 }
 
-// linkCodeCleanupLoop periodically removes expired link codes. Hub-side
-// maintenance task; moved here from the collector since link codes live
-// in the hub's DB.
 func (w *Writer) linkCodeCleanupLoop(ctx context.Context) {
 	defer w.wg.Done()
 	ticker := time.NewTicker(15 * time.Minute)
@@ -795,14 +688,8 @@ func (w *Writer) linkCodeCleanupLoop(ctx context.Context) {
 	}
 }
 
-// EnrichEvent resolves the GUID fields on a broadcast event to their
-// current player IDs via the store and returns an updated copy. Called
-// by the router before forwarding to WebSocket clients.
-//
-// In distributed mode (M2) the collector has no DB so it cannot
-// populate PlayerID fields itself; only the hub can. In standalone
-// mode this same path runs and serves as the single source of truth
-// for identity resolution on broadcasts.
+// EnrichEvent resolves GUID fields on a broadcast event to player IDs
+// and bumps the presence award counters that drive the live cards.
 func (w *Writer) EnrichEvent(ctx context.Context, event domain.Event) domain.Event {
 	resolve := func(guid string) *int64 {
 		id, ok := w.resolveGUIDPlayerID(ctx, guid)
@@ -831,6 +718,7 @@ func (w *Writer) EnrichEvent(ctx context.Context, event domain.Event) domain.Eve
 		event.Data = d
 	case domain.FlagCaptureEvent:
 		d.PlayerID = resolve(d.GUID)
+		w.presence.IncrementByGUID(event.ServerID, d.GUID, AwardCapture)
 		event.Data = d
 	case domain.FlagTakenEvent:
 		d.PlayerID = resolve(d.GUID)
@@ -863,6 +751,21 @@ func (w *Writer) EnrichEvent(ctx context.Context, event domain.Event) domain.Eve
 	case domain.AwardEvent:
 		d.PlayerID = resolve(d.GUID)
 		d.VictimPlayerID = resolve(d.VictimGUID)
+		switch d.AwardType {
+		case "impressive":
+			w.presence.IncrementByGUID(event.ServerID, d.GUID, AwardImpressive)
+		case "excellent":
+			w.presence.IncrementByGUID(event.ServerID, d.GUID, AwardExcellent)
+		case "humiliation":
+			w.presence.IncrementByGUID(event.ServerID, d.GUID, AwardHumiliation)
+		case "defend":
+			w.presence.IncrementByGUID(event.ServerID, d.GUID, AwardDefend)
+		case "assist":
+			w.presence.IncrementByGUID(event.ServerID, d.GUID, AwardAssist)
+		}
+		event.Data = d
+	case domain.ClientUserinfoEvent:
+		w.presence.UpdateClientUserinfo(event.ServerID, d.ClientNum, d.GUID, d.Model, d.IsVR)
 		event.Data = d
 	}
 	return event

@@ -8,3 +8,13 @@ export function formatNumber(n: number): string {
 export function stripVRPrefix(name: string): string {
   return name.replace(/^(\^[0-9])*\[VR\]\s*/i, '');
 }
+
+// serverDisplay composes the canonical UI string for a server from
+// its (source, key) identity. Single-source installs see just the
+// key; multi-source see "<source> / <key>".
+export function serverDisplay(source: string | undefined, key: string | undefined, opts?: { hasMultipleSources?: boolean }): string {
+  const k = key || '';
+  if (!source) return k;
+  if (opts && opts.hasMultipleSources === false) return k;
+  return `${source} / ${k}`;
+}

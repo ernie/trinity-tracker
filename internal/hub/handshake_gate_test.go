@@ -14,8 +14,8 @@ func TestHandleMatchStartRejectsWhenHandshakeNotRequired(t *testing.T) {
 	uuid := "aaaa-0000-0000-0000-000000000101"
 	w.MarkSourceApproved(uuid)
 
-	srv := &domain.Server{Name: "ffa", Address: "127.0.0.1:27960"}
-	if err := store.UpsertServer(ctx, srv); err != nil {
+	srv := &domain.Server{Key: "ffa", Address: "127.0.0.1:27960"}
+	if err := store.UpsertServer(ctx, "test", srv); err != nil {
 		t.Fatalf("UpsertServer: %v", err)
 	}
 	if err := store.TagLocalServerSource(ctx, srv.ID, uuid, srv.ID); err != nil {
@@ -45,8 +45,8 @@ func TestHandleMatchStartAcceptsWhenHandshakeRequired(t *testing.T) {
 	uuid := "aaaa-0000-0000-0000-000000000102"
 	w.MarkSourceApproved(uuid)
 
-	srv := &domain.Server{Name: "ctf", Address: "127.0.0.1:27961"}
-	if err := store.UpsertServer(ctx, srv); err != nil {
+	srv := &domain.Server{Key: "ctf", Address: "127.0.0.1:27961"}
+	if err := store.UpsertServer(ctx, "test", srv); err != nil {
 		t.Fatalf("UpsertServer: %v", err)
 	}
 	if err := store.TagLocalServerSource(ctx, srv.ID, uuid, srv.ID); err != nil {

@@ -56,7 +56,7 @@ export function PlayerSessions({ playerId, token }: PlayerSessionsProps) {
         <tbody>
           {sessions.map((session) => (
             <tr key={session.id}>
-              <td>{session.server_name}</td>
+              <td>{session.server_source} / {session.server_key}</td>
               <td>{formatDateTime(session.joined_at)}</td>
               <td>
                 {session.duration_seconds

@@ -17,18 +17,29 @@ func writeConfig(t *testing.T, body string) string {
 	return p
 }
 
-func TestLoadStandaloneHasNilTracker(t *testing.T) {
+func TestLoadAbsentTrackerDefaultsToHubPlusLocalCollector(t *testing.T) {
 	p := writeConfig(t, `
 server:
   listen_addr: "127.0.0.1"
   http_port: 8080
+database:
+  path: /var/lib/trinity/trinity.db
 `)
 	cfg, err := Load(p)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if cfg.Tracker != nil {
-		t.Fatalf("expected Tracker nil, got %+v", cfg.Tracker)
+	if cfg.Tracker == nil {
+		t.Fatal("expected Tracker auto-populated")
+	}
+	if cfg.Tracker.Hub == nil || cfg.Tracker.Collector == nil {
+		t.Fatalf("expected Hub+Collector defaults, got %+v", cfg.Tracker)
+	}
+	if cfg.Tracker.Collector.SourceID != "local" {
+		t.Errorf("default SourceID = %q, want local", cfg.Tracker.Collector.SourceID)
+	}
+	if cfg.Tracker.Collector.DataDir != "/var/lib/trinity" {
+		t.Errorf("default DataDir = %q, want /var/lib/trinity", cfg.Tracker.Collector.DataDir)
 	}
 }
 
@@ -65,9 +76,10 @@ tracker:
     url: "nats://hub.example.com:4222"
     credentials_file: "/etc/trinity/x.creds"
   collector:
-    source_id: "chicago-ffa"
+    source_id: "remote-1"
     data_dir: "/var/lib/trinity"
-    demo_base_url: "https://example.com"
+    public_url: "https://remote-1.example.com"
+    hub_host: "trinity.run"
 `)
 	cfg, err := Load(p)
 	if err != nil {
@@ -77,7 +89,7 @@ tracker:
 	if c == nil {
 		t.Fatal("expected Collector set")
 	}
-	if c.SourceID != "chicago-ffa" {
+	if c.SourceID != "remote-1" {
 		t.Errorf("SourceID = %q", c.SourceID)
 	}
 	if c.DataDir != "/var/lib/trinity" {
@@ -86,8 +98,8 @@ tracker:
 	if got := c.HeartbeatInterval.D(); got != 30*time.Second {
 		t.Errorf("HeartbeatInterval default = %v, want 30s", got)
 	}
-	if c.HubHost != "trinity.run" {
-		t.Errorf("HubHost default = %q", c.HubHost)
+	if c.PublicURL != "https://remote-1.example.com" {
+		t.Errorf("PublicURL = %q", c.PublicURL)
 	}
 	if cfg.Tracker.NATS.CredentialsFile != "/etc/trinity/x.creds" {
 		t.Errorf("CredentialsFile = %q", cfg.Tracker.NATS.CredentialsFile)
@@ -103,11 +115,12 @@ tracker:
   hub:
     dedup_window: "15m"
     retention: "5d"
-    approval_required: false
   collector:
     source_id: "local"
     data_dir: "/var/lib/trinity"
     heartbeat_interval: "10s"
+    public_url: "http://127.0.0.1"
+    hub_host: "127.0.0.1"
 `)
 	cfg, err := Load(p)
 	if err != nil {
@@ -121,9 +134,6 @@ tracker:
 	}
 	if got := cfg.Tracker.Hub.Retention.D(); got != 5*24*time.Hour {
 		t.Errorf("Retention = %v, want 5d", got)
-	}
-	if cfg.Tracker.Hub.ApprovalRequired {
-		t.Errorf("ApprovalRequired = true, want false")
 	}
 	if got := cfg.Tracker.Collector.HeartbeatInterval.D(); got != 10*time.Second {
 		t.Errorf("HeartbeatInterval = %v", got)
@@ -159,6 +169,7 @@ tracker:
     source_id: "remote-src"
     data_dir: "/var/lib/trinity"
     hub_host: "trinity.example.com"
+    public_url: "https://remote-src.example.com"
 `)
 	cfg, err := Load(p)
 	if err != nil {
@@ -192,6 +203,7 @@ tracker:
     source_id: "remote-src"
     data_dir: "/var/lib/trinity"
     hub_host: "trinity.example.com"
+    public_url: "https://remote-src.example.com"
 `)
 	cfg, err := Load(p)
 	if err != nil {
@@ -202,14 +214,22 @@ tracker:
 	}
 }
 
-func TestLoadCollectorMissingDataDirFails(t *testing.T) {
+func TestLoadCollectorDataDirDefaultsFromDBPath(t *testing.T) {
 	p := writeConfig(t, `
+database:
+  path: /opt/trinity/data/trinity.db
 tracker:
   collector:
-    source_id: "chicago-ffa"
+    source_id: "remote-1"
+    public_url: "https://remote-1.example.com"
+    hub_host: "trinity.run"
 `)
-	if _, err := Load(p); err == nil {
-		t.Fatal("expected error when data_dir missing")
+	cfg, err := Load(p)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if got := cfg.Tracker.Collector.DataDir; got != "/opt/trinity/data" {
+		t.Errorf("DataDir default = %q, want /opt/trinity/data", got)
 	}
 }
 

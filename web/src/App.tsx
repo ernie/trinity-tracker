@@ -12,6 +12,7 @@ import {
 } from "./components";
 import { Header } from "./components/Header";
 import { PasswordChangeModal } from "./components/PasswordChangeModal";
+import { serverDisplay } from "./utils";
 import type {
   Server,
   ServerStatus,
@@ -77,8 +78,7 @@ function App() {
     let count = 0;
     for (const [, status] of servers.entries()) {
       if (!status.players || !status.online) continue;
-      const serverName = status.name && !/^Server \d+$/.test(status.name) ? status.name : null;
-      if (!serverName) continue;
+      if (!status.key) continue;
       for (const player of status.players) {
         if (!player.is_bot && player.team !== 3) {
           count++;
@@ -88,15 +88,14 @@ function App() {
     return count;
   }, [servers]);
 
-  // Get server name by ID - returns undefined if real name not yet available
+  // Get the display name for a server by ID - returns undefined if no
+  // key is known yet.
   const getServerName = useCallback((serverId: number): string | undefined => {
     const server = serversRef.current.get(serverId);
-    const name = server?.name;
-    // Don't return placeholder names like "Server 4"
-    if (!name || /^Server \d+$/.test(name)) {
+    if (!server?.key) {
       return undefined;
     }
-    return name;
+    return serverDisplay(server.source, server.key);
   }, []);
 
   // Get player info by looking up player in server status

@@ -13,43 +13,31 @@ import (
 	"github.com/ernie/trinity-tracker/internal/hub"
 )
 
-// Default timeout for an RPC round-trip. NATS on local loopback is
-// sub-ms; even transatlantic WAN hops stay well under a second. 2s
-// gives plenty of margin while still failing fast if the hub is down.
 const defaultRPCTimeout = 2 * time.Second
 
-// RPCQueueGroup is the queue group all hub-side handlers join so only
-// one hub instance services each request.
+// RPCQueueGroup lets multiple hub instances share a single consumer.
 const RPCQueueGroup = "hub-rpc"
 
-// RPC subjects. The source segment is the collector's source_id.
 const (
-	subjectGreetPrefix = "trinity.rpc.greet."
-	subjectClaimPrefix = "trinity.rpc.claim."
-	subjectLinkPrefix  = "trinity.rpc.link."
-
+	subjectGreetPrefix          = "trinity.rpc.greet."
+	subjectClaimPrefix          = "trinity.rpc.claim."
+	subjectLinkPrefix           = "trinity.rpc.link."
 	subjectServerRegisterPrefix = "trinity.rpc.server.register."
 	subjectIdentityUpsertPrefix = "trinity.rpc.identity.upsert."
 	subjectIdentityUpsertBot    = "trinity.rpc.identity.upsert_bot."
 	subjectIdentityLookupPrefix = "trinity.rpc.identity.lookup."
 )
 
-// RPCClient publishes req/reply messages on trinity.rpc.<kind>.<source>
-// and marshals / unmarshals hub.* request-reply types. Implements
-// hub.RPCClient and hub.ServerClient.
+// RPCClient issues NATS req/reply on trinity.rpc.<kind>.<source>.
+// Satisfies hub.RPCClient and hub.ServerClient.
 type RPCClient struct {
-	nc         *nats.Conn
-	source     string
-	sourceUUID string
-	timeout    time.Duration
+	nc      *nats.Conn
+	source  string
+	timeout time.Duration
 }
 
-// NewRPCClient binds a client to a specific source_id. timeout of 0
-// uses the default (2s). sourceUUID is passed on RegisterServer so the
-// hub can tag the row with (source_uuid, local_id) for envelope
-// resolution; other methods don't need it (the subject carries source
-// scope and the hub's data keys aren't source-scoped for these reads).
-func NewRPCClient(nc *nats.Conn, source, sourceUUID string, timeout time.Duration) (*RPCClient, error) {
+// NewRPCClient binds a client to a source. timeout <= 0 uses 2s.
+func NewRPCClient(nc *nats.Conn, source string, timeout time.Duration) (*RPCClient, error) {
 	if nc == nil {
 		return nil, fmt.Errorf("natsbus.NewRPCClient: NATS connection is required")
 	}
@@ -59,37 +47,35 @@ func NewRPCClient(nc *nats.Conn, source, sourceUUID string, timeout time.Duratio
 	if timeout <= 0 {
 		timeout = defaultRPCTimeout
 	}
-	return &RPCClient{nc: nc, source: source, sourceUUID: sourceUUID, timeout: timeout}, nil
+	return &RPCClient{nc: nc, source: source, timeout: timeout}, nil
 }
 
-// Greet satisfies hub.RPCClient.
 func (c *RPCClient) Greet(ctx context.Context, req hub.GreetRequest) (hub.GreetReply, error) {
 	var reply hub.GreetReply
 	err := c.request(ctx, subjectGreetPrefix+c.source, req, &reply)
 	return reply, err
 }
 
-// Claim satisfies hub.RPCClient.
 func (c *RPCClient) Claim(ctx context.Context, req hub.ClaimRequest) (hub.ClaimReply, error) {
 	var reply hub.ClaimReply
 	err := c.request(ctx, subjectClaimPrefix+c.source, req, &reply)
 	return reply, err
 }
 
-// Link satisfies hub.RPCClient.
 func (c *RPCClient) Link(ctx context.Context, req hub.LinkRequest) (hub.LinkReply, error) {
 	var reply hub.LinkReply
 	err := c.request(ctx, subjectLinkPrefix+c.source, req, &reply)
 	return reply, err
 }
 
-// RegisterServer satisfies hub.ServerClient.
-func (c *RPCClient) RegisterServer(ctx context.Context, name, address, logPath string) (*domain.Server, error) {
+func (c *RPCClient) RegisterServer(ctx context.Context, source, key, address string) (*domain.Server, error) {
+	if source == "" {
+		source = c.source
+	}
 	req := hub.RegisterServerRequest{
-		SourceUUID: c.sourceUUID,
-		Name:       name,
-		Address:    address,
-		LogPath:    logPath,
+		Source:  source,
+		Key:     key,
+		Address: address,
 	}
 	var reply hub.RegisterServerReply
 	if err := c.request(ctx, subjectServerRegisterPrefix+c.source, req, &reply); err != nil {
@@ -101,7 +87,6 @@ func (c *RPCClient) RegisterServer(ctx context.Context, name, address, logPath s
 	return reply.Server, nil
 }
 
-// UpsertPlayerIdentity satisfies hub.ServerClient.
 func (c *RPCClient) UpsertPlayerIdentity(ctx context.Context, guid, name, cleanName string, ts time.Time, isVR bool) (hub.PlayerIdentity, error) {
 	req := hub.UpsertIdentityRequest{GUID: guid, Name: name, CleanName: cleanName, Timestamp: ts.UTC(), IsVR: isVR}
 	var reply hub.IdentityReply
@@ -114,7 +99,6 @@ func (c *RPCClient) UpsertPlayerIdentity(ctx context.Context, guid, name, cleanN
 	return reply.Identity, nil
 }
 
-// UpsertBotPlayerIdentity satisfies hub.ServerClient.
 func (c *RPCClient) UpsertBotPlayerIdentity(ctx context.Context, name, cleanName string, ts time.Time) (hub.PlayerIdentity, error) {
 	req := hub.UpsertBotIdentityRequest{Name: name, CleanName: cleanName, Timestamp: ts.UTC()}
 	var reply hub.IdentityReply
@@ -127,7 +111,6 @@ func (c *RPCClient) UpsertBotPlayerIdentity(ctx context.Context, name, cleanName
 	return reply.Identity, nil
 }
 
-// LookupPlayerIdentity satisfies hub.ServerClient.
 func (c *RPCClient) LookupPlayerIdentity(ctx context.Context, guid string) (hub.PlayerIdentity, error) {
 	req := hub.LookupIdentityRequest{GUID: guid}
 	var reply hub.IdentityReply
@@ -157,23 +140,18 @@ func (c *RPCClient) request(ctx context.Context, subject string, req, reply inte
 	return nil
 }
 
-// RPCHandlers is the hub-side contract a NATS handler invokes. *hub.Writer
-// satisfies it naturally via its RPCClient and ServerClient method sets.
+// RPCHandlers is the hub-side contract invoked by NATS handlers.
 type RPCHandlers interface {
 	hub.RPCClient
 	hub.ServerClient
 }
 
-// RPCServer is the bundle of active NATS subscriptions. It is created
-// by RegisterRPCHandlers and torn down by Stop.
 type RPCServer struct {
 	subs []*nats.Subscription
 }
 
-// RegisterRPCHandlers subscribes the hub's RPC handlers on
-// trinity.rpc.{greet,claim,link,server,identity,session}.> in the
-// shared hub-rpc queue group. Pass the returned *RPCServer to Stop on
-// shutdown.
+// RegisterRPCHandlers subscribes the hub-rpc queue group on every
+// trinity.rpc.* subject the collector uses.
 func RegisterRPCHandlers(nc *nats.Conn, h RPCHandlers) (*RPCServer, error) {
 	if nc == nil {
 		return nil, fmt.Errorf("natsbus.RegisterRPCHandlers: NATS connection is required")
@@ -246,16 +224,12 @@ func RegisterRPCHandlers(nc *nats.Conn, h RPCHandlers) (*RPCServer, error) {
 			log.Printf("natsbus.RPC server.register: bad request: %v", err)
 			return
 		}
-		srv, err := h.RegisterServer(context.Background(), req.Name, req.Address, req.LogPath)
+		srv, err := h.RegisterServer(context.Background(), req.Source, req.Key, req.Address)
 		reply := hub.RegisterServerReply{Server: srv}
 		if err != nil {
 			reply.Error = err.Error()
-		} else if tagger, ok := h.(sourceTagger); ok && srv != nil && req.SourceUUID != "" {
-			// Tag the row with (source_uuid, local_id = servers.id) so
-			// envelopes published as RemoteServerID=servers.id resolve
-			// on the hub side. Matches the standalone hub+collector
-			// TagLocalServerSource loop in main.go.
-			if err := tagger.TagLocalServerSource(context.Background(), srv.ID, req.SourceUUID, srv.ID); err != nil {
+		} else if tagger, ok := h.(sourceTagger); ok && srv != nil && req.Source != "" {
+			if err := tagger.TagLocalServerSource(context.Background(), srv.ID, req.Source, srv.ID); err != nil {
 				log.Printf("natsbus.RPC server.register: tag source for server %d: %v", srv.ID, err)
 			}
 		}
@@ -316,11 +290,8 @@ func RegisterRPCHandlers(nc *nats.Conn, h RPCHandlers) (*RPCServer, error) {
 		return nil, err
 	}
 
-	// Flush so every QueueSubscribe is registered with the server
-	// before RegisterRPCHandlers returns. Otherwise a client that
-	// fires a request immediately after setup can hit
-	// "no responders available" while the subscription is still
-	// propagating.
+	// Flush so all subscriptions are live before we return; otherwise
+	// an immediate client request can hit "no responders available".
 	if err := nc.Flush(); err != nil {
 		s.Stop()
 		return nil, fmt.Errorf("natsbus: flush after subscribe: %w", err)
@@ -329,15 +300,10 @@ func RegisterRPCHandlers(nc *nats.Conn, h RPCHandlers) (*RPCServer, error) {
 	return s, nil
 }
 
-// sourceTagger is satisfied by any handler that exposes the
-// (source_uuid, local_id) tag operation. The writer implements this by
-// delegating to its store; other implementations can opt out by not
-// exposing the method.
 type sourceTagger interface {
-	TagLocalServerSource(ctx context.Context, serverID int64, sourceUUID string, localID int64) error
+	TagLocalServerSource(ctx context.Context, serverID int64, source string, localID int64) error
 }
 
-// Stop tears down all RPC subscriptions. Safe to call more than once.
 func (s *RPCServer) Stop() {
 	if s == nil {
 		return

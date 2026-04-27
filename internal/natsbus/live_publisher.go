@@ -10,38 +10,27 @@ import (
 	"github.com/ernie/trinity-tracker/internal/domain"
 )
 
-// SubjectLivePrefix is the core-NATS subject base for ephemeral live
-// events. Each source publishes to trinity.live.<source>. No
-// JetStream, no durability: live events are dropped while NATS is
-// disconnected and the operator sees them again on the next trigger.
+// SubjectLivePrefix is the core-NATS (non-JetStream) base subject.
+// Live events are fire-and-forget; disconnected publishers drop them.
 const SubjectLivePrefix = "trinity.live."
 
-// LivePublisher wraps domain.Event values in a domain.Envelope and
-// publishes them as fire-and-forget messages. Implements
-// hub.LiveEventPublisher.
+// LivePublisher wraps events in an Envelope and publishes them to
+// trinity.live.<source>. Implements hub.LiveEventPublisher.
 type LivePublisher struct {
-	nc         *nats.Conn
-	source     string
-	sourceUUID string
+	nc     *nats.Conn
+	source string
 }
 
-// NewLivePublisher binds a publisher to a source_id / source_uuid pair.
-func NewLivePublisher(nc *nats.Conn, source, sourceUUID string) (*LivePublisher, error) {
+func NewLivePublisher(nc *nats.Conn, source string) (*LivePublisher, error) {
 	if nc == nil {
 		return nil, fmt.Errorf("natsbus.NewLivePublisher: NATS connection is required")
 	}
 	if source == "" {
 		return nil, fmt.Errorf("natsbus.NewLivePublisher: source is required")
 	}
-	if sourceUUID == "" {
-		return nil, fmt.Errorf("natsbus.NewLivePublisher: source_uuid is required")
-	}
-	return &LivePublisher{nc: nc, source: source, sourceUUID: sourceUUID}, nil
+	return &LivePublisher{nc: nc, source: source}, nil
 }
 
-// PublishLive serializes the event into an Envelope and fires it on
-// trinity.live.<source>. Errors are returned to the caller, which
-// decides whether to log and drop (typical) or handle differently.
 func (p *LivePublisher) PublishLive(e domain.Event) error {
 	payload, err := json.Marshal(e.Data)
 	if err != nil {
@@ -50,9 +39,8 @@ func (p *LivePublisher) PublishLive(e domain.Event) error {
 	env := domain.Envelope{
 		SchemaVersion:  domain.EnvelopeSchemaVersion,
 		Source:         p.source,
-		SourceUUID:     p.sourceUUID,
 		RemoteServerID: e.ServerID,
-		Seq:            0, // live events are not deduplicated
+		Seq:            0,
 		Timestamp:      timestampForLive(e.Timestamp),
 		Event:          e.Type,
 		Data:           payload,
@@ -64,9 +52,7 @@ func (p *LivePublisher) PublishLive(e domain.Event) error {
 	return p.nc.Publish(SubjectLivePrefix+p.source, body)
 }
 
-// timestampForLive normalizes to UTC and falls back to the current
-// wall-clock if the caller didn't set one (some emitEvent call sites
-// populate Timestamp as the parsed log time, a few don't).
+// timestampForLive normalizes to UTC, substituting now if unset.
 func timestampForLive(ts time.Time) time.Time {
 	if ts.IsZero() {
 		return time.Now().UTC()

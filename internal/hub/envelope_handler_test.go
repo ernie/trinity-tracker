@@ -24,7 +24,7 @@ func newTestWriter(t *testing.T) (*Writer, *storage.Store) {
 	return w, store
 }
 
-func envelopeFor(t *testing.T, uuid string, seq uint64, event string, payload interface{}) domain.Envelope {
+func envelopeFor(t *testing.T, source string, seq uint64, event string, payload interface{}) domain.Envelope {
 	t.Helper()
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -32,8 +32,7 @@ func envelopeFor(t *testing.T, uuid string, seq uint64, event string, payload in
 	}
 	return domain.Envelope{
 		SchemaVersion: domain.EnvelopeSchemaVersion,
-		Source:        "test",
-		SourceUUID:    uuid,
+		Source:        source,
 		Seq:           seq,
 		Timestamp:     time.Date(2026, 4, 19, 12, 0, 0, 0, time.UTC),
 		Event:         event,
@@ -44,22 +43,22 @@ func envelopeFor(t *testing.T, uuid string, seq uint64, event string, payload in
 func TestHandleEnvelopeDedupsByConsumedSeq(t *testing.T) {
 	w, store := newTestWriter(t)
 	ctx := context.Background()
-	uuid := "aaaa-0000-0000-0000-000000000001"
-	w.MarkSourceApproved(uuid)
+	const source = "src-a"
+	w.MarkSourceApproved(source)
 
 	// Seed consumed_seq to 10.
-	if err := store.AdvanceConsumedSeq(ctx, uuid, 10); err != nil {
+	if err := store.AdvanceConsumedSeq(ctx, source, 10); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
 
 	// seq=10 should be dedup-dropped (not processed, not advanced).
-	env := envelopeFor(t, uuid, 10, domain.FactServerStartup, domain.ServerStartupData{
+	env := envelopeFor(t, source, 10, domain.FactServerStartup, domain.ServerStartupData{
 		StartedAt: time.Date(2026, 4, 19, 12, 0, 0, 0, time.UTC),
 	})
 	if err := w.HandleEnvelope(ctx, env); err != nil {
 		t.Fatalf("HandleEnvelope seq=10: %v", err)
 	}
-	if seq, _ := store.GetConsumedSeq(ctx, uuid); seq != 10 {
+	if seq, _ := store.GetConsumedSeq(ctx, source); seq != 10 {
 		t.Errorf("consumed_seq after dup = %d, want 10", seq)
 	}
 }
@@ -67,27 +66,27 @@ func TestHandleEnvelopeDedupsByConsumedSeq(t *testing.T) {
 func TestHandleEnvelopeAdvancesConsumedSeq(t *testing.T) {
 	w, store := newTestWriter(t)
 	ctx := context.Background()
-	uuid := "aaaa-0000-0000-0000-000000000002"
-	w.MarkSourceApproved(uuid)
+	const source = "src-b"
+	w.MarkSourceApproved(source)
 
-	env := envelopeFor(t, uuid, 7, domain.FactServerStartup, domain.ServerStartupData{
+	env := envelopeFor(t, source, 7, domain.FactServerStartup, domain.ServerStartupData{
 		StartedAt: time.Date(2026, 4, 19, 12, 0, 0, 0, time.UTC),
 	})
 	if err := w.HandleEnvelope(ctx, env); err != nil {
 		t.Fatalf("HandleEnvelope: %v", err)
 	}
-	if seq, _ := store.GetConsumedSeq(ctx, uuid); seq != 7 {
+	if seq, _ := store.GetConsumedSeq(ctx, source); seq != 7 {
 		t.Errorf("consumed_seq = %d, want 7", seq)
 	}
 }
 
 func TestHandleEnvelopeRejectsUnknownEvent(t *testing.T) {
 	w, _ := newTestWriter(t)
-	uuid := "aaaa-0000-0000-0000-000000000003"
-	w.MarkSourceApproved(uuid)
+	const source = "src-c"
+	w.MarkSourceApproved(source)
 	env := domain.Envelope{
 		SchemaVersion: 1,
-		SourceUUID:    uuid,
+		Source:        source,
 		Seq:           1,
 		Timestamp:     time.Now().UTC(),
 		Event:         "not_a_real_event",
@@ -98,10 +97,10 @@ func TestHandleEnvelopeRejectsUnknownEvent(t *testing.T) {
 	}
 }
 
-func TestHandleEnvelopeRequiresSourceUUID(t *testing.T) {
+func TestHandleEnvelopeRequiresSource(t *testing.T) {
 	w, _ := newTestWriter(t)
 	env := envelopeFor(t, "", 1, domain.FactServerStartup, domain.ServerStartupData{})
 	if err := w.HandleEnvelope(context.Background(), env); err == nil {
-		t.Error("expected error for missing source_uuid")
+		t.Error("expected error for missing source")
 	}
 }

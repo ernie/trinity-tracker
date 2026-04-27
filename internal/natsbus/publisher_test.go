@@ -27,12 +27,12 @@ func TestPublisherRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("JetStream: %v", err)
 	}
-	sub, err := js.PullSubscribe("trinity.events.chicago-ffa", "test-consumer")
+	sub, err := js.PullSubscribe("trinity.events.remote-1", "test-consumer")
 	if err != nil {
 		t.Fatalf("PullSubscribe: %v", err)
 	}
 
-	pub, err := NewPublisher(nc, "chicago-ffa", "b1f3e6f0-0000-0000-0000-000000000000", 0)
+	pub, err := NewPublisher(nc, "remote-1", 0)
 	if err != nil {
 		t.Fatalf("NewPublisher: %v", err)
 	}
@@ -58,11 +58,11 @@ func TestPublisherRoundTrip(t *testing.T) {
 	msg := msgs[0]
 	defer msg.Ack()
 
-	if got := msg.Subject; got != "trinity.events.chicago-ffa" {
+	if got := msg.Subject; got != "trinity.events.remote-1" {
 		t.Errorf("subject = %q", got)
 	}
-	if got := msg.Header.Get(nats.MsgIdHdr); got != "chicago-ffa:1" {
-		t.Errorf("Nats-Msg-Id = %q, want chicago-ffa:1", got)
+	if got := msg.Header.Get(nats.MsgIdHdr); got != "remote-1:1" {
+		t.Errorf("Nats-Msg-Id = %q, want remote-1:1", got)
 	}
 
 	var env domain.Envelope
@@ -72,7 +72,7 @@ func TestPublisherRoundTrip(t *testing.T) {
 	if env.SchemaVersion != domain.EnvelopeSchemaVersion {
 		t.Errorf("SchemaVersion = %d", env.SchemaVersion)
 	}
-	if env.Seq != 1 || env.Source != "chicago-ffa" || env.Event != domain.FactMatchStart {
+	if env.Seq != 1 || env.Source != "remote-1" || env.Event != domain.FactMatchStart {
 		t.Errorf("envelope metadata wrong: %+v", env)
 	}
 	if env.RemoteServerID != 7 {
@@ -93,7 +93,7 @@ func TestPublisherRoundTrip(t *testing.T) {
 func TestPublisherSeqMonotonic(t *testing.T) {
 	s := startTestServer(t)
 	nc := connectInProcess(t, s)
-	pub, err := NewPublisher(nc, "x", "b1f3e6f0-0000-0000-0000-000000000000", 100)
+	pub, err := NewPublisher(nc, "x", 100)
 	if err != nil {
 		t.Fatalf("NewPublisher: %v", err)
 	}
@@ -114,13 +114,10 @@ func TestPublisherSeqMonotonic(t *testing.T) {
 func TestNewPublisherValidation(t *testing.T) {
 	s := startTestServer(t)
 	nc := connectInProcess(t, s)
-	if _, err := NewPublisher(nil, "a", "b", 0); err == nil {
+	if _, err := NewPublisher(nil, "a", 0); err == nil {
 		t.Error("expected error for nil conn")
 	}
-	if _, err := NewPublisher(nc, "", "b", 0); err == nil {
+	if _, err := NewPublisher(nc, "", 0); err == nil {
 		t.Error("expected error for empty source")
-	}
-	if _, err := NewPublisher(nc, "a", "", 0); err == nil {
-		t.Error("expected error for empty sourceUUID")
 	}
 }

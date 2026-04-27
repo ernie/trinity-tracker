@@ -16,10 +16,14 @@ const EnvelopeSchemaVersion = 1
 // shape published on trinity.events.<source>. Data is the opaque
 // payload (the FactEvent.Data marshaled to JSON); the hub decodes it
 // against the event-type-specific struct after routing.
+//
+// Source is the admin-chosen collector identifier. NATS subject
+// scoping already binds each authenticated connection to its own
+// source, so the hub cross-checks but does not rely on the envelope
+// field alone for identity.
 type Envelope struct {
 	SchemaVersion  int             `json:"v"`
 	Source         string          `json:"source"`
-	SourceUUID     string          `json:"source_uuid"`
 	RemoteServerID int64           `json:"rsid"`
 	Seq            uint64          `json:"seq"`
 	Timestamp      time.Time       `json:"ts"`

@@ -26,10 +26,11 @@ func approvalFreePort(t *testing.T) int {
 	return port
 }
 
-// TestPendingSourceApprovalDrainsDLQ walks through the full phase-6b
-// flow: a remote collector starts publishing before approval, events
-// land in the DLQ, admin approves, DLQ drains into the DB.
-func TestPendingSourceApprovalDrainsDLQ(t *testing.T) {
+// TestProvisionedSourcePublishesStraightThrough exercises the pre-
+// provisioning flow: admin creates the source first, hands creds to
+// the remote operator, collector connects and publishes, events land
+// directly in the DB with no intermediate pending/DLQ state.
+func TestProvisionedSourcePublishesStraightThrough(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// Hub-side infrastructure.
@@ -66,25 +67,30 @@ func TestPendingSourceApprovalDrainsDLQ(t *testing.T) {
 		t.Fatalf("reg sub: %v", err)
 	}
 
+	// --- Admin provisions the source up-front ---
+	const source = "remote"
+	if err := store.CreateSource(ctx, source, true); err != nil {
+		t.Fatalf("CreateSource: %v", err)
+	}
+	writer.MarkSourceApproved(source)
+
 	// Collector-side publisher + registrar.
 	pubNC, err := ns.ConnectInternal()
 	if err != nil {
 		t.Fatalf("pub conn: %v", err)
 	}
-	const sourceUUID = "remote-source-uuid"
 	reg := domain.Registration{
-		Source:     "remote",
-		SourceUUID: sourceUUID,
-		Version:    "1.12.0",
-		Servers:    []domain.RegdServer{{LocalID: 1, Name: "r1", Address: "r.example:27960"}},
+		Source:  source,
+		Version: "1.12.0",
+		Servers: []domain.RegdServer{{LocalID: 1, Key: "r1", Address: "r.example:27960"}},
 	}
-	registrar, err := natsbus.NewRegistrar(pubNC, reg.Source, sourceUUID, reg.Version, func() []domain.RegdServer { return reg.Servers }, 50*time.Millisecond)
+	registrar, err := natsbus.NewRegistrar(pubNC, reg.Source, reg.Version, "", func() []domain.RegdServer { return reg.Servers }, 50*time.Millisecond)
 	if err != nil {
 		t.Fatalf("registrar: %v", err)
 	}
 	registrar.Start(ctx)
 
-	pub, err := natsbus.NewPublisher(pubNC, reg.Source, sourceUUID, 0)
+	pub, err := natsbus.NewPublisher(pubNC, reg.Source, 0)
 	if err != nil {
 		t.Fatalf("publisher: %v", err)
 	}
@@ -100,21 +106,20 @@ func TestPendingSourceApprovalDrainsDLQ(t *testing.T) {
 	t.Cleanup(registrar.Stop)
 	t.Cleanup(sub.Stop)
 
-	// Wait for the hub to record the source as pending.
+	// Wait for the first registration to create the servers row.
 	deadline := time.Now().Add(3 * time.Second)
 	for time.Now().Before(deadline) {
-		rows, _ := store.ListPendingSources(ctx)
-		if len(rows) == 1 && rows[0].SourceUUID == sourceUUID {
+		if id, _ := store.ResolveServerIDForSource(ctx, source, reg.Servers[0].LocalID); id != 0 {
 			break
 		}
 		time.Sleep(25 * time.Millisecond)
 	}
-	if rows, _ := store.ListPendingSources(ctx); len(rows) != 1 {
-		t.Fatalf("pending sources = %d, want 1", len(rows))
+	if id, _ := store.ResolveServerIDForSource(ctx, source, reg.Servers[0].LocalID); id == 0 {
+		t.Fatal("servers row never created from registration")
 	}
 
-	// Publish a match_start while still pending — should DLQ.
-	matchUUID := "pending-match-1"
+	// Publish a match_start — should land in the DB immediately.
+	matchUUID := "provisioned-match-1"
 	if err := pub.Publish(domain.FactEvent{
 		Type:      domain.FactMatchStart,
 		ServerID:  reg.Servers[0].LocalID,
@@ -130,27 +135,17 @@ func TestPendingSourceApprovalDrainsDLQ(t *testing.T) {
 		t.Fatalf("publish: %v", err)
 	}
 
-	time.Sleep(200 * time.Millisecond)
-
-	// DB should NOT yet have the match row.
-	if m, _ := store.GetMatchByUUID(ctx, matchUUID); m != nil {
-		t.Errorf("match persisted while pending: %+v", m)
-	}
-
-	// Admin approves. DLQ drains.
-	if err := writer.ApproveSource(ctx, reg, "https://remote.example"); err != nil {
-		t.Fatalf("approve: %v", err)
-	}
-
-	// Give the drain a beat to land.
-	time.Sleep(100 * time.Millisecond)
-
-	m, err := store.GetMatchByUUID(ctx, matchUUID)
-	if err != nil {
-		t.Fatalf("lookup match: %v", err)
+	deadline = time.Now().Add(2 * time.Second)
+	var m *domain.Match
+	for time.Now().Before(deadline) {
+		m, _ = store.GetMatchByUUID(ctx, matchUUID)
+		if m != nil {
+			break
+		}
+		time.Sleep(25 * time.Millisecond)
 	}
 	if m == nil {
-		t.Fatal("match still not persisted after approval")
+		t.Fatal("match not persisted")
 	}
 	if m.MapName != "q3dm17" {
 		t.Errorf("MapName = %q", m.MapName)

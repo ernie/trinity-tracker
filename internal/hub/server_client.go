@@ -7,15 +7,9 @@ import (
 	"github.com/ernie/trinity-tracker/internal/domain"
 )
 
-// ServerClient is the call-site contract for collector → hub operations
-// that were originally direct DB reads/writes on *Writer. In standalone
-// mode *Writer satisfies it directly; in distributed mode it is
-// satisfied by a NATS request/reply wrapper (natsbus.RPCClient).
-//
-// The split mirrors RPCClient: the collector depends on the narrow
-// interface, main.go picks the implementation by config.
+// ServerClient is the collector → hub server/identity contract.
 type ServerClient interface {
-	RegisterServer(ctx context.Context, name, address, logPath string) (*domain.Server, error)
+	RegisterServer(ctx context.Context, source, key, address string) (*domain.Server, error)
 
 	UpsertPlayerIdentity(ctx context.Context, guid, name, cleanName string, ts time.Time, isVR bool) (PlayerIdentity, error)
 	UpsertBotPlayerIdentity(ctx context.Context, name, cleanName string, ts time.Time) (PlayerIdentity, error)
@@ -23,14 +17,12 @@ type ServerClient interface {
 }
 
 // RegisterServerRequest / Reply carry the RegisterServer RPC payload.
-// In distributed mode the hub upserts a servers row (creating it if new
-// for a pending source) and tags it with (source_uuid, local_id) so
-// event envelopes resolve correctly even before admin approval.
+// The hub tags the upserted row with (source, local_id=servers.id) so
+// envelopes resolve.
 type RegisterServerRequest struct {
-	SourceUUID string `json:"source_uuid"`
-	Name       string `json:"name"`
-	Address    string `json:"address"`
-	LogPath    string `json:"log_path"`
+	Source  string `json:"source"`
+	Key     string `json:"key"`
+	Address string `json:"address"`
 }
 
 type RegisterServerReply struct {
@@ -38,7 +30,6 @@ type RegisterServerReply struct {
 	Error  string         `json:"error,omitempty"`
 }
 
-// Identity RPC payloads.
 type UpsertIdentityRequest struct {
 	GUID      string    `json:"guid"`
 	Name      string    `json:"name"`

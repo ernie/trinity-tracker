@@ -20,8 +20,7 @@ func TestEnvelopeRoundTripPreservesRawData(t *testing.T) {
 	}
 	env := Envelope{
 		SchemaVersion:  EnvelopeSchemaVersion,
-		Source:         "chicago-ffa",
-		SourceUUID:     "b1f3e6f0-0000-0000-0000-000000000000",
+		Source:         "remote-1",
 		RemoteServerID: 7,
 		Seq:            42,
 		Timestamp:      time.Date(2026, 4, 19, 12, 0, 1, 0, time.UTC),
@@ -41,7 +40,7 @@ func TestEnvelopeRoundTripPreservesRawData(t *testing.T) {
 	if err := json.Unmarshal(body, &decoded); err != nil {
 		t.Fatalf("unmarshal envelope: %v", err)
 	}
-	if decoded.Seq != 42 || decoded.Source != "chicago-ffa" {
+	if decoded.Seq != 42 || decoded.Source != "remote-1" {
 		t.Errorf("decoded = %+v", decoded)
 	}
 

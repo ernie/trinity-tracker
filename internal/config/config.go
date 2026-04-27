@@ -2,7 +2,9 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -10,7 +12,19 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Config holds the application configuration
+// idPattern matches the same character set as
+// storage.ValidateSource: alnum, underscore, hyphen. Used to validate
+// q3_servers[].key (and source IDs in tests). Kept here to avoid
+// pulling storage into config's import graph.
+var idPattern = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
+
+// Config holds the application configuration.
+//
+// Tracker is always populated after Load: if the YAML omits the block
+// entirely, Load fills it with a hub+local-collector default. A
+// private single-server install just listens on 127.0.0.1; the
+// distinction between "standalone" and "distributed" is no longer
+// modeled at the config layer.
 type Config struct {
 	Server    ServerConfig   `yaml:"server"`
 	Database  DatabaseConfig `yaml:"database"`
@@ -56,10 +70,14 @@ func parseDuration(s string) (time.Duration, error) {
 	return time.ParseDuration(s)
 }
 
-// TrackerConfig enables distributed tracking. Nil means standalone mode (no
-// NATS, no role split). Presence of the nested Hub / Collector pointers
-// selects which role(s) the process takes on; both may be set for an
-// in-process hub + local-collector deployment.
+// TrackerConfig selects the role(s) this process takes. Presence of
+// Hub / Collector picks between:
+//
+//   - Hub + local collector (both set) — single-machine default.
+//   - Hub-only (Hub set, Collector nil) — community hub that only
+//     accepts remote collectors.
+//   - Collector-only (Collector set, Hub nil) — remote log parser
+//     feeding a hub over NATS.
 type TrackerConfig struct {
 	NATS      NATSConfig       `yaml:"nats"`
 	Hub       *HubConfig       `yaml:"hub,omitempty"`
@@ -69,30 +87,44 @@ type TrackerConfig struct {
 // NATSConfig points at the NATS endpoint. For a hub it is the bind address
 // of the embedded server; for a remote collector it is the URL of the hub
 // to connect to.
+//
+// CertFile and KeyFile, if both set, enable TLS on the embedded
+// server. They are ignored in collector-only mode (clients learn TLS
+// is required from the server's INFO message and upgrade
+// transparently, validating the server cert against system roots).
 type NATSConfig struct {
 	URL             string `yaml:"url"`
 	CredentialsFile string `yaml:"credentials_file,omitempty"`
+	CertFile        string `yaml:"cert_file,omitempty"`
+	KeyFile         string `yaml:"key_file,omitempty"`
 }
 
 // HubConfig configures the aggregator role.
 type HubConfig struct {
-	DedupWindow      Duration `yaml:"dedup_window"`
-	Retention        Duration `yaml:"retention"`
-	ApprovalRequired bool     `yaml:"approval_required"`
+	DedupWindow Duration `yaml:"dedup_window"`
+	Retention   Duration `yaml:"retention"`
 }
 
 // CollectorConfig configures the log-parser / publisher role.
 //
-// HubHost is a bare hostname: it is shown verbatim in !claim chat
-// replies and, when tracker.nats.url is unset, supplies the default
-// NATS connect endpoint for collector-only mode
-// (nats://<hub_host>:4222).
+// PublicURL is the publicly-reachable URL for this collector's host
+// (e.g. https://nil.ernie.io). The hub stores it as the source's
+// demo download base, used for cross-host asset fallback. Required.
+//
+// HubHost is the bare hostname of the trinity hub this collector
+// reports to; in collector-only mode it supplies the default
+// nats.url (nats://<hub_host>:4222). Required.
+//
+// Each q3_servers[].address should hold the publicly-reachable
+// host:port for that server (i.e. matching PublicURL's hostname plus
+// the q3 net_port). The collector uses that address for rcon and the
+// hub uses it for UDP getstatus polling.
 type CollectorConfig struct {
 	SourceID          string   `yaml:"source_id"`
 	DataDir           string   `yaml:"data_dir"`
 	HeartbeatInterval Duration `yaml:"heartbeat_interval"`
-	DemoBaseURL       string   `yaml:"demo_base_url,omitempty"`
-	HubHost           string   `yaml:"hub_host,omitempty"`
+	PublicURL         string   `yaml:"public_url"`
+	HubHost           string   `yaml:"hub_host"`
 }
 
 // AuthConfig holds authentication settings
@@ -117,9 +149,11 @@ type DatabaseConfig struct {
 	Path string `yaml:"path"`
 }
 
-// Q3Server represents a Quake 3 server to monitor
+// Q3Server represents a Quake 3 server to monitor. Key is the stable
+// identifier shown in the UI as "<source> / <key>"; same character
+// restrictions as a source name (alnum/underscore/hyphen).
 type Q3Server struct {
-	Name         string `yaml:"name"`
+	Key          string `yaml:"key"`
 	Address      string `yaml:"address"`
 	LogPath      string `yaml:"log_path"`
 	RconPassword string `yaml:"rcon_password"`
@@ -160,20 +194,41 @@ func Load(path string) (*Config, error) {
 		cfg.Auth.TokenDuration = 24 * time.Hour
 	}
 
-	if err := applyTrackerDefaults(cfg.Tracker); err != nil {
-		return nil, err
-	}
+	applyTrackerDefaults(&cfg)
 	if err := validateTracker(cfg.Tracker); err != nil {
 		return nil, err
+	}
+
+	for i, srv := range cfg.Q3Servers {
+		if srv.Key == "" {
+			return nil, fmt.Errorf("q3_servers[%d]: key is required", i)
+		}
+		if len(srv.Key) > 64 || !idPattern.MatchString(srv.Key) {
+			return nil, fmt.Errorf("q3_servers[%d].key %q must match %s and be at most 64 chars", i, srv.Key, idPattern.String())
+		}
 	}
 
 	return &cfg, nil
 }
 
-func applyTrackerDefaults(t *TrackerConfig) error {
-	if t == nil {
-		return nil
+// applyTrackerDefaults populates cfg.Tracker if absent (single-machine
+// hub+collector) and fills in per-role defaults. After this call
+// cfg.Tracker is always non-nil.
+func applyTrackerDefaults(cfg *Config) {
+	if cfg.Tracker == nil {
+		// Implicit single-host install with no tracker block: default to
+		// hub+local-collector with the loopback advertised. Operators
+		// who write an explicit collector block must set public_url and
+		// hub_host themselves.
+		cfg.Tracker = &TrackerConfig{
+			Hub: &HubConfig{},
+			Collector: &CollectorConfig{
+				PublicURL: "http://127.0.0.1",
+				HubHost:   "127.0.0.1",
+			},
+		}
 	}
+	t := cfg.Tracker
 	if t.Hub != nil {
 		if t.Hub.DedupWindow == 0 {
 			t.Hub.DedupWindow = Duration(30 * time.Minute)
@@ -186,8 +241,21 @@ func applyTrackerDefaults(t *TrackerConfig) error {
 		if t.Collector.HeartbeatInterval == 0 {
 			t.Collector.HeartbeatInterval = Duration(30 * time.Second)
 		}
-		if t.Collector.HubHost == "" {
-			t.Collector.HubHost = "trinity.run"
+		if t.Collector.DataDir == "" {
+			// Default alongside the SQLite DB; main.go already creates
+			// this dir on hub deployments.
+			if cfg.Database.Path != "" {
+				t.Collector.DataDir = dirOf(cfg.Database.Path)
+			} else {
+				t.Collector.DataDir = "/var/lib/trinity"
+			}
+		}
+		if t.Collector.SourceID == "" && t.Hub != nil {
+			// Hub+local-collector: the local source is created/upserted
+			// at startup, so source_id is internal metadata. Remote
+			// collectors (no Hub set) must still supply it explicitly —
+			// the hub admin chose the name at provisioning time.
+			t.Collector.SourceID = "local"
 		}
 	}
 	// NATS URL: embedded hub or in-process collector use localhost;
@@ -202,22 +270,41 @@ func applyTrackerDefaults(t *TrackerConfig) error {
 			t.NATS.URL = "nats://localhost:4222"
 		}
 	}
-	return nil
+}
+
+func dirOf(path string) string {
+	if i := strings.LastIndex(path, "/"); i >= 0 {
+		if i == 0 {
+			return "/"
+		}
+		return path[:i]
+	}
+	return "."
 }
 
 func validateTracker(t *TrackerConfig) error {
 	if t == nil {
-		return nil
+		return fmt.Errorf("tracker: internal — applyTrackerDefaults must run first")
 	}
 	if t.Hub == nil && t.Collector == nil {
 		return fmt.Errorf("tracker: must set at least one of hub or collector")
 	}
 	if t.Collector != nil {
 		if t.Collector.SourceID == "" {
-			return fmt.Errorf("tracker.collector.source_id is required")
+			return fmt.Errorf("tracker.collector.source_id is required (admin chose this name at provisioning)")
 		}
 		if t.Collector.DataDir == "" {
 			return fmt.Errorf("tracker.collector.data_dir is required")
+		}
+		if t.Collector.PublicURL == "" {
+			return fmt.Errorf("tracker.collector.public_url is required (publicly-reachable URL for this collector's host)")
+		}
+		u, err := url.Parse(t.Collector.PublicURL)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" {
+			return fmt.Errorf("tracker.collector.public_url must be an http(s) URL with a hostname (got %q)", t.Collector.PublicURL)
+		}
+		if t.Collector.HubHost == "" {
+			return fmt.Errorf("tracker.collector.hub_host is required (the trinity hub this collector reports to)")
 		}
 	}
 	return nil
@@ -253,10 +340,11 @@ func AddServer(cfg *Config, server Q3Server) {
 	cfg.Q3Servers = append(cfg.Q3Servers, server)
 }
 
-// RemoveServerByName removes a server by name and returns whether it was found
-func RemoveServerByName(cfg *Config, name string) bool {
+// RemoveServerByKey removes a server by key (case-insensitive) and
+// returns whether it was found.
+func RemoveServerByKey(cfg *Config, key string) bool {
 	for i, s := range cfg.Q3Servers {
-		if s.Name == name {
+		if strings.EqualFold(s.Key, key) {
 			cfg.Q3Servers = append(cfg.Q3Servers[:i], cfg.Q3Servers[i+1:]...)
 			return true
 		}

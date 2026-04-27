@@ -43,7 +43,7 @@ func TestBufferedPublisherDrainsToJetStream(t *testing.T) {
 	}
 	defer nc.Close()
 
-	inner, err := natsbus.NewPublisher(nc, "src", "uuid-1", 0)
+	inner, err := natsbus.NewPublisher(nc, "src", 0)
 	if err != nil {
 		t.Fatalf("NewPublisher: %v", err)
 	}
@@ -116,7 +116,7 @@ func TestBufferedPublisherOverflowDropsOldest(t *testing.T) {
 		t.Fatalf("connect: %v", err)
 	}
 	defer nc.Close()
-	inner, err := natsbus.NewPublisher(nc, "src", "uuid-1", 0)
+	inner, err := natsbus.NewPublisher(nc, "src", 0)
 	if err != nil {
 		t.Fatalf("NewPublisher: %v", err)
 	}
@@ -161,7 +161,7 @@ func TestBufferedPublisherSpillsAndDrains(t *testing.T) {
 		t.Fatalf("connect: %v", err)
 	}
 	defer nc.Close()
-	inner, err := natsbus.NewPublisher(nc, "src-spill", "uuid-spill", 0)
+	inner, err := natsbus.NewPublisher(nc, "src-spill", 0)
 	if err != nil {
 		t.Fatalf("NewPublisher: %v", err)
 	}

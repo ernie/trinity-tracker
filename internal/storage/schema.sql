@@ -3,24 +3,34 @@
 -- Servers being monitored
 CREATE TABLE IF NOT EXISTS servers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    address TEXT NOT NULL UNIQUE,
-    log_path TEXT,
+    -- Stable, case-insensitive identifier. Same character set as
+    -- sources.source: alnum/underscore/hyphen, 1-64 chars. Address
+    -- can change without splitting history. Display in the UI is
+    -- "<source> / <key>" (case preserved).
+    key TEXT NOT NULL CHECK(key <> ''),
+    address TEXT NOT NULL,
     last_match_uuid TEXT,
     last_match_ended_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    -- Distributed-tracking fields. NULL / default 0 for local servers; set
-    -- when a remote collector registers a server via NATS.
-    source TEXT,
-    source_uuid TEXT,
+    -- Distributed-tracking fields. source is the admin-chosen collector
+    -- identifier (FK-ish to sources.source); is_remote=0 for rows owned
+    -- by the hub's own local collector. Identity is (source, key):
+    -- renaming or rerouting (address change) doesn't fork history.
+    source TEXT NOT NULL CHECK(source <> ''),
     local_id INTEGER,
-    remote_address TEXT,
     is_remote INTEGER NOT NULL DEFAULT 0,
     last_heartbeat_at TIMESTAMP,
-    demo_base_url TEXT
+    demo_base_url TEXT,
+    source_version TEXT,
+    -- 1 while the server is configured to run on its source. Flipped
+    -- to 0 by DeactivateSource (cascade) or by collector startup when
+    -- a server is removed from cfg.Q3Servers. UI dims inactive rows;
+    -- the live cards section filters them out.
+    active INTEGER NOT NULL DEFAULT 1,
+    UNIQUE(source, key COLLATE NOCASE)
 );
 
-CREATE INDEX IF NOT EXISTS idx_servers_source_uuid_local_id ON servers (source_uuid, local_id);
+CREATE INDEX IF NOT EXISTS idx_servers_source_local_id ON servers (source, local_id);
 
 -- Logical players (the "person" - can have multiple GUIDs)
 CREATE TABLE IF NOT EXISTS players (
@@ -171,25 +181,31 @@ CREATE TABLE IF NOT EXISTS link_codes (
 CREATE INDEX IF NOT EXISTS idx_link_codes_code ON link_codes(code);
 CREATE INDEX IF NOT EXISTS idx_link_codes_expires_at ON link_codes(expires_at);
 
--- Distributed tracking (M2): hub bookkeeping for sources/collectors.
+-- Distributed tracking: hub bookkeeping for sources/collectors.
 
 -- Per-source event sequence watermark. Primary dedup mechanism against
 -- JetStream redelivery; complement to the stream's Msg-Id dedup window.
 CREATE TABLE IF NOT EXISTS source_progress (
-    source_uuid  TEXT PRIMARY KEY,
+    source       TEXT PRIMARY KEY,
     consumed_seq INTEGER NOT NULL DEFAULT 0,
     updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Collectors awaiting admin approval. servers_json holds the list of Q3
--- servers the collector claims (from its registration message).
--- On approve: row deleted; servers rows upserted with is_remote=1.
--- On reject: row deleted; future events from same source_uuid dropped at ingest.
-CREATE TABLE IF NOT EXISTS pending_sources (
-    source_uuid  TEXT PRIMARY KEY,
-    source       TEXT NOT NULL,
-    first_seen   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    last_seen    TIMESTAMP,
-    version      TEXT,
-    servers_json TEXT
+-- Sources known to the hub. Admin pre-provisions every collector here
+-- (hub mints NATS creds at the same moment); a collector publishing
+-- anything for a source not in this table is refused at ingest. Local
+-- hub+collector installs insert a row for themselves at startup.
+-- servers.source references this table logically; enforcement is
+-- application-level (SQLite FK enforcement is opt-in per connection).
+CREATE TABLE IF NOT EXISTS sources (
+    source            TEXT PRIMARY KEY,
+    demo_base_url     TEXT NOT NULL DEFAULT '',
+    version           TEXT NOT NULL DEFAULT '',
+    last_heartbeat_at TIMESTAMP,
+    is_remote         INTEGER NOT NULL DEFAULT 1,
+    -- 1 while the admin has this source enabled. Flipped to 0 by
+    -- DeactivateSource (cascades to servers.active=0); ingest refuses
+    -- new heartbeats and RPCs when 0.
+    active            INTEGER NOT NULL DEFAULT 1,
+    created_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

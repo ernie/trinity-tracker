@@ -31,17 +31,16 @@ func TestRemotePollerPollsRegisteredServers(t *testing.T) {
 	_, store := newTestWriter(t)
 	ctx := context.Background()
 
-	// Seed a remote server via approval.
+	// Seed a provisioned remote source + its server roster.
 	reg := domain.Registration{
-		SourceUUID: "r-uuid",
-		Source:     "r",
-		Servers:    []domain.RegdServer{{LocalID: 1, Name: "r1", Address: "r.example:27960"}},
+		Source:  "remote",
+		Servers: []domain.RegdServer{{LocalID: 1, Key: "r1", Address: "r.example:27960"}},
 	}
-	if err := store.UpsertPendingSource(ctx, reg); err != nil {
-		t.Fatalf("pending: %v", err)
+	if err := store.CreateSource(ctx, reg.Source, true); err != nil {
+		t.Fatalf("create source: %v", err)
 	}
-	if err := store.ApproveRemoteServers(ctx, reg, ""); err != nil {
-		t.Fatalf("approve: %v", err)
+	if err := store.UpsertRemoteServers(ctx, reg); err != nil {
+		t.Fatalf("upsert roster: %v", err)
 	}
 
 	q := &fakeQuerier{responses: map[string]*domain.ServerStatus{
@@ -83,15 +82,14 @@ func TestRemotePollerUnreachableMarksOffline(t *testing.T) {
 	_, store := newTestWriter(t)
 	ctx := context.Background()
 	reg := domain.Registration{
-		SourceUUID: "r-uuid",
-		Source:     "r",
-		Servers:    []domain.RegdServer{{LocalID: 1, Name: "r1", Address: "dead:27960"}},
+		Source:  "remote",
+		Servers: []domain.RegdServer{{LocalID: 1, Key: "r1", Address: "dead:27960"}},
 	}
-	if err := store.UpsertPendingSource(ctx, reg); err != nil {
-		t.Fatalf("pending: %v", err)
+	if err := store.CreateSource(ctx, reg.Source, true); err != nil {
+		t.Fatalf("create source: %v", err)
 	}
-	if err := store.ApproveRemoteServers(ctx, reg, ""); err != nil {
-		t.Fatalf("approve: %v", err)
+	if err := store.UpsertRemoteServers(ctx, reg); err != nil {
+		t.Fatalf("upsert roster: %v", err)
 	}
 
 	q := &fakeQuerier{responses: map[string]*domain.ServerStatus{}} // no response for dead

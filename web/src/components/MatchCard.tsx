@@ -7,7 +7,8 @@ import { MedalIcon } from './MedalIcon'
 import { PlayerPortrait } from './PlayerPortrait'
 import { PlayerBadge } from './PlayerBadge'
 import { ModeIcons } from './ServerCard'
-import { formatNumber, stripVRPrefix } from '../utils'
+import { useSources } from '../hooks/useSources'
+import { formatNumber, serverDisplay, stripVRPrefix } from '../utils'
 
 export function formatDuration(startedAt: string, endedAt: string): string {
   const start = new Date(startedAt)
@@ -80,6 +81,7 @@ function demoFilename(match: MatchSummary): string {
 }
 
 export function MatchCard({ match, onPlayerClick, highlightPlayerId, showPermalink = false }: MatchCardProps) {
+  const { hasMultiple: hasMultipleSources } = useSources()
   const isTeam = isTeamGame(match.game_type)
   const players = [...(match.players ?? [])].sort((a, b) => {
     // Sort by team first (red=1, blue=2, others after), then completed before incomplete, then by score descending
@@ -102,11 +104,13 @@ export function MatchCard({ match, onPlayerClick, highlightPlayerId, showPermali
 
   return (
     <div
-      className="match-card"
+      className={`match-card${match.server_active === false ? ' inactive-server' : ''}`}
       style={levelshotUrl ? { '--levelshot': `url(${levelshotUrl})` } as React.CSSProperties : undefined}
     >
       <span className="server-name-badge">
-        <ModeIcons movement={match.movement} gameplay={match.gameplay} /> {match.server_name}
+        <ModeIcons movement={match.movement} gameplay={match.gameplay} />{' '}
+        {serverDisplay(match.source, match.server_key, { hasMultipleSources })}
+        {match.server_active === false && <span className="inactive-chip">inactive</span>}
         <span className="badge-sep">/</span>
         <span className="badge-label">Mode</span> {formatGameType(match.game_type)}
       </span>

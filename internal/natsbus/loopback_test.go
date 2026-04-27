@@ -54,8 +54,8 @@ func TestLoopbackEventRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("storage.New: %v", err)
 	}
-	srv := &domain.Server{Name: "ffa", Address: "127.0.0.1:27960"}
-	if err := store.UpsertServer(ctx, srv); err != nil {
+	srv := &domain.Server{Key: "ffa", Address: "127.0.0.1:27960"}
+	if err := store.UpsertServer(ctx, "test", srv); err != nil {
 		t.Fatalf("seed server: %v", err)
 	}
 	if srv.ID != 1 {
@@ -63,11 +63,11 @@ func TestLoopbackEventRoundTrip(t *testing.T) {
 	}
 
 	// Writer + subscriber (hub side). Pre-approve the test source so
-	// events dispatch immediately instead of accumulating in the DLQ.
+	// events dispatch immediately.
 	writer := hub.NewWriter(store)
 	writer.Start(ctx)
-	const sourceUUID = "aaaa-0000-0000-0000-000000000042"
-	writer.MarkSourceApproved(sourceUUID)
+	const source = "local-1"
+	writer.MarkSourceApproved(source)
 
 	subNC, err := ns.ConnectInternal(nats.Name("test-sub"))
 	if err != nil {
@@ -96,7 +96,7 @@ func TestLoopbackEventRoundTrip(t *testing.T) {
 	t.Cleanup(func() { writer.Stop() })
 	t.Cleanup(cancel)
 	t.Cleanup(sub.Stop)
-	pub, err := natsbus.NewPublisher(pubNC, "ffa-local", sourceUUID, 0)
+	pub, err := natsbus.NewPublisher(pubNC, source, 0)
 	if err != nil {
 		t.Fatalf("NewPublisher: %v", err)
 	}
@@ -122,7 +122,7 @@ func TestLoopbackEventRoundTrip(t *testing.T) {
 	// Wait up to 3s for consumed_seq to advance.
 	deadline := time.Now().Add(3 * time.Second)
 	for time.Now().Before(deadline) {
-		seq, err := store.GetConsumedSeq(ctx, sourceUUID)
+		seq, err := store.GetConsumedSeq(ctx, source)
 		if err != nil {
 			t.Fatalf("GetConsumedSeq: %v", err)
 		}
@@ -131,7 +131,7 @@ func TestLoopbackEventRoundTrip(t *testing.T) {
 		}
 		time.Sleep(25 * time.Millisecond)
 	}
-	if seq, _ := store.GetConsumedSeq(ctx, sourceUUID); seq != 1 {
+	if seq, _ := store.GetConsumedSeq(ctx, source); seq != 1 {
 		t.Fatalf("consumed_seq = %d, want 1 (subscriber did not process)", seq)
 	}
 
@@ -172,7 +172,7 @@ func TestLoopbackEventRoundTrip(t *testing.T) {
 		t.Fatalf("second publish: %v", err)
 	}
 	time.Sleep(200 * time.Millisecond)
-	if seq, _ := store.GetConsumedSeq(ctx, sourceUUID); seq != 2 {
+	if seq, _ := store.GetConsumedSeq(ctx, source); seq != 2 {
 		t.Errorf("consumed_seq after second publish = %d, want 2", seq)
 	}
 }

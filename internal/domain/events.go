@@ -21,7 +21,8 @@ const (
 	EventSayTeam       = "say_team"
 	EventTell          = "tell"
 	EventSayRcon       = "say_rcon"
-	EventAward         = "award"
+	EventAward            = "award"
+	EventClientUserinfo   = "client_userinfo"
 )
 
 // Event represents a real-time event for WebSocket broadcast
@@ -36,6 +37,18 @@ type Event struct {
 type PlayerJoinEvent struct {
 	Player   PlayerStatus `json:"player"`
 	PlayerID *int64       `json:"player_id,omitempty"`
+}
+
+// ClientUserinfoEvent mirrors a Q3 ClientUserinfoChanged on the wire:
+// a client already in the game changed their userinfo (model, VR flag).
+// Distinct from PlayerJoinEvent — no session creation, no greeting,
+// no "X joined" on the UI. Hub applies it to the existing presence
+// entry so the live card reflects the new portrait.
+type ClientUserinfoEvent struct {
+	ClientNum int    `json:"client_num"`
+	GUID      string `json:"guid"`
+	Model     string `json:"model,omitempty"`
+	IsVR      bool   `json:"is_vr"`
 }
 
 // PlayerLeaveEvent is sent when a player disconnects

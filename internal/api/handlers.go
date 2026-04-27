@@ -179,6 +179,29 @@ func (r *Router) handleGetPlayerStatsByID(w http.ResponseWriter, req *http.Reque
 	writeJSON(w, http.StatusOK, stats)
 }
 
+// handleGetSourceNames returns the list of source names + active flags
+// from the sources table — public, used to populate the source-filter
+// dropdown (which renders inactive sources with an "(inactive)" suffix
+// so users can still filter historical matches by them).
+// Admin-only /api/admin/sources also exists and returns the full
+// per-source detail with credential download links.
+func (r *Router) handleGetSourceNames(w http.ResponseWriter, req *http.Request) {
+	rows, err := r.store.ListApprovedSources(req.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	type entry struct {
+		Source string `json:"source"`
+		Active bool   `json:"active"`
+	}
+	out := make([]entry, 0, len(rows))
+	for _, s := range rows {
+		out = append(out, entry{Source: s.Source, Active: s.Active})
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
 // handleGetMatches returns recent finished matches with server and player info
 func (r *Router) handleGetMatches(w http.ResponseWriter, req *http.Request) {
 	filter := storage.MatchFilter{
@@ -212,6 +235,10 @@ func (r *Router) handleGetMatches(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		filter.EndDate = &t
+	}
+
+	if src := req.URL.Query().Get("source"); src != "" {
+		filter.Source = src
 	}
 
 	filter.IncludeBotOnly = req.URL.Query().Get("include_bot_only") == "true"

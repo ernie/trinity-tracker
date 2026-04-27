@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { MatchCard } from './MatchCard'
 import { Header } from './Header'
+import { SourceFilter } from './SourceFilter'
 import { GAME_TYPE_LABELS, type GameTypeFilter } from '../constants/labels'
 import type { MatchSummary } from '../types'
 
@@ -28,6 +29,7 @@ export function MatchesPage() {
   const [includeBotOnly, setIncludeBotOnly] = useState<boolean>(() =>
     searchParams.get('include_bot_only') === 'true'
   )
+  const [source, setSource] = useState<string>(() => searchParams.get('source') || '')
 
   const [matches, setMatches] = useState<MatchSummary[]>([])
   const [loading, setLoading] = useState(true)
@@ -41,8 +43,9 @@ export function MatchesPage() {
     if (startDate) params.set('start_date', startDate)
     if (endDate) params.set('end_date', endDate)
     if (includeBotOnly) params.set('include_bot_only', 'true')
+    if (source) params.set('source', source)
     setSearchParams(params, { replace: true })
-  }, [gameType, startDate, endDate, includeBotOnly, setSearchParams])
+  }, [gameType, startDate, endDate, includeBotOnly, source, setSearchParams])
 
   // Fetch matches when filters change
   useEffect(() => {
@@ -56,6 +59,7 @@ export function MatchesPage() {
         params.set('limit', PAGE_SIZE.toString())
         if (gameType !== 'all') params.set('game_type', gameType)
         if (includeBotOnly) params.set('include_bot_only', 'true')
+        if (source) params.set('source', source)
 
         // Convert datetime-local to RFC3339
         if (startDate) {
@@ -82,7 +86,7 @@ export function MatchesPage() {
     }
 
     fetchMatches()
-  }, [gameType, startDate, endDate, includeBotOnly])
+  }, [gameType, startDate, endDate, includeBotOnly, source])
 
   const loadMore = async () => {
     if (loadingMore || !hasMore || matches.length === 0) return
@@ -96,6 +100,7 @@ export function MatchesPage() {
       params.set('before', lastMatchId.toString())
       if (gameType !== 'all') params.set('game_type', gameType)
       if (includeBotOnly) params.set('include_bot_only', 'true')
+      if (source) params.set('source', source)
       if (startDate) {
         const date = parseDateTimeLocal(startDate)
         if (date) params.set('start_date', date.toISOString())
@@ -130,9 +135,10 @@ export function MatchesPage() {
     setStartDate('')
     setEndDate('')
     setIncludeBotOnly(false)
+    setSource('')
   }
 
-  const hasActiveFilters = gameType !== 'all' || startDate || endDate || includeBotOnly
+  const hasActiveFilters = gameType !== 'all' || startDate || endDate || includeBotOnly || source
 
   return (
     <div className="matches-page">
@@ -176,6 +182,7 @@ export function MatchesPage() {
             />
             Include bot-only matches
           </label>
+          <SourceFilter value={source} onChange={setSource} />
           {hasActiveFilters && (
             <button className="clear-filters-btn" onClick={clearFilters}>
               Clear Filters

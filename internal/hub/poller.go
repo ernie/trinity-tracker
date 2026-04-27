@@ -11,26 +11,18 @@ import (
 	"github.com/ernie/trinity-tracker/internal/storage"
 )
 
-// StatusQuerier is any UDP client capable of answering a Q3 server's
-// getstatus. *collector.Q3Client satisfies it; tests can substitute a
-// fake.
+// StatusQuerier answers a Q3 server's getstatus.
 type StatusQuerier interface {
 	QueryStatus(address string) (*domain.ServerStatus, error)
 }
 
-// IdentityResolver answers "what players row is this GUID linked to,
-// and what are its verified/admin flags?". Satisfied by *Writer.
+// IdentityResolver maps a GUID to its players row and verified/admin flags.
 type IdentityResolver interface {
 	ResolveIdentity(ctx context.Context, guid string) (playerID int64, verified, admin, ok bool)
 }
 
-// RemotePoller periodically polls every servers row that has a usable
-// address and caches the latest ServerStatus. It enriches each
-// PlayerStatus by resolving (serverID, ClientNum) → GUID via the
-// presence tracker and then GUID → player_id / verified / admin via
-// the identity resolver. Originally added for remote-only deployments
-// (M2 phase 8) it is now the unified poller for hub, hub+collector,
-// and standalone modes.
+// RemotePoller polls every pollable server and caches the latest ServerStatus,
+// enriching each PlayerStatus via the presence tracker and identity resolver.
 type RemotePoller struct {
 	store    *storage.Store
 	querier  StatusQuerier
@@ -40,16 +32,15 @@ type RemotePoller struct {
 
 	mu       sync.RWMutex
 	statuses map[int64]*domain.ServerStatus
+	sink     LiveEventSink
 
 	stopOnce sync.Once
 	stopCh   chan struct{}
 	doneCh   chan struct{}
 }
 
-// NewRemotePoller constructs a poller. interval <= 0 falls back to a
-// conservative 10s so a misconfigured instance doesn't hammer remote
-// hosts. presence and identity are both optional — a nil presence
-// skips enrichment, a nil identity leaves verified/admin false.
+// NewRemotePoller constructs a poller. interval <= 0 falls back to 10s.
+// presence and identity are both optional.
 func NewRemotePoller(store *storage.Store, q StatusQuerier, interval time.Duration, presence *Presence, identity IdentityResolver) *RemotePoller {
 	if interval <= 0 {
 		interval = 10 * time.Second
@@ -66,7 +57,14 @@ func NewRemotePoller(store *storage.Store, q StatusQuerier, interval time.Durati
 	}
 }
 
-// Start launches the poll loop. Returns immediately.
+// SetSink attaches a sink that receives a server_update event after
+// each poll. Safe to call before or after Start.
+func (p *RemotePoller) SetSink(sink LiveEventSink) {
+	p.mu.Lock()
+	p.sink = sink
+	p.mu.Unlock()
+}
+
 func (p *RemotePoller) Start(ctx context.Context) {
 	go p.run(ctx)
 }
@@ -104,7 +102,6 @@ func (p *RemotePoller) GetAllStatuses() []domain.ServerStatus {
 
 func (p *RemotePoller) run(ctx context.Context) {
 	defer close(p.doneCh)
-	// Initial poll.
 	p.pollAll(ctx)
 
 	t := time.NewTicker(p.interval)
@@ -128,52 +125,98 @@ func (p *RemotePoller) pollAll(ctx context.Context) {
 		return
 	}
 	for _, r := range servers {
-		status, err := p.querier.QueryStatus(r.RemoteAddress)
+		status, err := p.querier.QueryStatus(r.Address)
 		if err != nil || status == nil {
 			p.mu.Lock()
 			existing, ok := p.statuses[r.ID]
 			if !ok {
-				existing = &domain.ServerStatus{ServerID: r.ID, Name: r.Name, Address: r.RemoteAddress}
+				existing = &domain.ServerStatus{ServerID: r.ID, Key: r.Key, Source: r.Source, Address: r.Address}
 				p.statuses[r.ID] = existing
 			}
+			existing.Source = r.Source
 			existing.Online = false
 			existing.LastUpdated = time.Now().UTC()
+			snapshot := *existing
+			sink := p.sink
 			p.mu.Unlock()
+			p.broadcast(sink, snapshot)
 			continue
 		}
 		status.ServerID = r.ID
-		status.Name = r.Name
-		status.Address = r.RemoteAddress
+		status.Key = r.Key
+		status.Source = r.Source
+		status.Address = r.Address
 		status.Online = true
 		status.LastUpdated = time.Now().UTC()
-		p.enrichPlayers(ctx, r.ID, status.Players)
+		status.HumanCount = 0
+		status.BotCount = 0
+		p.enrichPlayers(ctx, r.ID, &status.HumanCount, &status.BotCount, status.Players)
 		p.mu.Lock()
 		p.statuses[r.ID] = status
+		snapshot := *status
+		sink := p.sink
 		p.mu.Unlock()
+		p.broadcast(sink, snapshot)
 	}
 }
 
-// enrichPlayers maps each PlayerStatus.ClientNum → GUID via the
-// presence tracker, then GUID → player_id / verified / admin via the
-// identity resolver. Silent no-op when either collaborator is nil.
-func (p *RemotePoller) enrichPlayers(ctx context.Context, serverID int64, players []domain.PlayerStatus) {
-	if p.presence == nil {
+func (p *RemotePoller) broadcast(sink LiveEventSink, status domain.ServerStatus) {
+	if sink == nil {
 		return
 	}
+	sink.Broadcast(domain.Event{
+		Type:      domain.EventServerUpdate,
+		ServerID:  status.ServerID,
+		Timestamp: status.LastUpdated,
+		Data:      status,
+	})
+}
+
+// enrichPlayers fills in identity + metadata on each PlayerStatus.
+// Slots without a presence entry default to IsBot=true so unknown
+// clients don't count as humans until their GUID is observed.
+func (p *RemotePoller) enrichPlayers(ctx context.Context, serverID int64, humanCount, botCount *int, players []domain.PlayerStatus) {
 	for i := range players {
 		ps := &players[i]
 		if ps.ClientNum < 0 {
 			continue
 		}
-		guid := p.presence.Lookup(serverID, ps.ClientNum)
-		if guid == "" {
+		var (
+			entry    PresenceEntry
+			haveSlot bool
+		)
+		if p.presence != nil {
+			entry, haveSlot = p.presence.Lookup(serverID, ps.ClientNum)
+		}
+		if !haveSlot {
+			ps.IsBot = true
+			if botCount != nil {
+				*botCount++
+			}
 			continue
 		}
-		ps.GUID = guid
+		ps.GUID = entry.GUID
+		ps.IsBot = entry.IsBot
+		ps.Model = entry.Model
+		ps.IsVR = entry.IsVR
+		if entry.IsBot {
+			ps.Skill = entry.Skill
+			if botCount != nil {
+				*botCount++
+			}
+		} else if humanCount != nil {
+			*humanCount++
+		}
+		ps.Impressives = entry.Impressives
+		ps.Excellents = entry.Excellents
+		ps.Humiliations = entry.Humiliations
+		ps.Defends = entry.Defends
+		ps.Captures = entry.Captures
+		ps.Assists = entry.Assists
 		if p.identity == nil {
 			continue
 		}
-		playerID, verified, admin, ok := p.identity.ResolveIdentity(ctx, guid)
+		playerID, verified, admin, ok := p.identity.ResolveIdentity(ctx, entry.GUID)
 		if !ok {
 			continue
 		}

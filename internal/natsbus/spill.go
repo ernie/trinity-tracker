@@ -14,25 +14,15 @@ import (
 	"github.com/ernie/trinity-tracker/internal/domain"
 )
 
-// SpillFilename is the on-disk queue of fact events that couldn't be
-// absorbed by the in-memory ring.
 const SpillFilename = "buffer.jsonl"
-
-// SpillHeadFilename tracks the byte offset of the next unread entry in
-// SpillFilename, so we don't have to rewrite the queue on every drain.
 const SpillHeadFilename = "buffer.head.json"
 
-// SpillCapBytes caps the live size of SpillFilename (tail - head). When
-// a write would push past the cap, the queue compacts (rewrites from
-// head onward) and, if still over cap, drops oldest entries until
-// under cap — each dropped entry increments Dropped. Declared as a
-// var (not const) so tests can shrink it via spillCapOverride.
+// SpillCapBytes caps the live size (tail - head). Overflow compacts and
+// then drops oldest entries (incrementing Dropped) until under cap. Var
+// rather than const so tests can shrink via spillCapOverride.
 var SpillCapBytes int64 = 100 * 1024 * 1024
 
-// spillCapOverride is test-only: when non-zero it supersedes
-// SpillCapBytes for the current process. Production code uses the
-// exported cap directly via the effectiveCap helper.
-var spillCapOverride int64
+var spillCapOverride int64 // test-only; takes precedence when non-zero
 
 func effectiveCap() int64 {
 	if spillCapOverride > 0 {
@@ -41,10 +31,9 @@ func effectiveCap() int64 {
 	return SpillCapBytes
 }
 
-// SpillQueue is an append-only JSONL queue of fact events that
-// survives NATS outages longer than the in-memory ring can buffer.
-// Read-position is tracked in a sibling head file; we rewrite the main
-// file only on overflow compaction.
+// SpillQueue is an append-only JSONL queue for fact events during NATS
+// outages. Read position lives in a sibling head file; the main file
+// is rewritten only on overflow compaction.
 type SpillQueue struct {
 	dir string
 
@@ -61,9 +50,8 @@ type spillHead struct {
 	Offset int64 `json:"offset"`
 }
 
-// NewSpillQueue opens (creating if needed) the on-disk queue under
-// dir. If either the data file or the head file already exists, the
-// queue resumes from the persisted offsets.
+// NewSpillQueue opens or creates the on-disk queue under dir, resuming
+// from any persisted offsets.
 func NewSpillQueue(dir string) (*SpillQueue, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, fmt.Errorf("natsbus.SpillQueue: mkdir %s: %w", dir, err)
@@ -83,12 +71,9 @@ func NewSpillQueue(dir string) (*SpillQueue, error) {
 		file: f,
 		tail: info.Size(),
 	}
-	// Load persisted head offset; silently default to 0 on first-run
-	// or parse failure.
 	if head, err := loadSpillHead(filepath.Join(dir, SpillHeadFilename)); err == nil {
 		if head.Offset > q.tail {
-			// File was truncated externally; reset to start.
-			q.head = 0
+			q.head = 0 // data file was truncated externally
 		} else {
 			q.head = head.Offset
 		}
@@ -96,28 +81,21 @@ func NewSpillQueue(dir string) (*SpillQueue, error) {
 	return q, nil
 }
 
-// IsEmpty reports whether there is no unread data remaining.
 func (q *SpillQueue) IsEmpty() bool {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	return q.head >= q.tail
 }
 
-// Size returns the live on-disk byte usage (tail - head).
 func (q *SpillQueue) Size() int64 {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	return q.tail - q.head
 }
 
-// Dropped returns the count of events lost to rotation (cap exceeded).
-// Ring-to-disk spill is not counted — that's preservation, not loss.
+// Dropped counts events discarded due to cap overflow (not ring-to-disk spill).
 func (q *SpillQueue) Dropped() uint64 { return q.dropped.Load() }
 
-// Append writes one event to the end of the queue. If the resulting
-// live size would exceed SpillCapBytes, the queue compacts first; if
-// still over cap after compaction, oldest entries are discarded and
-// Dropped is bumped per discarded entry.
 func (q *SpillQueue) Append(e domain.FactEvent) error {
 	payload, err := json.Marshal(e.Data)
 	if err != nil {
@@ -149,8 +127,7 @@ func (q *SpillQueue) Append(e domain.FactEvent) error {
 	return nil
 }
 
-// Peek returns the next-unread event without advancing. ok=false when
-// the queue is empty.
+// Peek returns the next-unread event without advancing.
 func (q *SpillQueue) Peek() (domain.FactEvent, bool, error) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
@@ -160,21 +137,18 @@ func (q *SpillQueue) Peek() (domain.FactEvent, bool, error) {
 	return q.readAtLocked(q.head)
 }
 
-// Advance moves the read head past the previously-peeked entry and
-// persists the new head offset.
+// Advance moves the read head past the previously-peeked entry.
 func (q *SpillQueue) Advance() error {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	if q.closed || q.head >= q.tail {
 		return nil
 	}
-	// Recompute line length: scan forward from head to the next '\n'.
 	offset, err := q.scanNewlineLocked(q.head)
 	if err != nil {
 		return err
 	}
 	q.head = offset
-	// If we've drained everything, reset head + truncate.
 	if q.head >= q.tail {
 		if err := q.resetLocked(); err != nil {
 			return err
@@ -183,7 +157,6 @@ func (q *SpillQueue) Advance() error {
 	return q.persistHeadLocked()
 }
 
-// Close flushes the head marker and releases the file handle.
 func (q *SpillQueue) Close() error {
 	q.mu.Lock()
 	defer q.mu.Unlock()
@@ -198,7 +171,6 @@ func (q *SpillQueue) Close() error {
 	return q.file.Close()
 }
 
-// readAtLocked decodes one line starting at offset. Caller holds q.mu.
 func (q *SpillQueue) readAtLocked(offset int64) (domain.FactEvent, bool, error) {
 	line, err := q.readLineLocked(offset)
 	if err != nil {
@@ -216,8 +188,6 @@ func (q *SpillQueue) readAtLocked(offset int64) (domain.FactEvent, bool, error) 
 	}, true, nil
 }
 
-// readLineLocked returns the JSON bytes (no trailing newline) of the
-// line starting at offset.
 func (q *SpillQueue) readLineLocked(offset int64) ([]byte, error) {
 	if _, err := q.file.Seek(offset, io.SeekStart); err != nil {
 		return nil, fmt.Errorf("natsbus.SpillQueue: seek: %w", err)
@@ -233,8 +203,6 @@ func (q *SpillQueue) readLineLocked(offset int64) ([]byte, error) {
 	return line, nil
 }
 
-// scanNewlineLocked returns the byte offset immediately after the
-// newline terminating the line that starts at offset.
 func (q *SpillQueue) scanNewlineLocked(offset int64) (int64, error) {
 	if _, err := q.file.Seek(offset, io.SeekStart); err != nil {
 		return 0, fmt.Errorf("natsbus.SpillQueue: seek: %w", err)
@@ -247,8 +215,6 @@ func (q *SpillQueue) scanNewlineLocked(offset int64) (int64, error) {
 	return offset + int64(len(line)), nil
 }
 
-// ensureRoomLocked compacts + truncates so appending addBytes stays
-// under SpillCapBytes. Caller holds q.mu.
 func (q *SpillQueue) ensureRoomLocked(addBytes int64) error {
 	cap := effectiveCap()
 	if q.tail-q.head+addBytes <= cap {
@@ -271,8 +237,7 @@ func (q *SpillQueue) ensureRoomLocked(addBytes int64) error {
 	return nil
 }
 
-// compactLocked rewrites the file from head onward, resetting head to
-// 0 and tail to the new size. No-op when head == 0.
+// compactLocked rewrites the file from head onward and resets offsets.
 func (q *SpillQueue) compactLocked() error {
 	if q.head == 0 {
 		return nil
@@ -280,7 +245,6 @@ func (q *SpillQueue) compactLocked() error {
 	if q.head >= q.tail {
 		return q.resetLocked()
 	}
-	// Read live slice into memory, rewrite the file, reset offsets.
 	live := q.tail - q.head
 	buf := make([]byte, live)
 	if _, err := q.file.ReadAt(buf, q.head); err != nil {
@@ -310,11 +274,8 @@ func (q *SpillQueue) persistHeadLocked() error {
 	return saveSpillHead(filepath.Join(q.dir, SpillHeadFilename), spillHead{Offset: q.head})
 }
 
-// spillRecord is the on-disk shape for a FactEvent. Data is held as
-// the already-marshaled JSON bytes so SpillQueue stays agnostic to
-// the concrete FactEvent payload types — the drain path re-decodes
-// into the right type via decodeEventPayload when the publisher
-// needs a typed value.
+// spillRecord is the on-disk shape. Data stays as raw JSON so the
+// queue doesn't need to know concrete payload types.
 type spillRecord struct {
 	Type      string          `json:"type"`
 	ServerID  int64           `json:"server_id"`

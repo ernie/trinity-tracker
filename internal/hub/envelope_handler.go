@@ -4,41 +4,37 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 
 	"github.com/ernie/trinity-tracker/internal/domain"
 )
 
-// HandleEnvelope is the hub-side entry point for an event that has
-// arrived over the wire (distributed mode). It dedups against
-// source_progress.consumed_seq, resolves the envelope's remote server
-// id to a local servers.id (via (source_uuid, local_id)), decodes the
-// typed payload, dispatches through the existing fact-event handlers,
-// and advances consumed_seq on success.
-//
-// If the source has no mapping yet (unknown/pending), we still fall
-// back to treating RemoteServerID as a literal servers.id. This keeps
-// the in-process hub+collector loopback working throughout M2 and
-// degrades gracefully when a remote collector publishes events that
-// arrive before its approval lands (phase 6b will intercept those
-// via the pending DLQ).
+// HandleEnvelope ingests a wire-arrived event: dedups against
+// source_progress.consumed_seq, resolves RemoteServerID via
+// (source, local_id), decodes the payload, dispatches, and
+// advances consumed_seq.
 func (w *Writer) HandleEnvelope(ctx context.Context, env domain.Envelope) error {
-	if env.SourceUUID == "" {
-		return fmt.Errorf("hub: envelope missing source_uuid (event=%s seq=%d)", env.Event, env.Seq)
+	if env.Source == "" {
+		return fmt.Errorf("hub: envelope missing source (event=%s seq=%d)", env.Event, env.Seq)
 	}
 
-	state, err := w.sources.State(ctx, env.SourceUUID)
+	state, err := w.sources.State(ctx, env.Source)
 	if err != nil {
 		return err
 	}
 	switch state {
 	case SourceBlocked:
 		return nil
-	case SourcePending:
-		w.sources.EnqueueDLQ(env.SourceUUID, env)
+	case SourceUnknown:
+		// NATS auth should have rejected this at the broker. If we see
+		// one, either auth is misconfigured or creds were issued for a
+		// source that was since deleted — either way, drop the event
+		// and log once per UnknownCheckTTL window.
+		log.Printf("hub: envelope from unprovisioned source=%q event=%s seq=%d — dropping", env.Source, env.Event, env.Seq)
 		return nil
 	}
 
-	prev, err := w.store.GetConsumedSeq(ctx, env.SourceUUID)
+	prev, err := w.store.GetConsumedSeq(ctx, env.Source)
 	if err != nil {
 		return err
 	}
@@ -52,7 +48,7 @@ func (w *Writer) HandleEnvelope(ctx context.Context, env domain.Envelope) error 
 	}
 
 	serverID := env.RemoteServerID
-	if resolved, err := w.store.ResolveServerIDForSource(ctx, env.SourceUUID, env.RemoteServerID); err == nil && resolved != 0 {
+	if resolved, err := w.store.ResolveServerIDForSource(ctx, env.Source, env.RemoteServerID); err == nil && resolved != 0 {
 		serverID = resolved
 	}
 
@@ -63,7 +59,7 @@ func (w *Writer) HandleEnvelope(ctx context.Context, env domain.Envelope) error 
 		Data:      payload,
 	})
 
-	return w.store.AdvanceConsumedSeq(ctx, env.SourceUUID, env.Seq)
+	return w.store.AdvanceConsumedSeq(ctx, env.Source, env.Seq)
 }
 
 func decodeEventPayload(event string, raw json.RawMessage) (interface{}, error) {
@@ -100,6 +96,12 @@ func decodeEventPayload(event string, raw json.RawMessage) (interface{}, error) 
 		return p, nil
 	case domain.FactPlayerLeave:
 		var p domain.PlayerLeaveData
+		if err := json.Unmarshal(raw, &p); err != nil {
+			return nil, fmt.Errorf("hub: decode %s: %w", event, err)
+		}
+		return p, nil
+	case domain.FactPresenceSnapshot:
+		var p domain.PresenceSnapshotData
 		if err := json.Unmarshal(raw, &p); err != nil {
 			return nil, fmt.Errorf("hub: decode %s: %w", event, err)
 		}

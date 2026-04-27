@@ -45,7 +45,10 @@ func New(dbPath string) (*Store, error) {
 		return nil, fmt.Errorf("setting pragmas: %w", err)
 	}
 
-	// Create tables
+	// Create tables. schema.sql is idempotent (CREATE TABLE IF NOT
+	// EXISTS everywhere). Additive column changes to an existing
+	// install are handled out-of-band — the operator runs the ALTER
+	// manually before deploying a release that depends on it.
 	if _, err := db.Exec(schema); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("creating schema: %w", err)
@@ -63,27 +66,35 @@ func (s *Store) Close() error {
 
 // --- Server methods ---
 
-// UpsertServer creates or updates a server
-func (s *Store) UpsertServer(ctx context.Context, srv *domain.Server) error {
+// UpsertServer creates or updates a server scoped to source. Identity
+// is (source, address) so two collectors that happen to advertise the
+// same address get separate rows instead of trampling each other.
+// source is required; the schema rejects an empty value.
+func (s *Store) UpsertServer(ctx context.Context, source string, srv *domain.Server) error {
+	if source == "" {
+		return fmt.Errorf("storage.UpsertServer: source is required")
+	}
 	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO servers (name, address, log_path)
+		INSERT INTO servers (key, address, source)
 		VALUES (?, ?, ?)
-		ON CONFLICT(address) DO UPDATE SET
-			name = excluded.name,
-			log_path = excluded.log_path
-	`, srv.Name, srv.Address, srv.LogPath)
+		ON CONFLICT(source, key) DO UPDATE SET
+			address = excluded.address
+	`, srv.Key, srv.Address, source)
 	if err != nil {
 		return err
 	}
 
 	// Always query for the ID (LastInsertId unreliable with ON CONFLICT)
-	return s.db.QueryRowContext(ctx, "SELECT id FROM servers WHERE address = ?", srv.Address).Scan(&srv.ID)
+	return s.db.QueryRowContext(ctx,
+		"SELECT id FROM servers WHERE source = ? AND key = ? COLLATE NOCASE",
+		source, srv.Key,
+	).Scan(&srv.ID)
 }
 
 // GetServers returns all servers
 func (s *Store) GetServers(ctx context.Context) ([]domain.Server, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, name, address, log_path, last_match_uuid, last_match_ended_at, created_at FROM servers ORDER BY id
+		SELECT id, source, key, address, active, last_match_uuid, last_match_ended_at, created_at FROM servers ORDER BY id
 	`)
 	if err != nil {
 		return nil, err
@@ -93,12 +104,11 @@ func (s *Store) GetServers(ctx context.Context) ([]domain.Server, error) {
 	var servers []domain.Server
 	for rows.Next() {
 		var srv domain.Server
-		var logPath, lastMatchUUID sql.NullString
+		var lastMatchUUID sql.NullString
 		var lastMatchEndedAt sql.NullTime
-		if err := rows.Scan(&srv.ID, &srv.Name, &srv.Address, &logPath, &lastMatchUUID, &lastMatchEndedAt, &srv.CreatedAt); err != nil {
+		if err := rows.Scan(&srv.ID, &srv.Source, &srv.Key, &srv.Address, &srv.Active, &lastMatchUUID, &lastMatchEndedAt, &srv.CreatedAt); err != nil {
 			return nil, err
 		}
-		srv.LogPath = logPath.String
 		if lastMatchUUID.Valid {
 			srv.LastMatchUUID = &lastMatchUUID.String
 		}
@@ -113,15 +123,14 @@ func (s *Store) GetServers(ctx context.Context) ([]domain.Server, error) {
 // GetServerByID returns a server by ID
 func (s *Store) GetServerByID(ctx context.Context, id int64) (*domain.Server, error) {
 	var srv domain.Server
-	var logPath, lastMatchUUID sql.NullString
+	var lastMatchUUID sql.NullString
 	var lastMatchEndedAt sql.NullTime
 	err := s.db.QueryRowContext(ctx, `
-		SELECT id, name, address, log_path, last_match_uuid, last_match_ended_at, created_at FROM servers WHERE id = ?
-	`, id).Scan(&srv.ID, &srv.Name, &srv.Address, &logPath, &lastMatchUUID, &lastMatchEndedAt, &srv.CreatedAt)
+		SELECT id, source, key, address, active, last_match_uuid, last_match_ended_at, created_at FROM servers WHERE id = ?
+	`, id).Scan(&srv.ID, &srv.Source, &srv.Key, &srv.Address, &srv.Active, &lastMatchUUID, &lastMatchEndedAt, &srv.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
-	srv.LogPath = logPath.String
 	if lastMatchUUID.Valid {
 		srv.LastMatchUUID = &lastMatchUUID.String
 	}
@@ -1643,7 +1652,7 @@ func (s *Store) GetRecentMatchSummaries(ctx context.Context, limit int) ([]domai
 	// Get finished matches that have at least one player
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT DISTINCT
-			m.id, m.uuid, m.server_id, s.name, m.map_name, m.game_type, m.started_at, m.ended_at, m.exit_reason,
+			m.id, m.uuid, m.server_id, s.key, s.active, s.source, m.map_name, m.game_type, m.started_at, m.ended_at, m.exit_reason,
 			m.red_score, m.blue_score, m.movement, m.gameplay
 		FROM matches m
 		JOIN servers s ON m.server_id = s.id
@@ -1678,7 +1687,7 @@ func (s *Store) GetRecentMatchSummaries(ctx context.Context, limit int) ([]domai
 func (s *Store) GetPlayerRecentMatches(ctx context.Context, playerID int64, limit int, beforeID *int64) ([]domain.MatchSummary, error) {
 	query := `
 		SELECT DISTINCT
-			m.id, m.uuid, m.server_id, s.name, m.map_name, m.game_type, m.started_at, m.ended_at, m.exit_reason,
+			m.id, m.uuid, m.server_id, s.key, s.active, s.source, m.map_name, m.game_type, m.started_at, m.ended_at, m.exit_reason,
 			m.red_score, m.blue_score, m.movement, m.gameplay
 		FROM matches m
 		JOIN servers s ON m.server_id = s.id
@@ -2015,7 +2024,7 @@ func (s *Store) ClaimLink(ctx context.Context, codeID, claimPlayerID, userID int
 // GetMatchSummaryByID returns a single match by ID with all player stats
 func (s *Store) GetMatchSummaryByID(ctx context.Context, matchID int64) (*domain.MatchSummary, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT m.id, m.uuid, m.server_id, s.name, m.map_name, m.game_type, m.started_at, m.ended_at, m.exit_reason,
+		SELECT m.id, m.uuid, m.server_id, s.key, s.active, s.source, m.map_name, m.game_type, m.started_at, m.ended_at, m.exit_reason,
 		       m.red_score, m.blue_score, m.movement, m.gameplay
 		FROM matches m
 		JOIN servers s ON m.server_id = s.id
@@ -2061,6 +2070,7 @@ func (s *Store) GetMatchSummaryByID(ctx context.Context, matchID int64) (*domain
 // MatchFilter defines filters for querying matches
 type MatchFilter struct {
 	GameType       string
+	Source         string
 	StartDate      *time.Time
 	EndDate        *time.Time
 	BeforeID       *int64
@@ -2076,7 +2086,7 @@ func (s *Store) GetFilteredMatchSummaries(ctx context.Context, filter MatchFilte
 
 	query := `
 		SELECT DISTINCT
-			m.id, m.uuid, m.server_id, s.name, m.map_name, m.game_type, m.started_at, m.ended_at, m.exit_reason,
+			m.id, m.uuid, m.server_id, s.key, s.active, s.source, m.map_name, m.game_type, m.started_at, m.ended_at, m.exit_reason,
 			m.red_score, m.blue_score, m.movement, m.gameplay
 		FROM matches m
 		JOIN servers s ON m.server_id = s.id
@@ -2088,6 +2098,10 @@ func (s *Store) GetFilteredMatchSummaries(ctx context.Context, filter MatchFilte
 	if filter.GameType != "" {
 		query += ` AND m.game_type = ?`
 		args = append(args, filter.GameType)
+	}
+	if filter.Source != "" {
+		query += ` AND s.source = ?`
+		args = append(args, filter.Source)
 	}
 	if filter.StartDate != nil {
 		query += ` AND m.started_at >= ?`
@@ -2138,7 +2152,7 @@ func (s *Store) GetPlayerSessions(ctx context.Context, playerID int64, limit int
 	}
 
 	query := `
-		SELECT s.id, s.server_id, srv.name, s.joined_at, s.left_at, s.duration_seconds, s.ip_address, s.client_engine, s.client_version
+		SELECT s.id, s.server_id, srv.source, srv.key, s.joined_at, s.left_at, s.duration_seconds, s.ip_address, s.client_engine, s.client_version
 		FROM sessions s
 		JOIN player_guids pg ON s.player_guid_id = pg.id
 		JOIN servers srv ON s.server_id = srv.id
@@ -2166,7 +2180,7 @@ func (s *Store) GetPlayerSessions(ctx context.Context, playerID int64, limit int
 		var leftAt sql.NullTime
 		var durationSeconds sql.NullInt64
 		var ipAddress, clientEngine, clientVersion sql.NullString
-		if err := rows.Scan(&ps.ID, &ps.ServerID, &ps.ServerName, &ps.JoinedAt, &leftAt, &durationSeconds, &ipAddress, &clientEngine, &clientVersion); err != nil {
+		if err := rows.Scan(&ps.ID, &ps.ServerID, &ps.ServerSource, &ps.ServerKey, &ps.JoinedAt, &leftAt, &durationSeconds, &ipAddress, &clientEngine, &clientVersion); err != nil {
 			return nil, err
 		}
 		if leftAt.Valid {
@@ -2203,7 +2217,7 @@ func (s *Store) GetRecentSessions(ctx context.Context, filter SessionFilter, lim
 	}
 
 	query := `
-		SELECT s.id, s.server_id, srv.name,
+		SELECT s.id, s.server_id, srv.source, srv.key,
 		       p.id, p.name, p.clean_name,
 		       s.joined_at, s.left_at, s.duration_seconds,
 		       s.ip_address, s.client_engine, s.client_version
@@ -2244,7 +2258,7 @@ func (s *Store) GetRecentSessions(ctx context.Context, filter SessionFilter, lim
 		var durationSeconds sql.NullInt64
 		var ipAddress, clientEngine, clientVersion sql.NullString
 		if err := rows.Scan(
-			&as.ID, &as.ServerID, &as.ServerName,
+			&as.ID, &as.ServerID, &as.ServerSource, &as.ServerKey,
 			&as.PlayerID, &as.PlayerName, &as.PlayerCleanName,
 			&as.JoinedAt, &leftAt, &durationSeconds,
 			&ipAddress, &clientEngine, &clientVersion,

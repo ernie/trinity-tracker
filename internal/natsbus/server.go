@@ -1,11 +1,9 @@
 // Package natsbus owns the embedded NATS server used in hub mode and
-// exposes helpers for declaring the JetStream streams that carry
-// distributed-tracking traffic. Phase 2 of the M2 rollout: only the
-// server + streams exist; publishers, subscribers, and RPC wiring land
-// in later phases.
+// the JetStream streams that carry distributed-tracking traffic.
 package natsbus
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net"
 	"net/url"
@@ -20,20 +18,15 @@ import (
 	"github.com/ernie/trinity-tracker/internal/config"
 )
 
-// Stream names. Exported so phases 3+ can subscribe / publish by name.
 const (
 	StreamEvents   = "TRINITY_EVENTS"
 	StreamRegister = "TRINITY_REGISTER"
 )
 
-// EventsMaxBytes is the byte-based side of the limits-policy retention
-// for TRINITY_EVENTS, paired with the configured max age. 1 GiB — event
-// envelopes are a few hundred bytes each, so at realistic rates this
-// bound is far above the age-based limit and just guards disk use.
+// EventsMaxBytes is a disk-use guard paired with the age-based limit.
 const EventsMaxBytes = 1 * 1024 * 1024 * 1024
 
-// Server owns the embedded nats-server process and the in-process
-// management connection used to declare streams.
+// Server owns the embedded nats-server and the in-process management conn.
 type Server struct {
 	ns       *server.Server
 	mgmtConn *nats.Conn
@@ -42,13 +35,8 @@ type Server struct {
 	auth     *AuthStore
 }
 
-// Start boots the embedded server, waits for it to accept connections,
-// and declares the TRINITY_EVENTS + TRINITY_REGISTER streams. The
-// returned Server is ready for in-process clients via nats.Connect with
-// nats.InProcessServer(s.NATSServer()).
-//
-// storeDirParent is the directory under which JetStream's state is
-// persisted (a "nats" subdirectory is created and used).
+// Start boots the embedded server and declares the TRINITY streams.
+// JetStream state is persisted under <storeDirParent>/nats.
 func Start(cfg *config.TrackerConfig, storeDirParent string) (*Server, error) {
 	if cfg == nil || cfg.Hub == nil {
 		return nil, fmt.Errorf("natsbus.Start: hub config required")
@@ -80,6 +68,21 @@ func Start(cfg *config.TrackerConfig, storeDirParent string) (*Server, error) {
 		TrustedOperators:  auth.TrustedOperators(),
 		SystemAccount:     auth.SystemAccountPublicKey(),
 		AccountResolver:   auth.Resolver(),
+	}
+
+	if cfg.NATS.CertFile != "" || cfg.NATS.KeyFile != "" {
+		if cfg.NATS.CertFile == "" || cfg.NATS.KeyFile == "" {
+			return nil, fmt.Errorf("natsbus: tracker.nats.cert_file and key_file must both be set or both empty")
+		}
+		cert, err := tls.LoadX509KeyPair(cfg.NATS.CertFile, cfg.NATS.KeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("natsbus: loading TLS keypair: %w", err)
+		}
+		opts.TLS = true
+		opts.TLSConfig = &tls.Config{
+			Certificates: []tls.Certificate{cert},
+			MinVersion:   tls.VersionTLS12,
+		}
 	}
 
 	ns, err := server.NewServer(opts)
@@ -182,8 +185,7 @@ func declareStreams(nc *nats.Conn, hub *config.HubConfig) error {
 
 	// Register stream keeps the latest payload per source so a late-
 	// joining hub sees the current roster without needing the publisher
-	// to still be connected. Retention semantics may be revisited in
-	// phase 6 when the subscriber lands.
+	// to still be connected.
 	if err := upsertStream(js, &nats.StreamConfig{
 		Name:              StreamRegister,
 		Subjects:          []string{"trinity.register.>"},

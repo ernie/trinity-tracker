@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import type { ServerStatus, Player } from '../types'
 import { FlagIcon } from './FlagIcon'
 import { PlayerItem } from './PlayerItem'
-import { formatNumber } from '../utils'
+import { formatNumber, serverDisplay } from '../utils'
+import { useSources } from '../hooks/useSources'
 import { formatGameType } from './MatchCard'
 
 interface ServerCardProps {
@@ -200,6 +201,7 @@ export function ModeIcons({ movement, gameplay }: { movement?: string, gameplay?
 }
 
 export function ServerCard({ server, newPlayers, isSelected, onSelect, onPlayerClick }: ServerCardProps) {
+  const { hasMultiple: hasMultipleSources } = useSources()
   const humans = server.players?.filter(p => !p.is_bot) ?? []
   const bots = server.players?.filter(p => p.is_bot) ?? []
   const showTeamScores = isTeamGame(server.game_type) && server.team_scores
@@ -244,7 +246,7 @@ export function ServerCard({ server, newPlayers, isSelected, onSelect, onPlayerC
     >
       <span className="server-name-badge">
         <ModeIcons movement={server.server_vars?.g_movement} gameplay={server.server_vars?.g_gameplay} />
-        {server.name}
+        {serverDisplay(server.source, server.key, { hasMultipleSources: hasMultipleSources })}
         <span className="badge-sep">/</span>
         <span className="badge-label">Mode</span> {formatGameType(server.game_type)}
       </span>

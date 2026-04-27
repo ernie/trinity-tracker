@@ -11,6 +11,7 @@ import { AdminPage } from './components/admin/AdminPage'
 import { AdminUsers } from './components/admin/AdminUsers'
 import { AdminSessions } from './components/admin/AdminSessions'
 import { AdminPlayers } from './components/admin/AdminPlayers'
+import { AdminSources } from './components/admin/AdminSources'
 import { AuthProvider } from './hooks/useAuth'
 import './index.css'
 
@@ -40,6 +41,7 @@ createRoot(document.getElementById('root')!).render(
             <Route path="users" element={<AdminUsers />} />
             <Route path="sessions" element={<AdminSessions />} />
             <Route path="players" element={<AdminPlayers />} />
+            <Route path="sources" element={<AdminSources />} />
           </Route>
           <Route path="/about" element={<Navigate to="/docs" replace />} />
           <Route path="/getting-started" element={<Navigate to="/docs/getting-started" replace />} />

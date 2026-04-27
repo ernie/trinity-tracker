@@ -4360,6 +4360,38 @@ h2 {
   border-radius: 8px;
   padding: 20px 24px;
   min-height: 400px;
+  min-width: 0; /* let flex/grid children shrink instead of overflowing */
+}
+
+@media (max-width: 768px) {
+  .admin-layout {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .admin-sidebar {
+    flex-direction: row;
+    overflow-x: auto;
+    position: static;
+    padding: 8px;
+    gap: 4px;
+    scrollbar-width: none;
+  }
+
+  .admin-sidebar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .admin-sidebar-link {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    padding: 8px 14px;
+    font-size: 0.9rem;
+  }
+
+  .admin-content {
+    padding: 16px;
+  }
 }
 
 .admin-section-header {
@@ -4397,6 +4429,11 @@ h2 {
   padding: 24px;
   text-align: center;
   color: var(--text-dim);
+}
+
+.admin-muted {
+  color: var(--text-dim);
+  font-style: italic;
 }
 
 .admin-filters {
@@ -5728,4 +5765,294 @@ h2 {
   color: var(--text);
   font-size: 1.1rem;
   margin: 0 0 20px 0;
+}
+
+/* Admin > Sources */
+.admin-sources section {
+  margin-bottom: 32px;
+}
+
+.admin-sources h2 {
+  font-size: 1.1rem;
+  margin: 0 0 12px 0;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.admin-table th,
+.admin-table td {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.admin-table th {
+  color: var(--text-dim);
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.admin-table td code {
+  font-size: 0.85em;
+  color: var(--text-dim);
+}
+
+.admin-server-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.admin-server-list li {
+  margin: 0;
+  padding: 2px 0;
+}
+
+.admin-btn-danger {
+  background: #7d2b2b;
+  color: #fff;
+  margin-left: 6px;
+}
+
+.admin-btn-danger:hover {
+  background: #9e3b3b;
+}
+
+.health-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.health-green {
+  background: #2e7d32;
+  color: #fff;
+}
+
+.health-stale {
+  background: #c98a00;
+  color: #000;
+}
+
+.health-gone {
+  background: #7d2b2b;
+  color: #fff;
+}
+
+.health-unknown {
+  background: var(--border);
+  color: var(--text-dim);
+}
+
+.notice-message {
+  background: #2e7d32;
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin-bottom: 12px;
+}
+
+.admin-sources-create {
+  max-width: 640px;
+  padding: 18px 20px;
+  background: var(--card-bg, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.admin-sources-create h2 {
+  margin-top: 0;
+}
+
+.admin-help {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin: 0 0 16px 0;
+}
+
+.admin-help code {
+  background: var(--bg);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 0.85em;
+}
+
+.admin-sources-form .form-group {
+  margin-bottom: 12px;
+}
+
+.form-hint {
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  margin: 4px 0 0 0;
+}
+
+.form-hint code {
+  background: var(--bg);
+  padding: 0 3px;
+  border-radius: 2px;
+}
+
+.admin-sources-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.admin-sources-form-actions .admin-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.admin-sources-source-name {
+  font-weight: 600;
+}
+
+.admin-sources-demo-url {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  margin-top: 2px;
+  word-break: break-all;
+}
+
+.admin-sources-demo-url code {
+  color: var(--text);
+  font-size: 0.9em;
+}
+
+.admin-sources-actions {
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .admin-sources-create {
+    padding: 14px;
+  }
+
+  .admin-table {
+    display: block;
+  }
+
+  .admin-table thead {
+    /* Header row would be meaningless once rows stack vertically. */
+    display: none;
+  }
+
+  .admin-table tbody,
+  .admin-table tr {
+    display: block;
+  }
+
+  .admin-table tr {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    background: var(--card-bg, rgba(255, 255, 255, 0.02));
+  }
+
+  .admin-table td {
+    display: block;
+    padding: 6px 0;
+    border-bottom: none;
+  }
+
+  .admin-table td + td {
+    border-top: 1px solid var(--border);
+    padding-top: 8px;
+    margin-top: 2px;
+  }
+
+  .admin-table td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+    font-weight: 600;
+    margin-bottom: 3px;
+  }
+
+  .admin-sources-actions {
+    white-space: normal;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .admin-sources-actions .admin-btn {
+    margin: 0;
+  }
+
+  .admin-sources-actions .admin-btn-danger {
+    margin-left: 0;
+  }
+}
+
+/* Source tag — chip rendered next to server / match titles when more
+   than one source is registered. Color is hashed from the source name
+   so each source gets a stable hue. */
+.source-tag {
+  display: inline-block;
+  font-family: var(--font-monospace, ui-monospace, SFMono-Regular, monospace);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+  border: 1px solid;
+  text-transform: lowercase;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+/* Source filter — dropdown shown above match lists / activity log when
+   multiple sources are registered. */
+.source-filter {
+  font-size: 0.85rem;
+  padding: 0.25rem 0.5rem;
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--color-text, #ddd);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 0.25rem;
+}
+.source-filter:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+/* Dim treatment for content tied to a deactivated server. The server
+   row sticks around so the (source, key) reference is preserved, but
+   the UI shows it as decommissioned with reduced opacity + a small
+   "inactive" chip. */
+.match-card.inactive-server {
+  opacity: 0.55;
+  filter: saturate(0.7);
+}
+.inactive-chip {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.1rem 0.45rem;
+  margin-left: 0.4rem;
+  border-radius: 0.25rem;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  vertical-align: middle;
 }

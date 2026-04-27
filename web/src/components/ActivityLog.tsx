@@ -6,6 +6,9 @@ import { PlayerBadge } from './PlayerBadge'
 import { FlagIcon } from './FlagIcon'
 import { MedalIcon } from './MedalIcon'
 import { PlayerItem } from './PlayerItem'
+import { SourceFilter } from './SourceFilter'
+import { useSources } from '../hooks/useSources'
+import { serverDisplay } from '../utils'
 
 interface ActivityLogProps {
   activities: ActivityItem[]
@@ -19,14 +22,19 @@ function getPlainText(text: string): string {
 }
 
 const STORAGE_KEY_SERVER_FILTER = 'q3a_activity_server_filter'
+const STORAGE_KEY_SOURCE_FILTER = 'q3a_activity_source_filter'
 const STORAGE_KEY_INCLUDE_BOTS = 'q3a_activity_include_bots'
 
 export function ActivityLog({ activities, servers, onPlayerClick }: ActivityLogProps) {
+  const { hasMultiple: hasMultipleSources } = useSources()
   const [serverFilter, setServerFilter] = useState<number | 'all'>(() => {
     const stored = localStorage.getItem(STORAGE_KEY_SERVER_FILTER)
     if (stored === null || stored === 'all') return 'all'
     const num = Number(stored)
     return isNaN(num) ? 'all' : num
+  })
+  const [sourceFilter, setSourceFilter] = useState<string>(() => {
+    return localStorage.getItem(STORAGE_KEY_SOURCE_FILTER) ?? ''
   })
   const [includeBots, setIncludeBots] = useState(() => {
     return localStorage.getItem(STORAGE_KEY_INCLUDE_BOTS) === 'true'
@@ -38,16 +46,20 @@ export function ActivityLog({ activities, servers, onPlayerClick }: ActivityLogP
   }, [serverFilter])
 
   useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_SOURCE_FILTER, sourceFilter)
+  }, [sourceFilter])
+
+  useEffect(() => {
     localStorage.setItem(STORAGE_KEY_INCLUDE_BOTS, String(includeBots))
   }, [includeBots])
 
-  // Get servers for filter dropdown - only show servers with real names
+  // Get servers for filter dropdown - only show servers with a real key
   const availableServers = useMemo(() => {
     return Array.from(servers.entries())
-      .filter(([, status]) => status.name && !/^Server \d+$/.test(status.name))
-      .map(([id, status]) => [id, status.name] as [number, string])
+      .filter(([, status]) => !!status.key)
+      .map(([id, status]) => [id, serverDisplay(status.source, status.key, { hasMultipleSources })] as [number, string])
       .sort((a, b) => a[0] - b[0])
-  }, [servers])
+  }, [servers, hasMultipleSources])
 
   // Aggregate human players across all online servers
   const humanPlayersWithServer = useMemo(() => {
@@ -55,8 +67,8 @@ export function ActivityLog({ activities, servers, onPlayerClick }: ActivityLogP
 
     for (const [, status] of servers.entries()) {
       if (!status.players || !status.online) continue
-      const serverName = status.name && !/^Server \d+$/.test(status.name) ? status.name : null
-      if (!serverName) continue
+      if (!status.key) continue
+      const serverName = serverDisplay(status.source, status.key, { hasMultipleSources })
 
       for (const player of status.players) {
         if (!player.is_bot && player.team !== 3) { // Exclude bots and spectators
@@ -75,13 +87,20 @@ export function ActivityLog({ activities, servers, onPlayerClick }: ActivityLogP
       if (serverFilter !== 'all' && activity.serverId !== serverFilter) {
         return false
       }
+      // Source filter — derive from the activity's server.
+      if (sourceFilter !== '') {
+        const status = activity.serverId ? servers.get(activity.serverId) : undefined
+        if (!status || status.source !== sourceFilter) {
+          return false
+        }
+      }
       // Bot filter (always show match_start events)
       if (!includeBots && activity.player?.isBot && activity.activityType !== 'match_start') {
         return false
       }
       return true
     })
-  }, [activities, serverFilter, includeBots])
+  }, [activities, serverFilter, sourceFilter, includeBots, servers])
 
   return (
     <div className="activity-log">
@@ -114,6 +133,7 @@ export function ActivityLog({ activities, servers, onPlayerClick }: ActivityLogP
             <option key={id} value={id}>{name}</option>
           ))}
         </select>
+        <SourceFilter value={sourceFilter} onChange={setSourceFilter} />
         <label className="include-bots-toggle">
           <input
             type="checkbox"

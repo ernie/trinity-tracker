@@ -67,14 +67,19 @@ type MatchPlayerSummary struct {
 	Assists      int      `json:"assists,omitempty"`
 }
 
-// MatchSummary represents a match with server and player info
+// MatchSummary represents a match with server and player info.
+// Source + ServerKey are the (source, key) identity of the server
+// the match was played on; UI renders "<source> / <key>". When
+// ServerActive=false the UI dims the card.
 type MatchSummary struct {
-	ID         int64                `json:"id"`
-	UUID       string               `json:"-"`
-	DemoURL    string               `json:"demo_url,omitempty"`
-	ServerID   int64                `json:"server_id"`
-	ServerName string               `json:"server_name"`
-	MapName    string               `json:"map_name"`
+	ID           int64                `json:"id"`
+	UUID         string               `json:"-"`
+	DemoURL      string               `json:"demo_url,omitempty"`
+	ServerID     int64                `json:"server_id"`
+	ServerKey    string               `json:"server_key"`
+	ServerActive bool                 `json:"server_active"`
+	Source       string               `json:"source"`
+	MapName      string               `json:"map_name"`
 	GameType   string               `json:"game_type"`
 	StartedAt  time.Time            `json:"started_at"`
 	EndedAt    *time.Time           `json:"ended_at,omitempty"`

@@ -61,7 +61,7 @@ func startRPCRig(t *testing.T) (*natsbus.RPCClient, *storage.Store) {
 	if err != nil {
 		t.Fatalf("client connect: %v", err)
 	}
-	client, err := natsbus.NewRPCClient(clientNC, "test-source", "test-source-uuid", 0)
+	client, err := natsbus.NewRPCClient(clientNC, "test-source", 0)
 	if err != nil {
 		t.Fatalf("NewRPCClient: %v", err)
 	}
@@ -80,7 +80,7 @@ func startRPCRig(t *testing.T) (*natsbus.RPCClient, *storage.Store) {
 
 func TestRPCClaimUnknownPlayer(t *testing.T) {
 	client, _ := startRPCRig(t)
-	reply, err := client.Claim(context.Background(), hub.ClaimRequest{GUID: "anyguid", PlayerID: 0})
+	reply, err := client.Claim(context.Background(), hub.ClaimRequest{GUID: "anyguid"})
 	if err != nil {
 		t.Fatalf("Claim: %v", err)
 	}
@@ -120,20 +120,16 @@ func TestRPCGreetUnknownGUIDReturnsUnauthenticated(t *testing.T) {
 	if reply.AuthResult != hub.AuthUnauthenticated {
 		t.Errorf("AuthResult = %q, want %q", reply.AuthResult, hub.AuthUnauthenticated)
 	}
-	if reply.PlayerID != 0 {
-		t.Errorf("PlayerID = %d, want 0", reply.PlayerID)
-	}
 }
 
 func TestRPCClaimRoundTripGeneratesCode(t *testing.T) {
 	client, store := startRPCRig(t)
 	ctx := context.Background()
 
-	pg, err := store.UpsertPlayerGUID(ctx, "guid-a", "Ernie", "ernie", time.Now().UTC(), false)
-	if err != nil {
+	if _, err := store.UpsertPlayerGUID(ctx, "guid-a", "Ernie", "ernie", time.Now().UTC(), false); err != nil {
 		t.Fatalf("seed player: %v", err)
 	}
-	reply, err := client.Claim(ctx, hub.ClaimRequest{GUID: "guid-a", PlayerID: pg.PlayerID})
+	reply, err := client.Claim(ctx, hub.ClaimRequest{GUID: "guid-a"})
 	if err != nil {
 		t.Fatalf("Claim: %v", err)
 	}
@@ -152,19 +148,19 @@ func TestRPCRegisterServerUpsertsAndTags(t *testing.T) {
 	client, store := startRPCRig(t)
 	ctx := context.Background()
 
-	srv, err := client.RegisterServer(ctx, "ffa", "example.com:27960", "/log/ffa.log")
+	srv, err := client.RegisterServer(ctx, "", "ffa", "example.com:27960")
 	if err != nil {
 		t.Fatalf("RegisterServer: %v", err)
 	}
 	if srv == nil || srv.ID == 0 {
 		t.Fatalf("got nil/zero server: %+v", srv)
 	}
-	if srv.Name != "ffa" {
-		t.Errorf("Name = %q, want %q", srv.Name, "ffa")
+	if srv.Key != "ffa" {
+		t.Errorf("Name = %q, want %q", srv.Key, "ffa")
 	}
-	// The handler calls TagLocalServerSource with (source_uuid, local_id=servers.id)
+	// The handler calls TagLocalServerSource with (source, local_id=servers.id)
 	// so envelope resolution round-trips.
-	got, err := store.ResolveServerIDForSource(ctx, "test-source-uuid", srv.ID)
+	got, err := store.ResolveServerIDForSource(ctx, "test-source", srv.ID)
 	if err != nil {
 		t.Fatalf("ResolveServerIDForSource: %v", err)
 	}

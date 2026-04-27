@@ -14,7 +14,6 @@ import (
 	"github.com/ernie/trinity-tracker/internal/domain"
 )
 
-// Consumer / tuning constants for the hub-side fact-event subscription.
 const (
 	ConsumerName   = "hub-writer"
 	maxAckPending  = 256
@@ -23,16 +22,13 @@ const (
 	ackWait        = 30 * time.Second
 )
 
-// EnvelopeHandler processes one decoded envelope. Returning nil acks
-// the message; returning an error Naks it (the stream will redeliver
-// after ackWait).
+// EnvelopeHandler processes one decoded envelope. A nil return acks;
+// non-nil Naks (redelivered after ackWait).
 type EnvelopeHandler interface {
 	HandleEnvelope(ctx context.Context, env domain.Envelope) error
 }
 
 // Subscriber is the hub-side durable pull consumer for TRINITY_EVENTS.
-// It owns its own goroutine; Start launches it, Stop halts the loop
-// and waits for it to exit.
 type Subscriber struct {
 	js      nats.JetStreamContext
 	handler EnvelopeHandler
@@ -43,8 +39,6 @@ type Subscriber struct {
 	doneCh   chan struct{}
 }
 
-// NewSubscriber binds (or creates) the hub-writer durable consumer on
-// TRINITY_EVENTS and returns a ready-to-Start Subscriber.
 func NewSubscriber(nc *nats.Conn, handler EnvelopeHandler) (*Subscriber, error) {
 	if nc == nil {
 		return nil, fmt.Errorf("natsbus.NewSubscriber: NATS connection is required")
@@ -76,13 +70,11 @@ func NewSubscriber(nc *nats.Conn, handler EnvelopeHandler) (*Subscriber, error) 
 	}, nil
 }
 
-// Start launches the fetch loop. Returns immediately.
 func (s *Subscriber) Start(ctx context.Context) {
 	go s.run(ctx)
 }
 
-// Stop cancels the fetch loop, unsubscribes, and waits for the
-// goroutine to exit. Safe to call more than once.
+// Stop cancels the fetch loop, unsubscribes, and waits for exit.
 func (s *Subscriber) Stop() {
 	s.stopOnce.Do(func() {
 		close(s.stopCh)

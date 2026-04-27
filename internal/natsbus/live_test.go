@@ -59,19 +59,19 @@ func TestLiveEventRoundTrip(t *testing.T) {
 	t.Cleanup(ns.Stop)
 
 	// Hub-side store + writer so EnrichEvent is available and the
-	// resolver can map (source_uuid, rsid) → servers.id.
+	// resolver can map (source, rsid) → servers.id.
 	store, err := storage.New(filepath.Join(t.TempDir(), "trinity.db"))
 	if err != nil {
 		t.Fatalf("storage.New: %v", err)
 	}
 	t.Cleanup(func() { _ = store.Close() })
 
-	srv := &domain.Server{Name: "ffa", Address: "127.0.0.1:27960"}
-	if err := store.UpsertServer(ctx, srv); err != nil {
+	srv := &domain.Server{Key: "ffa", Address: "127.0.0.1:27960"}
+	if err := store.UpsertServer(ctx, "test", srv); err != nil {
 		t.Fatalf("UpsertServer: %v", err)
 	}
-	const sourceUUID = "remote-source-uuid"
-	if err := store.TagLocalServerSource(ctx, srv.ID, sourceUUID, srv.ID); err != nil {
+	const source = "remote-source"
+	if err := store.TagLocalServerSource(ctx, srv.ID, source, srv.ID); err != nil {
 		t.Fatalf("TagLocalServerSource: %v", err)
 	}
 
@@ -103,7 +103,7 @@ func TestLiveEventRoundTrip(t *testing.T) {
 		t.Fatalf("collector connect: %v", err)
 	}
 	t.Cleanup(pubNC.Close)
-	lp, err := natsbus.NewLivePublisher(pubNC, "remote-source", sourceUUID)
+	lp, err := natsbus.NewLivePublisher(pubNC, source)
 	if err != nil {
 		t.Fatalf("NewLivePublisher: %v", err)
 	}
@@ -195,9 +195,9 @@ func TestLiveSubscriberSkipsSelfSource(t *testing.T) {
 	}
 	t.Cleanup(subNC.Close)
 
-	const selfUUID = "self-uuid"
+	const selfSource = "local-source"
 	sink := &recordingSink{}
-	ls, err := natsbus.NewLiveSubscriber(subNC, store, writer, sink, selfUUID)
+	ls, err := natsbus.NewLiveSubscriber(subNC, store, writer, sink, selfSource)
 	if err != nil {
 		t.Fatalf("NewLiveSubscriber: %v", err)
 	}
@@ -208,7 +208,7 @@ func TestLiveSubscriberSkipsSelfSource(t *testing.T) {
 		t.Fatalf("pub connect: %v", err)
 	}
 	t.Cleanup(pubNC.Close)
-	lp, err := natsbus.NewLivePublisher(pubNC, "local-source", selfUUID)
+	lp, err := natsbus.NewLivePublisher(pubNC, selfSource)
 	if err != nil {
 		t.Fatalf("NewLivePublisher: %v", err)
 	}

@@ -52,7 +52,8 @@ type Session struct {
 type PlayerSession struct {
 	ID              int64      `json:"id"`
 	ServerID        int64      `json:"server_id"`
-	ServerName      string     `json:"server_name"`
+	ServerKey       string     `json:"server_key"`
+	ServerSource    string     `json:"server_source"`
 	JoinedAt        time.Time  `json:"joined_at"`
 	LeftAt          *time.Time `json:"left_at,omitempty"`
 	DurationSeconds int64      `json:"duration_seconds,omitempty"`
@@ -65,7 +66,8 @@ type PlayerSession struct {
 type AdminSession struct {
 	ID              int64      `json:"id"`
 	ServerID        int64      `json:"server_id"`
-	ServerName      string     `json:"server_name"`
+	ServerKey       string     `json:"server_key"`
+	ServerSource    string     `json:"server_source"`
 	PlayerID        int64      `json:"player_id"`
 	PlayerName      string     `json:"player_name"`
 	PlayerCleanName string     `json:"player_clean_name"`

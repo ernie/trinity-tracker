@@ -4,8 +4,8 @@ import "fmt"
 
 // sipHashHex matches the BG_HashKeyed implementation in the QVM:
 // SipHash-2-4 with 128-bit output, keyed by token, message is nonce.
-// The hub uses this for Trinity handshake auth verification; the
-// algorithm must stay byte-identical to trinity-engine/code/game/bg_hash.c.
+// Used for Trinity account-auth verification; byte-identical to
+// trinity-engine/code/game/bg_hash.c.
 func sipHashHex(key, message string) string {
 	k0, k1 := deriveKey(key)
 	msg := []byte(message)

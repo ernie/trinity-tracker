@@ -36,11 +36,11 @@ func startAuthRig(t *testing.T) (*natsbus.Server, string) {
 
 func TestAuthUserCanPublishOwnSubject(t *testing.T) {
 	s, _ := startAuthRig(t)
-	_, err := s.Auth().MintUserCreds("alpha", "uuid-alpha")
+	_, err := s.Auth().MintUserCreds("alpha")
 	if err != nil {
 		t.Fatalf("MintUserCreds: %v", err)
 	}
-	credsPath := s.Auth().CredsPath("uuid-alpha")
+	credsPath := s.Auth().CredsPath("alpha")
 	nc, err := nats.Connect(s.ClientURL(), nats.UserCredentials(credsPath))
 	if err != nil {
 		t.Fatalf("connect alpha: %v", err)
@@ -56,10 +56,10 @@ func TestAuthUserCanPublishOwnSubject(t *testing.T) {
 
 func TestAuthUserCannotPublishOtherSubject(t *testing.T) {
 	s, _ := startAuthRig(t)
-	if _, err := s.Auth().MintUserCreds("alpha", "uuid-alpha"); err != nil {
+	if _, err := s.Auth().MintUserCreds("alpha"); err != nil {
 		t.Fatalf("MintUserCreds alpha: %v", err)
 	}
-	credsPath := s.Auth().CredsPath("uuid-alpha")
+	credsPath := s.Auth().CredsPath("alpha")
 
 	// Subscribe as hub-internal (full perms) to detect whether the
 	// publish actually reached the wire. If JWT perms are enforced,
@@ -99,12 +99,59 @@ func TestAuthUserCannotPublishOtherSubject(t *testing.T) {
 	}
 }
 
+// Without per-source inbox scoping a collector could subscribe to
+// _INBOX.> and harvest other collectors' RPC replies, including
+// 10-minute-valid link codes. This test confirms the Sub permission
+// is scoped so source alpha cannot subscribe under source beta's
+// inbox prefix.
+func TestAuthUserCannotSubscribeAcrossInboxScopes(t *testing.T) {
+	s, _ := startAuthRig(t)
+	if _, err := s.Auth().MintUserCreds("alpha"); err != nil {
+		t.Fatalf("mint alpha: %v", err)
+	}
+	if _, err := s.Auth().MintUserCreds("beta"); err != nil {
+		t.Fatalf("mint beta: %v", err)
+	}
+
+	alphaNC, err := nats.Connect(s.ClientURL(),
+		nats.UserCredentials(s.Auth().CredsPath("alpha")),
+		nats.CustomInboxPrefix(natsbus.InboxPrefixFor("alpha")),
+	)
+	if err != nil {
+		t.Fatalf("alpha connect: %v", err)
+	}
+	defer alphaNC.Close()
+
+	permErr := make(chan error, 1)
+	alphaNC.SetErrorHandler(func(_ *nats.Conn, _ *nats.Subscription, e error) {
+		select {
+		case permErr <- e:
+		default:
+		}
+	})
+
+	if _, err := alphaNC.SubscribeSync(natsbus.InboxPrefixFor("beta") + ".>"); err != nil {
+		return
+	}
+	if err := alphaNC.Flush(); err != nil {
+		t.Fatalf("alpha flush: %v", err)
+	}
+	select {
+	case e := <-permErr:
+		if e == nil {
+			t.Fatal("expected permissions violation, got nil")
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("expected permissions violation on cross-source inbox subscription")
+	}
+}
+
 func TestAuthRotationRevokesOldCreds(t *testing.T) {
 	s, _ := startAuthRig(t)
-	if _, err := s.Auth().MintUserCreds("gamma", "uuid-gamma"); err != nil {
+	if _, err := s.Auth().MintUserCreds("gamma"); err != nil {
 		t.Fatalf("mint v1: %v", err)
 	}
-	credsPath := s.Auth().CredsPath("uuid-gamma")
+	credsPath := s.Auth().CredsPath("gamma")
 	oldCreds, err := os.ReadFile(credsPath)
 	if err != nil {
 		t.Fatalf("read old creds: %v", err)
@@ -119,7 +166,7 @@ func TestAuthRotationRevokesOldCreds(t *testing.T) {
 
 	// Rotate (mint again for the same source). The old user pubkey
 	// must end up in the TRINITY account's revocation list.
-	if _, err := s.Auth().MintUserCreds("gamma", "uuid-gamma"); err != nil {
+	if _, err := s.Auth().MintUserCreds("gamma"); err != nil {
 		t.Fatalf("mint v2 (rotation): %v", err)
 	}
 	newCreds, err := os.ReadFile(credsPath)
