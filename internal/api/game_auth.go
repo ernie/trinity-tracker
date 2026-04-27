@@ -5,7 +5,7 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/ernie/trinity-tools/internal/auth"
+	"github.com/ernie/trinity-tracker/internal/auth"
 )
 
 type GameLoginRequest struct {

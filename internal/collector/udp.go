@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ernie/trinity-tools/internal/domain"
+	"github.com/ernie/trinity-tracker/internal/domain"
 )
 
 const (

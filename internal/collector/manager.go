@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ernie/trinity-tools/internal/config"
-	"github.com/ernie/trinity-tools/internal/domain"
-	"github.com/ernie/trinity-tools/internal/storage"
+	"github.com/ernie/trinity-tracker/internal/config"
+	"github.com/ernie/trinity-tracker/internal/domain"
+	"github.com/ernie/trinity-tracker/internal/storage"
 )
 
 // ServerManager orchestrates polling and log parsing for all servers

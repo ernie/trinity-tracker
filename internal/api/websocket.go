@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ernie/trinity-tools/internal/domain"
+	"github.com/ernie/trinity-tracker/internal/domain"
 	"github.com/gorilla/websocket"
 )
 

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ernie/trinity-tools/internal/auth"
-	"github.com/ernie/trinity-tools/internal/domain"
+	"github.com/ernie/trinity-tracker/internal/auth"
+	"github.com/ernie/trinity-tracker/internal/domain"
 )
 
 // LoginRequest is the request body for login

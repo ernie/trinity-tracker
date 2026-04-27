@@ -1,4 +1,4 @@
-module github.com/ernie/trinity-tools
+module github.com/ernie/trinity-tracker
 
 go 1.25.1
 

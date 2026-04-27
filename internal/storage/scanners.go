@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/ernie/trinity-tools/internal/domain"
+	"github.com/ernie/trinity-tracker/internal/domain"
 )
 
 // Null scanner helpers - reduce repetitive nil-checking code
