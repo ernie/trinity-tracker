@@ -223,21 +223,30 @@ public-facing surfaces have to be served from your host:
   through the q3 server itself; functional, but slow enough on any
   nontrivial pk3 to frustrate players into disconnecting.
 
-`scripts/bootstrap-nginx.sh` wires both up:
-
-```bash
-sudo PUBLIC_URL=https://q3.example.com \
-     ADMIN_EMAIL=you@example.com \
-     ./scripts/bootstrap-nginx.sh
-```
-
-The script installs nginx + certbot, runs a webroot-challenge cert
-issuance, then writes an HTTPS vhost serving `/demos/`,
-`/assets/levelshots/`, and `/demopk3s/` (all CORS-enabled for the
-hub's WASM player), plus a `:27970` fast-download vhost over
+**`trinity init` handles this automatically.** During the apply phase
+the wizard installs nginx + certbot, opens ports 80/443/27970/tcp
+and 27960-28000/udp on UFW or firewalld, runs `certbot --nginx` to
+get a Let's Encrypt cert, then writes an HTTPS vhost serving
+`/demos/`, `/assets/levelshots/`, and `/demopk3s/` (all CORS-enabled
+for the hub's WASM player) plus a `:27970` fast-download vhost over
 `/usr/lib/quake3/` with `pak0.pk3` blocked.
 
-Once nginx is up, populate the static asset directories from your pk3s:
+Pre-flight: your public hostname must resolve to this box before
+running `trinity init`, or the cert fetch will time out at the ACME
+HTTP-01 validation step. (Cloud-side firewalls — Vultr, Hetzner,
+etc. — also need ports 80/443/27970/tcp and 27960-28000/udp opened
+in their dashboard; the wizard only handles the host-local firewall.)
+
+If you ever need to re-run the nginx setup (rotate the cert manually,
+change `PUBLIC_URL`, etc.) the same script lives at
+`scripts/bootstrap-nginx.sh` and can be invoked directly:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ernie/trinity-tracker/main/scripts/bootstrap-nginx.sh \
+  | sudo PUBLIC_URL=https://q3.example.com ADMIN_EMAIL=you@example.com bash
+```
+
+After the wizard completes, populate the static asset directories from your pk3s:
 
 ```bash
 sudo -u quake trinity levelshots /usr/lib/quake3

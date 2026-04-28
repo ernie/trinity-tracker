@@ -51,6 +51,7 @@ func TestAnswersValidate_CollectorOnly_Valid(t *testing.T) {
 		Quake3Dir:   "/usr/lib/quake3",
 		HubHost:     "trinity.run",
 		PublicURL:   "https://q3.example.com",
+		AdminEmail:  "ops@example.com",
 		SourceID:    "mygame",
 		CredsFile:   "/tmp/mygame.creds",
 		Servers: []ServerAnswers{
@@ -109,6 +110,7 @@ func TestAnswersValidate_CollectorOnly_RequiresHubFields(t *testing.T) {
 		{"no hub host", func(a *Answers) { a.HubHost = "" }, "hub host"},
 		{"no public url", func(a *Answers) { a.PublicURL = "" }, "public URL"},
 		{"bad public url", func(a *Answers) { a.PublicURL = "ftp://x.example.com" }, "http(s) URL"},
+		{"no admin email", func(a *Answers) { a.AdminEmail = "" }, "admin email"},
 		{"no source id", func(a *Answers) { a.SourceID = "" }, "source ID"},
 		{"no creds file", func(a *Answers) { a.CredsFile = "" }, "creds file"},
 	}
@@ -122,6 +124,7 @@ func TestAnswersValidate_CollectorOnly_RequiresHubFields(t *testing.T) {
 				Quake3Dir:   "/usr/lib/quake3",
 				HubHost:     "trinity.run",
 				PublicURL:   "https://q3.example.com",
+				AdminEmail:  "ops@example.com",
 				SourceID:    "mygame",
 				CredsFile:   "/tmp/mygame.creds",
 			}
@@ -183,6 +186,7 @@ func TestToConfig_CollectorOnly_NoHubBlock(t *testing.T) {
 		Quake3Dir:   "/usr/lib/quake3",
 		HubHost:     "trinity.run",
 		PublicURL:   "https://q3.example.com",
+		AdminEmail:  "ops@example.com",
 		SourceID:    "mygame",
 		CredsFile:   "/tmp/mygame.creds",
 	}

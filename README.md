@@ -52,10 +52,15 @@ After the wizard finishes:
 
 - Place retail `pak0.pk3` at `/usr/lib/quake3/baseq3/pak0.pk3` (and
   `missionpack/pak0.pk3` if you picked any gametypes from Team Arena).
+- Generate the levelshot images and demo-playback pk3s the hub serves:
+  `sudo -u quake trinity levelshots && sudo -u quake trinity demobake`.
 - Start: `sudo systemctl start trinity quake3-servers.target`.
-- **Required if joining a hub network**: stand up nginx + a Let's
-  Encrypt cert for demo serving and a `:27970` fast-download vhost
-  for in-game pk3 distribution. `sudo PUBLIC_URL=... ADMIN_EMAIL=... ./scripts/bootstrap-nginx.sh`.
+
+The wizard installs nginx + obtains a Let's Encrypt cert for demo
+serving and the `:27970` fast-download vhost automatically — it
+also opens the firewall ports it needs (UFW/firewalld). DNS for
+your public hostname must already point at this box before you run
+the wizard, or the cert fetch will fail.
 
 ### Building from Source
 

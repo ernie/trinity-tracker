@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -149,12 +150,14 @@ func confirmCollectorPrereqs(p Prompter, out io.Writer) error {
 	fmt.Fprintln(out, "  1. The hub hostname           (e.g. trinity.run)")
 	fmt.Fprintln(out, "  2. A source ID                (approved name from \"My Servers\" on the hub)")
 	fmt.Fprintln(out, "  3. A .creds file              (download from \"My Servers\" after approval)")
-	fmt.Fprintln(out, "  4. A public hostname for       this box, with HTTPS — required for joining")
-	fmt.Fprintln(out, "                                 the network. After the wizard you'll run")
-	fmt.Fprintln(out, "                                 scripts/bootstrap-nginx.sh to issue a Let's")
-	fmt.Fprintln(out, "                                 Encrypt cert and stand up the demo + :27970")
-	fmt.Fprintln(out, "                                 fast-download vhosts. DNS must already point")
-	fmt.Fprintln(out, "                                 here and ports 80/443/27970 must be open.")
+	fmt.Fprintln(out, "  4. A public hostname for       this box, with DNS already pointing here.")
+	fmt.Fprintln(out, "                                 The wizard will install nginx + obtain a")
+	fmt.Fprintln(out, "                                 Let's Encrypt cert (and open the firewall")
+	fmt.Fprintln(out, "                                 ports it needs) automatically — but the")
+	fmt.Fprintln(out, "                                 hostname must resolve to this box BEFORE you")
+	fmt.Fprintln(out, "                                 run the wizard, or the cert fetch will fail.")
+	fmt.Fprintln(out, "  5. An email address           Let's Encrypt registers this against your SSL")
+	fmt.Fprintln(out, "                                 cert and emails here if auto-renewal fails.")
 	fmt.Fprintln(out)
 	fmt.Fprintln(out, "If your hub has a public web UI, log in there and click \"Add Servers\" — an admin")
 	fmt.Fprintln(out, "will approve your request and the drawer that appears gives you the source ID")
@@ -183,6 +186,14 @@ func promptCollectorOnly(p Prompter, a *Answers, out io.Writer) error {
 	if a.PublicURL, err = promptValidated(p, out,
 		"Public HTTPS URL where this host is reachable from the Internet (e.g. https://q3.example.com)",
 		"", validatePublicURL); err != nil {
+		return err
+	}
+	if err := confirmDNSPointsHere(p, out, a.PublicURL); err != nil {
+		return err
+	}
+	if a.AdminEmail, err = promptValidated(p, out,
+		"Email for your Let's Encrypt SSL cert (auto-renewal failures come here)",
+		"", validateAdminEmail); err != nil {
 		return err
 	}
 	if a.SourceID, err = promptValidated(p, out,
@@ -249,6 +260,95 @@ func validatePublicURL(s string) error {
 	}
 	if u.Hostname() == "" {
 		return fmt.Errorf("URL must include a hostname")
+	}
+	return nil
+}
+
+// confirmDNSPointsHere does an active DNS lookup on the hostname from
+// publicURL and surfaces the result before the wizard sinks the
+// operator into a multi-minute apply phase whose final step (certbot
+// HTTP-01) cannot succeed unless the hostname already resolves to
+// this box's public IP. Three outcomes:
+//
+//   - DNS resolves and at least one of the returned IPs matches our
+//     outbound IP: silent pass.
+//   - DNS resolves but none of the returned IPs match (or we can't
+//     determine our outbound IP): print resolved IPs + ask the
+//     operator to confirm one of them is this box. Defaults to yes —
+//     they may be behind NAT/CDN and know better than we do.
+//   - DNS does not resolve at all: print the bad-news message and
+//     default to no — DNS-not-set-up is almost always a real mistake
+//     the operator should fix before proceeding, not power through.
+func confirmDNSPointsHere(p Prompter, out io.Writer, publicURL string) error {
+	host := HostFromURL(publicURL)
+	if host == "" {
+		return nil
+	}
+	ips, err := net.LookupHost(host)
+	if err != nil || len(ips) == 0 {
+		fmt.Fprintf(out, "\n  WARNING: DNS for %q does not resolve.\n", host)
+		fmt.Fprintln(out, "  Let's Encrypt validates over HTTP-01 to that hostname; without DNS")
+		fmt.Fprintln(out, "  pointing at this box's public IP, the cert fetch will time out and")
+		fmt.Fprintln(out, "  the wizard will fail mid-apply.")
+		ok, perr := p.YesNo("Continue anyway?", false)
+		if perr != nil {
+			return perr
+		}
+		if !ok {
+			return ErrMissingPrereqs
+		}
+		return nil
+	}
+	if mine := outboundIP(); mine != "" {
+		for _, ip := range ips {
+			if ip == mine {
+				return nil
+			}
+		}
+	}
+	fmt.Fprintf(out, "\n  %q resolves to: %s\n", host, strings.Join(ips, ", "))
+	fmt.Fprintln(out, "  Make sure one of those is this box's public IP, or Let's Encrypt")
+	fmt.Fprintln(out, "  HTTP-01 validation will fail.")
+	ok, perr := p.YesNo("Continue?", true)
+	if perr != nil {
+		return perr
+	}
+	if !ok {
+		return ErrMissingPrereqs
+	}
+	return nil
+}
+
+// outboundIP returns the source address the kernel would use to reach
+// the public Internet, by opening (but not sending on) a UDP socket
+// toward a known external IP. Returns "" if the box has no route to
+// the Internet — the caller treats that as "can't compare, skip the
+// fast-path silent pass." No packets are sent; UDP connect just sets
+// the socket's local address.
+func outboundIP() string {
+	conn, err := net.Dial("udp", "1.1.1.1:80")
+	if err != nil {
+		return ""
+	}
+	defer conn.Close()
+	if addr, ok := conn.LocalAddr().(*net.UDPAddr); ok {
+		return addr.IP.String()
+	}
+	return ""
+}
+
+// validateAdminEmail rejects obviously-bad addresses so the wizard
+// catches typos before certbot does (its rejection comes after the
+// `apt install` and stage-1 nginx config write — much later in the
+// flow). Liberal: anything with a single '@' and a dot in the domain
+// passes; we don't try to do RFC-5321 here.
+func validateAdminEmail(s string) error {
+	at := strings.IndexByte(s, '@')
+	if at < 1 || at == len(s)-1 || strings.Count(s, "@") != 1 {
+		return fmt.Errorf("not a valid email address: %s", s)
+	}
+	if !strings.Contains(s[at+1:], ".") {
+		return fmt.Errorf("email domain needs a '.' (e.g. user@example.com)")
 	}
 	return nil
 }

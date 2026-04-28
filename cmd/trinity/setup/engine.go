@@ -48,13 +48,16 @@ func engineAsset(goarch string) (string, error) {
 //     the latest release — Trinity moves fast and old engines are
 //     not supported against current hubs).
 //  2. Extract into installDir, stripping the linux-<arch>/ wrapper.
-//  3. Replace baseq3/logs and missionpack/logs with symlinks to logDir
-//     so the q3 server's per-server logs land where the collector tails.
+//  3. Replace baseq3/logs + missionpack/logs with symlinks to logDir
+//     so per-server logs land where the collector tails them.
+//  4. Replace baseq3/demos + missionpack/demos with symlinks to
+//     staticDir/demos so recorded TVD demos land where nginx serves
+//     them and the demo uploader picks them up.
 //
 // Caller is responsible for chowning the install dir to the service
 // user once everything's in place. In dry-run mode the download and
 // extraction are skipped; only the planned filesystem effects print.
-func InstallEngine(plan *Plan, installDir, logDir string) error {
+func InstallEngine(plan *Plan, installDir, logDir, staticDir string) error {
 	asset, err := engineAsset("")
 	if err != nil {
 		return err
@@ -93,29 +96,40 @@ func InstallEngine(plan *Plan, installDir, logDir string) error {
 		}
 	}
 
+	demosTarget := filepath.Join(staticDir, "demos")
+	if err := plan.MkdirAll(demosTarget, 0755); err != nil {
+		return err
+	}
 	for _, sub := range []string{"baseq3", "missionpack"} {
 		dir := filepath.Join(installDir, sub)
 		if err := plan.MkdirAll(dir, 0755); err != nil {
 			return err
 		}
-		logsLink := filepath.Join(dir, "logs")
-		if !plan.DryRun {
-			// Replace a real directory written by the unzip; leave existing
-			// symlinks alone (idempotent re-runs) and never destroy
-			// operator content.
-			if info, err := os.Lstat(logsLink); err == nil && info.Mode().IsDir() {
-				if err := os.RemoveAll(logsLink); err != nil {
-					return fmt.Errorf("removing stale %s: %w", logsLink, err)
-				}
-			} else if err == nil && info.Mode()&os.ModeSymlink != 0 {
-				_ = os.Remove(logsLink)
-			}
+		if err := replaceWithSymlink(plan, filepath.Join(dir, "logs"), logDir); err != nil {
+			return err
 		}
-		if err := plan.Symlink(logDir, logsLink); err != nil {
+		if err := replaceWithSymlink(plan, filepath.Join(dir, "demos"), demosTarget); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// replaceWithSymlink replaces a directory or stale symlink at link
+// with a fresh symlink → target. Idempotent: re-running the wizard
+// does not destroy operator content (a real directory written by the
+// engine unzip is removed; an existing symlink is replaced).
+func replaceWithSymlink(plan *Plan, link, target string) error {
+	if !plan.DryRun {
+		if info, err := os.Lstat(link); err == nil && info.Mode().IsDir() {
+			if err := os.RemoveAll(link); err != nil {
+				return fmt.Errorf("removing stale %s: %w", link, err)
+			}
+		} else if err == nil && info.Mode()&os.ModeSymlink != 0 {
+			_ = os.Remove(link)
+		}
+	}
+	return plan.Symlink(target, link)
 }
 
 // downloadEngineAsset fetches the latest release asset to dest.

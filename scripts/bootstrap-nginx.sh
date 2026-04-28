@@ -95,6 +95,39 @@ install -d -o quake -g quake \
     "$STATIC_DIR/assets/levelshots" \
     "$STATIC_DIR/demopk3s/maps"
 
+# Open the firewall before certbot runs — Let's Encrypt validates over
+# HTTP-01 to port 80, so a UFW/firewalld default-deny will time the cert
+# fetch out (real failure mode hit on Debian + UFW). We open exactly the
+# four ports a collector needs:
+#   80/tcp       Let's Encrypt validation + HTTP→HTTPS redirect
+#   443/tcp      collector content (demos, levelshots, demopk3s)
+#   27970/tcp    nginx fast-download vhost for in-game pk3 fetches
+#   27960-28000/udp  Quake 3 server traffic
+# Skipped silently if the firewall is inactive — operators on cloud-side
+# firewalls (Vultr/Hetzner/etc.) need to open the same ports there too.
+open_firewall_ports() {
+    if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q '^Status: active'; then
+        echo "==> opening UFW ports (80, 443, 27970/tcp + 27960-28000/udp)"
+        ufw allow 80/tcp     >/dev/null
+        ufw allow 443/tcp    >/dev/null
+        ufw allow 27970/tcp  >/dev/null
+        ufw allow 27960:28000/udp >/dev/null
+        return
+    fi
+    if command -v firewall-cmd >/dev/null 2>&1 && firewall-cmd --state 2>/dev/null | grep -q running; then
+        echo "==> opening firewalld ports (80, 443, 27970/tcp + 27960-28000/udp)"
+        firewall-cmd --permanent --add-service=http  >/dev/null
+        firewall-cmd --permanent --add-service=https >/dev/null
+        firewall-cmd --permanent --add-port=27970/tcp >/dev/null
+        firewall-cmd --permanent --add-port=27960-28000/udp >/dev/null
+        firewall-cmd --reload >/dev/null
+        return
+    fi
+    echo "==> no active host firewall (ufw/firewalld) detected; skipping local port-open"
+    echo "    (open 80/tcp 443/tcp 27970/tcp 27960-28000/udp on any cloud firewall yourself)"
+}
+open_firewall_ports
+
 SITE=/etc/nginx/sites-available/trinity-collector
 write_collector_site() {
     # If $1 is "stage1": HTTP-only block, just enough for certbot's
@@ -139,7 +172,6 @@ server {
     ssl_certificate     /etc/letsencrypt/live/$PUBLIC_HOST/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/$PUBLIC_HOST/privkey.pem;
     include             /etc/letsencrypt/options-ssl-nginx.conf;
-    ssl_dhparam         /etc/letsencrypt/ssl-dhparams.pem;
 
     root $STATIC_DIR;
 
@@ -242,11 +274,15 @@ echo "==> reloading nginx"
 systemctl reload nginx
 
 if [[ ! -e "$CERT_PATH" ]]; then
-    echo "==> issuing TLS cert via certbot (webroot)"
-    # certonly + webroot, not --nginx: we'd rather write our own server
-    # blocks than have certbot re-edit them and possibly insert a
-    # redirect into the wrong block.
-    certbot certonly --webroot -w "$STATIC_DIR" \
+    echo "==> issuing TLS cert via certbot (--nginx)"
+    # --nginx (full installer mode), not --webroot: certbot creates
+    # /etc/letsencrypt/options-ssl-nginx.conf as a side effect of its
+    # config-modification step. The final config below `include`s that
+    # snippet, and webroot mode wouldn't have produced it on Debian
+    # (Mozilla cipher recipe lives there, not bundled with certbot core).
+    # certbot's edits to our stage-1 config are transient — the final
+    # write_collector_site overwrites them with our preferred shape.
+    certbot --nginx \
         --non-interactive --agree-tos \
         --email "$ADMIN_EMAIL" \
         -d "$PUBLIC_HOST"

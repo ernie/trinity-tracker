@@ -1939,11 +1939,6 @@ func cmdInit(args []string) {
 		step++
 	}
 	if answers.Mode == setup.ModeCollector {
-		fmt.Fprintf(os.Stderr, "  %d. Required: stand up nginx + Let's Encrypt for demo serving and the\n", step)
-		fmt.Fprintln(os.Stderr, "     :27970 fast-download vhost. Without this, the hub cannot fetch your")
-		fmt.Fprintln(os.Stderr, "     demos and pk3s and your servers will not show up on the hub UI.")
-		fmt.Fprintf(os.Stderr, "       sudo PUBLIC_URL=%s ADMIN_EMAIL=you@example.com ./scripts/bootstrap-nginx.sh\n", answers.PublicURL)
-		step++
 		fmt.Fprintf(os.Stderr, "  %d. Required: generate the levelshot images and demo-playback pk3s the\n", step)
 		fmt.Fprintln(os.Stderr, "     hub serves to web viewers. Re-run when you add new maps.")
 		fmt.Fprintf(os.Stderr, "       sudo -u %s trinity levelshots\n", answers.ServiceUser)

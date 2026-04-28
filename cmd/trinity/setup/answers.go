@@ -56,10 +56,11 @@ type Answers struct {
 	Quake3Dir     string // server.quake3_dir
 
 	// Collector-only
-	HubHost   string // tracker.collector.hub_host
-	PublicURL string // tracker.collector.public_url
-	SourceID  string // tracker.collector.source_id
-	CredsFile string // path to .creds file the operator received
+	HubHost    string // tracker.collector.hub_host
+	PublicURL  string // tracker.collector.public_url
+	AdminEmail string // address Let's Encrypt uses for renewal notices
+	SourceID   string // tracker.collector.source_id
+	CredsFile  string // path to .creds file the operator received
 
 	// Servers (collector and combined)
 	Servers []ServerAnswers
@@ -130,6 +131,9 @@ func (a *Answers) Validate() error {
 		}
 		if u, err := url.Parse(a.PublicURL); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" {
 			return fmt.Errorf("public URL %q must be an http(s) URL with a hostname", a.PublicURL)
+		}
+		if a.AdminEmail == "" {
+			return fmt.Errorf("admin email is required for collector-only mode (Let's Encrypt renewal notices)")
 		}
 		if a.SourceID == "" {
 			return fmt.Errorf("source ID is required for collector-only mode")

@@ -164,6 +164,8 @@ func TestRunWizard_CollectorOnly(t *testing.T) {
 			"",                       // quake3 dir → default
 			"trinity.example.com",    // hub host
 			"https://q3.example.com", // public URL
+			"y",                      // continue past DNS warning (q3.example.com does not resolve)
+			"ops@example.com",        // admin email
 			"mygame",                 // source ID
 			credsPath,                // creds file (exists)
 			"y",                      // add a server now
@@ -258,6 +260,8 @@ func TestRunWizard_LockedCollector_NoModePrompt(t *testing.T) {
 			"",                    // quake3 dir
 			"trinity.run",         // hub host
 			"https://example.com", // public URL
+			"y",                   // confirm resolved IP is this box
+			"ops@example.com",     // admin email
 			"src1",                // source ID
 			credsPath,             // creds file (exists)
 			"n",                   // no servers
