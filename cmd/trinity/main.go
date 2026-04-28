@@ -102,7 +102,7 @@ func printUsage() {
 	fmt.Println("  server add [<key>] [--gametype X] [--port N] [flags]")
 	fmt.Println("                                      Add a game server instance (interactive on a TTY)")
 	fmt.Println("  server remove <key>                 Remove a game server instance")
-	fmt.Println("  status                              Show all servers status")
+	fmt.Println("  status                              Health checks + (hub mode) live game-server status")
 	fmt.Println("  players [--humans]                  Show current players across all servers")
 	fmt.Println("  matches [--recent N]                Show recent matches (default: 20)")
 	fmt.Println("  leaderboard [--top N]               Show top players (default: 20)")
@@ -550,28 +550,137 @@ func loadCLIConfig(args []string) (*config.Config, []string) {
 	return cfg, fs.Args()
 }
 
+// cmdStatus reports overall install health (config, service, DB,
+// hub reachability, public URL, local HTTP). On a hub install where
+// the local HTTP server is up, it also dumps the live in-game
+// per-server table — the question "what's happening on my hub right
+// now?" that the original `trinity status` answered.
+//
+// Exits 1 on any failed health check so it's scriptable.
 func cmdStatus(args []string) {
 	fs := flag.NewFlagSet("status", flag.ExitOnError)
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
-	url := fs.String("url", "", "base URL of the trinity server")
+	url := fs.String("url", "", "base URL of the trinity server (overrides config)")
 	fs.Parse(args)
 
-	loadCLIConfigFromFlags(*configPath, *url)
+	failures := 0
+	pass := func(label, detail string) { fmt.Printf("  ✓ %-12s %s\n", label, detail) }
+	fail := func(label, detail string) {
+		fmt.Printf("  ✗ %-12s %s\n", label, detail)
+		failures++
+	}
 
-	// Get servers
+	fmt.Printf("Trinity %s\n\n", version)
+
+	cfg, err := config.Load(*configPath)
+	if err != nil {
+		fail("Config", fmt.Sprintf("%s: %v", *configPath, err))
+		fmt.Println("\n1 check failed.")
+		os.Exit(1)
+	}
+	pass("Config", fmt.Sprintf("%s loaded, %d game servers", *configPath, len(cfg.Q3Servers)))
+
+	if out, err := exec.Command("systemctl", "is-active", "trinity").Output(); err == nil {
+		state := strings.TrimSpace(string(out))
+		if state == "active" {
+			pass("Service", "trinity.service is active")
+		} else {
+			fail("Service", fmt.Sprintf("trinity.service is %s (run: sudo systemctl start trinity)", state))
+		}
+	}
+	// systemctl missing or failed → silent skip; many environments don't use it.
+
+	if cfg.Database.Path != "" {
+		if info, err := os.Stat(cfg.Database.Path); err == nil && !info.IsDir() {
+			pass("Database", cfg.Database.Path)
+		} else {
+			fail("Database", fmt.Sprintf("%s missing — service has not started successfully yet", cfg.Database.Path))
+		}
+	}
+
+	isCollector := cfg.Tracker != nil && cfg.Tracker.Collector != nil
+	isHub := cfg.Tracker == nil || cfg.Tracker.Hub != nil
+
+	if isCollector {
+		creds := cfg.Tracker.NATS.CredentialsFile
+		if creds != "" {
+			if _, err := os.Stat(creds); err == nil {
+				pass("Credentials", creds)
+			} else {
+				fail("Credentials", fmt.Sprintf("%s: %v", creds, err))
+			}
+		}
+		if hub := cfg.Tracker.Collector.HubHost; hub != "" {
+			u := "https://" + hub + "/health"
+			if reachable(u) {
+				pass("Hub", hub+" reachable")
+			} else {
+				fail("Hub", u+" not reachable — check DNS, firewall, hub status")
+			}
+		}
+		if pub := cfg.Tracker.Collector.PublicURL; pub != "" {
+			if reachable(pub) {
+				pass("Public URL", pub+" reachable")
+			} else {
+				fail("Public URL", pub+" not reachable — nginx down or DNS not pointing here?")
+			}
+		}
+	}
+
+	httpReachable := false
+	if isHub {
+		listen := cfg.Server.ListenAddr
+		if listen == "" || listen == "0.0.0.0" {
+			listen = "127.0.0.1"
+		}
+		u := fmt.Sprintf("http://%s:%d/health", listen, cfg.Server.HTTPPort)
+		if reachable(u) {
+			pass("HTTP", u+" → 200")
+			httpReachable = true
+		} else {
+			fail("HTTP", u+" not reachable — service running but not bound?")
+		}
+	}
+
+	fmt.Println()
+	if failures > 0 {
+		fmt.Printf("%d check(s) failed.\n", failures)
+	} else {
+		fmt.Println("All checks passed.")
+	}
+
+	if isHub && httpReachable {
+		fmt.Println()
+		printLiveServerTable(*configPath, *url)
+	}
+
+	if failures > 0 {
+		os.Exit(1)
+	}
+}
+
+// printLiveServerTable hits the local trinity HTTP API for the
+// per-server in-game state and renders a tabwriter table. Best-effort
+// — failures here don't affect the health-check exit code.
+func printLiveServerTable(configPath, urlOverride string) {
+	loadCLIConfigFromFlags(configPath, urlOverride)
+
 	var servers []map[string]interface{}
 	if err := getJSON("/api/servers", &servers); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		fmt.Fprintf(os.Stderr, "live status unavailable: %v\n", err)
+		return
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(w, "SERVER\tMAP\tPLAYERS\tHUMANS\tSTATUS")
 	fmt.Fprintln(w, "------\t---\t-------\t------\t------")
-
 	for _, srv := range servers {
-		id := int64(srv["id"].(float64))
-		name := srv["name"].(string)
+		idF, _ := srv["id"].(float64)
+		id := int64(idF)
+		name := jsonString(srv, "key")
+		if name == "" {
+			name = fmt.Sprintf("server-%d", id)
+		}
 
 		var status map[string]interface{}
 		if err := getJSON(fmt.Sprintf("/api/servers/%d/status", id), &status); err != nil {
@@ -579,33 +688,51 @@ func cmdStatus(args []string) {
 			continue
 		}
 
-		mapName := "-"
-		if m, ok := status["map"].(string); ok {
-			mapName = m
+		mapName := jsonString(status, "map")
+		if mapName == "" {
+			mapName = "-"
 		}
-
 		players := 0
-		humans := 0
 		if p, ok := status["players"].([]interface{}); ok {
 			players = len(p)
-			for _, player := range p {
-				if pm, ok := player.(map[string]interface{}); ok {
-					if !pm["is_bot"].(bool) {
-						humans++
-					}
-				}
-			}
 		}
+		humans, _ := status["human_count"].(float64)
 
 		statusStr := "ONLINE"
 		if online, ok := status["online"].(bool); ok && !online {
 			statusStr = "OFFLINE"
 		}
 
-		fmt.Fprintf(w, "%s\t%s\t%d\t%d\t%s\n", name, mapName, players, humans, statusStr)
+		fmt.Fprintf(w, "%s\t%s\t%d\t%d\t%s\n", name, mapName, players, int(humans), statusStr)
 	}
-
 	w.Flush()
+}
+
+// jsonString safely pulls a string field from a decoded JSON map.
+// Returns "" for missing or non-string fields so render code can
+// substitute a placeholder rather than panic on type assertions.
+func jsonString(m map[string]interface{}, key string) string {
+	if v, ok := m[key].(string); ok {
+		return v
+	}
+	return ""
+}
+
+// reachable does a HEAD with a short timeout. Returns true for any
+// 2xx/3xx/4xx (the host is up and answering); only 5xx and transport
+// errors count as a failure for liveness purposes.
+func reachable(url string) bool {
+	req, err := http.NewRequest("HEAD", url, nil)
+	if err != nil {
+		return false
+	}
+	client := &http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode < 500
 }
 
 func cmdPlayers(args []string) {

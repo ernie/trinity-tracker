@@ -288,8 +288,8 @@ func chownRecursive(plan *Plan, root string, uid, gid int) error {
 		}
 		// Walk follows symlinks for stat, but Lchown applies to the
 		// link itself when path is a link — which is what we want
-		// (the engine install creates trinity.ded → arch.bin and the
-		// logs symlinks; chowning them keeps ls -l predictable).
+		// (the engine install creates baseq3/logs and missionpack/logs
+		// symlinks; chowning them keeps ls -l predictable).
 		return os.Lchown(path, uid, gid)
 	})
 }

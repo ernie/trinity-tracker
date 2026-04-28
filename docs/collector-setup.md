@@ -116,9 +116,8 @@ After confirming, the installer:
 - creates the `quake` system user (if missing) and the standard dirs;
 - writes `/etc/trinity/config.yml`;
 - copies your `.creds` file to `/etc/trinity/source.creds`;
-- downloads the trinity-engine release into `/usr/lib/quake3/`,
-  symlinks `trinity.ded` to the arch binary, and points the engine's
-  per-mod `logs` symlinks at `/var/log/quake3/`;
+- downloads the trinity-engine release into `/usr/lib/quake3/` and
+  points the engine's per-mod `logs` symlinks at `/var/log/quake3/`;
 - installs systemd units (`trinity.service`, `quake3-server@.service`,
   `quake3-servers.target`) and `/etc/logrotate.d/quake3`;
 - writes `/usr/lib/quake3/baseq3/trinity.cfg` (Trinity-required cvars

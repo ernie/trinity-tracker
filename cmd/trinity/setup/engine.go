@@ -16,25 +16,29 @@ import (
 
 const engineRepo = "ernie/trinity-engine"
 
-// engineAsset returns the release asset name and the binary name
-// inside the zip for the given GOARCH (or the current host arch if
-// goarch is empty). Returns an error for arches with no published
-// build.
-func engineAsset(goarch string) (asset, binary string, err error) {
+// engineBinary is the name of the q3 server binary inside every release
+// zip, after the linux-<arch>/ wrapper is stripped. Engine releases
+// since v0.9.20 ship it under this single name regardless of arch.
+const engineBinary = "trinity.ded"
+
+// engineAsset returns the release asset name for the given GOARCH (or
+// the current host arch if goarch is empty). Returns an error for
+// arches with no published build.
+func engineAsset(goarch string) (string, error) {
 	if goarch == "" {
 		goarch = runtime.GOARCH
 	}
 	switch goarch {
 	case "amd64":
-		return "trinity-linux-x86_64.zip", "trinity.ded.x86_64", nil
+		return "trinity-linux-x86_64.zip", nil
 	case "arm64":
-		return "trinity-linux-arm64.zip", "trinity.ded.aarch64", nil
+		return "trinity-linux-arm64.zip", nil
 	case "arm":
-		return "trinity-linux-armv7.zip", "trinity.ded.armv7l", nil
+		return "trinity-linux-armv7.zip", nil
 	case "386":
-		return "trinity-linux-x86.zip", "trinity.ded.x86", nil
+		return "trinity-linux-x86.zip", nil
 	}
-	return "", "", fmt.Errorf("unsupported arch %s; see https://github.com/%s/releases", goarch, engineRepo)
+	return "", fmt.Errorf("unsupported arch %s; see https://github.com/%s/releases", goarch, engineRepo)
 }
 
 // InstallEngine downloads the latest trinity-engine release into
@@ -43,17 +47,15 @@ func engineAsset(goarch string) (asset, binary string, err error) {
 //  1. Fetch trinity-linux-<arch>.zip from GitHub releases (always
 //     the latest release — Trinity moves fast and old engines are
 //     not supported against current hubs).
-//  2. Extract into installDir.
-//  3. Symlink installDir/trinity.ded → arch-specific binary so the
-//     systemd unit's ExecStart works regardless of host arch.
-//  4. Replace baseq3/logs and missionpack/logs with symlinks to logDir
+//  2. Extract into installDir, stripping the linux-<arch>/ wrapper.
+//  3. Replace baseq3/logs and missionpack/logs with symlinks to logDir
 //     so the q3 server's per-server logs land where the collector tails.
 //
 // Caller is responsible for chowning the install dir to the service
 // user once everything's in place. In dry-run mode the download and
 // extraction are skipped; only the planned filesystem effects print.
 func InstallEngine(plan *Plan, installDir, logDir string) error {
-	asset, binary, err := engineAsset("")
+	asset, err := engineAsset("")
 	if err != nil {
 		return err
 	}
@@ -64,7 +66,7 @@ func InstallEngine(plan *Plan, installDir, logDir string) error {
 	if plan.DryRun {
 		plan.say("would download https://github.com/%s/releases/latest/download/%s", engineRepo, asset)
 		plan.say("would extract %s into %s", asset, installDir)
-		plan.say("would chmod 0755 %s/%s", installDir, binary)
+		plan.say("would chmod 0755 %s/%s", installDir, engineBinary)
 	} else {
 		tmp, err := os.MkdirTemp("", "trinity-engine-*")
 		if err != nil {
@@ -79,21 +81,16 @@ func InstallEngine(plan *Plan, installDir, logDir string) error {
 		if err := verifyEngineChecksum(asset, zipPath); err != nil {
 			return err
 		}
-		if err := unzipInto(zipPath, installDir); err != nil {
+		if err := unzipInto(zipPath, installDir, 1); err != nil {
 			return err
 		}
-		binPath := filepath.Join(installDir, binary)
+		binPath := filepath.Join(installDir, engineBinary)
 		if _, err := os.Stat(binPath); err != nil {
-			return fmt.Errorf("expected %s in release zip but it's missing — release shape may have changed: %w", binary, err)
+			return fmt.Errorf("expected %s in release zip but it's missing — release shape may have changed: %w", engineBinary, err)
 		}
 		if err := os.Chmod(binPath, 0755); err != nil {
 			return fmt.Errorf("chmod %s: %w", binPath, err)
 		}
-	}
-
-	link := filepath.Join(installDir, "trinity.ded")
-	if err := plan.Symlink(binary, link); err != nil {
-		return err
 	}
 
 	for _, sub := range []string{"baseq3", "missionpack"} {
@@ -227,16 +224,32 @@ func lookupChecksum(manifest, asset string) string {
 }
 
 // unzipInto extracts every file in src into dest, preserving the
-// per-file mode bits from the zip header.
-func unzipInto(src, dest string) error {
+// per-file mode bits from the zip header. stripComponents drops that
+// many leading path segments from each entry, matching tar's
+// --strip-components — used to peel the wrapper directory that the
+// trinity-engine release zips include (e.g. linux-x86_64/trinity.ded →
+// trinity.ded). Entries with fewer segments than the strip count are
+// silently skipped, also matching tar.
+func unzipInto(src, dest string, stripComponents int) error {
 	r, err := zip.OpenReader(src)
 	if err != nil {
 		return fmt.Errorf("opening zip %s: %w", src, err)
 	}
 	defer r.Close()
 	for _, f := range r.File {
+		name := f.Name
+		if stripComponents > 0 {
+			parts := strings.SplitN(name, "/", stripComponents+1)
+			if len(parts) <= stripComponents {
+				continue
+			}
+			name = parts[stripComponents]
+			if name == "" {
+				continue
+			}
+		}
 		// Reject zip-slip — paths must stay inside dest.
-		target := filepath.Join(dest, f.Name)
+		target := filepath.Join(dest, name)
 		if !strings.HasPrefix(target, filepath.Clean(dest)+string(os.PathSeparator)) && target != filepath.Clean(dest) {
 			return fmt.Errorf("zip entry %q escapes destination", f.Name)
 		}

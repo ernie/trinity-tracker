@@ -188,4 +188,16 @@ fi
 echo "==> /usr/local/bin/trinity installed; handing off to the wizard"
 echo
 trap - ERR
-exec env TRINITY_INIT_STAGE="$STAGE" /usr/local/bin/trinity init
+
+# When run via `curl | sudo bash`, bash's stdin is the pipe from
+# curl — so trinity init's TTY check would fail. Re-open stdin from
+# /dev/tty (the controlling terminal sudo gave us, which exists even
+# when stdin is a pipe). If there's no controlling terminal at all
+# (e.g. ssh -T, container without a PTY), bail with the manual command
+# rather than failing inside the wizard.
+if [[ -r /dev/tty ]]; then
+    exec </dev/tty env TRINITY_INIT_STAGE="$STAGE" /usr/local/bin/trinity init
+fi
+echo "No controlling terminal detected. Run the wizard manually:" >&2
+echo "  sudo TRINITY_INIT_STAGE=\"$STAGE\" trinity init" >&2
+exit 0
