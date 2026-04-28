@@ -1,9 +1,11 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -187,5 +189,243 @@ func TestHandleDeactivateSource_SetsStatusRevoked(t *testing.T) {
 	rows, _ := tr.store.ListSourcesByOwner(context.Background(), aliceID)
 	if len(rows) != 1 || rows[0].Status != "revoked" {
 		t.Errorf("unexpected state: %+v", rows)
+	}
+}
+
+func TestHandleListApprovedSources(t *testing.T) {
+	tr := newTestRouter(t)
+	adminTok, _ := tr.loginAs(t, "admin", true)
+	aliceTok, _ := tr.loginAs(t, "alice", false)
+
+	mustOK(t, tr.requestSource(t, aliceTok, "alice-q3", ""))
+	mustOK(t, tr.do("POST", "/api/admin/sources/alice-q3/approve", "", adminTok))
+
+	w := tr.do("GET", "/api/admin/sources", "", adminTok)
+	if w.Code != http.StatusOK {
+		t.Fatalf("list approved: %d %s", w.Code, w.Body)
+	}
+	var entries []struct {
+		Source string `json:"source"`
+		Active bool   `json:"active"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &entries); err != nil {
+		t.Fatal(err)
+	}
+	var found bool
+	for _, e := range entries {
+		if e.Source == "alice-q3" {
+			found = true
+			if !e.Active {
+				t.Errorf("alice-q3 should be active in approved list, got %+v", e)
+			}
+		}
+	}
+	if !found {
+		t.Errorf("alice-q3 missing from approved list: %+v", entries)
+	}
+}
+
+func TestHandleListApprovedSources_RequiresAdmin(t *testing.T) {
+	tr := newTestRouter(t)
+	tok, _ := tr.loginAs(t, "alice", false)
+	w := tr.do("GET", "/api/admin/sources", "", tok)
+	if w.Code != http.StatusForbidden {
+		t.Errorf("non-admin code = %d, want 403", w.Code)
+	}
+}
+
+func TestHandleCreateSource_HappyPath(t *testing.T) {
+	tr := newTestRouter(t)
+	adminTok, _ := tr.loginAs(t, "admin", true)
+
+	mintsBefore := tr.userProv.mintCalls
+	w := tr.do("POST", "/api/admin/sources", `{"source":"hub-direct"}`, adminTok)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create: %d %s", w.Code, w.Body)
+	}
+	if tr.userProv.mintCalls <= mintsBefore {
+		t.Error("create did not call MintUserCreds")
+	}
+
+	approved, err := tr.store.IsSourceApproved(context.Background(), "hub-direct")
+	if err != nil || !approved {
+		t.Errorf("hub-direct not approved after create (err=%v approved=%v)", err, approved)
+	}
+}
+
+func TestHandleCreateSource_BadName(t *testing.T) {
+	tr := newTestRouter(t)
+	adminTok, _ := tr.loginAs(t, "admin", true)
+	w := tr.do("POST", "/api/admin/sources", `{"source":"contains spaces"}`, adminTok)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("invalid name = %d, want 400", w.Code)
+	}
+}
+
+func TestHandleCreateSource_RequiresAdmin(t *testing.T) {
+	tr := newTestRouter(t)
+	tok, _ := tr.loginAs(t, "alice", false)
+	w := tr.do("POST", "/api/admin/sources", `{"source":"alice-attempt"}`, tok)
+	if w.Code != http.StatusForbidden {
+		t.Errorf("non-admin code = %d, want 403", w.Code)
+	}
+}
+
+func TestHandleReactivateSource_RestoresAndAudits(t *testing.T) {
+	tr := newTestRouter(t)
+	adminTok, _ := tr.loginAs(t, "admin", true)
+	aliceTok, aliceID := tr.loginAs(t, "alice", false)
+
+	mustOK(t, tr.requestSource(t, aliceTok, "alice-q3", ""))
+	mustOK(t, tr.do("POST", "/api/admin/sources/alice-q3/approve", "", adminTok))
+	mustOK(t, tr.do("POST", "/api/admin/sources/alice-q3/deactivate", "", adminTok))
+
+	w := tr.do("POST", "/api/admin/sources/alice-q3/reactivate", "", adminTok)
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("reactivate: %d %s", w.Code, w.Body)
+	}
+
+	approved, err := tr.store.IsSourceApproved(context.Background(), "alice-q3")
+	if err != nil || !approved {
+		t.Errorf("after reactivate: approved=%v err=%v", approved, err)
+	}
+	rows, _ := tr.store.ListSourcesByOwner(context.Background(), aliceID)
+	if len(rows) != 1 || !rows[0].Active {
+		t.Errorf("after reactivate: %+v", rows)
+	}
+
+	audit, _ := tr.store.ListSourceAudit(context.Background(), "alice-q3", 10)
+	var sawReactivated bool
+	for _, r := range audit {
+		if r.Action == "reactivated" {
+			sawReactivated = true
+		}
+	}
+	if !sawReactivated {
+		t.Errorf("no 'reactivated' audit row in %+v", audit)
+	}
+}
+
+func TestHandleDownloadSourceCreds_AdminPath(t *testing.T) {
+	tr := newTestRouter(t)
+	adminTok, _ := tr.loginAs(t, "admin", true)
+	aliceTok, _ := tr.loginAs(t, "alice", false)
+
+	mustOK(t, tr.requestSource(t, aliceTok, "alice-q3", ""))
+	mustOK(t, tr.do("POST", "/api/admin/sources/alice-q3/approve", "", adminTok))
+
+	w := tr.do("GET", "/api/admin/sources/alice-q3/creds", "", adminTok)
+	if w.Code != http.StatusOK {
+		t.Fatalf("download: %d %s", w.Code, w.Body)
+	}
+	if !bytes.HasPrefix(w.Body.Bytes(), []byte("MINT:alice-q3:")) {
+		t.Errorf("unexpected creds body: %q", w.Body.String())
+	}
+	if cd := w.Header().Get("Content-Disposition"); !strings.Contains(cd, "alice-q3.creds") {
+		t.Errorf("Content-Disposition = %q", cd)
+	}
+}
+
+func TestHandleDownloadSourceCreds_UnknownIs404(t *testing.T) {
+	tr := newTestRouter(t)
+	adminTok, _ := tr.loginAs(t, "admin", true)
+	w := tr.do("GET", "/api/admin/sources/never-existed/creds", "", adminTok)
+	if w.Code != http.StatusNotFound {
+		t.Errorf("missing source code = %d, want 404", w.Code)
+	}
+}
+
+func TestHandleRotateSourceCreds_AdminPath(t *testing.T) {
+	tr := newTestRouter(t)
+	adminTok, _ := tr.loginAs(t, "admin", true)
+	aliceTok, _ := tr.loginAs(t, "alice", false)
+
+	mustOK(t, tr.requestSource(t, aliceTok, "alice-q3", ""))
+	mustOK(t, tr.do("POST", "/api/admin/sources/alice-q3/approve", "", adminTok))
+	mintsAfterApprove := tr.userProv.mintCalls
+
+	w := tr.do("POST", "/api/admin/sources/alice-q3/rotate-creds", "", adminTok)
+	if w.Code != http.StatusOK {
+		t.Fatalf("rotate: %d %s", w.Code, w.Body)
+	}
+	if tr.userProv.mintCalls != mintsAfterApprove+1 {
+		t.Errorf("mint calls = %d, want %d", tr.userProv.mintCalls, mintsAfterApprove+1)
+	}
+	if !bytes.HasPrefix(w.Body.Bytes(), []byte("MINT:alice-q3:")) {
+		t.Errorf("unexpected rotated creds body: %q", w.Body.String())
+	}
+}
+
+func TestHandleRotateSourceCreds_UnknownIs404(t *testing.T) {
+	tr := newTestRouter(t)
+	adminTok, _ := tr.loginAs(t, "admin", true)
+	w := tr.do("POST", "/api/admin/sources/never-existed/rotate-creds", "", adminTok)
+	if w.Code != http.StatusNotFound {
+		t.Errorf("missing source code = %d, want 404", w.Code)
+	}
+}
+
+func TestHandleListAudit_GlobalAndFiltered(t *testing.T) {
+	tr := newTestRouter(t)
+	adminTok, _ := tr.loginAs(t, "admin", true)
+	aliceTok, _ := tr.loginAs(t, "alice", false)
+	bobTok, _ := tr.loginAs(t, "bob", false)
+
+	mustOK(t, tr.requestSource(t, aliceTok, "alice-q3", ""))
+	mustOK(t, tr.do("POST", "/api/admin/sources/alice-q3/approve", "", adminTok))
+	mustOK(t, tr.requestSource(t, bobTok, "bob-q3", ""))
+	mustOK(t, tr.do("POST", "/api/admin/sources/bob-q3/reject", `{"reason":"no"}`, adminTok))
+
+	// Unfiltered: all four events present (2 requested + approved + rejected).
+	w := tr.do("GET", "/api/admin/audit", "", adminTok)
+	if w.Code != http.StatusOK {
+		t.Fatalf("audit: %d %s", w.Code, w.Body)
+	}
+	var rows []auditEntryJSON
+	if err := json.Unmarshal(w.Body.Bytes(), &rows); err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) < 4 {
+		t.Errorf("expected at least 4 audit rows, got %d: %+v", len(rows), rows)
+	}
+
+	// Filter by source.
+	w = tr.do("GET", "/api/admin/audit?source=alice-q3", "", adminTok)
+	_ = json.Unmarshal(w.Body.Bytes(), &rows)
+	for _, r := range rows {
+		if r.Source != "alice-q3" {
+			t.Errorf("source filter leaked %q", r.Source)
+		}
+	}
+
+	// Filter by action.
+	w = tr.do("GET", "/api/admin/audit?action=rejected", "", adminTok)
+	_ = json.Unmarshal(w.Body.Bytes(), &rows)
+	if len(rows) != 1 || rows[0].Action != "rejected" || rows[0].Source != "bob-q3" {
+		t.Errorf("action filter: %+v", rows)
+	}
+
+	// Filter by actor.
+	w = tr.do("GET", "/api/admin/audit?actor=admin", "", adminTok)
+	_ = json.Unmarshal(w.Body.Bytes(), &rows)
+	for _, r := range rows {
+		if r.ActorUsername != "admin" {
+			t.Errorf("actor filter leaked actor %q", r.ActorUsername)
+		}
+	}
+
+	// Bad since.
+	w = tr.do("GET", "/api/admin/audit?since=yesterday", "", adminTok)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("bad since = %d, want 400", w.Code)
+	}
+}
+
+func TestHandleListAudit_RequiresAdmin(t *testing.T) {
+	tr := newTestRouter(t)
+	tok, _ := tr.loginAs(t, "alice", false)
+	w := tr.do("GET", "/api/admin/audit", "", tok)
+	if w.Code != http.StatusForbidden {
+		t.Errorf("non-admin code = %d, want 403", w.Code)
 	}
 }

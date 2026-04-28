@@ -8,6 +8,7 @@ const ADMIN_TABS = [
   { path: 'sessions', label: 'Sessions' },
   { path: 'players', label: 'Players' },
   { path: 'sources', label: 'Sources' },
+  { path: 'audit', label: 'Audit' },
 ] as const
 
 export function AdminPage() {

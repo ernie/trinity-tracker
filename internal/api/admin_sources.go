@@ -7,7 +7,9 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/ernie/trinity-tracker/internal/storage"
 )
@@ -267,6 +269,9 @@ func (r *Router) handleReactivateSource(w http.ResponseWriter, req *http.Request
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	if claims := r.getAuthClaims(req); claims != nil {
+		_ = r.store.WriteSourceAudit(req.Context(), source, &claims.UserID, "reactivated", "")
+	}
 	r.auditCredsAccess(req, "reactivate", source)
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -396,6 +401,73 @@ func (r *Router) handleRenamePendingSource(w http.ResponseWriter, req *http.Requ
 		_ = r.store.WriteSourceAudit(req.Context(), body.Name, &claims.UserID, "renamed", "from "+source)
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// auditEntryJSON is the wire shape of one row in /api/admin/audit.
+// ActorUsername is empty for system-driven actions.
+type auditEntryJSON struct {
+	ID            int64  `json:"id"`
+	Source        string `json:"source"`
+	ActorUserID   *int64 `json:"actor_user_id,omitempty"`
+	ActorUsername string `json:"actor_username,omitempty"`
+	Action        string `json:"action"`
+	Detail        string `json:"detail,omitempty"`
+	CreatedAt     string `json:"created_at"`
+}
+
+// handleListAudit returns the global audit log, newest first, with
+// optional ?source= ?actor= ?action= ?since= ?limit= filters. Source
+// and actor are exact matches (the UI populates filter dropdowns from
+// known values). `since` accepts RFC3339 timestamps. Default limit is
+// 100, cap is 500.
+//
+// path: GET /api/admin/audit
+func (r *Router) handleListAudit(w http.ResponseWriter, req *http.Request) {
+	q := req.URL.Query()
+	filters := storage.AuditFilters{
+		Source: strings.TrimSpace(q.Get("source")),
+		Actor:  strings.TrimSpace(q.Get("actor")),
+		Action: strings.TrimSpace(q.Get("action")),
+	}
+	if since := strings.TrimSpace(q.Get("since")); since != "" {
+		t, err := time.Parse(time.RFC3339, since)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "since must be RFC3339 (e.g. 2026-04-01T00:00:00Z)")
+			return
+		}
+		filters.Since = t
+	}
+	if lim := strings.TrimSpace(q.Get("limit")); lim != "" {
+		n, err := strconv.Atoi(lim)
+		if err != nil || n <= 0 {
+			writeError(w, http.StatusBadRequest, "limit must be a positive integer")
+			return
+		}
+		filters.Limit = n
+	}
+
+	rows, err := r.store.ListAllAudit(req.Context(), filters)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	out := make([]auditEntryJSON, 0, len(rows))
+	for _, e := range rows {
+		entry := auditEntryJSON{
+			ID:            e.ID,
+			Source:        e.Source,
+			ActorUsername: e.ActorUsername,
+			Action:        e.Action,
+			Detail:        e.Detail,
+			CreatedAt:     e.CreatedAt.UTC().Format(time.RFC3339),
+		}
+		if e.ActorUserID.Valid {
+			id := e.ActorUserID.Int64
+			entry.ActorUserID = &id
+		}
+		out = append(out, entry)
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 // handleRejectSource sets status='rejected' with a non-empty reason.

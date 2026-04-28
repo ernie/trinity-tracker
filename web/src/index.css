@@ -6408,3 +6408,127 @@ h2 {
   border: 1px solid rgba(255, 255, 255, 0.15);
   vertical-align: middle;
 }
+
+/* Admin Audit page */
+.admin-audit-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-end;
+  margin: 0.5rem 0 1rem 0;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+}
+.admin-audit-filters label {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  gap: 0.25rem;
+}
+.admin-audit-filters select,
+.admin-audit-filters input {
+  font: inherit;
+  padding: 0.35rem 0.5rem;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 0.25rem;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
+  font-size: 0.85rem;
+  min-width: 10rem;
+}
+.admin-audit-clear,
+.admin-audit-refresh {
+  padding: 0.4rem 0.85rem;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 0.25rem;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.85rem;
+}
+.admin-audit-clear:hover,
+.admin-audit-refresh:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.05);
+}
+.admin-audit-refresh:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.admin-audit-error {
+  padding: 0.6rem 0.85rem;
+  margin: 0.5rem 0;
+  border-radius: 0.3rem;
+  background: rgba(255, 80, 80, 0.1);
+  border: 1px solid var(--red);
+  color: var(--red);
+  font-size: 0.85rem;
+}
+.admin-audit-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.admin-audit-table th,
+.admin-audit-table td {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.admin-audit-table th {
+  color: var(--text-dim);
+  font-weight: 600;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.admin-audit-empty {
+  text-align: center;
+  color: var(--text-dim);
+  padding: 1.5rem !important;
+  font-style: italic;
+}
+.admin-audit-system {
+  color: var(--text-dim);
+  font-style: italic;
+  font-size: 0.85em;
+}
+.admin-audit-action {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.15rem 0.5rem;
+  border-radius: 0.2rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.admin-audit-action-approved,
+.admin-audit-action-reactivated {
+  background: rgba(80, 200, 120, 0.12);
+  border-color: rgba(80, 200, 120, 0.3);
+  color: rgb(140, 220, 160);
+}
+.admin-audit-action-rejected,
+.admin-audit-action-revoked {
+  background: rgba(255, 100, 100, 0.12);
+  border-color: rgba(255, 100, 100, 0.3);
+  color: rgb(255, 160, 160);
+}
+.admin-audit-action-rotated,
+.admin-audit-action-downloaded {
+  background: rgba(120, 160, 220, 0.12);
+  border-color: rgba(120, 160, 220, 0.3);
+  color: rgb(160, 190, 230);
+}
