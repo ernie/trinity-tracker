@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../../hooks/useAuth'
+import { heartbeatHealth, healthLabel } from '../../utils/sourceHealth'
+import type { PendingRequest } from '../../types'
 
 type ApprovedSourceServer = {
   id: number
@@ -21,37 +23,12 @@ type ApprovedSource = {
 
 const SOURCE_NAME_PATTERN = /^[A-Za-z0-9_-]+$/
 
-// Thresholds match the design spec: <90s healthy, 90s–10min stale,
-// >10min gone.
-const STALE_THRESHOLD_MS = 90 * 1000
-const GONE_THRESHOLD_MS = 10 * 60 * 1000
-
-type Health = 'green' | 'stale' | 'gone' | 'unknown'
-
-function heartbeatHealth(lastHeartbeatAt?: string): Health {
-  if (!lastHeartbeatAt) return 'unknown'
-  const ts = Date.parse(lastHeartbeatAt)
-  if (!Number.isFinite(ts)) return 'unknown'
-  const age = Date.now() - ts
-  if (age < STALE_THRESHOLD_MS) return 'green'
-  if (age < GONE_THRESHOLD_MS) return 'stale'
-  return 'gone'
-}
-
-function healthLabel(h: Health): string {
-  switch (h) {
-    case 'green': return 'healthy'
-    case 'stale': return 'stale'
-    case 'gone': return 'gone'
-    default: return 'unknown'
-  }
-}
-
 export function AdminSources() {
   const { auth } = useAuth()
   const token = auth.token!
 
   const [approved, setApproved] = useState<ApprovedSource[]>([])
+  const [pending, setPending] = useState<PendingRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -74,11 +51,85 @@ export function AdminSources() {
     }
   }, [token])
 
+  const fetchPending = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/sources/pending', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) throw new Error(`pending: ${res.status}`)
+      setPending((await res.json()) ?? [])
+    } catch (e) {
+      // Non-fatal: leave existing pending list, surface in error banner.
+      setError(`Failed to load pending requests: ${(e as Error).message}`)
+    }
+  }, [token])
+
   useEffect(() => {
     fetchAll()
-    const id = setInterval(fetchAll, 15_000)
+    fetchPending()
+    const id = setInterval(() => {
+      fetchAll()
+      fetchPending()
+    }, 15_000)
     return () => clearInterval(id)
-  }, [fetchAll])
+  }, [fetchAll, fetchPending])
+
+  const approveRequest = async (req: PendingRequest) => {
+    setError('')
+    setNotice('')
+    try {
+      const res = await fetch(`/api/admin/sources/${encodeURIComponent(req.source)}/approve`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
+      setNotice(`Approved ${req.source}.`)
+      await Promise.all([fetchPending(), fetchAll()])
+    } catch (err) {
+      setError(`Approve failed: ${(err as Error).message}`)
+    }
+  }
+
+  const rejectRequest = async (req: PendingRequest, reason: string) => {
+    setError('')
+    setNotice('')
+    try {
+      const res = await fetch(`/api/admin/sources/${encodeURIComponent(req.source)}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ reason }),
+      })
+      if (!res.ok) {
+        const text = await res.text()
+        throw new Error(text || `${res.status} ${res.statusText}`)
+      }
+      setNotice(`Rejected ${req.source}.`)
+      await fetchPending()
+    } catch (err) {
+      setError(`Reject failed: ${(err as Error).message}`)
+    }
+  }
+
+  const renameRequest = async (req: PendingRequest, newName: string): Promise<string | null> => {
+    setError('')
+    setNotice('')
+    try {
+      const res = await fetch(`/api/admin/sources/${encodeURIComponent(req.source)}/rename`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name: newName }),
+      })
+      if (!res.ok) {
+        const text = await res.text()
+        return text || `${res.status} ${res.statusText}`
+      }
+      setNotice(`Renamed ${req.source} → ${newName}.`)
+      await fetchPending()
+      return null
+    } catch (err) {
+      return (err as Error).message
+    }
+  }
 
   const downloadCredsBlob = async (res: Response, source: string) => {
     const blob = await res.blob()
@@ -207,6 +258,39 @@ export function AdminSources() {
       {error && <div className="error-message">{error}</div>}
       {notice && <div className="notice-message">{notice}</div>}
 
+      {pending.length > 0 && (
+        <section className="admin-pending-requests">
+          <h2>Pending requests ({pending.length})</h2>
+          <p className="admin-help">
+            Users requesting a self-service collector source. Approve mints
+            credentials and flips the row to active; reject stores the reason
+            for the requester to see in their next request modal.
+          </p>
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Source</th>
+                <th>Purpose</th>
+                <th>Submitted</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pending.map((req) => (
+                <PendingRow
+                  key={req.source}
+                  req={req}
+                  onApprove={() => approveRequest(req)}
+                  onReject={(reason) => rejectRequest(req, reason)}
+                  onRename={(name) => renameRequest(req, name)}
+                />
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
+
       <section className="admin-sources-create">
         <h2>Provision a new collector</h2>
         <p className="admin-help">
@@ -315,5 +399,137 @@ export function AdminSources() {
         )}
       </section>
     </div>
+  )
+}
+
+// PendingRow is a small inline component holding the per-row state
+// for an admin's approve/reject/rename flow. Approve is a single
+// click; reject opens an inline reason input; rename opens an
+// inline name input — both have to be non-empty to submit. Returns
+// an error string from rename; reject errors surface via parent's
+// notice/error banners.
+interface PendingRowProps {
+  req: PendingRequest
+  onApprove: () => void
+  onReject: (reason: string) => void
+  onRename: (newName: string) => Promise<string | null>
+}
+
+const NAME_PATTERN = /^[A-Za-z0-9_-]{3,32}$/
+
+function PendingRow({ req, onApprove, onReject, onRename }: PendingRowProps) {
+  const [mode, setMode] = useState<'idle' | 'rejecting' | 'renaming'>('idle')
+  const [text, setText] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [renameError, setRenameError] = useState<string | null>(null)
+
+  const reset = () => {
+    setMode('idle')
+    setText('')
+    setRenameError(null)
+  }
+
+  const submitReject = async () => {
+    if (!text.trim()) return
+    setSubmitting(true)
+    await onReject(text.trim())
+    setSubmitting(false)
+    reset()
+  }
+
+  const submitRename = async () => {
+    setRenameError(null)
+    if (!NAME_PATTERN.test(text)) {
+      setRenameError('Name must be 3-32 characters: letters, numbers, _ or -.')
+      return
+    }
+    setSubmitting(true)
+    const err = await onRename(text)
+    setSubmitting(false)
+    if (err) {
+      setRenameError(err)
+      return
+    }
+    reset()
+  }
+
+  return (
+    <tr>
+      <td data-label="User">{req.owner_username}</td>
+      <td data-label="Source">
+        <div className="admin-sources-source-name">{req.source}</div>
+      </td>
+      <td data-label="Purpose">
+        {req.requested_purpose || <span className="admin-muted">—</span>}
+      </td>
+      <td data-label="Submitted">{req.submitted_at}</td>
+      <td data-label="Actions" className="admin-sources-actions">
+        {mode === 'rejecting' && (
+          <div className="admin-pending-inline-form">
+            <input
+              type="text"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="Reason (shown to requester)"
+              autoFocus
+            />
+            <button
+              className="admin-btn admin-btn-danger"
+              onClick={submitReject}
+              disabled={submitting || !text.trim()}
+            >
+              {submitting ? '…' : 'Confirm reject'}
+            </button>
+            <button className="admin-btn" onClick={reset} disabled={submitting}>
+              Cancel
+            </button>
+          </div>
+        )}
+        {mode === 'renaming' && (
+          <div className="admin-pending-inline-form">
+            <input
+              type="text"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="New name (e.g. mygame-jfk)"
+              autoFocus
+            />
+            <button
+              className="admin-btn"
+              onClick={submitRename}
+              disabled={submitting || !text.trim()}
+            >
+              {submitting ? '…' : 'Confirm rename'}
+            </button>
+            <button className="admin-btn" onClick={reset} disabled={submitting}>
+              Cancel
+            </button>
+            {renameError && <div className="error-message">{renameError}</div>}
+          </div>
+        )}
+        {mode === 'idle' && (
+          <>
+            <button className="admin-btn" onClick={onApprove}>
+              Approve
+            </button>
+            <button
+              className="admin-btn"
+              onClick={() => {
+                setMode('renaming')
+                setText(req.source)
+              }}
+            >
+              Rename
+            </button>
+            <button
+              className="admin-btn admin-btn-danger"
+              onClick={() => setMode('rejecting')}
+            >
+              Reject
+            </button>
+          </>
+        )}
+      </td>
+    </tr>
   )
 }

@@ -38,12 +38,18 @@ func ValidateSource(s string) error {
 // pre-provisioned collector. A collector may only publish anything
 // the hub accepts if a row here names its source.
 type Source struct {
-	Source          string
-	DemoBaseURL     string
-	Version         string
-	LastHeartbeatAt time.Time
-	IsRemote        bool
-	CreatedAt       time.Time
+	Source           string
+	DemoBaseURL      string
+	Version          string
+	LastHeartbeatAt  time.Time
+	IsRemote         bool
+	Active           bool
+	OwnerUserID      sql.NullInt64
+	Status           string
+	RequestedPurpose string
+	RejectionReason  string
+	StatusChangedAt  sql.NullTime
+	CreatedAt        time.Time
 }
 
 // CreateSource inserts a new sources row. Called by the admin flow

@@ -3,6 +3,32 @@
 Trinity Tracker runs in three deployment modes, selected by the
 top-level `tracker:` block in `/etc/trinity/config.yml`.
 
+The default front door (`scripts/install.sh` → `trinity init`) only
+configures **collector-only** installs. That's deliberate: Trinity
+is designed as a network of collectors reporting to a shared hub
+(`trinity.run`), and standing up a second hub fragments the network
+in ways that are easy to do by accident and hard to consolidate later.
+
+## Standing up your own hub
+
+If you genuinely need to run your own hub — for a private network,
+or as a development environment for the tracker itself — install the
+binary by hand and pass `--allow-hub` to unlock the hub-bearing modes:
+
+```
+sudo trinity init --allow-hub
+```
+
+The wizard then offers three choices (still defaulting to collector;
+you have to pick a hub mode actively):
+
+1. Hub + local collector (single machine)
+2. Hub only (central UI; remote collectors report in)
+3. Collector only
+
+The example configs below are what each mode writes to
+`/etc/trinity/config.yml`.
+
 ## Modes
 
 | Mode | `tracker:` config | Process does |
@@ -166,41 +192,100 @@ In hub+collector and hub-only modes the NATS URL defaults to
 
 ## Provisioning remote collectors
 
-Collectors are pre-provisioned: the hub admin creates the source and
-mints credentials first, hands them to the remote operator, and only
-then can the collector connect. NATS auth is the trust boundary — an
-unprovisioned collector is rejected at the broker, never reaches the
-hub's ingest path, and cannot publish registrations, events, or live
-status.
+Collectors are pre-provisioned: a `sources` row plus a `.creds`
+bundle scoped to it must exist before the collector can publish
+anything. NATS auth is the trust boundary — an unprovisioned
+collector is rejected at the broker, never reaches the hub's ingest
+path, and cannot publish registrations, events, or live status.
 
-### Adding a new remote collector
+There are two ways a source comes into being.
 
-1. **Hub admin**: open **Admin → Sources**, fill in **Source name**
-   (e.g. `remote-1` — becomes the NATS subject scope) and click
-   **Create source**. The hub inserts a `sources` row and mints an
-   NKey + signed user JWT scoped to
-   `trinity.{events,register,live,rpc.*}.<source_name>.>`. Click
-   **Download creds** on the new row to pull the `.creds` file.
+### Self-service (preferred)
 
-   *API equivalent:* `POST /api/admin/sources` with body
-   `{"source": "remote-1"}` (returns `201 Created`), then
-   `GET /api/admin/sources/<source>/creds`.
+Owners drive their own onboarding from the hub web UI; admins approve
+in one click. This is the path the wizard's prereq screen points at,
+and the path documented in
+[collector-setup.md §1](./collector-setup.md#1-request-a-source-on-the-hub).
 
-2. **Hub admin**: hand the `.creds` file and the source name to the
-   remote operator out-of-band (email, encrypted channel, whatever).
+1. **Operator**: sign up / log in on the hub. Click **Add Servers**
+   in the header. Pick a source name (3-32 chars, alnum +
+   `_`/`-`); optionally fill in a "what is this for?" note. Submit.
+   Header flips to **Request Pending**.
 
-3. **Remote operator**: drop the `.creds` file at
-   `tracker.nats.credentials_file`, set
-   `tracker.collector.source_id` to the provisioned name, and start
-   the collector. It connects, publishes registration (which populates
-   the server roster on the hub), and events flow immediately.
+   *API equivalent:* `POST /api/sources/request` with body
+   `{"name":"<source>","purpose":"..."}` (returns `201 Created`).
+
+2. **Hub admin**: opens **Admin → Sources**. The Pending Requests
+   section pinned to the top lists every awaiting submission with
+   the requesting user's username and timestamp. Three actions per
+   row: **Approve**, **Rename** (admin discretion — only legal while
+   pending, since the source name is the NATS subject scope and
+   can't change once creds are minted), and **Reject** (requires a
+   reason; the requester sees it as a banner above their next
+   request).
+
+   *API equivalents:* `POST /api/admin/sources/{source}/approve`,
+   `POST /api/admin/sources/{source}/rename` with `{"name":"..."}`,
+   `POST /api/admin/sources/{source}/reject` with `{"reason":"..."}`.
+
+3. **Operator**: header button flips to **My Servers** within ~30 s.
+   Click it, then **Download .creds** on the row. Run the installer
+   on the collector host with that file in hand.
+
+   *API equivalent:* `GET /api/sources/mine/{source}/creds` streams
+   the file, scoped to the caller's owned active sources.
+
+One source per physical host is the recommended convention — each
+gets its own credential and independent rotate/leave controls. Only
+one *pending* request per user at a time (anti-flood); already-active
+sources don't block adding more.
+
+### Admin-direct (out-of-band onboarding)
+
+If the operator doesn't have a hub account, or the admin prefers to
+mint a source without a request:
+
+1. **Hub admin**: in **Admin → Sources**, fill the **Add a new
+   source** form (Source name) and click **Create source**. The hub
+   inserts a `sources` row, mints an NKey + signed user JWT scoped to
+   `trinity.{events,register,live,rpc.*}.<source>.>`, and persists
+   the `.creds` file on disk. Click **Download .creds** on the new
+   row to pull it.
+
+   *API equivalents:* `POST /api/admin/sources` with body
+   `{"source":"remote-1"}` (returns `201 Created`), then
+   `GET /api/admin/sources/{source}/creds`.
+
+2. **Hub admin**: hand the `.creds` file + source name to the remote
+   operator out-of-band (encrypted email, signal, etc.).
+
+Sources created this way have `owner_user_id IS NULL`, so they don't
+show up in any user's My Servers drawer — only admin tools can
+manage them.
+
+### Running the wizard
+
+Either path leaves the operator with a source name + `.creds` file.
+Run `sudo ./scripts/install.sh` (collector-only by default), supply
+the source name and `.creds` path when the wizard prompts, and the
+installer writes `tracker.collector.source_id`, copies the creds to
+`/etc/trinity/source.creds`, installs the engine, and enables the
+systemd units. The collector connects, publishes registration (which
+populates the server roster on the hub), and events flow
+immediately.
 
 ### Rotating credentials
 
-- **Web UI:** Admin → Sources → **Rotate creds** next to the source.
-  Confirms, downloads the replacement `.creds`.
-- **API:** `POST /api/admin/sources/<source>/rotate-creds`
-  (admin-scoped JWT).
+- **Owner self-rotate (self-service sources):** in **My Servers**
+  click **Rotate creds** on the source. Rate-limited to 5 rotations
+  per source per 24 h.
+
+  *API:* `POST /api/sources/mine/{source}/rotate-creds`.
+- **Admin rotate (any source):** in **Admin → Sources** click
+  **Rotate creds** next to the source. Use this for admin-direct
+  sources (no owner) or when re-issuing to an operator out-of-band.
+
+  *API:* `POST /api/admin/sources/{source}/rotate-creds`.
 
 Rotation mints a fresh user NKey, writes the new `.creds` (the
 source name is unchanged), and adds the old pubkey to the TRINITY
@@ -208,20 +293,36 @@ account's revocation list + calls `server.UpdateAccountClaims`, so
 any collector still connected with the old creds is dropped
 immediately.
 
-### Deleting a source
+### Taking a source offline
 
-- **Web UI:** Admin → Sources → **Delete**.
-- **API:** `DELETE /api/admin/sources/<source>`.
+There's no row-level delete — historical matches/sessions keep their
+`(source, key)` reference, so the row stays around and the UI dims
+inactive content rather than dropping it. Two ways to disable a
+source:
 
-Removes the `sources` row, removes any `is_remote=1` servers rows
-tagged with that source, revokes the NKey at the broker, and flips
-the in-memory cache so any in-flight message from that source is
-refused.
+- **Owner self-leave (self-service sources):** in **My Servers**
+  click **Leave network**. Status flips to `left`, NATS creds are
+  revoked, the source is marked blocked in-memory. The owner can
+  rejoin by submitting a new request with the same name (auto-
+  approved, since the row is theirs).
+
+  *API:* `POST /api/sources/mine/{source}/leave`.
+- **Admin deactivate (any source, punitive):** in **Admin → Sources**
+  click **Deactivate**. Status flips to `revoked`; only an admin
+  can re-enable.
+
+  *API:* `POST /api/admin/sources/{source}/deactivate`.
+
+Both paths revoke the NKey at the broker and flip the in-memory
+cache, so any in-flight message from that source is refused.
 
 ### Downloading current creds
 
-`GET /api/admin/sources/<source>/creds` streams the current
-`.creds` body. Handy for re-issuing to an operator who lost theirs.
+- **Owner:** `GET /api/sources/mine/{source}/creds` streams the
+  current `.creds` body. Handy if you lost the file but don't need
+  to invalidate the old one.
+- **Admin (any source):** `GET /api/admin/sources/{source}/creds`.
+
 The underlying NKey is unchanged — use rotate-creds if you need to
 invalidate the old file.
 
@@ -295,10 +396,16 @@ an unnecessary NATS round-trip.
   key signs user JWTs. The hub's own in-process clients use a
   hub-internal user under TRINITY with full pub/sub.
 - **Pre-provisioning gate** — a collector cannot register, publish
-  events, or emit live status until the hub admin has created its
-  source and issued creds. The hub's ingest path double-checks the
-  source against the `sources` table, so even a misrouted message
-  from a stale-but-still-valid NKey is dropped.
+  events, or emit live status until its source row is `active` on
+  the hub. Self-service requests start in `pending` (no creds
+  minted, NATS auth would fail anyway); admin-direct creates land
+  straight in `active`. Either way, the hub's ingest path
+  double-checks the source against the `sources` table, so even a
+  misrouted message from a stale-but-still-valid NKey is dropped.
+- **Source lifecycle audit** — every state change (request, approve,
+  reject, rename, rotate, leave, deactivate) writes a row to
+  `source_audit` with the actor's user ID. Useful for
+  reconstructing how a given source got into its current state.
 - **Handshake gate** — matches are only persisted when the source
   server has `g_trinityHandshake` enabled (collector reports, hub
   double-checks at `handleMatchStart`). This keeps vanilla ioquake3
@@ -318,12 +425,20 @@ Distributed tracking added the following to `servers`:
   the hub-side rejection of session/live events for non-enforcing
   servers (see "g_trinityHandshake" above).
 
-Plus two new tables:
+Plus three tables:
 
 - `sources` — hub record of provisioned collectors. The hub refuses
-  anything from a `source` name that doesn't have a row here.
+  anything from a `source` name that doesn't have a row here. Self-
+  service onboarding adds `owner_user_id`, `status` (pending /
+  active / rejected / left / revoked), `requested_purpose`,
+  `rejection_reason`, `status_changed_at`. The legacy `active`
+  column is kept in sync (`active=1` ↔ `status='active'`) so the
+  ingest gate keeps working.
 - `source_progress` — per-source `consumed_seq` for idempotent
   replay.
+- `source_audit` — append-only log of lifecycle events
+  (request / approve / reject / rotate / leave / etc.) with the
+  actor's user ID.
 
 `schema.sql` carries the full target shape for fresh installs. For
 existing deployments, the operator runs the matching ALTERs by hand
@@ -337,3 +452,7 @@ ALTER TABLE servers ADD COLUMN handshake_required INTEGER NOT NULL DEFAULT 0;
 "unenforcing" state until its next `match_start` arrives; if you'd
 rather grandfather currently-enforcing servers, run
 `UPDATE servers SET handshake_required = 1 WHERE …` after the ALTER).
+
+The self-service onboarding columns + `source_audit` table arrived
+together; the corresponding ALTER block is in the matching commit
+message and follows the same "operator runs it pre-deploy" pattern.

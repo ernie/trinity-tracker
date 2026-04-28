@@ -5,11 +5,11 @@ import (
 	"testing"
 )
 
-// TestLoadRejectsREPLACEMEPlaceholders covers each field that
-// scripts/config.yml.example ships with a "REPLACE-ME" placeholder.
-// Without this check, a half-edited config loads cleanly and the
-// collector publishes against a bogus source or rcons with the
-// literal word "REPLACE-ME".
+// TestLoadRejectsREPLACEMEPlaceholders covers each field where a
+// hand-rolled or copy-pasted config might leave a literal
+// "REPLACE-ME" placeholder. Without this check, a half-edited config
+// loads cleanly and the collector publishes against a bogus source
+// or rcons with the literal word "REPLACE-ME".
 func TestLoadRejectsREPLACEMEPlaceholders(t *testing.T) {
 	cases := []struct {
 		name      string

@@ -216,10 +216,11 @@ func Load(path string) (*Config, error) {
 }
 
 // validateNoPlaceholders refuses configs where the operator forgot to
-// edit the REPLACE-ME placeholders shipped in
-// scripts/config.yml.example. Without this, a half-edited config
-// loads "successfully" and the collector publishes against a bogus
-// source name or rcons with the literal word "REPLACE-ME".
+// edit literal "REPLACE-ME" placeholders. The wizard never writes
+// these — but a hand-rolled config or one carried over from an
+// example may still contain them, and without this guard the
+// collector would silently publish against a bogus source name or
+// rcon with the literal string "REPLACE-ME".
 func validateNoPlaceholders(cfg *Config) error {
 	const placeholder = "REPLACE-ME"
 	if cfg.Tracker != nil && cfg.Tracker.Collector != nil {
@@ -285,7 +286,8 @@ func applyTrackerDefaults(cfg *Config) {
 			// Hub+local-collector: the local source is created/upserted
 			// at startup, so source_id is internal metadata. Remote
 			// collectors (no Hub set) must still supply it explicitly —
-			// the hub admin chose the name at provisioning time.
+			// it's whatever name the hub approved (self-service request
+			// or admin-direct create).
 			t.Collector.SourceID = "local"
 		}
 	}
@@ -339,6 +341,27 @@ func validateTracker(t *TrackerConfig) error {
 		}
 	}
 	return nil
+}
+
+// ValidateForSave runs every validator that Load applies (defaults +
+// tracker validation + placeholder check) against an in-memory
+// *Config. The wizard uses this to check the config it built before
+// writing /etc/trinity/config.yml — round-tripping through Load would
+// fail because the file doesn't exist yet.
+func ValidateForSave(cfg *Config) error {
+	applyTrackerDefaults(cfg)
+	if err := validateTracker(cfg.Tracker); err != nil {
+		return err
+	}
+	for i, srv := range cfg.Q3Servers {
+		if srv.Key == "" {
+			return fmt.Errorf("q3_servers[%d]: key is required", i)
+		}
+		if len(srv.Key) > 64 || !idPattern.MatchString(srv.Key) {
+			return fmt.Errorf("q3_servers[%d].key %q must match %s and be at most 64 chars", i, srv.Key, idPattern.String())
+		}
+	}
+	return validateNoPlaceholders(cfg)
 }
 
 // Save writes the configuration to a YAML file, backing up the original first

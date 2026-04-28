@@ -126,6 +126,20 @@ func (w *Writer) ReactivateSource(ctx context.Context, source string) error {
 	return nil
 }
 
+// LeaveSource is the owner-self-service variant of DeactivateSource:
+// flips status to 'left', marks the source blocked at ingest, and
+// cascades servers inactive — same observable result as DeactivateSource
+// except the row stays self-rejoinable. Caller pairs this with a
+// userProv.RevokeSource() so any connected collector disconnects on
+// next publish.
+func (w *Writer) LeaveSource(ctx context.Context, source string) error {
+	if err := w.store.LeaveSource(ctx, source); err != nil {
+		return err
+	}
+	w.sources.MarkBlocked(source)
+	return nil
+}
+
 func (w *Writer) resolveGUIDPlayerID(ctx context.Context, guid string) (int64, bool) {
 	if guid == "" {
 		return 0, false

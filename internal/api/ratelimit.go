@@ -96,3 +96,46 @@ func (r *Router) rateLimit(rl *rateLimiter, next http.HandlerFunc) http.HandlerF
 		next(w, req)
 	}
 }
+
+// rotationLimiter is a per-source sliding-window cap on credential
+// rotations from the owner-self-service path (5/24h per spec). The
+// IP-based rateLimiter above is the wrong granularity here — a user
+// behind CGNAT could be rotating creds for a totally different
+// account from their neighbor. In-memory only; restart resets every
+// bucket, which is acceptable: the cap is a guardrail, not a
+// security boundary.
+type rotationLimiter struct {
+	cap    int
+	window time.Duration
+	mu     sync.Mutex
+	hits   map[string][]time.Time
+}
+
+func newRotationLimiter(cap int, window time.Duration) *rotationLimiter {
+	return &rotationLimiter{
+		cap:    cap,
+		window: window,
+		hits:   make(map[string][]time.Time),
+	}
+}
+
+// allow records a hit against `key` and returns true if the call is
+// within the limit. Denied calls do NOT consume a slot.
+func (r *rotationLimiter) allow(key string) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	now := time.Now()
+	cutoff := now.Add(-r.window)
+	pruned := r.hits[key][:0]
+	for _, t := range r.hits[key] {
+		if t.After(cutoff) {
+			pruned = append(pruned, t)
+		}
+	}
+	if len(pruned) >= r.cap {
+		r.hits[key] = pruned
+		return false
+	}
+	r.hits[key] = append(pruned, now)
+	return true
+}

@@ -1851,6 +1851,328 @@ h2 {
   color: var(--text);
 }
 
+.my-source-btn {
+  background: transparent;
+  border: 1px solid var(--text-dim);
+  color: var(--text-dim);
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+.my-source-btn:hover {
+  border-color: var(--text);
+  color: var(--text);
+}
+
+.my-source-btn-pending {
+  border-color: var(--accent-dim);
+  color: var(--accent);
+}
+
+.my-source-btn-active {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+/* My Servers drawer (owner self-service) */
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 100;
+}
+
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  width: min(560px, 100%);
+  background: var(--bg-card);
+  color: var(--text);
+  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--accent-dim);
+}
+
+.drawer-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--accent-dim);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.drawer-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.drawer-body {
+  padding: 16px;
+  overflow-y: auto;
+  flex: 1;
+  font-size: 0.9rem;
+}
+
+/* Per-source card inside the drawer */
+.source-card {
+  background: var(--bg);
+  border: 1px solid var(--accent-dim);
+  border-radius: 4px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.source-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.source-card-meta {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.source-card-meta a {
+  color: var(--text-dim);
+}
+
+.status-pill {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.status-pending {
+  background: rgba(200, 160, 76, 0.15);
+  color: var(--accent);
+  border: 1px solid var(--accent-dim);
+}
+
+.status-rejected {
+  background: rgba(233, 69, 96, 0.15);
+  color: var(--red);
+  border: 1px solid var(--red);
+}
+
+.status-left {
+  background: rgba(168, 160, 144, 0.15);
+  color: var(--text-dim);
+  border: 1px solid var(--text-dim);
+}
+
+.status-revoked {
+  background: rgba(233, 69, 96, 0.15);
+  color: var(--red);
+  border: 1px solid var(--red);
+}
+
+.source-card-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.source-card-actions button {
+  background: transparent;
+  border: 1px solid var(--text-dim);
+  color: var(--text);
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.85rem;
+}
+
+.source-card-actions button:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.source-card-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.source-card-actions button.danger {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.source-card-actions button.danger:hover:not(:disabled) {
+  background: var(--red);
+  color: var(--text);
+}
+
+.source-card-server-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border-top: 1px solid var(--accent-dim);
+  padding-top: 8px;
+}
+
+.source-card-server-list li {
+  padding: 6px 0;
+  display: grid;
+  grid-template-columns: minmax(80px, 1fr) minmax(120px, 2fr) minmax(80px, auto);
+  gap: 12px;
+  align-items: center;
+}
+
+.source-card-server-list li.inactive {
+  opacity: 0.5;
+}
+
+.source-card-server-list li.muted {
+  color: var(--text-dim);
+  display: block;
+  font-style: italic;
+}
+
+.source-card-server-list .server-key {
+  font-weight: 600;
+}
+
+.source-card-server-list .server-addr {
+  color: var(--text-dim);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.85rem;
+}
+
+.source-card-server-list .server-state.running {
+  color: var(--green);
+}
+
+.source-card-server-list .server-state.idle {
+  color: var(--text-dim);
+}
+
+.drawer-add-another {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--accent-dim);
+}
+
+.drawer-add-another button {
+  background: transparent;
+  border: 1px solid var(--accent-dim);
+  color: var(--accent);
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  width: 100%;
+}
+
+.drawer-add-another button:hover {
+  border-color: var(--accent);
+}
+
+.drawer-add-another .muted {
+  color: var(--text-dim);
+  font-style: italic;
+  font-size: 0.85rem;
+  text-align: center;
+  margin: 0;
+}
+
+/* In-drawer request form */
+.request-form {
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.request-form small {
+  color: var(--text-dim);
+  display: block;
+  margin-top: 2px;
+}
+
+.request-form textarea {
+  font-family: inherit;
+  resize: vertical;
+}
+
+.request-form-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.drawer-help {
+  background: var(--bg);
+  border-left: 3px solid var(--accent-dim);
+  padding: 10px 12px;
+  margin-bottom: 16px;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.drawer-help p {
+  margin: 0 0 8px 0;
+}
+
+.drawer-help p:last-child {
+  margin-bottom: 0;
+}
+
+.drawer-help a {
+  color: var(--accent);
+}
+
+/* Admin pending requests */
+.admin-pending-requests {
+  margin-bottom: 24px;
+  padding: 16px;
+  background: var(--bg-card);
+  border-left: 3px solid var(--accent);
+}
+
+.admin-pending-requests h2 {
+  margin-top: 0;
+}
+
+.admin-pending-inline-form {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.admin-pending-inline-form input {
+  min-width: 200px;
+  padding: 4px 8px;
+  background: var(--bg);
+  border: 1px solid var(--accent-dim);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: inherit;
+}
+
+.admin-nav-badge {
+  color: var(--accent);
+  font-size: 0.85em;
+  margin-left: 4px;
+}
+
 /* Modal overlay and styles */
 .modal-overlay {
   position: fixed;
@@ -1914,12 +2236,14 @@ h2 {
 }
 
 .modal .form-group,
-.admin-content .form-group {
+.admin-content .form-group,
+.drawer .form-group {
   margin-bottom: 15px;
 }
 
 .modal .form-group label,
-.admin-content .form-group label {
+.admin-content .form-group label,
+.drawer .form-group label {
   display: block;
   margin-bottom: 5px;
   color: var(--text-dim);
@@ -1927,7 +2251,8 @@ h2 {
 }
 
 .modal .form-group.checkbox label,
-.admin-content .form-group.checkbox label {
+.admin-content .form-group.checkbox label,
+.drawer .form-group.checkbox label {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1936,8 +2261,22 @@ h2 {
 
 .modal .form-group input[type="text"],
 .modal .form-group input[type="password"],
+.modal .form-group input[type="url"],
+.modal .form-group input[type="email"],
+.modal .form-group input:not([type]),
+.modal .form-group textarea,
 .admin-content .form-group input[type="text"],
-.admin-content .form-group input[type="password"] {
+.admin-content .form-group input[type="password"],
+.admin-content .form-group input[type="url"],
+.admin-content .form-group input[type="email"],
+.admin-content .form-group input:not([type]),
+.admin-content .form-group textarea,
+.drawer .form-group input[type="text"],
+.drawer .form-group input[type="password"],
+.drawer .form-group input[type="url"],
+.drawer .form-group input[type="email"],
+.drawer .form-group input:not([type]),
+.drawer .form-group textarea {
   width: 100%;
   padding: 8px 12px;
   background: var(--bg);
@@ -1948,13 +2287,18 @@ h2 {
 }
 
 .modal .form-group input:focus,
-.admin-content .form-group input:focus {
+.modal .form-group textarea:focus,
+.admin-content .form-group input:focus,
+.admin-content .form-group textarea:focus,
+.drawer .form-group input:focus,
+.drawer .form-group textarea:focus {
   outline: none;
   border-color: var(--red);
 }
 
 .modal .error-message,
-.admin-content .error-message {
+.admin-content .error-message,
+.drawer .error-message {
   background: rgba(244, 67, 54, 0.1);
   border: 1px solid var(--red);
   border-radius: 4px;
@@ -1970,7 +2314,8 @@ h2 {
 }
 
 .modal button[type="submit"],
-.admin-content button[type="submit"] {
+.admin-content button[type="submit"],
+.drawer button[type="submit"] {
   background: var(--red);
   border: none;
   color: #fff;
@@ -1981,17 +2326,20 @@ h2 {
 }
 
 .modal button[type="submit"]:hover:not(:disabled),
-.admin-content button[type="submit"]:hover:not(:disabled) {
+.admin-content button[type="submit"]:hover:not(:disabled),
+.drawer button[type="submit"]:hover:not(:disabled) {
   background: #c73550;
 }
 
 .modal button[type="submit"]:disabled,
-.admin-content button[type="submit"]:disabled {
+.admin-content button[type="submit"]:disabled,
+.drawer button[type="submit"]:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.modal .cancel-btn {
+.modal .cancel-btn,
+.drawer .cancel-btn {
   background: transparent;
   border: 1px solid var(--text-dim);
   color: var(--text-dim);
@@ -2001,7 +2349,8 @@ h2 {
   font-family: inherit;
 }
 
-.modal .cancel-btn:hover {
+.modal .cancel-btn:hover,
+.drawer .cancel-btn:hover {
   border-color: var(--text);
   color: var(--text);
 }

@@ -19,17 +19,18 @@ import (
 
 // Router holds the HTTP routes and dependencies
 type Router struct {
-	mux          *http.ServeMux
-	store        *storage.Store
-	manager      *collector.ServerManager
-	writer       *hub.Writer
-	poller       *hub.RemotePoller
-	wsHub        *WebSocketHub
-	auth         *auth.Service
-	loginLimiter *rateLimiter
-	staticDir    string
-	quake3Dir    string
-	userProv     hub.UserProvisioner
+	mux           *http.ServeMux
+	store         *storage.Store
+	manager       *collector.ServerManager
+	writer        *hub.Writer
+	poller        *hub.RemotePoller
+	wsHub         *WebSocketHub
+	auth          *auth.Service
+	loginLimiter  *rateLimiter
+	rotateLimiter *rotationLimiter
+	staticDir     string
+	quake3Dir     string
+	userProv      hub.UserProvisioner
 }
 
 // SetPoller plugs in the hub's UDP poller. Always set in hub mode —
@@ -60,15 +61,16 @@ func (r *Router) SetUserProvisioner(p hub.UserProvisioner) {
 // NewRouter creates a new HTTP router
 func NewRouter(store *storage.Store, manager *collector.ServerManager, writer *hub.Writer, authService *auth.Service, staticDir, quake3Dir string) *Router {
 	r := &Router{
-		mux:          http.NewServeMux(),
-		store:        store,
-		manager:      manager,
-		writer:       writer,
-		wsHub:        NewWebSocketHub(),
-		auth:         authService,
-		loginLimiter: newRateLimiter(15*time.Minute, 5),
-		staticDir:    staticDir,
-		quake3Dir:    quake3Dir,
+		mux:           http.NewServeMux(),
+		store:         store,
+		manager:       manager,
+		writer:        writer,
+		wsHub:         NewWebSocketHub(),
+		auth:          authService,
+		loginLimiter:  newRateLimiter(15*time.Minute, 5),
+		rotateLimiter: newRotationLimiter(5, 24*time.Hour),
+		staticDir:     staticDir,
+		quake3Dir:     quake3Dir,
 	}
 
 	// API routes
@@ -147,11 +149,25 @@ func NewRouter(store *storage.Store, manager *collector.ServerManager, writer *h
 	// status, registration) until a row exists here.
 	r.mux.HandleFunc("GET /api/admin/sources", r.requireAdmin(r.handleListApprovedSources))
 	r.mux.HandleFunc("POST /api/admin/sources", r.requireAdmin(r.handleCreateSource))
+	r.mux.HandleFunc("GET /api/admin/sources/pending", r.requireAdmin(r.handleListPendingSources))
+	r.mux.HandleFunc("POST /api/admin/sources/{source}/approve", r.requireAdmin(r.handleApproveSource))
+	r.mux.HandleFunc("POST /api/admin/sources/{source}/reject", r.requireAdmin(r.handleRejectSource))
+	r.mux.HandleFunc("POST /api/admin/sources/{source}/rename", r.requireAdmin(r.handleRenamePendingSource))
 	r.mux.HandleFunc("POST /api/admin/sources/{source}/deactivate", r.requireAdmin(r.handleDeactivateSource))
 	r.mux.HandleFunc("POST /api/admin/sources/{source}/reactivate", r.requireAdmin(r.handleReactivateSource))
 	r.mux.HandleFunc("GET /api/admin/sources/{source}/creds", r.requireAdmin(r.handleDownloadSourceCreds))
 	r.mux.HandleFunc("POST /api/admin/sources/{source}/rotate-creds", r.requireAdmin(r.handleRotateSourceCreds))
 	r.mux.HandleFunc("GET /api/admin/sessions", r.requireAdmin(r.handleListAdminSessions))
+
+	// Owner-scoped self-service. GET /api/sources/mine returns the
+	// caller's full source list (one card per source in My Servers);
+	// the per-source action paths gate on owner_user_id == caller AND
+	// the named source belonging to them.
+	r.mux.HandleFunc("GET /api/sources/mine", r.requireAuth(r.handleGetMySources))
+	r.mux.HandleFunc("POST /api/sources/request", r.requireAuth(r.handleRequestSource))
+	r.mux.HandleFunc("GET /api/sources/mine/{source}/creds", r.requireAuth(r.handleDownloadMyCreds))
+	r.mux.HandleFunc("POST /api/sources/mine/{source}/rotate-creds", r.requireAuth(r.handleRotateMyCreds))
+	r.mux.HandleFunc("POST /api/sources/mine/{source}/leave", r.requireAuth(r.handleLeaveMySource))
 
 	// Quake 3 file serving (admin only, for web game client)
 	if quake3Dir != "" {

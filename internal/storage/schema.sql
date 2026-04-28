@@ -213,9 +213,49 @@ CREATE TABLE IF NOT EXISTS sources (
     version           TEXT NOT NULL DEFAULT '',
     last_heartbeat_at TIMESTAMP,
     is_remote         INTEGER NOT NULL DEFAULT 1,
-    -- 1 while the admin has this source enabled. Flipped to 0 by
-    -- DeactivateSource (cascades to servers.active=0); ingest refuses
-    -- new heartbeats and RPCs when 0.
+    -- 1 while the source's collector is allowed to publish. Mirrors
+    -- status='active'; the ingest gate (SourceRegistry) keys off this.
     active            INTEGER NOT NULL DEFAULT 1,
+    -- Self-service ownership and lifecycle. owner_user_id NULL means
+    -- admin-minted (legacy or hub-internal); status drives the
+    -- user-facing flow:
+    --   pending  -- awaiting admin approval, no creds yet
+    --   active   -- approved + creds minted (active=1)
+    --   rejected -- admin declined; rejection_reason explains why
+    --   left     -- owner self-departed; row preserved, can self-rejoin
+    --   revoked  -- admin punitive disable; only admin can re-enable
+    --
+    -- One owner can hold multiple active sources at once — the
+    -- recommended deployment is one source per physical host or
+    -- location, so geographic distribution gets per-collector creds
+    -- and per-collector rotate/leave controls. Only one *pending*
+    -- request per owner at a time, to keep the admin queue tidy.
+    owner_user_id     INTEGER REFERENCES users(id),
+    status            TEXT NOT NULL DEFAULT 'active'
+                          CHECK(status IN ('pending', 'active', 'rejected', 'left', 'revoked')),
+    -- requested_purpose is the free-text "what is this for?" that
+    -- helps admins triage. The collector's reachable URL arrives via
+    -- registration heartbeats (demo_base_url above); no need to ask
+    -- the operator for it up front.
+    requested_purpose TEXT,
+    rejection_reason  TEXT,
+    status_changed_at TIMESTAMP,
     created_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX IF NOT EXISTS idx_sources_owner_user_id ON sources(owner_user_id);
+CREATE INDEX IF NOT EXISTS idx_sources_status ON sources(status) WHERE status != 'active';
+
+-- Audit trail for source lifecycle actions (request/approve/reject/
+-- rotate/leave/rejoin/revoke). Sized for eventual RCON-via-hub use:
+-- the same table will record rcon.kick / rcon.exec calls.
+CREATE TABLE IF NOT EXISTS source_audit (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    source          TEXT NOT NULL REFERENCES sources(source),
+    actor_user_id   INTEGER REFERENCES users(id),  -- NULL for system actions
+    action          TEXT NOT NULL,
+    detail          TEXT,
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_source_audit_source ON source_audit(source, created_at);

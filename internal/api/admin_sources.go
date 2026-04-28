@@ -2,10 +2,12 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 
 	"github.com/ernie/trinity-tracker/internal/storage"
 )
@@ -224,12 +226,21 @@ func (r *Router) handleDeactivateSource(w http.ResponseWriter, req *http.Request
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	// Mirror the active=0 in the status enum so the user-facing flow
+	// agrees with the admin's punitive intent: 'revoked' specifically
+	// means "owner cannot self-rejoin," distinct from 'left'.
+	if err := r.store.RevokeSourceStatus(req.Context(), source); err != nil {
+		log.Printf("admin deactivate: RevokeSourceStatus(%q): %v", source, err)
+	}
 	warning := ""
 	if r.userProv != nil {
 		if err := r.userProv.RevokeSource(source); err != nil {
 			warning = "source deactivated but creds revocation failed: " + err.Error()
 			log.Printf("admin deactivate: revoke creds for %q failed: %v", source, err)
 		}
+	}
+	if claims := r.getAuthClaims(req); claims != nil {
+		_ = r.store.WriteSourceAudit(req.Context(), source, &claims.UserID, "revoked", "")
 	}
 	r.auditCredsAccess(req, "deactivate", source)
 	w.Header().Set("Content-Type", "application/json")
@@ -257,5 +268,167 @@ func (r *Router) handleReactivateSource(w http.ResponseWriter, req *http.Request
 		return
 	}
 	r.auditCredsAccess(req, "reactivate", source)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// pendingSourceRow is the JSON shape rendered in Admin → Sources →
+// Pending Requests. Joined to users so the row carries the requester's
+// username; the spec opted to omit email (the users table has no email
+// column). The collector's URL isn't asked of the requester (it
+// arrives via heartbeat once the collector connects), so it's not
+// part of the admin's review surface.
+type pendingSourceRow struct {
+	Source           string `json:"source"`
+	OwnerUserID      int64  `json:"owner_user_id"`
+	OwnerUsername    string `json:"owner_username"`
+	RequestedPurpose string `json:"requested_purpose"`
+	SubmittedAt      string `json:"submitted_at"`
+}
+
+// handleListPendingSources returns every status='pending' source,
+// joined to users for the requester's username. Drives both the
+// Sources nav badge and the Pending Requests section at the top of
+// the admin Sources page.
+//
+// path: GET /api/admin/sources/pending
+func (r *Router) handleListPendingSources(w http.ResponseWriter, req *http.Request) {
+	rows, err := r.store.ListPendingRequests(req.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	out := make([]pendingSourceRow, 0, len(rows))
+	for _, p := range rows {
+		entry := pendingSourceRow{
+			Source:           p.Source,
+			OwnerUserID:      p.OwnerUserID,
+			OwnerUsername:    p.OwnerUsername,
+			RequestedPurpose: p.RequestedPurpose,
+		}
+		if !p.StatusChangedAt.IsZero() {
+			entry.SubmittedAt = p.StatusChangedAt.UTC().Format("2006-01-02T15:04:05Z")
+		}
+		out = append(out, entry)
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+// handleApproveSource is the admin one-click "yes" on a pending
+// request. Flips the row to 'active' (active=1), mints initial creds,
+// primes the in-memory ingest cache. The owner's button transitions
+// to "My Servers" on the next /api/sources/mine poll (~30s).
+//
+// path: POST /api/admin/sources/{source}/approve
+func (r *Router) handleApproveSource(w http.ResponseWriter, req *http.Request) {
+	if r.userProv == nil {
+		writeError(w, http.StatusNotImplemented, "cred management not enabled on this hub")
+		return
+	}
+	source, ok := sourceFromPath(req)
+	if !ok {
+		writeError(w, http.StatusBadRequest, "source path parameter required")
+		return
+	}
+	if err := r.store.ApproveSource(req.Context(), source); err != nil {
+		if errors.Is(err, storage.ErrSourceNotPending) {
+			writeError(w, http.StatusConflict, "source is not pending")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if _, err := r.userProv.MintUserCreds(source); err != nil {
+		writeError(w, http.StatusInternalServerError, "mint creds: "+err.Error())
+		return
+	}
+	r.writer.MarkSourceApproved(source)
+	if claims := r.getAuthClaims(req); claims != nil {
+		_ = r.store.WriteSourceAudit(req.Context(), source, &claims.UserID, "approved", "")
+	}
+	r.auditCredsAccess(req, "approve", source)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// rejectSourceBody is the admin reject form payload — a free-text
+// reason that's surfaced verbatim to the requester next time they
+// open the request modal.
+type rejectSourceBody struct {
+	Reason string `json:"reason"`
+}
+
+// renameSourceBody is the admin rename payload.
+type renameSourceBody struct {
+	Name string `json:"name"`
+}
+
+// handleRenamePendingSource lets an admin clean up a source name
+// before approval. Allowed only while status='pending' — once a
+// source is active the name is locked into NATS scope and the
+// running collector's .creds, so renaming would require coordinated
+// re-credentialing (out of scope for v1).
+//
+// path: POST /api/admin/sources/{source}/rename
+func (r *Router) handleRenamePendingSource(w http.ResponseWriter, req *http.Request) {
+	source, ok := sourceFromPath(req)
+	if !ok {
+		writeError(w, http.StatusBadRequest, "source path parameter required")
+		return
+	}
+	var body renameSourceBody
+	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	body.Name = strings.TrimSpace(body.Name)
+	if err := r.store.RenamePendingSource(req.Context(), source, body.Name); err != nil {
+		switch {
+		case errors.Is(err, storage.ErrSourceNotPending):
+			writeError(w, http.StatusConflict, "source is not pending — only pending sources can be renamed")
+			return
+		case errors.Is(err, storage.ErrSourceNameTaken):
+			writeError(w, http.StatusConflict, "name is taken")
+			return
+		}
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if claims := r.getAuthClaims(req); claims != nil {
+		_ = r.store.WriteSourceAudit(req.Context(), body.Name, &claims.UserID, "renamed", "from "+source)
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// handleRejectSource sets status='rejected' with a non-empty reason.
+// The requester's button stays "Add Servers"; clicking re-opens the
+// modal pre-populated with the rejection reason at the top.
+//
+// path: POST /api/admin/sources/{source}/reject
+func (r *Router) handleRejectSource(w http.ResponseWriter, req *http.Request) {
+	source, ok := sourceFromPath(req)
+	if !ok {
+		writeError(w, http.StatusBadRequest, "source path parameter required")
+		return
+	}
+	var body rejectSourceBody
+	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if strings.TrimSpace(body.Reason) == "" {
+		writeError(w, http.StatusBadRequest, "reason is required")
+		return
+	}
+	if err := r.store.RejectSource(req.Context(), source, body.Reason); err != nil {
+		if errors.Is(err, storage.ErrSourceNotPending) {
+			writeError(w, http.StatusConflict, "source is not pending")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if claims := r.getAuthClaims(req); claims != nil {
+		_ = r.store.WriteSourceAudit(req.Context(), source, &claims.UserID, "rejected", body.Reason)
+	}
+	r.auditCredsAccess(req, "reject", source)
 	w.WriteHeader(http.StatusNoContent)
 }

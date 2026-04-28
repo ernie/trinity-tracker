@@ -4,53 +4,58 @@ Real-time statistics tracking system for the [Trinity Quake 3 engine](https://gi
 
 The free Quake 3 demo (evaluation version) is not supported — retail only.
 
-> **Setting up a Trinity server that contributes stats to a hub** (e.g.
-> the canonical hub at `trinity.run`)? See
-> [docs/collector-setup.md](./docs/collector-setup.md) — operator-facing
-> install guide that uses `scripts/install-collector.sh` to handle the
-> boilerplate. The architecture/lifecycle reference for the distributed
-> mode is at [docs/distributed-deployment.md](./docs/distributed-deployment.md).
+> **New install?** Run `sudo ./scripts/install.sh` on a fresh Linux host.
+> It installs deps, drops the `trinity` binary onto the box, then hands
+> off to `trinity init` — an interactive wizard that joins this Trinity
+> server to a hub (defaults to `trinity.run`). Step-by-step walkthrough
+> in [docs/collector-setup.md](./docs/collector-setup.md). Running your
+> own hub is an expert path covered in
+> [docs/distributed-deployment.md](./docs/distributed-deployment.md).
 
 ## Installation
 
-### From Prebuilt Release
-
-Download the latest release for your platform from the [Releases](https://github.com/ernie/trinity-tracker/releases) page:
-
-| Platform           | Architecture                      | File                                |
-| ------------------ | --------------------------------- | ----------------------------------- |
-| Linux (64-bit)     | x86_64                            | `trinity-vX.X.X-linux-amd64.tar.gz` |
-| Linux (64-bit ARM) | aarch64 (Raspberry Pi 4/5 64-bit) | `trinity-vX.X.X-linux-arm64.tar.gz` |
-| Linux (32-bit ARM) | armv7 (Raspberry Pi 2/3/4 32-bit) | `trinity-vX.X.X-linux-arm.tar.gz`   |
+### One-line install (recommended)
 
 ```bash
-# Download and extract (replace with your architecture and version)
-wget https://github.com/ernie/trinity-tracker/releases/download/v1.0.0/trinity-v1.0.0-linux-arm64.tar.gz
-tar -xzf trinity-v1.0.0-linux-arm64.tar.gz
-cd trinity-v1.0.0-linux-arm64
-
-# Install binary
-sudo install -m 755 trinity /usr/local/bin/
-
-# Bootstrap the system (creates user, dirs, config, systemd units)
-sudo trinity init
-
-# Add yourself to quake group for CLI access (log out/in to take effect)
-sudo usermod -aG quake $USER
-
-# Install web assets
-sudo -u quake cp -r web/* /var/lib/trinity/web/
-
-# Edit config with your settings
-sudo -u quake vi /etc/trinity/config.yml
-
-# Start trinity
-sudo systemctl start trinity
-
-# Verify
-trinity version
-sudo systemctl status trinity
+curl -fsSL https://raw.githubusercontent.com/ernie/trinity-tracker/main/scripts/install.sh \
+    | sudo bash
 ```
+
+That fetches the script, installs OS deps, downloads the prebuilt
+`trinity` binary + web frontend for your architecture from the latest
+GitHub release, and hands off to `trinity init` — an interactive
+wizard that joins this host to a hub as a collector. (Running your
+own hub is a separate, expert path — see
+[docs/distributed-deployment.md](./docs/distributed-deployment.md).)
+
+If you'd rather work from a checkout:
+
+```bash
+git clone https://github.com/ernie/trinity-tracker
+cd trinity-tracker
+sudo ./scripts/install.sh                 # prebuilt release (default)
+sudo ./scripts/install.sh --from-source   # build from this checkout
+```
+
+The wizard refuses to run if `/etc/trinity/config.yml` already
+exists. To redo a setup, delete the file and re-run.
+
+Prebuilt release supports:
+
+| Platform           | Architecture                      |
+| ------------------ | --------------------------------- |
+| Linux (64-bit)     | x86_64                            |
+| Linux (64-bit ARM) | aarch64 (Raspberry Pi 4/5 64-bit) |
+| Linux (32-bit ARM) | armv7 (Raspberry Pi 2/3/4 32-bit) |
+
+After the wizard finishes:
+
+- Place retail `pak0.pk3` at `/usr/lib/quake3/baseq3/pak0.pk3` (and
+  `missionpack/pak0.pk3` if you picked any gametypes from Team Arena).
+- Start: `sudo systemctl start trinity quake3-servers.target`.
+- **Required if joining a hub network**: stand up nginx + a Let's
+  Encrypt cert for demo serving and a `:27970` fast-download vhost
+  for in-game pk3 distribution. `sudo PUBLIC_URL=... ADMIN_EMAIL=... ./scripts/bootstrap-nginx.sh`.
 
 ### Building from Source
 
@@ -78,12 +83,12 @@ Options:
 ### CLI Commands
 
 ```bash
-trinity init [--no-systemd] [--user quake]  Bootstrap system (create user, dirs, config)
+trinity init [--no-systemd] [--dry-run]     Interactive install wizard (collector-only by default)
 trinity serve                               Start the stats server
 trinity server list                         Show configured game servers
-trinity server add <name> [--port N] [flags]
-                                            Add a game server instance
-trinity server remove <name>                Remove a game server instance
+trinity server add [<key>] [--gametype X] [--port N] [flags]
+                                            Add a game server instance (interactive on a TTY)
+trinity server remove <key>                 Remove a game server instance
 trinity status                              Show all servers status
 trinity players [--humans]                  Show current players across all servers
 trinity matches [--recent N]                Show recent matches (default: 20)
@@ -105,29 +110,40 @@ trinity help                                Show help
 
 ### Server Management
 
-Add, remove, and list game server instances:
+Add, remove, and list game server instances. The wizard's per-server
+prompts are reused by `server add` so the UX matches whether you set
+the host up fresh or add a server later.
 
 ```bash
 # List configured servers (includes systemd status if available)
 trinity server list
 
-# Add a new server (auto-assigns next available port if --port omitted)
-sudo trinity server add ctf --port 27962 --game missionpack
+# Add a new server interactively (gametype menu, port suggestion, RCON
+# generation). On a TTY with no key arg, drops into the wizard prompts.
+sudo trinity server add
 
-# Add with all options
-sudo trinity server add tdm --port 27961 --game missionpack --display-name "Team DM" --rcon-password secret
+# Or non-interactively from a script:
+sudo trinity server add ctf --gametype ctf --port 27962
+sudo trinity server add 1v1 --gametype tournament --rcon-password secret
 
-# Remove a server (stops service, removes env file and config entry)
+# Remove a server (stops/disables service, archives env file, removes
+# config entry; leaves <key>.cfg and the log file alone).
 sudo trinity server remove ctf
 ```
 
 `server add` flags:
 
+- `--gametype` - one of `ffa`, `tournament`, `tdm`, `ctf`, `oneflag`, `overload`, `harvester` (default: `ffa`).
+  Gametypes from Team Arena (`oneflag`/`overload`/`harvester`) deploy to `missionpack/`; the others to `baseq3/`.
 - `--port` - server port (default: next available starting from 27960)
-- `--game` - game directory, e.g. `missionpack` (default: `baseq3`)
-- `--display-name` - display name (default: uppercase of name)
-- `--rcon-password` - RCON password (optional)
-- `--log-path` - log file path (default: `<quake3_dir>/<game>/logs/<name>.log`)
+- `--rcon-password` - RCON password (default: generated 24-char base64)
+- `--log-path` - log file path (default: `/var/log/quake3/<key>.log`)
+
+Adding a server writes:
+- `/etc/trinity/<key>.env` - bind port (+ `fs_game missionpack` for gametypes from Team Arena)
+- `<quake3_dir>/<modfolder>/<key>.cfg` - starter cfg from the gametype template
+- An entry in `/etc/trinity/config.yml`
+- Enables `quake3-server@<key>.service` (if systemd present)
 
 ### Extracting Assets
 
@@ -165,48 +181,52 @@ For higher quality source assets, consider installing:
 
 ## Configuration
 
-Create `config.yml`:
+`trinity init` writes `/etc/trinity/config.yml` for you. Hand-edit it
+to add servers, change ports, etc. Example for a hub + local
+collector single-machine install:
 
 ```yaml
 server:
   listen_addr: "127.0.0.1" # Use "0.0.0.0" to listen on all interfaces
   http_port: 8080
-  poll_interval: 5s
   static_dir: "/var/lib/trinity/web"
-  quake3_dir: "/usr/lib/quake3" # For asset extraction commands
-  service_user: "quake" # Service user for privilege dropping
-  use_systemd: true # Set by `trinity init`, or override manually
+  quake3_dir: "/usr/lib/quake3"
+  service_user: "quake"
+  use_systemd: true
 
 database:
   path: "/var/lib/trinity/trinity.db"
 
 q3_servers:
-  - name: "FFA"
+  - key: "ffa"
     address: "127.0.0.1:27960"
     log_path: "/var/log/quake3/ffa.log"
-    rcon_password: "secret" # optional
-  - name: "TDM"
+    rcon_password: "..."
+  - key: "1v1"
     address: "127.0.0.1:27961"
-    log_path: "/var/log/quake3/tdm.log"
-  - name: "CTF"
-    address: "127.0.0.1:27962"
-    log_path: "/var/log/quake3/ctf.log"
+    log_path: "/var/log/quake3/1v1.log"
+    rcon_password: "..."
 ```
+
+For hub-only or collector-only installs, the YAML grows a `tracker:`
+block that selects the role(s). See
+[docs/distributed-deployment.md](./docs/distributed-deployment.md)
+for full examples.
 
 | Field                        | Description                                                        |
 | ---------------------------- | ------------------------------------------------------------------ |
 | `server.listen_addr`         | Address to listen on (default: `127.0.0.1`, use `0.0.0.0` for all) |
 | `server.http_port`           | HTTP server port                                                   |
 | `server.poll_interval`       | UDP polling interval (e.g., `5s`, `10s`)                           |
-| `server.static_dir`          | Path to built web frontend                                         |
+| `server.static_dir`          | Path to built web frontend (hub modes only)                        |
 | `server.quake3_dir`          | Path to Quake 3 install (default: `/usr/lib/quake3`)               |
 | `server.service_user`        | Service user for privilege dropping (default: `quake`)             |
 | `server.use_systemd`         | Enable systemd integration (auto-detected by `trinity init`)       |
-| `database.path`              | SQLite database file path                                          |
-| `q3_servers[].name`          | Display name for the server                                        |
-| `q3_servers[].address`       | UDP address for server queries                                     |
-| `q3_servers[].log_path`      | Path to Q3 server log (optional, enables detailed event tracking)  |
-| `q3_servers[].rcon_password` | RCON password (optional, enables remote console in web UI)         |
+| `database.path`              | SQLite database file path (hub modes only)                         |
+| `q3_servers[].key`           | Stable identifier (alnum/underscore/hyphen, max 64 chars)          |
+| `q3_servers[].address`       | UDP address for server queries (`host:port`)                       |
+| `q3_servers[].log_path`      | Path to Q3 server log (the collector tails this)                   |
+| `q3_servers[].rcon_password` | RCON password (must match `rconpassword` in the q3 server cfg)     |
 
 ## Running
 
@@ -218,27 +238,22 @@ Open <http://localhost:8080> in your browser.
 
 ## Installation from Source (Ubuntu 24.04)
 
-For prebuilt binaries, see [Installation](#installation) above.
+For prebuilt binaries, see [Installation](#installation) above. To
+build from a checkout instead:
 
 ```bash
-# Build and install binary
+# Build + run install.sh in --from-source mode. This handles deps,
+# stages the freshly-built web frontend in /tmp, installs the binary,
+# and exec's the wizard. The wizard copies the staged web assets into
+# /var/lib/trinity/web/ as part of `init` and then removes the temp.
 make
-sudo make install
+sudo ./scripts/install.sh --from-source
 
-# Bootstrap the system (creates user, dirs, config, systemd units)
-sudo trinity init
-
-# Add yourself to quake group for CLI access (log out/in to take effect)
+# Add yourself to the quake group for CLI access (log out/in to take effect)
 sudo usermod -aG quake $USER
 
-# Copy web frontend
-sudo -u quake cp -r web/dist/* /var/lib/trinity/web/
-
-# Edit config with your settings
-sudo -u quake vi /etc/trinity/config.yml
-
-# Start trinity
-sudo systemctl start trinity
+# Start trinity (and the q3 servers if you configured any)
+sudo systemctl start trinity quake3-servers.target
 
 # Check status
 sudo systemctl status trinity
@@ -250,7 +265,16 @@ sudo -u quake trinity user add admin --admin
 
 ## Systemd Services
 
-The systemd unit files are embedded in the binary (source: `cmd/trinity/systemd/`) and installed automatically by `trinity init`. See [Systemd Setup](#systemd-setup) under Quake 3 Server Log Configuration for details.
+The systemd unit files are embedded in the binary (source:
+`cmd/trinity/setup/systemd/`) and installed by `trinity init`. The
+wizard installs only the units the chosen mode needs:
+- `trinity.service` always
+- `quake3-server@.service` and `quake3-servers.target` when at least
+  one q3 server is configured (collector or combined modes)
+
+Operators using a non-systemd init system can pass `--no-systemd` to
+`trinity init` to skip unit installation; trinity still writes
+`/etc/trinity/config.yml` and the per-server side files.
 
 ## Nginx Configuration
 
@@ -411,7 +435,7 @@ The log file will be written relative to `fs_homepath`/`fs_game` (e.g., `~/.q3a/
 
 ### Systemd Setup
 
-The systemd units are embedded in the binary and installed by `trinity init`. The source files are in `cmd/trinity/systemd/`:
+The systemd units are embedded in the binary and installed by `trinity init`. The source files are in `cmd/trinity/setup/systemd/`:
 
 - `trinity.service` - the Trinity tracker service
 - `quake3-servers.target` - groups all game server instances
@@ -437,11 +461,15 @@ sudo -u quake screen -r quake3-ffa
 **Adding a new server instance:**
 
 ```bash
-# Add the server (creates env file, updates config, enables systemd unit)
-sudo trinity server add tdm --port 27961 --game missionpack
+# Interactive: prompts for gametype, port, RCON, etc., writes the
+# starter <key>.cfg from a gametype template and enables the systemd unit.
+sudo trinity server add
 
-# Create the game config
-vi /usr/lib/quake3/missionpack/tdm.cfg
+# Or non-interactively:
+sudo trinity server add tdm --gametype tdm --port 27961
+
+# (Optional) Tweak the starter cfg
+vi /usr/lib/quake3/baseq3/tdm.cfg
 
 # Restart trinity to pick up the config change, then start the game server
 sudo systemctl restart trinity

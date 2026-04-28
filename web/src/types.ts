@@ -442,3 +442,49 @@ export interface LeaderboardResponse {
   period_end?: string
   entries: LeaderboardEntry[]
 }
+
+// Self-service collector onboarding.
+
+// SourceStatus mirrors the sources.status enum on the server. Drives
+// the per-source-card UI in the My Servers drawer.
+export type SourceStatus = 'pending' | 'active' | 'rejected' | 'left' | 'revoked'
+
+export interface MySourceServer {
+  key: string
+  address: string
+  active: boolean
+}
+
+// MySourceEntry is one source the caller owns. A user may own
+// multiple — the recommended pattern is one source per host so each
+// physical machine gets its own creds and per-collector controls.
+export interface MySourceEntry {
+  source: string
+  status: SourceStatus
+  purpose?: string
+  rejection_reason?: string
+  // Active-only fields (collector-reported via heartbeat):
+  version?: string
+  demo_base_url?: string
+  last_heartbeat_at?: string
+  servers?: MySourceServer[]
+}
+
+// MySources is the JSON envelope returned by GET /api/sources/mine.
+// has_pending lets the header button decide its label without the
+// caller having to scan the array.
+export interface MySources {
+  sources: MySourceEntry[]
+  has_pending: boolean
+}
+
+// PendingRequest is one row of the admin pending list. The collector's
+// URL is intentionally absent — it arrives via heartbeat once the
+// collector connects, so asking for it up front would be redundant.
+export interface PendingRequest {
+  source: string
+  owner_user_id: number
+  owner_username: string
+  requested_purpose: string
+  submitted_at: string
+}

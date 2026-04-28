@@ -3,8 +3,11 @@ set -euo pipefail
 
 # Provisions nginx + certbot on a collector host so the hub can 302 to
 # it for /demos/, /assets/levelshots/, /demopk3s/, plus a :27970 vhost
-# for q3 fast-downloads. See docs/collector-setup.md §"Optional: serve
-# recorded demos cross-host via nginx".
+# for q3 fast-downloads. Required for collectors joining a hub network:
+# without HTTPS the hub UI can't load demos from your host, and without
+# the :27970 vhost q3 clients fall back to UDP downloads through the
+# server itself — functional, but slow enough to be a poor user
+# experience on any nontrivial pk3. See docs/collector-setup.md §6.
 
 usage() {
     cat <<'EOF'
@@ -42,9 +45,9 @@ fi
 
 if [[ $EUID -ne 0 ]]; then
     cat <<EOF
-This script needs root to apt-install nginx + certbot, write to
-/etc/nginx, and run certbot. It will re-exec itself under sudo,
-preserving the env vars above.
+This script needs root to install nginx + certbot (apt/dnf/pacman),
+write to /etc/nginx, and run certbot. It will re-exec itself under
+sudo, preserving the env vars above.
 
 EOF
     read -r -p "Proceed with sudo? [y/N] " reply
@@ -66,8 +69,24 @@ if [[ -z "$PUBLIC_HOST" ]]; then
 fi
 
 echo "==> installing nginx + certbot"
-apt-get update
-DEBIAN_FRONTEND=noninteractive apt-get install -y nginx certbot python3-certbot-nginx
+# Mirror install.sh's package-manager dispatch so this works on the
+# same set of distros. Package names diverge: Debian/Ubuntu ships the
+# nginx integration as python3-certbot-nginx; Fedora and Arch call it
+# certbot-nginx. We use --webroot for ACME (not --nginx), so the nginx
+# plugin isn't strictly required, but installing it keeps the script
+# friendly to operators who later switch to --nginx renewal.
+if command -v apt-get >/dev/null 2>&1; then
+    apt-get update
+    DEBIAN_FRONTEND=noninteractive apt-get install -y nginx certbot python3-certbot-nginx
+elif command -v dnf >/dev/null 2>&1; then
+    dnf install -y nginx certbot certbot-nginx
+elif command -v pacman >/dev/null 2>&1; then
+    pacman -Sy --noconfirm nginx certbot certbot-nginx
+else
+    echo "ERROR: no supported package manager (apt/dnf/pacman) found." >&2
+    echo "       Install nginx + certbot manually and re-run." >&2
+    exit 1
+fi
 
 echo "==> ensuring asset dirs exist under $STATIC_DIR"
 install -d -o quake -g quake \

@@ -5,8 +5,8 @@ import (
 	"archive/zip"
 	"bufio"
 	"context"
-	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"image"
 	"image/jpeg"
@@ -26,6 +26,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/ernie/trinity-tracker/cmd/trinity/setup"
 	"github.com/ernie/trinity-tracker/internal/api"
 	"github.com/ernie/trinity-tracker/internal/assets"
 	"github.com/ernie/trinity-tracker/internal/auth"
@@ -40,9 +41,6 @@ import (
 	"golang.org/x/image/draw"
 	"golang.org/x/term"
 )
-
-//go:embed systemd/*
-var systemdFiles embed.FS
 
 var version = "dev"
 
@@ -98,12 +96,12 @@ func printUsage() {
 	fmt.Println("Usage: trinity <command> [options] [args]")
 	fmt.Println()
 	fmt.Println("Commands:")
-	fmt.Println("  init [--no-systemd] [--user quake]  Bootstrap system (create user, dirs, config)")
+	fmt.Println("  init [--no-systemd] [--dry-run]     Interactive install wizard (collector-only by default)")
 	fmt.Println("  serve                               Start the stats server")
 	fmt.Println("  server list                         Show configured game servers")
-	fmt.Println("  server add <name> [--port N] [flags]")
-	fmt.Println("                                      Add a game server instance")
-	fmt.Println("  server remove <name>                Remove a game server instance")
+	fmt.Println("  server add [<key>] [--gametype X] [--port N] [flags]")
+	fmt.Println("                                      Add a game server instance (interactive on a TTY)")
+	fmt.Println("  server remove <key>                 Remove a game server instance")
 	fmt.Println("  status                              Show all servers status")
 	fmt.Println("  players [--humans]                  Show current players across all servers")
 	fmt.Println("  matches [--recent N]                Show recent matches (default: 20)")
@@ -128,8 +126,9 @@ func printUsage() {
 	fmt.Println("  --url <url>        Base URL of the trinity server (default: derived from config)")
 	fmt.Println()
 	fmt.Println("Examples:")
-	fmt.Println("  sudo trinity init")
-	fmt.Println("  sudo trinity server add ffa --port 27960")
+	fmt.Println("  sudo trinity init                          # interactive setup")
+	fmt.Println("  sudo trinity server add                    # interactive add (gametype, port, ...)")
+	fmt.Println("  sudo trinity server add ffa --gametype ffa --port 27960")
 	fmt.Println("  trinity serve --config /etc/trinity/config.yml")
 	fmt.Println("  trinity players --humans")
 	fmt.Println("  trinity matches --recent 50")
@@ -1649,138 +1648,180 @@ func readEnvFile(path string) (port int, game string, err error) {
 	return port, game, scanner.Err()
 }
 
-// cmdInit bootstraps the system: creates user, dirs, config, and systemd units
+// cmdInit walks the operator through an interactive install of one
+// of the three Trinity modes (hub+collector, hub-only, collector-only).
+// On a TTY it prompts; without one it errors out and prints the
+// flag set required to drive it from a script.
+//
+// Refuses to run when /etc/trinity/config.yml already exists. There
+// is no --force: if the operator wants to re-init, they delete the
+// file themselves — a deliberate act that protects against accidents.
 func cmdInit(args []string) {
 	fs := flag.NewFlagSet("init", flag.ExitOnError)
 	noSystemd := fs.Bool("no-systemd", false, "skip systemd unit installation")
-	userName := fs.String("user", "quake", "service user name")
+	dryRun := fs.Bool("dry-run", false, "print what would happen instead of doing it (no root required)")
+	// --allow-hub is intentionally undocumented in --help. Trinity's
+	// front door is a collector that joins trinity.run; standing up
+	// your own hub is an expert path covered in docs/distributed-deployment.md.
+	allowHub := fs.Bool("allow-hub", false, "")
+	_ = fs.MarkHidden("allow-hub")
+	configPathFlag := fs.String("config", "/etc/trinity/config.yml", "destination config path")
 	fs.Parse(args)
 
-	if os.Getuid() != 0 {
-		fmt.Fprintf(os.Stderr, "Error: trinity init must be run as root\n")
+	// Dry-run is for previewing/testing: no host state changes, so no
+	// root is needed and an existing config is fine to "re-plan" against.
+	if !*dryRun && os.Getuid() != 0 {
+		fmt.Fprintln(os.Stderr, "Error: trinity init must be run as root (or use --dry-run).")
 		os.Exit(1)
 	}
 
-	// Bail out if already initialized
-	configPath := "/etc/trinity/config.yml"
-	if _, err := os.Stat(configPath); err == nil {
-		fmt.Printf("Trinity is already initialized (%s exists).\n", configPath)
-		fmt.Println("To re-initialize, remove the config file first.")
+	configPath := *configPathFlag
+	if !*dryRun {
+		if _, err := os.Stat(configPath); err == nil {
+			fmt.Fprintf(os.Stderr, "Trinity is already initialized (%s exists).\n", configPath)
+			fmt.Fprintln(os.Stderr, "To re-init, remove the config file first:")
+			fmt.Fprintf(os.Stderr, "  sudo rm %s\n", configPath)
+			os.Exit(1)
+		}
+	}
+
+	if !setup.IsTTY() && !*dryRun {
+		fmt.Fprintln(os.Stderr, "Error: trinity init is interactive — run it from a terminal.")
+		fmt.Fprintln(os.Stderr, "For unattended/scripted installs, write /etc/trinity/config.yml directly")
+		fmt.Fprintln(os.Stderr, "and use `trinity server add` to add servers afterward.")
+		os.Exit(1)
+	}
+
+	useSd := !*noSystemd && detectSystemd()
+	if *noSystemd {
+		fmt.Fprintln(os.Stderr, "Note: --no-systemd passed; will not install or enable units.")
+	} else if !useSd {
+		fmt.Fprintln(os.Stderr, "Note: systemd not detected; will not install units.")
+	}
+
+	prompter := setup.NewStdPrompter()
+	answers, err := setup.RunWizard(prompter, os.Stderr, *allowHub)
+	if errors.Is(err, setup.ErrMissingPrereqs) {
+		// The wizard already printed the "go get the creds file"
+		// hint — exit non-zero (so install.sh sees the failure) but
+		// with no extra noise.
+		os.Exit(1)
+	}
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Wizard failed: %v\n", err)
+		os.Exit(1)
+	}
+
+	if err := answers.Validate(); err != nil {
+		fmt.Fprintf(os.Stderr, "Answers invalid: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Review:")
+	fmt.Fprintln(os.Stderr, "  Mode:        ", answers.Mode)
+	fmt.Fprintln(os.Stderr, "  User:        ", answers.ServiceUser)
+	fmt.Fprintln(os.Stderr, "  Listen:      ", fmt.Sprintf("%s:%d", answers.ListenAddr, answers.HTTPPort))
+	if answers.HasHubFields() {
+		fmt.Fprintln(os.Stderr, "  Database:    ", answers.DatabasePath)
+		fmt.Fprintln(os.Stderr, "  Web assets:  ", answers.StaticDir)
+	}
+	if answers.RunsLocalServers() {
+		fmt.Fprintln(os.Stderr, "  Quake3 dir:  ", answers.Quake3Dir)
+		if answers.InstallEngine {
+			fmt.Fprintln(os.Stderr, "  Engine:       latest from github.com/ernie/trinity-engine")
+		}
+	}
+	if answers.Mode == setup.ModeCollector {
+		fmt.Fprintln(os.Stderr, "  Hub:         ", answers.HubHost)
+		fmt.Fprintln(os.Stderr, "  Public URL:  ", answers.PublicURL)
+		fmt.Fprintln(os.Stderr, "  Source ID:   ", answers.SourceID)
+		fmt.Fprintln(os.Stderr, "  Creds file:  ", answers.CredsFile)
+	}
+	for _, s := range answers.Servers {
+		fmt.Fprintf(os.Stderr, "  Server:       %s (%s) :%d\n", s.Key, s.Gametype.Label(), s.Port)
+	}
+	fmt.Fprintln(os.Stderr)
+
+	prompt := "Apply this configuration?"
+	if *dryRun {
+		prompt = "Show the plan?"
+	}
+	confirm, err := prompter.YesNo(prompt, true)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Read confirm: %v\n", err)
+		os.Exit(1)
+	}
+	if !confirm {
+		fmt.Fprintln(os.Stderr, "Aborted; nothing was written.")
+		os.Exit(1)
+	}
+
+	err = setup.Apply(answers, setup.ActuateOptions{
+		ConfigPath: configPath,
+		UseSystemd: useSd,
+		DryRun:     *dryRun,
+		Out:        os.Stderr,
+	})
+	// Either way, drop the install-time staging dir install.sh handed
+	// us via TRINITY_INIT_STAGE — the actuator has either consumed
+	// the web/ payload or never will. Skip in dry-run so the operator
+	// can re-run with confidence.
+	if !*dryRun {
+		setup.CleanupStage()
+	}
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Apply failed: %v\n", err)
+		os.Exit(1)
+	}
+
+	if *dryRun {
+		fmt.Fprintln(os.Stderr)
+		fmt.Fprintln(os.Stderr, "Dry run complete — no changes made. Re-run without --dry-run as root to apply.")
 		return
 	}
 
-	sysUser := *userName
-	useSd := !*noSystemd && detectSystemd()
-
-	// 1. Create service user/group if they don't exist
-	if _, err := user.Lookup(sysUser); err != nil {
-		fmt.Printf("Creating service user '%s'...\n", sysUser)
-		cmd := exec.Command("useradd", "-r", "-s", "/usr/sbin/nologin", sysUser)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			fmt.Fprintf(os.Stderr, "Error creating user: %v\n", err)
-			os.Exit(1)
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Done. Next steps:")
+	step := 1
+	if answers.RunsLocalServers() {
+		needsBaseq3 := false
+		needsMissionpack := false
+		for _, s := range answers.Servers {
+			if s.Gametype.IsMissionpack() {
+				needsMissionpack = true
+			} else {
+				needsBaseq3 = true
+			}
 		}
-	} else {
-		fmt.Printf("Service user '%s' already exists\n", sysUser)
-	}
-
-	// Look up the user for chown
-	u, err := user.Lookup(sysUser)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error looking up user '%s': %v\n", sysUser, err)
-		os.Exit(1)
-	}
-	uid, _ := strconv.Atoi(u.Uid)
-	gid, _ := strconv.Atoi(u.Gid)
-
-	// 2. Create directories
-	dirs := []string{"/etc/trinity", "/var/lib/trinity/web"}
-	for _, dir := range dirs {
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			fmt.Fprintf(os.Stderr, "Error creating %s: %v\n", dir, err)
-			os.Exit(1)
+		if needsBaseq3 {
+			fmt.Fprintf(os.Stderr, "  %d. Place retail pak0.pk3 at %s/baseq3/pak0.pk3\n", step, answers.Quake3Dir)
+			step++
 		}
-		if err := os.Chown(dir, uid, gid); err != nil {
-			fmt.Fprintf(os.Stderr, "Error chowning %s: %v\n", dir, err)
-			os.Exit(1)
+		if needsMissionpack {
+			fmt.Fprintf(os.Stderr, "  %d. Place Team Arena's pak0.pk3 at %s/missionpack/pak0.pk3\n", step, answers.Quake3Dir)
+			step++
 		}
-		fmt.Printf("Directory: %s\n", dir)
 	}
-	// Also chown /var/lib/trinity itself
-	os.Chown("/var/lib/trinity", uid, gid)
-
-	// 3. Install default config.yml
-	sdVal := useSd
-	defaultCfg := &config.Config{
-		Server: config.ServerConfig{
-			ListenAddr:  "127.0.0.1",
-			HTTPPort:    8080,
-			StaticDir:   "/var/lib/trinity/web",
-			Quake3Dir:   "/usr/lib/quake3",
-			ServiceUser: sysUser,
-			UseSystemd:  &sdVal,
-		},
-		Database: config.DatabaseConfig{
-			Path: "/var/lib/trinity/trinity.db",
-		},
-	}
-	if err := config.Save(configPath, defaultCfg); err != nil {
-		fmt.Fprintf(os.Stderr, "Error writing config: %v\n", err)
-		os.Exit(1)
-	}
-	os.Chown(configPath, uid, gid)
-	fmt.Printf("Config: %s\n", configPath)
-
-	// 4. Install systemd units if enabled
 	if useSd {
-		unitFiles := []string{
-			"systemd/trinity.service",
-			"systemd/quake3-server@.service",
-			"systemd/quake3-servers.target",
+		fmt.Fprintf(os.Stderr, "  %d. Start: sudo systemctl start trinity.service", step)
+		if answers.RunsLocalServers() {
+			fmt.Fprint(os.Stderr, " quake3-servers.target")
 		}
-		for _, name := range unitFiles {
-			data, err := systemdFiles.ReadFile(name)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error reading embedded %s: %v\n", name, err)
-				os.Exit(1)
-			}
-			// Replace User= and Group= with the configured service user
-			content := string(data)
-			if sysUser != "quake" {
-				content = strings.ReplaceAll(content, "User=quake", "User="+sysUser)
-				content = strings.ReplaceAll(content, "Group=quake", "Group="+sysUser)
-			}
-			dest := filepath.Join("/etc/systemd/system", filepath.Base(name))
-			if err := os.WriteFile(dest, []byte(content), 0644); err != nil {
-				fmt.Fprintf(os.Stderr, "Error writing %s: %v\n", dest, err)
-				os.Exit(1)
-			}
-			fmt.Printf("Systemd: %s\n", dest)
-		}
-
-		fmt.Println("Running systemctl daemon-reload...")
-		systemctlRun("daemon-reload")
-
-		fmt.Println("Enabling trinity.service and quake3-servers.target...")
-		systemctlRun("enable", "trinity.service")
-		systemctlRun("enable", "quake3-servers.target")
-	} else {
-		fmt.Println("Systemd: skipped")
+		fmt.Fprintln(os.Stderr)
+		step++
 	}
-
-	// 5. Print next steps
-	fmt.Println()
-	fmt.Println("Next steps:")
-	fmt.Println("  1. Edit /etc/trinity/config.yml with your settings")
-	fmt.Println("  2. Copy web frontend: sudo cp -r web/dist/* /var/lib/trinity/web/")
-	fmt.Printf("  3. Extract assets: sudo -u %s trinity assets\n", sysUser)
-	if useSd {
-		fmt.Println("  4. Start trinity: sudo systemctl start trinity")
-		fmt.Println("  5. Add game servers: sudo trinity server add <name> --port <port>")
-	} else {
-		fmt.Println("  4. Start trinity: trinity serve")
+	if answers.Mode == setup.ModeCollector {
+		fmt.Fprintf(os.Stderr, "  %d. Required: stand up nginx + Let's Encrypt for demo serving and the\n", step)
+		fmt.Fprintln(os.Stderr, "     :27970 fast-download vhost. Without this, the hub cannot fetch your")
+		fmt.Fprintln(os.Stderr, "     demos and pk3s and your servers will not show up on the hub UI.")
+		fmt.Fprintf(os.Stderr, "       sudo PUBLIC_URL=%s ADMIN_EMAIL=you@example.com ./scripts/bootstrap-nginx.sh\n", answers.PublicURL)
+		step++
+		fmt.Fprintf(os.Stderr, "  %d. Required: generate the levelshot images and demo-playback pk3s the\n", step)
+		fmt.Fprintln(os.Stderr, "     hub serves to web viewers. Re-run when you add new maps.")
+		fmt.Fprintf(os.Stderr, "       sudo -u %s trinity levelshots\n", answers.ServiceUser)
+		fmt.Fprintf(os.Stderr, "       sudo -u %s trinity demobake\n", answers.ServiceUser)
+		step++
 	}
 }
 
@@ -1890,113 +1931,215 @@ func nextAvailablePort(cfg *config.Config, configDir string) int {
 	}
 }
 
-// cmdServerAdd adds a new game server instance
+// cmdServerAdd adds a new game server instance. With no name and on
+// a TTY, drops into the wizard's per-server prompt loop (gametype +
+// port + RCON + log path), writes the env + starter <key>.cfg from
+// the gametype template, and enables the systemd template instance.
+// With a name and explicit flags, runs non-interactively for scripts.
 func cmdServerAdd(args []string) {
 	fs := flag.NewFlagSet("server add", flag.ExitOnError)
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
 	port := fs.Int("port", 0, "server port (default: next available)")
-	game := fs.String("game", "", "game directory (e.g. missionpack)")
-	displayName := fs.String("display-name", "", "display name (default: uppercase of name)")
-	rconPassword := fs.String("rcon-password", "", "RCON password")
+	gametypeFlag := fs.String("gametype", "", "gametype: ffa, tournament, tdm, ctf, oneflag, overload, harvester")
+	rconPassword := fs.String("rcon-password", "", "RCON password (default: generate)")
 	logPath := fs.String("log-path", "", "log file path")
 	fs.Parse(args)
 
 	remaining := fs.Args()
-	if len(remaining) < 1 {
-		fmt.Fprintf(os.Stderr, "Usage: trinity server add <name> [--port N] [--game G] [--display-name N] [--rcon-password P] [--log-path P]\n")
+	interactive := len(remaining) == 0 && setup.IsTTY()
+	if len(remaining) < 1 && !interactive {
+		fmt.Fprintln(os.Stderr, "Usage: trinity server add [<key>] [--gametype X] [--port N] [--rcon-password P] [--log-path P]")
+		fmt.Fprintln(os.Stderr, "       (or run with no args on a TTY for an interactive prompt)")
 		os.Exit(1)
 	}
-
-	name := strings.ToLower(remaining[0])
 
 	cfg, err := config.Load(*configPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
 		os.Exit(1)
 	}
-
-	// Check for duplicate
-	for _, srv := range cfg.Q3Servers {
-		if strings.EqualFold(srv.Key, name) || strings.EqualFold(srv.Key, *displayName) {
-			fmt.Fprintf(os.Stderr, "Error: server '%s' already exists\n", name)
-			os.Exit(1)
-		}
-	}
-
 	configDir := filepath.Dir(*configPath)
 	sysUser := serviceUser(cfg)
 	useSd := useSystemd(cfg)
 
-	// Determine port
-	serverPort := *port
-	if serverPort == 0 {
-		serverPort = nextAvailablePort(cfg, configDir)
-	}
-
-	// Determine display name
-	dName := *displayName
-	if dName == "" {
-		dName = strings.ToUpper(name)
-	}
-
-	// Determine game
-	gameDir := *game
-	if gameDir == "" {
-		gameDir = "baseq3"
-	}
-
-	// Determine log path
-	lPath := *logPath
-	if lPath == "" {
-		lPath = filepath.Join(cfg.Server.Quake3Dir, gameDir, "logs", name+".log")
-	}
-
-	// Do root-only operations first
-	if useSd && os.Getuid() == 0 {
-		unit := "quake3-server@" + name
-		fmt.Printf("Enabling %s...\n", unit)
-		if err := systemctlRun("enable", unit); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: systemctl enable failed: %v\n", err)
+	answers := answersFromConfig(cfg)
+	var s setup.ServerAnswers
+	if interactive {
+		fmt.Fprintln(os.Stderr, "Add a q3 server.")
+		s, err = setup.PromptServer(setup.NewStdPrompter(), answers, len(cfg.Q3Servers))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Wizard failed: %v\n", err)
+			os.Exit(1)
+		}
+	} else {
+		s, err = serverAnswersFromFlags(remaining[0], *gametypeFlag, *port, *rconPassword, *logPath, cfg, configDir)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
 		}
 	}
 
-	// Drop privileges for file I/O
-	if err := dropPrivileges(sysUser); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: failed to drop privileges: %v\n", err)
+	// Reject duplicates after collection — the wizard accepts any key
+	// the operator types; we enforce uniqueness here against the live
+	// config (rather than re-prompting in the wizard, which would
+	// require it to know about existing config state).
+	for _, existing := range cfg.Q3Servers {
+		if strings.EqualFold(existing.Key, s.Key) {
+			fmt.Fprintf(os.Stderr, "Error: server '%s' already exists\n", s.Key)
+			os.Exit(1)
+		}
 	}
 
-	// Write env file
-	envPath := filepath.Join(configDir, name+".env")
-	if err := writeEnvFile(envPath, serverPort, gameDir); err != nil {
+	uid, gid := uidGid(sysUser)
+
+	// Root-only steps first (systemd, file mode/ownership we couldn't
+	// set after privilege drop).
+	if useSd && os.Getuid() == 0 {
+		unit := "quake3-server@" + strings.ToLower(s.Key)
+		if err := systemctlRun("enable", unit); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: systemctl enable %s failed: %v\n", unit, err)
+		} else {
+			fmt.Println("Enabled:", unit)
+		}
+	}
+
+	// Write env file (in /etc/trinity, root-owned but group-readable
+	// by the service user; matches what `trinity init` writes).
+	envPath := filepath.Join(configDir, strings.ToLower(s.Key)+".env")
+	opts := fmt.Sprintf("+set net_port %d", s.Port)
+	if s.Gametype.IsMissionpack() {
+		opts += " +set fs_game missionpack"
+	}
+	if err := os.WriteFile(envPath, []byte(fmt.Sprintf("SERVER_OPTS=%s\n", opts)), 0644); err != nil {
 		fmt.Fprintf(os.Stderr, "Error writing env file: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("Env file: %s\n", envPath)
+	fmt.Println("Wrote:", envPath)
 
-	// Add server to config
-	server := config.Q3Server{
-		Key:    dName,
-		Address: fmt.Sprintf("127.0.0.1:%d", serverPort),
-		LogPath: lPath,
+	// Render starter <key>.cfg from gametype template.
+	if cfg.Server.Quake3Dir != "" {
+		body, err := setup.RenderServerCfg(s.Gametype, s.Key)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: cfg template render: %v\n", err)
+		} else {
+			cfgPath := filepath.Join(cfg.Server.Quake3Dir, s.Gametype.ModFolder(), strings.ToLower(s.Key)+".cfg")
+			if _, err := os.Stat(cfgPath); err == nil {
+				fmt.Printf("  NOTE: %s already exists — left alone.\n", cfgPath)
+			} else {
+				if err := os.MkdirAll(filepath.Dir(cfgPath), 0755); err == nil {
+					if err := os.WriteFile(cfgPath, []byte(body), 0644); err != nil {
+						fmt.Fprintf(os.Stderr, "Error writing %s: %v\n", cfgPath, err)
+					} else {
+						_ = os.Chown(cfgPath, uid, gid)
+						fmt.Println("Wrote:", cfgPath)
+					}
+				}
+			}
+		}
 	}
-	if *rconPassword != "" {
-		server.RconPassword = *rconPassword
+
+	// Append to config.yml (after side files, so a config save failure
+	// doesn't leave us inconsistent — env+cfg without a config entry
+	// is benign; reverse is harder to debug).
+	server := config.Q3Server{
+		Key:          s.Key,
+		Address:      s.Address,
+		LogPath:      s.LogPath,
+		RconPassword: s.RconPassword,
 	}
 	config.AddServer(cfg, server)
-
 	if err := config.Save(*configPath, cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "Error saving config: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("Config: %s updated\n", *configPath)
+	fmt.Println("Updated:", *configPath)
 
 	fmt.Println()
 	fmt.Println("Next steps:")
-	fmt.Printf("  1. Create game config: %s/%s/%s.cfg\n", cfg.Server.Quake3Dir, gameDir, name)
-	fmt.Println("  2. Restart trinity: sudo systemctl restart trinity")
+	fmt.Println("  1. Restart trinity:    sudo systemctl restart trinity")
 	if useSd {
-		fmt.Printf("  3. Start the server: sudo systemctl start quake3-server@%s\n", name)
+		fmt.Printf("  2. Start this server:  sudo systemctl start quake3-server@%s\n", strings.ToLower(s.Key))
 	}
+}
+
+// answersFromConfig builds a minimal *setup.Answers from the live
+// config so PromptServer can derive defaults (PublicURL → address
+// host, etc.) without re-prompting the operator.
+func answersFromConfig(cfg *config.Config) *setup.Answers {
+	a := &setup.Answers{Quake3Dir: cfg.Server.Quake3Dir}
+	if cfg.Tracker != nil && cfg.Tracker.Collector != nil {
+		a.PublicURL = cfg.Tracker.Collector.PublicURL
+	}
+	return a
+}
+
+// serverAnswersFromFlags builds a ServerAnswers from CLI flags for
+// the non-interactive code path. Defaults mirror what PromptServer
+// would suggest.
+func serverAnswersFromFlags(name, gametypeName string, port int, rcon, logPath string, cfg *config.Config, configDir string) (setup.ServerAnswers, error) {
+	s := setup.ServerAnswers{Key: strings.ToLower(name)}
+	gt, err := parseGametype(gametypeName)
+	if err != nil {
+		return s, err
+	}
+	s.Gametype = gt
+	s.Port = port
+	if s.Port == 0 {
+		s.Port = nextAvailablePort(cfg, configDir)
+	}
+	host := "127.0.0.1"
+	if cfg.Tracker != nil && cfg.Tracker.Collector != nil && cfg.Tracker.Collector.PublicURL != "" {
+		// Reuse the wizard's URL → host extractor so collector hosts
+		// get a routable address by default.
+		if h := setup.HostFromURL(cfg.Tracker.Collector.PublicURL); h != "" {
+			host = h
+		}
+	}
+	s.Address = fmt.Sprintf("%s:%d", host, s.Port)
+	s.RconPassword = rcon
+	if s.RconPassword == "" {
+		s.RconPassword = setup.GenerateRCONPassword()
+	}
+	s.LogPath = logPath
+	if s.LogPath == "" {
+		s.LogPath = filepath.Join("/var/log/quake3", strings.ToLower(s.Key)+".log")
+	}
+	return s, nil
+}
+
+// parseGametype maps the operator-facing flag value to a Gametype.
+// Empty defaults to FFA so old `trinity server add NAME` calls keep
+// working with sensible defaults.
+func parseGametype(name string) (setup.Gametype, error) {
+	switch strings.ToLower(name) {
+	case "", "ffa":
+		return setup.GametypeFFA, nil
+	case "tournament", "1v1":
+		return setup.GametypeTournament, nil
+	case "tdm":
+		return setup.GametypeTDM, nil
+	case "ctf":
+		return setup.GametypeCTF, nil
+	case "oneflag":
+		return setup.GametypeOneFlag, nil
+	case "overload":
+		return setup.GametypeOverload, nil
+	case "harvester":
+		return setup.GametypeHarvester, nil
+	}
+	return 0, fmt.Errorf("unknown gametype %q (try ffa, tournament, tdm, ctf, oneflag, overload, harvester)", name)
+}
+
+// uidGid resolves a username to numeric ids; returns 0/0 if lookup
+// fails so chowns degrade to "owned by root" rather than crashing.
+func uidGid(name string) (int, int) {
+	u, err := user.Lookup(name)
+	if err != nil {
+		return 0, 0
+	}
+	uid, _ := strconv.Atoi(u.Uid)
+	gid, _ := strconv.Atoi(u.Gid)
+	return uid, gid
 }
 
 // cmdServerRemove removes a game server instance
@@ -2037,12 +2180,18 @@ func cmdServerRemove(args []string) {
 		fmt.Fprintf(os.Stderr, "Warning: failed to drop privileges: %v\n", err)
 	}
 
-	// Remove env file
+	// Archive env file rather than deleting it. Operators sometimes
+	// remove a server intending to add it back with a tweak; the
+	// archived .env is a quick reference and a safety net for typos.
 	envPath := filepath.Join(configDir, name+".env")
-	if err := os.Remove(envPath); err != nil && !os.IsNotExist(err) {
-		fmt.Fprintf(os.Stderr, "Warning: failed to remove %s: %v\n", envPath, err)
-	} else if err == nil {
-		fmt.Printf("Removed: %s\n", envPath)
+	if _, err := os.Stat(envPath); err == nil {
+		stamp := time.Now().UTC().Format("20060102-150405")
+		archived := envPath + ".removed-" + stamp
+		if err := os.Rename(envPath, archived); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to archive %s: %v\n", envPath, err)
+		} else {
+			fmt.Println("Archived:", archived)
+		}
 	}
 
 	// Remove from config (try both the raw name and uppercase as display name)

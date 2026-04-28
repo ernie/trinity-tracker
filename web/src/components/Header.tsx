@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { AppLogo } from "./AppLogo";
 import { PageNav } from "./PageNav";
 import { LoginForm } from "./LoginForm";
+import { MySourceButton } from "./MySourceButton";
 import { useAuth } from "../hooks/useAuth";
 
 interface HeaderProps {
@@ -23,6 +24,7 @@ export function Header({ title, className, linkToHome }: HeaderProps) {
       <div className="auth-section">
         {auth.isAuthenticated ? (
           <div className="user-info">
+            <MySourceButton />
             {auth.isAdmin && (
               <Link to="/admin" className="admin-btn">
                 Admin

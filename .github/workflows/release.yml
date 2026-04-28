@@ -21,6 +21,9 @@ jobs:
         with:
           go-version: '1.23'
 
+      - name: Run tests
+        run: go test ./...
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -38,67 +41,47 @@ jobs:
         id: version
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
-      - name: Build linux/amd64
+      - name: Build and package each arch
         env:
-          GOOS: linux
-          GOARCH: amd64
+          VERSION: ${{ steps.version.outputs.VERSION }}
         run: |
-          go build -ldflags "-X main.version=${{ steps.version.outputs.VERSION }}" \
-            -o dist/trinity-linux-amd64 ./cmd/trinity
+          set -euxo pipefail
+          mkdir -p dist
+          # Cross-compile + package one arch. Layout inside the tarball:
+          #   trinity-linux-<arch>/
+          #     trinity         (the binary)
+          #     web/            (built frontend assets — only needed for hub installs)
+          # Asset name has no version (the tag/release page already carries it),
+          # so install.sh can use the stable releases/latest/download URL.
+          build_arch() {
+              local arch="$1" goos="$2" goarch="$3" goarm="${4:-}"
+              local stage="trinity-linux-${arch}"
+              local tarball="dist/trinity-linux-${arch}.tar.gz"
+              rm -rf "$stage"
+              mkdir -p "$stage"
+              GOOS="$goos" GOARCH="$goarch" GOARM="$goarm" \
+                  go build -ldflags "-X main.version=${VERSION}" \
+                  -o "$stage/trinity" ./cmd/trinity
+              cp -r web/dist "$stage/web"
+              tar -czf "$tarball" "$stage"
+              rm -rf "$stage"
+          }
+          build_arch amd64 linux amd64
+          build_arch arm64 linux arm64
+          build_arch arm   linux arm 7
 
-      - name: Build linux/arm64
-        env:
-          GOOS: linux
-          GOARCH: arm64
+      - name: Generate checksums
         run: |
-          go build -ldflags "-X main.version=${{ steps.version.outputs.VERSION }}" \
-            -o dist/trinity-linux-arm64 ./cmd/trinity
-
-      - name: Build linux/arm
-        env:
-          GOOS: linux
-          GOARCH: arm
-          GOARM: "7"
-        run: |
-          go build -ldflags "-X main.version=${{ steps.version.outputs.VERSION }}" \
-            -o dist/trinity-linux-arm ./cmd/trinity
-
-      - name: Create release archives
-        run: |
-          VERSION=${{ steps.version.outputs.VERSION }}
-
-          # linux-amd64
-          mkdir -p trinity-${VERSION}-linux-amd64
-          cp dist/trinity-linux-amd64 trinity-${VERSION}-linux-amd64/trinity
-          cp -r web/dist trinity-${VERSION}-linux-amd64/web
-          cp trinity.service trinity-${VERSION}-linux-amd64/
-          cp config.example.yml trinity-${VERSION}-linux-amd64/
-          cp README.md trinity-${VERSION}-linux-amd64/
-          tar -czvf trinity-${VERSION}-linux-amd64.tar.gz trinity-${VERSION}-linux-amd64
-
-          # linux-arm64
-          mkdir -p trinity-${VERSION}-linux-arm64
-          cp dist/trinity-linux-arm64 trinity-${VERSION}-linux-arm64/trinity
-          cp -r web/dist trinity-${VERSION}-linux-arm64/web
-          cp trinity.service trinity-${VERSION}-linux-arm64/
-          cp config.example.yml trinity-${VERSION}-linux-arm64/
-          cp README.md trinity-${VERSION}-linux-arm64/
-          tar -czvf trinity-${VERSION}-linux-arm64.tar.gz trinity-${VERSION}-linux-arm64
-
-          # linux-arm (32-bit, Raspberry Pi 2/3/4 with 32-bit OS)
-          mkdir -p trinity-${VERSION}-linux-arm
-          cp dist/trinity-linux-arm trinity-${VERSION}-linux-arm/trinity
-          cp -r web/dist trinity-${VERSION}-linux-arm/web
-          cp trinity.service trinity-${VERSION}-linux-arm/
-          cp config.example.yml trinity-${VERSION}-linux-arm/
-          cp README.md trinity-${VERSION}-linux-arm/
-          tar -czvf trinity-${VERSION}-linux-arm.tar.gz trinity-${VERSION}-linux-arm
+          set -euxo pipefail
+          ( cd dist && sha256sum trinity-linux-*.tar.gz > sha256sums.txt )
+          cat dist/sha256sums.txt
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            trinity-${{ steps.version.outputs.VERSION }}-linux-amd64.tar.gz
-            trinity-${{ steps.version.outputs.VERSION }}-linux-arm64.tar.gz
-            trinity-${{ steps.version.outputs.VERSION }}-linux-arm.tar.gz
+            dist/trinity-linux-amd64.tar.gz
+            dist/trinity-linux-arm64.tar.gz
+            dist/trinity-linux-arm.tar.gz
+            dist/sha256sums.txt
           generate_release_notes: true
