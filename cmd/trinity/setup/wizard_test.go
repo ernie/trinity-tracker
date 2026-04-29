@@ -184,9 +184,9 @@ func TestRunWizard_CollectorOnly(t *testing.T) {
 			"",                       // service user → quake
 			"",                       // install engine? → yes (default)
 			"",                       // quake3 dir → default
-			"trinity.example.com",    // hub host
-			"https://q3.example.com", // public URL
-			"y",                      // continue past DNS warning (q3.example.com does not resolve)
+			"trinity.example.com", // hub host
+			"q3.example.com",      // public hostname (we prepend https://)
+			"y",                   // continue past DNS warning (q3.example.com does not resolve)
 			"ops@example.com",        // admin email
 			"mygame",                 // source ID
 			credsPath,                // creds file (exists)

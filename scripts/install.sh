@@ -81,6 +81,41 @@ if (( FROM_SOURCE )) && [[ -z "$SRC_DIR" || ! -f "$SRC_DIR/go.mod" ]]; then
     exit 1
 fi
 
+# Banner — print once on a fresh install. --upgrade just swaps the
+# binary, so skip it there; the operator already knows what trinity
+# is by the time they're upgrading.
+if (( ! UPGRADE )); then
+    cat <<'BANNER'
+
+================================================================
+ Trinity Collector Installer
+================================================================
+ This script joins your Quake 3 host to a Trinity hub network.
+ It will:
+
+   - install OS packages (nginx, certbot, screen, logrotate, ...)
+   - drop /usr/local/bin/trinity onto this host
+   - download the trinity-engine release into /usr/lib/quake3/
+   - create the 'quake' service user
+   - write /etc/trinity/{config.yml,source.creds} and systemd units
+     (trinity.service, quake3-server@.service, quake3-servers.target)
+   - obtain a Let's Encrypt cert for the public hostname you give
+   - open 80, 443, 27970/tcp and 27960-28000/udp on UFW or firewalld
+
+ Designed for a fresh Debian/Ubuntu or Arch host. Coexisting with
+ other services on the same box (especially other web servers or
+ anything else holding :80/:443) may need manual cleanup. There is
+ no built-in uninstall.
+
+ You will need:
+   - a public hostname pointing at this box (DNS already in place)
+   - an admin email for Let's Encrypt renewal alerts
+   - a hub source ID and .creds file from your hub admin
+================================================================
+
+BANNER
+fi
+
 echo "==> installing baseline OS packages"
 # logrotate is missing from Arch's base install.
 pkgs=(curl ca-certificates unzip screen logrotate)

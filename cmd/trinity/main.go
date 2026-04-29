@@ -390,14 +390,14 @@ func cmdServe(args []string) {
 		manager.SetLivePublisher(livePublisher)
 	}
 
-	// Replay cutoff: the collector's NATS publisher watermark drives
-	// where it resumes from. First-run (zero) replays nothing and
-	// emits only events past "now".
+	// Replay cutoff: the collector's NATS publisher watermark says
+	// "I have already published everything up to this timestamp; treat
+	// older log events as silent state-rebuild only." If no watermark
+	// is available, the manager picks a per-server cutoff using the
+	// log file's size as a fresh-vs-retrofit signal.
 	if collectorWatermark != nil {
 		if wm := collectorWatermark.Current(); !wm.LastTS.IsZero() {
 			manager.SetReplayCutoff(wm.LastTS)
-		} else {
-			manager.SetReplayCutoff(time.Now().UTC())
 		}
 	}
 

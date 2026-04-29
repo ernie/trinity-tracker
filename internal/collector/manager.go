@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -151,44 +152,20 @@ func (m *ServerManager) Start(ctx context.Context) error {
 
 		// Serial replay: concurrent tailers fight for the SQLite write lock.
 		if srv.LogPath != "" {
-			startAfter := time.Time{} // epoch - replay all
-			if !m.replayCutoff.IsZero() {
-				startAfter = m.replayCutoff
-			} else if fullSrv.LastMatchEndedAt != nil {
-				startAfter = *fullSrv.LastMatchEndedAt
-			}
-
-			tailer := NewLogTailer(srv.LogPath, nil)
-			if _, err := tailer.OpenFile(); err != nil {
-				log.Printf("Warning: failed to open log file for %s: %v", srv.Key, err)
-				continue
-			}
-
-			log.Printf("Replaying log for %s from %v", srv.Key, startAfter)
+			startAfter := m.cutoffFor(&srv, fullSrv)
 			serverID := fullSrv.ID
-			if err := tailer.ReplayFromTimestamp(startAfter, func(event LogEvent, replayMode bool) {
-				m.handleLogEvent(ctx, serverID, event, replayMode)
-			}); err != nil {
-				log.Printf("Warning: failed to replay log for %s: %v", srv.Key, err)
-			}
-
-			// Now start tailing for new events
-			if err := tailer.Start(); err != nil {
-				log.Printf("Warning: failed to start log tailer for %s: %v", srv.Key, err)
-				tailer.Stop()
-			} else {
-				m.tailers[fullSrv.ID] = tailer
+			if !m.attachTailer(ctx, srv.Key, srv.LogPath, serverID, startAfter) {
+				// Log file isn't there yet — common race when
+				// trinity.service starts before quake3-server@.service
+				// has had a chance to create the file. Poll for it in
+				// the background; the tailer attaches as soon as it
+				// shows up.
+				log.Printf("Log file for %s not yet available (%s); retrying in background", srv.Key, srv.LogPath)
 				m.wg.Add(1)
-				go m.processLogEvents(ctx, fullSrv.ID, tailer)
+				go m.tailWhenReady(ctx, srv.Key, srv.LogPath, serverID, startAfter)
 			}
 		}
 	}
-
-	// After a restart the hub's in-memory presence is empty; send a
-	// snapshot for every currently-connected client so live cards,
-	// medal counters, and profile links reappear without waiting for
-	// the next map change.
-	m.bootstrapPresence()
 
 	m.mu.Lock()
 	m.startupComplete = true
@@ -198,53 +175,178 @@ func (m *ServerManager) Start(ctx context.Context) error {
 	return nil
 }
 
-func (m *ServerManager) bootstrapPresence() {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	published := 0
-	skipped := 0
-	for serverID, state := range m.servers {
-		for _, client := range state.clients {
-			if client.guid == "" || !client.began {
-				skipped++
-				continue
-			}
-			m.pub.Publish(domain.FactEvent{
-				Type:      domain.FactPresenceSnapshot,
-				ServerID:  serverID,
-				Timestamp: client.joinedAt,
-				Data: domain.PresenceSnapshotData{
-					GUID:         client.guid,
-					Name:         client.name,
-					CleanName:    client.cleanName,
-					Model:        client.model,
-					IsBot:        client.isBot,
-					IsVR:         client.isVR,
-					Skill:        client.skill,
-					ClientNum:    client.clientID,
-					Impressives:  client.impressives,
-					Excellents:   client.excellents,
-					Humiliations: client.humiliations,
-					Defends:      client.defends,
-					Captures:     client.captures,
-					Assists:      client.assists,
-				},
-			})
-			published++
-		}
+// freshLogThreshold separates "just-created" logs (replay everything as
+// live) from "retrofit on a long-running q3 server" logs (skip history).
+// /etc/logrotate.d/quake3 caps the active file at ~24h of activity, so
+// any log over 10 MB is from a server that's been running long enough
+// that we shouldn't backfill it on the hub.
+const freshLogThreshold = 10 << 20 // 10 MB
+
+// cutoffFor picks the replay cutoff for one server. Precedence:
+//   1. Global m.replayCutoff (NATS publisher watermark) when set —
+//      authoritative because it says "the hub already has up to this".
+//   2. fullSrv.LastMatchEndedAt — hub-side per-server watermark.
+//   3. File-size heuristic: small log = fresh, replay everything;
+//      large log = retrofit, skip history (cutoff = now()).
+func (m *ServerManager) cutoffFor(srvCfg *config.Q3Server, fullSrv *domain.Server) time.Time {
+	if !m.replayCutoff.IsZero() {
+		return m.replayCutoff
 	}
-	log.Printf("collector: presence bootstrap published=%d skipped=%d across %d servers", published, skipped, len(m.servers))
+	if fullSrv.LastMatchEndedAt != nil {
+		return *fullSrv.LastMatchEndedAt
+	}
+	if info, err := os.Stat(srvCfg.LogPath); err == nil && info.Size() >= freshLogThreshold {
+		return time.Now().UTC()
+	}
+	return time.Time{} // epoch — replay everything as live
+}
+
+// bootstrapServerPresence publishes a PresenceSnapshot for every
+// currently-tracked, began client on one server. Called from
+// attachTailer after replay completes — by then state.clients is
+// populated. Idempotent on the hub: handlePresenceSnapshot overwrites
+// the bySlot entry, no session work.
+//
+// Snapshots under the lock then publishes unlocked. Holding the lock
+// across m.pub.Publish would block any concurrent writer (Stop, retry
+// goroutines) on every NATS publish.
+func (m *ServerManager) bootstrapServerPresence(serverID int64) {
+	m.mu.RLock()
+	state, ok := m.servers[serverID]
+	if !ok {
+		m.mu.RUnlock()
+		return
+	}
+	type pendingSnapshot struct {
+		ts   time.Time
+		data domain.PresenceSnapshotData
+	}
+	pending := make([]pendingSnapshot, 0, len(state.clients))
+	skipped := 0
+	for _, client := range state.clients {
+		if client.guid == "" || !client.began {
+			skipped++
+			continue
+		}
+		pending = append(pending, pendingSnapshot{
+			ts: client.joinedAt,
+			data: domain.PresenceSnapshotData{
+				GUID:         client.guid,
+				Name:         client.name,
+				CleanName:    client.cleanName,
+				Model:        client.model,
+				IsBot:        client.isBot,
+				IsVR:         client.isVR,
+				Skill:        client.skill,
+				ClientNum:    client.clientID,
+				Impressives:  client.impressives,
+				Excellents:   client.excellents,
+				Humiliations: client.humiliations,
+				Defends:      client.defends,
+				Captures:     client.captures,
+				Assists:      client.assists,
+			},
+		})
+	}
+	m.mu.RUnlock()
+	for _, p := range pending {
+		m.pub.Publish(domain.FactEvent{
+			Type:      domain.FactPresenceSnapshot,
+			ServerID:  serverID,
+			Timestamp: p.ts,
+			Data:      p.data,
+		})
+	}
+	log.Printf("collector: presence bootstrap server=%d published=%d skipped=%d", serverID, len(pending), skipped)
 }
 
 // Stop stops all polling and log watching
 func (m *ServerManager) Stop() {
 	log.Println("ServerManager: stopping...")
 	close(m.done)
-	for _, tailer := range m.tailers {
+	// Snapshot under lock — tailWhenReady may write to m.tailers
+	// concurrently and Go panics on concurrent map iteration + write.
+	m.mu.RLock()
+	tailers := make([]*LogTailer, 0, len(m.tailers))
+	for _, t := range m.tailers {
+		tailers = append(tailers, t)
+	}
+	m.mu.RUnlock()
+	for _, tailer := range tailers {
 		tailer.Stop()
 	}
 	m.wg.Wait()
 	log.Println("ServerManager: shutdown complete")
+}
+
+// attachTailer opens the log file, replays from startAfter, publishes
+// a presence bootstrap snapshot for everything that ended up in
+// state.clients, and starts the live tail. Returns false if the log
+// file can't be opened (caller can decide to schedule a retry); returns
+// true after the tail goroutine is running. Errors past the OpenFile
+// stage are logged and swallowed — they aren't grounds for tearing
+// down the manager.
+//
+// Bootstrap order is *after* replay but *before* spawning the live
+// processLogEvents goroutine. That places the snapshot ahead of any
+// new live events on the wire, so the hub sees a consistent slot
+// state before live updates start arriving.
+func (m *ServerManager) attachTailer(ctx context.Context, key, path string, serverID int64, startAfter time.Time) bool {
+	tailer := NewLogTailer(path, nil)
+	if _, err := tailer.OpenFile(); err != nil {
+		return false
+	}
+	log.Printf("Replaying log for %s from %v", key, startAfter)
+	if err := tailer.ReplayFromTimestamp(startAfter, func(event LogEvent, replayMode bool) {
+		m.handleLogEvent(ctx, serverID, event, replayMode)
+	}); err != nil {
+		log.Printf("Warning: failed to replay log for %s: %v", key, err)
+	}
+	m.bootstrapServerPresence(serverID)
+	if err := tailer.Start(); err != nil {
+		log.Printf("Warning: failed to start log tailer for %s: %v", key, err)
+		tailer.Stop()
+		return true // we tried; don't ask the caller to retry forever
+	}
+	m.mu.Lock()
+	// If Stop() ran in the window between Start() above and this lock,
+	// m.done is already closed and Stop()'s tailer snapshot has missed
+	// us. Bail and stop the tailer ourselves.
+	select {
+	case <-m.done:
+		m.mu.Unlock()
+		tailer.Stop()
+		return true
+	default:
+	}
+	m.tailers[serverID] = tailer
+	m.mu.Unlock()
+	m.wg.Add(1)
+	go m.processLogEvents(ctx, serverID, tailer)
+	return true
+}
+
+// tailWhenReady polls for the log file and attaches the tailer as soon
+// as the q3 server creates it. Most operators see this fire only on
+// fresh installs where trinity.service starts before quake3-server@
+// has written its first log line.
+func (m *ServerManager) tailWhenReady(ctx context.Context, key, path string, serverID int64, startAfter time.Time) {
+	defer m.wg.Done()
+	const interval = 3 * time.Second
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-m.done:
+			return
+		case <-ticker.C:
+		}
+		if m.attachTailer(ctx, key, path, serverID, startAfter) {
+			return
+		}
+	}
 }
 
 // GetServerStatus returns the current status for a server

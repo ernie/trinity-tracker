@@ -7,7 +7,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -159,7 +158,8 @@ func confirmCollectorPrereqs(p Prompter, out io.Writer) error {
 	fmt.Fprintln(out, "If your hub has a public web UI, log in there and click \"Add Servers\" — an admin")
 	fmt.Fprintln(out, "will approve your request and the drawer that appears gives you the source ID")
 	fmt.Fprintln(out, "and a .creds download. Otherwise (or if your hub admin prefers it), ask them")
-	fmt.Fprintln(out, "directly — for trinity.run, the Trinity Discord works.")
+	fmt.Fprintln(out, "directly — for trinity.run, the Team Beef Discord works")
+	fmt.Fprintln(out, "(https://discord.gg/tuDB2YNc7h).")
 	fmt.Fprintln(out)
 	ok, err := p.YesNo("Do you have these in hand now?", false)
 	if err != nil {
@@ -180,11 +180,15 @@ func promptCollectorOnly(p Prompter, a *Answers, out io.Writer) error {
 	if a.HubHost, err = p.Line("Hub hostname (e.g. trinity.run)", "trinity.run"); err != nil {
 		return err
 	}
-	if a.PublicURL, err = promptValidated(p, out,
-		"Public HTTPS URL where this host is reachable from the Internet (e.g. https://q3.example.com)",
-		"", validatePublicURL); err != nil {
+	hostInput, err := promptValidated(p, out,
+		"Public hostname for this host, e.g. q3.example.com (must already resolve here)",
+		"", validatePublicHostname)
+	if err != nil {
 		return err
 	}
+	// validatePublicHostname has already accepted; normalize can't error.
+	host, _ := normalizePublicHostname(hostInput)
+	a.PublicURL = "https://" + host
 	if err := confirmDNSPointsHere(p, out, a.PublicURL); err != nil {
 		return err
 	}
@@ -245,20 +249,43 @@ func validateSourceID(s string) error {
 	return nil
 }
 
-// validatePublicURL mirrors Answers.Validate's URL check (answers.go)
-// but runs at prompt time so a typo doesn't blow up mid-install.
-func validatePublicURL(s string) error {
-	u, err := url.Parse(s)
-	if err != nil {
-		return fmt.Errorf("not a valid URL: %v", err)
+// normalizePublicHostname accepts either a bare hostname
+// ("q3.example.com") or a pasted URL ("https://q3.example.com/foo"),
+// strips any scheme/path/port, and returns the hostname alone. Errors
+// if the result isn't shaped like a fully-qualified hostname.
+func normalizePublicHostname(s string) (string, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return "", fmt.Errorf("hostname is required")
 	}
-	if u.Scheme != "https" && u.Scheme != "http" {
-		return fmt.Errorf("URL must start with https:// (or http://)")
+	h := strings.TrimPrefix(strings.TrimPrefix(s, "https://"), "http://")
+	if i := strings.Index(h, "/"); i >= 0 {
+		h = h[:i]
 	}
-	if u.Hostname() == "" {
-		return fmt.Errorf("URL must include a hostname")
+	if i := strings.Index(h, ":"); i >= 0 {
+		h = h[:i]
 	}
-	return nil
+	if !strings.Contains(h, ".") {
+		return "", fmt.Errorf("need a fully-qualified hostname with at least one dot (e.g. q3.example.com)")
+	}
+	for _, r := range h {
+		switch {
+		case r >= 'a' && r <= 'z':
+		case r >= 'A' && r <= 'Z':
+		case r >= '0' && r <= '9':
+		case r == '-' || r == '.':
+		default:
+			return "", fmt.Errorf("invalid character %q in hostname", r)
+		}
+	}
+	return h, nil
+}
+
+// validatePublicHostname is the prompt-time loop variant — re-runs
+// normalize and returns just its error so promptValidated can re-ask.
+func validatePublicHostname(s string) error {
+	_, err := normalizePublicHostname(s)
+	return err
 }
 
 // confirmDNSPointsHere does an active DNS lookup on the hostname from
