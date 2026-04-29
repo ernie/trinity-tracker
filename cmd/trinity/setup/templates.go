@@ -7,40 +7,70 @@ import (
 	"strings"
 )
 
-//go:embed cfgtemplates/*.cfg
+// stemDisplayNames maps each shipped key stem to how it should appear
+// in sv_hostname. Operator-edited keys fall through to verbatim use.
+var stemDisplayNames = map[string]string{
+	"ffa":       "FFA",
+	"1v1":       "1v1",
+	"tdm":       "TDM",
+	"tdm-ta":    "TDM-TA",
+	"ctf":       "CTF",
+	"ctf-ta":    "CTF-TA",
+	"1fctf":     "1FCTF",
+	"overload":  "Overload",
+	"harvester": "Harvester",
+}
+
+// displayHostname turns a key into its "Trinity <NAME>" sv_hostname
+// form. Known stems get mapped names; an operator-edited key passes
+// through verbatim. Collision suffixes ("-2", "-3", …) are stripped,
+// looked up against the stem, and re-appended.
+func displayHostname(key string) string {
+	if name, ok := stemDisplayNames[key]; ok {
+		return "Trinity " + name
+	}
+	if i := strings.LastIndex(key, "-"); i > 0 {
+		stem, suffix := key[:i], key[i:]
+		if name, ok := stemDisplayNames[stem]; ok {
+			return "Trinity " + name + suffix
+		}
+	}
+	return "Trinity " + key
+}
+
+//go:embed cfgtemplates/*.cfg cfgtemplates/*.txt cfgtemplates/rotations/*
 var cfgTemplates embed.FS
 
 //go:embed systemd/*
 var systemdUnits embed.FS
 
-// Gametype is the q3 g_gametype value plus enough metadata to pick
-// the right cfg template and decide whether the server runs against
-// missionpack instead of baseq3.
+// Gametype is the engine's g_gametype value. Mod folder (baseq3 vs
+// missionpack) is a separate axis on ServerAnswers.
 type Gametype int
 
 const (
 	GametypeFFA        Gametype = 0
 	GametypeTournament Gametype = 1
-	// 2 is "Single Player" in the engine — not exposed to operators.
+	// 2 is "Single Player" — not exposed to operators.
 	GametypeTDM       Gametype = 3
 	GametypeCTF       Gametype = 4
-	GametypeOneFlag   Gametype = 5 // from Team Arena
-	GametypeOverload  Gametype = 6 // from Team Arena
-	GametypeHarvester Gametype = 7 // from Team Arena
+	GametypeOneFlag   Gametype = 5
+	GametypeOverload  Gametype = 6
+	GametypeHarvester Gametype = 7
 )
 
-// Gametypes lists the operator-selectable gametypes in menu order.
-var Gametypes = []Gametype{
-	GametypeFFA,
-	GametypeTournament,
-	GametypeTDM,
-	GametypeCTF,
-	GametypeOneFlag,
-	GametypeOverload,
-	GametypeHarvester,
+// IsTeamArenaOnly reports whether the gametype only exists in TA's
+// missionpack mod (operator can't pick baseq3 for it).
+func (g Gametype) IsTeamArenaOnly() bool {
+	switch g {
+	case GametypeOneFlag, GametypeOverload, GametypeHarvester:
+		return true
+	}
+	return false
 }
 
-// Label returns the menu label for a gametype.
+// Label returns the canonical short name. " (TA)" is appended by
+// GametypeChoice when the menu entry runs under missionpack.
 func (g Gametype) Label() string {
 	switch g {
 	case GametypeFFA:
@@ -52,61 +82,100 @@ func (g Gametype) Label() string {
 	case GametypeCTF:
 		return "Capture The Flag"
 	case GametypeOneFlag:
-		return "One Flag CTF (from Team Arena)"
+		return "One Flag CTF"
 	case GametypeOverload:
-		return "Overload (from Team Arena)"
+		return "Overload"
 	case GametypeHarvester:
-		return "Harvester (from Team Arena)"
+		return "Harvester"
 	default:
 		return fmt.Sprintf("gametype(%d)", g)
 	}
 }
 
-// templateFile is the relative filename inside cfgtemplates/ that
-// renders into the per-server <key>.cfg.
-func (g Gametype) templateFile() string {
+// GametypeChoice is one (gametype, mod) menu entry.
+type GametypeChoice struct {
+	Gametype       Gametype
+	UseMissionpack bool
+}
+
+func (c GametypeChoice) Label() string {
+	if c.UseMissionpack {
+		return c.Gametype.Label() + " (TA)"
+	}
+	return c.Gametype.Label()
+}
+
+// GametypeChoices is the wizard's menu list.
+var GametypeChoices = []GametypeChoice{
+	{GametypeFFA, false},
+	{GametypeTournament, false},
+	{GametypeTDM, false},
+	{GametypeTDM, true},
+	{GametypeCTF, false},
+	{GametypeCTF, true},
+	{GametypeOneFlag, true},
+	{GametypeOverload, true},
+	{GametypeHarvester, true},
+}
+
+// hasTAVariant reports whether the gametype has a -ta.cfg / -ta
+// rotation alongside the baseq3 default. Only TDM and CTF do.
+func (g Gametype) hasTAVariant() bool {
+	return g == GametypeTDM || g == GametypeCTF
+}
+
+func cfgTemplateFor(g Gametype, useMissionpack bool) string {
+	if s := Stem(g, useMissionpack); s != "" {
+		return s + ".cfg"
+	}
+	return ""
+}
+
+func rotationTemplateFor(g Gametype, useMissionpack bool) string {
+	return Stem(g, useMissionpack)
+}
+
+// Stem is the lowercase identifier used both as the per-gametype cfg
+// filename (and rotation filename) and as the wizard's default key
+// when the operator hasn't typed anything.
+func Stem(g Gametype, useMissionpack bool) string {
+	base := bareStem(g)
+	if base == "" {
+		return ""
+	}
+	if useMissionpack && g.hasTAVariant() {
+		return base + "-ta"
+	}
+	return base
+}
+
+func bareStem(g Gametype) string {
 	switch g {
 	case GametypeFFA:
-		return "ffa.cfg"
+		return "ffa"
 	case GametypeTournament:
-		return "tournament.cfg"
+		return "1v1"
 	case GametypeTDM:
-		return "tdm.cfg"
+		return "tdm"
 	case GametypeCTF:
-		return "ctf.cfg"
+		return "ctf"
 	case GametypeOneFlag:
-		return "oneflag.cfg"
+		return "1fctf"
 	case GametypeOverload:
-		return "overload.cfg"
+		return "overload"
 	case GametypeHarvester:
-		return "harvester.cfg"
+		return "harvester"
 	default:
 		return ""
 	}
 }
 
-// IsMissionpack reports whether the gametype is from Team Arena
-// (and so requires the missionpack base assets). Affects fs_game in
-// the .env file and the destination directory of the rendered
-// <key>.cfg.
-func (g Gametype) IsMissionpack() bool {
-	return g == GametypeOneFlag || g == GametypeOverload || g == GametypeHarvester
-}
-
-// ModFolder returns "missionpack" or "baseq3".
-func (g Gametype) ModFolder() string {
-	if g.IsMissionpack() {
-		return "missionpack"
-	}
-	return "baseq3"
-}
-
-// RenderServerCfg fills out the gametype's cfg template for one
-// server. The {{key}} placeholder becomes the lower-case key; the
-// {{hostname}} placeholder gets the human-friendly upper-case key
-// (operators tweak it after install if they want a fancier name).
-func RenderServerCfg(g Gametype, key string) (string, error) {
-	name := g.templateFile()
+// RenderServerCfg fills the shared-per-gametype cfg template.
+// {{stem}} → the cfg's filename stem (e.g. "tdm-ta"); {{hostname}} →
+// "Trinity <DISPLAY>" derived from the same stem. Operators tweak the
+// rendered file post-install for per-instance customization.
+func RenderServerCfg(g Gametype, useMissionpack bool) (string, error) {
+	name := cfgTemplateFor(g, useMissionpack)
 	if name == "" {
 		return "", fmt.Errorf("no template for gametype %d", int(g))
 	}
@@ -114,9 +183,37 @@ func RenderServerCfg(g Gametype, key string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("reading template %s: %w", name, err)
 	}
-	out := strings.ReplaceAll(string(raw), "{{key}}", strings.ToLower(key))
-	out = strings.ReplaceAll(out, "{{hostname}}", strings.ToUpper(key))
+	stem := Stem(g, useMissionpack)
+	out := strings.ReplaceAll(string(raw), "{{stem}}", stem)
+	out = strings.ReplaceAll(out, "{{hostname}}", displayHostname(stem))
 	return out, nil
+}
+
+// RenderRotation returns the default map list for the (gametype, mod)
+// pair. Stock pak0 maps only; operators edit rotation.<stem> in the q3
+// fs to add custom maps.
+func RenderRotation(g Gametype, useMissionpack bool) ([]byte, error) {
+	name := rotationTemplateFor(g, useMissionpack)
+	if name == "" {
+		return nil, fmt.Errorf("no rotation for gametype %d", int(g))
+	}
+	raw, err := cfgTemplates.ReadFile("cfgtemplates/rotations/" + name)
+	if err != nil {
+		return nil, fmt.Errorf("reading rotation %s: %w", name, err)
+	}
+	return raw, nil
+}
+
+// TrinityBotsFile returns the curated bot definitions list shipped
+// alongside the wizard. Installed at <quake3>/baseq3/scripts/trinity-bots.txt
+// and referenced from quake3-server@.service via `+set g_botsfile`.
+// `bot_minplayers` reads this file to fill empty slots.
+func TrinityBotsFile() ([]byte, error) {
+	raw, err := cfgTemplates.ReadFile("cfgtemplates/trinity-bots.txt")
+	if err != nil {
+		return nil, fmt.Errorf("reading trinity-bots.txt template: %w", err)
+	}
+	return raw, nil
 }
 
 // RenderTrinityCfg fills the trinity.cfg template (required cvars
@@ -189,7 +286,7 @@ func SystemdUnit(name, serviceUser string) ([]byte, error) {
 }
 
 // ListSystemdUnits returns the names of every embedded unit, in a
-// stable order. Used by the actuator to copy them all into
+// stable order. Used by Apply to copy them all into
 // /etc/systemd/system.
 func ListSystemdUnits() ([]string, error) {
 	entries, err := fs.ReadDir(systemdUnits, "systemd")

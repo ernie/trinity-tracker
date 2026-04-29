@@ -19,7 +19,11 @@ The stack:
 ## Prerequisites
 
 - **Linux host**. Debian/Ubuntu primary; the installer probes for
-  `apt`/`dnf`/`pacman`.
+  `apt`/`pacman`. Fedora/RHEL aren't supported — the
+  `quake3-server@.service` unit's `screen` wrapper trips SELinux's
+  `init_t` confinement and there's no clean upstream-policy fix. If
+  you know SELinux you can run from a checkout and craft your own
+  policy module, but the curl|bash path will refuse to proceed.
 - **A retail copy of `pak0.pk3`** for baseq3 (and a separate one for
   missionpack if you want gametypes from Team Arena — One Flag CTF,
   Overload, Harvester). The trinity-engine release zip bundles the
@@ -112,8 +116,10 @@ When the wizard prompts:
   Team Deathmatch, Capture The Flag) plus the three from Team Arena
   (One Flag CTF, Overload, Harvester) — the Team Arena ones deploy
   to `missionpack/` and need a separate `pak0.pk3`. The wizard
-  generates the per-server bind port, an RCON password (or accepts
-  your own), and a starter `<key>.cfg` from the gametype template.
+  generates the per-server bind port and an RCON password (or
+  accepts your own). All servers of the same gametype share one
+  `<stem>.cfg` (e.g. all TDM servers exec `tdm.cfg`); per-server
+  customization is done by editing the `.env` file's `+exec`.
 
 After confirming, the installer:
 - creates the `quake` system user (if missing) and the standard dirs;
@@ -126,8 +132,8 @@ After confirming, the installer:
 - writes `/usr/lib/quake3/baseq3/trinity.cfg` (Trinity-required cvars
   + recommended sv_tv* settings + the matching rcon_password) and an
   `autoexec.cfg` that execs it (only if no autoexec.cfg exists yet);
-- writes `<key>.env` for each server's bind port and a starter
-  `<key>.cfg` from the gametype template;
+- writes `<key>.env` for each server (bind port + `+exec <stem>.cfg`)
+  and one shared `<stem>.cfg` + `rotation.<stem>` per gametype/mod;
 - enables `trinity.service`, `quake3-servers.target`, and each
   `quake3-server@<key>.service`.
 
@@ -155,17 +161,27 @@ sudo install -m 0644 -o quake -g quake \
 
 ---
 
-## 4. Tune your per-server cfgs (optional)
+## 4. Tune your gametype cfgs (optional)
 
-The wizard wrote a starter `<key>.cfg` for each server you added,
-based on the gametype template. They're fine as-is for getting
-started, but you'll probably want to edit them to set sv_hostname,
-fraglimits, map cycles, etc.
+The wizard wrote one `<stem>.cfg` per gametype/mod you used (e.g.
+`baseq3/ffa.cfg`, `baseq3/tdm.cfg`, `missionpack/ctf-ta.cfg`). All
+servers of that gametype share the file, so editing it changes every
+instance. They're fine as-is for getting started; tweak fraglimits,
+map cycles, sv_hostname, etc. as you like.
 
 Example:
 
 ```bash
 sudo -u quake vi /usr/lib/quake3/baseq3/ffa.cfg
+```
+
+To customize a single instance instead of the whole gametype, copy
+the shared cfg to a per-instance file (e.g. `tdm-pro.cfg`) and point
+the server's `.env` `+exec` at the copy:
+
+```bash
+sudo cp /usr/lib/quake3/baseq3/tdm.cfg /usr/lib/quake3/baseq3/tdm-pro.cfg
+sudo vi /etc/trinity/tdm-2.env   # change "+exec tdm.cfg" → "+exec tdm-pro.cfg"
 ```
 
 The required Trinity cvars (`g_logSync`, `g_trinityHandshake`, your
@@ -273,15 +289,17 @@ sudo trinity server add
 sudo trinity server add 1v1 --gametype tournament --port 27961
 ```
 
-This writes the env file and starter `<key>.cfg`, appends the entry
-to `/etc/trinity/config.yml`, and enables the systemd unit. Restart
-trinity (`sudo systemctl restart trinity`) and start the new server
+This writes the env file (and the shared `<stem>.cfg` +
+`rotation.<stem>` if no other server of that gametype is already
+using them), appends the entry to `/etc/trinity/config.yml`, and
+enables the systemd unit. Restart trinity
+(`sudo systemctl restart trinity`) and start the new server
 (`sudo systemctl start quake3-server@<key>`).
 
 `trinity server remove <key>` disables the systemd unit, archives
 the env file as `<key>.env.removed-<timestamp>`, and removes the
-config entry. The starter `<key>.cfg` and the log file are left alone
-— they're operator content.
+config entry. The shared `<stem>.cfg`, the rotation file, and the
+log file are left alone — they're operator content.
 
 ---
 

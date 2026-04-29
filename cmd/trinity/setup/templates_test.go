@@ -1,20 +1,27 @@
 package setup
 
 import (
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 )
 
+func hasGametype(out string, n int) bool {
+	re := regexp.MustCompile(`(?m)^\s*set\s+g_gametype\s+` + strconv.Itoa(n) + `\b`)
+	return re.MatchString(out)
+}
+
 func TestRenderServerCfg_FFA(t *testing.T) {
-	out, err := RenderServerCfg(GametypeFFA, "ffa")
+	out, err := RenderServerCfg(GametypeFFA, false)
 	if err != nil {
 		t.Fatalf("render: %v", err)
 	}
-	if !strings.Contains(out, "g_gametype      0") {
+	if !hasGametype(out, 0) {
 		t.Errorf("missing g_gametype 0 in:\n%s", out)
 	}
-	if !strings.Contains(out, "FFA") {
-		t.Errorf("expected upper-cased {{hostname}} substitution containing FFA, got:\n%s", out)
+	if !strings.Contains(out, `"Trinity FFA"`) {
+		t.Errorf("expected hostname \"Trinity FFA\", got:\n%s", out)
 	}
 	if strings.Contains(out, "{{") {
 		t.Errorf("unsubstituted placeholder remains:\n%s", out)
@@ -22,32 +29,59 @@ func TestRenderServerCfg_FFA(t *testing.T) {
 }
 
 func TestRenderServerCfg_Tournament(t *testing.T) {
-	out, err := RenderServerCfg(GametypeTournament, "1v1")
+	out, err := RenderServerCfg(GametypeTournament, false)
 	if err != nil {
 		t.Fatalf("render: %v", err)
 	}
-	if !strings.Contains(out, "g_gametype      1") {
+	if !hasGametype(out, 1) {
 		t.Errorf("missing g_gametype 1, got:\n%s", out)
+	}
+	if !strings.Contains(out, `"Trinity 1v1"`) {
+		t.Errorf("expected hostname \"Trinity 1v1\" (lowercase v), got:\n%s", out)
+	}
+	if strings.Contains(out, "1V1") {
+		t.Errorf("hostname should not upcase v in NvN; got:\n%s", out)
+	}
+}
+
+func TestDisplayHostname(t *testing.T) {
+	cases := []struct{ in, want string }{
+		{"ffa", "Trinity FFA"},
+		{"tdm", "Trinity TDM"},
+		{"tdm-ta", "Trinity TDM-TA"},
+		{"tdm-ta-2", "Trinity TDM-TA-2"},
+		{"1v1", "Trinity 1v1"},
+		{"1v1-2", "Trinity 1v1-2"},
+		{"1fctf", "Trinity 1FCTF"},
+		{"overload", "Trinity Overload"},
+		{"overload-2", "Trinity Overload-2"},
+		{"harvester", "Trinity Harvester"},
+		{"playoffs", "Trinity playoffs"}, // unknown stem → verbatim
+	}
+	for _, tc := range cases {
+		if got := displayHostname(tc.in); got != tc.want {
+			t.Errorf("displayHostname(%q) = %q, want %q", tc.in, got, tc.want)
+		}
 	}
 }
 
 func TestRenderServerCfg_TeamArenaGametypes(t *testing.T) {
 	cases := []struct {
 		g    Gametype
-		want string
+		want int
 	}{
-		{GametypeOneFlag, "g_gametype      5"},
-		{GametypeOverload, "g_gametype      6"},
-		{GametypeHarvester, "g_gametype      7"},
+		{GametypeOneFlag, 5},
+		{GametypeOverload, 6},
+		{GametypeHarvester, 7},
 	}
 	for _, tc := range cases {
 		t.Run(tc.g.Label(), func(t *testing.T) {
-			out, err := RenderServerCfg(tc.g, "ta")
+			out, err := RenderServerCfg(tc.g, true)
 			if err != nil {
 				t.Fatalf("render: %v", err)
 			}
-			if !strings.Contains(out, tc.want) {
-				t.Errorf("missing %q in:\n%s", tc.want, out)
+			if !hasGametype(out, tc.want) {
+				t.Errorf("missing g_gametype %d in:\n%s", tc.want, out)
 			}
 			if !strings.Contains(out, "missionpack") {
 				t.Errorf("expected missionpack note for %s in:\n%s", tc.g.Label(), out)
@@ -56,21 +90,72 @@ func TestRenderServerCfg_TeamArenaGametypes(t *testing.T) {
 	}
 }
 
-func TestGametype_IsMissionpack(t *testing.T) {
+func TestGametype_IsTeamArenaOnly(t *testing.T) {
 	for _, g := range []Gametype{GametypeOneFlag, GametypeOverload, GametypeHarvester} {
-		if !g.IsMissionpack() {
-			t.Errorf("%s should be missionpack", g.Label())
-		}
-		if g.ModFolder() != "missionpack" {
-			t.Errorf("%s mod folder: got %q", g.Label(), g.ModFolder())
+		if !g.IsTeamArenaOnly() {
+			t.Errorf("%s should be TA-only", g.Label())
 		}
 	}
 	for _, g := range []Gametype{GametypeFFA, GametypeTournament, GametypeTDM, GametypeCTF} {
-		if g.IsMissionpack() {
-			t.Errorf("%s should not be missionpack", g.Label())
+		if g.IsTeamArenaOnly() {
+			t.Errorf("%s should not be TA-only", g.Label())
 		}
-		if g.ModFolder() != "baseq3" {
-			t.Errorf("%s mod folder: got %q", g.Label(), g.ModFolder())
+	}
+}
+
+// TestStartingMapIsInRotation guards against a footgun where the cfg
+// boots a map that's not in g_rotation — the operator would never see
+// it again after the first match ends, surprising them.
+func TestStartingMapIsInRotation(t *testing.T) {
+	for _, c := range GametypeChoices {
+		t.Run(c.Label(), func(t *testing.T) {
+			cfg, err := RenderServerCfg(c.Gametype, c.UseMissionpack)
+			if err != nil {
+				t.Fatalf("cfg: %v", err)
+			}
+			rot, err := RenderRotation(c.Gametype, c.UseMissionpack)
+			if err != nil {
+				t.Fatalf("rotation: %v", err)
+			}
+			startMap := ""
+			for _, line := range strings.Split(cfg, "\n") {
+				line = strings.TrimSpace(line)
+				if strings.HasPrefix(line, "map ") {
+					startMap = strings.TrimSpace(strings.TrimPrefix(line, "map"))
+					break
+				}
+			}
+			if startMap == "" {
+				t.Fatalf("no `map X` line in rendered cfg")
+			}
+			rotationMaps := map[string]bool{}
+			for _, line := range strings.Split(string(rot), "\n") {
+				if m := strings.TrimSpace(line); m != "" {
+					rotationMaps[m] = true
+				}
+			}
+			if !rotationMaps[startMap] {
+				t.Errorf("starting map %q not in rotation %v", startMap, rotationMaps)
+			}
+		})
+	}
+}
+
+func TestServerAnswers_ModFolder(t *testing.T) {
+	cases := []struct {
+		s    ServerAnswers
+		want string
+	}{
+		{ServerAnswers{Gametype: GametypeFFA}, "baseq3"},
+		{ServerAnswers{Gametype: GametypeTDM}, "baseq3"},
+		{ServerAnswers{Gametype: GametypeTDM, UseMissionpack: true}, "missionpack"},
+		{ServerAnswers{Gametype: GametypeCTF, UseMissionpack: true}, "missionpack"},
+		{ServerAnswers{Gametype: GametypeOneFlag}, "missionpack"},
+		{ServerAnswers{Gametype: GametypeOverload}, "missionpack"},
+	}
+	for _, tc := range cases {
+		if got := tc.s.ModFolder(); got != tc.want {
+			t.Errorf("%v ModFolder = %q, want %q", tc.s, got, tc.want)
 		}
 	}
 }

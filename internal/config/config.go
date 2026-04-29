@@ -12,11 +12,12 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// idPattern matches the same character set as
-// storage.ValidateSource: alnum, underscore, hyphen. Used to validate
-// q3_servers[].key (and source IDs in tests). Kept here to avoid
-// pulling storage into config's import graph.
-var idPattern = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
+// idPattern: lowercase alnum + underscore + hyphen. Used to validate
+// q3_servers[].key (and source IDs in tests). Lowercase-only so the
+// hub identity matches the filesystem paths (which are always
+// lowercased). Kept here to avoid pulling storage into config's
+// import graph.
+var idPattern = regexp.MustCompile(`^[a-z0-9_-]+$`)
 
 // Config holds the application configuration.
 //
@@ -27,11 +28,9 @@ var idPattern = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
 // modeled at the config layer.
 type Config struct {
 	Server ServerConfig `yaml:"server"`
-	// Database / Auth are pointers (not values) so collector-only configs
-	// — which never touch SQLite or JWT auth — can omit them entirely
-	// from the wizard-written YAML rather than emitting `database: { path: "" }`
-	// + `auth: { jwt_secret: "", token_duration: 0s }`. Read sites must
-	// nil-check (config.Load fills defaults for hub modes after parse).
+	// Database / Auth are pointers so collector-only configs can omit
+	// the blocks entirely. config.Load fills hub-mode defaults; read
+	// sites must nil-check.
 	Database  *DatabaseConfig `yaml:"database,omitempty"`
 	Auth      *AuthConfig     `yaml:"auth,omitempty"`
 	Q3Servers []Q3Server      `yaml:"q3_servers,omitempty"`
@@ -56,12 +55,8 @@ func (d *Duration) UnmarshalYAML(node *yaml.Node) error {
 	return nil
 }
 
-// MarshalYAML implements yaml.Marshaler so Duration round-trips through
-// config writes as a string ("30s") rather than the bare nanosecond
-// integer ("30000000000") that yaml.v3 emits by default for named
-// integer types. Without this, configs the wizard writes fail to load
-// later with "missing unit in duration" — `time.ParseDuration` rejects
-// the unitless integer form.
+// MarshalYAML emits "30s"/"24h" instead of yaml.v3's default raw
+// nanosecond integer, which time.ParseDuration would later reject.
 func (d Duration) MarshalYAML() (any, error) {
 	return time.Duration(d).String(), nil
 }
@@ -203,11 +198,7 @@ func Load(path string) (*Config, error) {
 
 	applyTrackerDefaults(&cfg)
 
-	// Database + Auth are pointer-typed and may be nil for collector-only
-	// configs (the wizard omits both blocks since collectors don't run
-	// SQLite or JWT). Materialize them with defaults only when there's
-	// actually a hub role to serve. validateNoPlaceholders below + the
-	// hub-using code paths can then assume non-nil whenever they care.
+	// Hub-only defaults: Database/Auth stay nil for collector-only.
 	hasHub := cfg.Tracker == nil || cfg.Tracker.Hub != nil
 	if hasHub {
 		if cfg.Database == nil {

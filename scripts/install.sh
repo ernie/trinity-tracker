@@ -82,19 +82,23 @@ if (( FROM_SOURCE )) && [[ -z "$SRC_DIR" || ! -f "$SRC_DIR/go.mod" ]]; then
 fi
 
 echo "==> installing baseline OS packages"
-pkgs=(curl ca-certificates unzip screen)
+# logrotate is missing from Arch's base install.
+pkgs=(curl ca-certificates unzip screen logrotate)
 if (( FROM_SOURCE )) && ! command -v go >/dev/null 2>&1; then
     pkgs+=(golang)
 fi
 if command -v apt-get >/dev/null 2>&1; then
     apt-get update
     DEBIAN_FRONTEND=noninteractive apt-get install -y "${pkgs[@]}"
-elif command -v dnf >/dev/null 2>&1; then
-    dnf install -y "${pkgs[@]}"
 elif command -v pacman >/dev/null 2>&1; then
     pacman -Sy --noconfirm "${pkgs[@]}"
 else
-    echo "WARN: no apt/dnf/pacman found; please install: ${pkgs[*]}" >&2
+    echo "ERROR: no supported package manager (apt/pacman) found." >&2
+    echo "       Trinity supports Debian/Ubuntu and Arch. Fedora/RHEL are" >&2
+    echo "       unsupported — SELinux confines the q3 server unit's screen" >&2
+    echo "       wrapper. If you're on one of those and know SELinux, install" >&2
+    echo "       these manually and re-run with the wizard: ${pkgs[*]}" >&2
+    exit 1
 fi
 
 # mise/asdf/manual go installs aren't on root's PATH under sudo.
@@ -193,10 +197,7 @@ else
     rm -f "$STAGE/$asset"
 fi
 
-# Both paths now have $STAGE/trinity ready to install. For upgrades
-# we have to stop trinity.service first (the running binary holds the
-# inode and `install` would fail with "text file busy"). Fresh installs
-# obviously have no service to stop.
+# Stop the running binary before swapping it (text file busy otherwise).
 if (( UPGRADE )); then
     echo "==> stopping trinity.service before binary swap"
     systemctl stop trinity.service || true
@@ -205,9 +206,8 @@ install -m 0755 "$STAGE/trinity" /usr/local/bin/trinity
 rm -f "$STAGE/trinity"
 
 if (( UPGRADE )); then
-    # Hub installs need the web bundle overlaid on the static_dir so the
-    # browser app matches the new server. Collector-only installs have no
-    # `tracker.hub:` block and no static_dir to populate.
+    # Hub installs: overlay web/dist so the browser app matches the new
+    # server. Collector-only configs have no tracker.hub block.
     if grep -qE '^[[:space:]]+hub:[[:space:]]*$' /etc/trinity/config.yml \
         && [[ -d "$STAGE/web" ]]; then
         static_dir="$(awk '/static_dir:/ {print $2; exit}' /etc/trinity/config.yml)"

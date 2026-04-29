@@ -189,7 +189,7 @@ func promptCollectorOnly(p Prompter, a *Answers, out io.Writer) error {
 		return err
 	}
 	if a.AdminEmail, err = promptValidated(p, out,
-		"Email for your Let's Encrypt SSL cert (auto-renewal failures come here)",
+		"Email for Let's Encrypt renewal alerts",
 		"", validateAdminEmail); err != nil {
 		return err
 	}
@@ -246,7 +246,7 @@ func validateSourceID(s string) error {
 }
 
 // validatePublicURL mirrors Answers.Validate's URL check (answers.go)
-// but runs at prompt time so a typo doesn't blow up mid-actuation.
+// but runs at prompt time so a typo doesn't blow up mid-install.
 func validatePublicURL(s string) error {
 	u, err := url.Parse(s)
 	if err != nil {
@@ -329,16 +329,10 @@ func confirmDNSPointsHere(p Prompter, out io.Writer, publicURL string) error {
 	return nil
 }
 
-// publicIP returns the box's Internet-facing IP by asking a public
-// echo service. We use this instead of inspecting the local interface
-// (the obvious approach) because cloud VMs commonly sit behind 1:1 NAT:
-// the OS only sees a private address (10.x / 172.16+ / 192.168.x), while
-// inbound traffic — including Let's Encrypt's HTTP-01 challenge — arrives
-// on a different public IP managed by the hypervisor. A UDP-dial trick
-// would return the private address and never match DNS.
-//
-// Returns "" if both services fail (offline, blocked, etc.); the caller
-// treats that as "can't auto-confirm, ask the operator."
+// publicIP asks an echo service for our Internet-facing IP. Cloud VMs
+// behind 1:1 NAT see only a private local address, so the local
+// interface IP wouldn't match what DNS resolves to. Returns "" if both
+// services fail.
 func publicIP() string {
 	services := []string{
 		"https://api.ipify.org",
@@ -377,9 +371,9 @@ func validateAdminEmail(s string) error {
 }
 
 // validateCredsFile checks that the path exists and is a readable
-// regular file. The actuator will copy it to /etc/trinity/source.creds
-// later; catching a typo here means we don't leave a half-applied
-// install on the operator's box.
+// regular file. Apply will copy it to /etc/trinity/source.creds later;
+// catching a typo here means we don't leave a half-applied install on
+// the operator's box.
 func validateCredsFile(path string) error {
 	info, err := os.Stat(path)
 	if err != nil {
@@ -423,19 +417,25 @@ func promptServers(p Prompter, a *Answers, out io.Writer) error {
 // PromptServer collects a single ServerAnswers. Exposed so
 // `trinity server add` can reuse it.
 func PromptServer(p Prompter, a *Answers, index int) (ServerAnswers, error) {
-	defaultKey := suggestKey(index)
 	defaultPort := 27960 + index
 
 	var s ServerAnswers
 	var err error
-	if s.Key, err = p.Line("  Server key (alnum/underscore/hyphen)", defaultKey); err != nil {
-		return s, err
-	}
+
+	// Gametype first so the key default can match it.
 	gtIdx, err := p.Choose("  Gametype:", gametypeLabels(), 0)
 	if err != nil {
 		return s, err
 	}
-	s.Gametype = Gametypes[gtIdx]
+	choice := GametypeChoices[gtIdx]
+	s.Gametype = choice.Gametype
+	s.UseMissionpack = choice.UseMissionpack
+
+	defaultKey := suggestKey(s.Gametype, s.UseMissionpack, a.Servers)
+	if s.Key, err = p.Line("  Server key (lowercase/digits/underscore/hyphen)", defaultKey); err != nil {
+		return s, err
+	}
+	s.Key = strings.ToLower(s.Key)
 
 	defaultAddr := fmt.Sprintf("127.0.0.1:%d", defaultPort)
 	if a.PublicURL != "" {
@@ -457,30 +457,40 @@ func PromptServer(p Prompter, a *Answers, index int) (ServerAnswers, error) {
 	if s.RconPassword == "" {
 		s.RconPassword = GenerateRCONPassword()
 	}
-	defaultLog := fmt.Sprintf("/var/log/quake3/%s.log", strings.ToLower(s.Key))
+	defaultLog := fmt.Sprintf("/var/log/quake3/%s.log", s.Key)
 	if s.LogPath, err = p.Line("  Log path", defaultLog); err != nil {
 		return s, err
 	}
 	return s, nil
 }
 
-func suggestKey(index int) string {
-	switch index {
-	case 0:
-		return "ffa"
-	case 1:
-		return "1v1"
-	case 2:
-		return "ctf"
-	default:
-		return fmt.Sprintf("server%d", index+1)
+// suggestKey returns a default key matching the chosen gametype, with
+// a -2/-3/... suffix if a same-stem key is already in use.
+func suggestKey(g Gametype, useMP bool, existing []ServerAnswers) string {
+	base := Stem(g, useMP)
+	if base == "" {
+		base = "server"
 	}
+	used := make(map[string]bool, len(existing))
+	for _, s := range existing {
+		used[strings.ToLower(s.Key)] = true
+	}
+	if !used[base] {
+		return base
+	}
+	for i := 2; i < 100; i++ {
+		candidate := fmt.Sprintf("%s-%d", base, i)
+		if !used[candidate] {
+			return candidate
+		}
+	}
+	return base
 }
 
 func gametypeLabels() []string {
-	out := make([]string, len(Gametypes))
-	for i, g := range Gametypes {
-		out[i] = g.Label()
+	out := make([]string, len(GametypeChoices))
+	for i, c := range GametypeChoices {
+		out[i] = c.Label()
 	}
 	return out
 }

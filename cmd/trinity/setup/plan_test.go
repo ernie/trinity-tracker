@@ -127,7 +127,7 @@ func TestPlan_RealMode_NoPrefix(t *testing.T) {
 	if _, err := os.Stat(dir); err != nil {
 		t.Errorf("real-mode mkdir didn't create %s: %v", dir, err)
 	}
-	// In real mode helpers don't chatter — only operations the actuator
+	// In real mode helpers don't chatter — only operations Apply
 	// explicitly logs (via plan.say) do.
 	if buf.Len() != 0 {
 		t.Errorf("expected silent real-mode mkdir; got %q", buf.String())
@@ -156,7 +156,7 @@ func TestApply_DryRun_HubOnly(t *testing.T) {
 
 	buf := &bytes.Buffer{}
 	cfgPath := filepath.Join(tmp, "config.yml")
-	err := Apply(a, ActuateOptions{
+	err := Apply(a, ApplyOptions{
 		ConfigPath: cfgPath,
 		UseSystemd: true,
 		DryRun:     true,

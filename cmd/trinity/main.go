@@ -530,10 +530,8 @@ func loadCLIConfigFromFlags(configPath, url string) *config.Config {
 		return nil
 	}
 
-	// dbPath stays empty when cfg.Database is nil (collector-only configs
-	// omit the block entirely). The CLI commands that actually need the DB
-	// — `trinity user *`, `trinity admin *` — error from storage.New(""),
-	// which is the right behavior on a non-hub box.
+	// nil on collector-only; the hub-only CLI commands that need dbPath
+	// will fail cleanly via storage.New("").
 	if cfg.Database != nil {
 		dbPath = cfg.Database.Path
 	}
@@ -1890,16 +1888,16 @@ func cmdInit(args []string) {
 		os.Exit(1)
 	}
 
-	err = setup.Apply(answers, setup.ActuateOptions{
+	err = setup.Apply(answers, setup.ApplyOptions{
 		ConfigPath: configPath,
 		UseSystemd: useSd,
 		DryRun:     *dryRun,
 		Out:        os.Stderr,
 	})
 	// Either way, drop the install-time staging dir install.sh handed
-	// us via TRINITY_INIT_STAGE — the actuator has either consumed
-	// the web/ payload or never will. Skip in dry-run so the operator
-	// can re-run with confidence.
+	// us via TRINITY_INIT_STAGE — Apply has either consumed the web/
+	// payload or never will. Skip in dry-run so the operator can
+	// re-run with confidence.
 	if !*dryRun {
 		setup.CleanupStage()
 	}
@@ -1921,7 +1919,7 @@ func cmdInit(args []string) {
 		needsBaseq3 := false
 		needsMissionpack := false
 		for _, s := range answers.Servers {
-			if s.Gametype.IsMissionpack() {
+			if s.RunsMissionpack() {
 				needsMissionpack = true
 			} else {
 				needsBaseq3 = true
@@ -1947,8 +1945,11 @@ func cmdInit(args []string) {
 	if answers.Mode == setup.ModeCollector {
 		fmt.Fprintf(os.Stderr, "  %d. Required: generate the levelshot images and demo-playback pk3s the\n", step)
 		fmt.Fprintln(os.Stderr, "     hub serves to web viewers. Re-run when you add new maps.")
-		fmt.Fprintf(os.Stderr, "       sudo -u %s trinity levelshots\n", answers.ServiceUser)
-		fmt.Fprintf(os.Stderr, "       sudo -u %s trinity demobake\n", answers.ServiceUser)
+		// Absolute path because Fedora doesn't put /usr/local/bin on
+		// root's default PATH, and `sudo -u` uses the target user's PATH
+		// which on locked-down systems may also exclude /usr/local/bin.
+		fmt.Fprintf(os.Stderr, "       sudo -u %s /usr/local/bin/trinity levelshots\n", answers.ServiceUser)
+		fmt.Fprintf(os.Stderr, "       sudo -u %s /usr/local/bin/trinity demobake\n", answers.ServiceUser)
 		step++
 	}
 }
@@ -2061,14 +2062,16 @@ func nextAvailablePort(cfg *config.Config, configDir string) int {
 
 // cmdServerAdd adds a new game server instance. With no name and on
 // a TTY, drops into the wizard's per-server prompt loop (gametype +
-// port + RCON + log path), writes the env + starter <key>.cfg from
-// the gametype template, and enables the systemd template instance.
+// port + RCON + log path), writes the .env file (port + +exec the
+// shared <stem>.cfg) and the shared <stem>.cfg + rotation.<stem> if
+// they don't already exist, and enables the systemd template instance.
 // With a name and explicit flags, runs non-interactively for scripts.
 func cmdServerAdd(args []string) {
 	fs := flag.NewFlagSet("server add", flag.ExitOnError)
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
 	port := fs.Int("port", 0, "server port (default: next available)")
 	gametypeFlag := fs.String("gametype", "", "gametype: ffa, tournament, tdm, ctf, oneflag, overload, harvester")
+	taFlag := fs.Bool("ta", false, "run under fs_game=missionpack (Team Arena weapons + maps); only meaningful for tdm/ctf")
 	rconPassword := fs.String("rcon-password", "", "RCON password (default: generate)")
 	logPath := fs.String("log-path", "", "log file path")
 	fs.Parse(args)
@@ -2100,7 +2103,7 @@ func cmdServerAdd(args []string) {
 			os.Exit(1)
 		}
 	} else {
-		s, err = serverAnswersFromFlags(remaining[0], *gametypeFlag, *port, *rconPassword, *logPath, cfg, configDir)
+		s, err = serverAnswersFromFlags(remaining[0], *gametypeFlag, *taFlag, *port, *rconPassword, *logPath, cfg, configDir)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
@@ -2123,7 +2126,7 @@ func cmdServerAdd(args []string) {
 	// Root-only steps first (systemd, file mode/ownership we couldn't
 	// set after privilege drop).
 	if useSd && os.Getuid() == 0 {
-		unit := "quake3-server@" + strings.ToLower(s.Key)
+		unit := "quake3-server@" + s.Key
 		if err := systemctlRun("enable", unit); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: systemctl enable %s failed: %v\n", unit, err)
 		} else {
@@ -2131,38 +2134,49 @@ func cmdServerAdd(args []string) {
 		}
 	}
 
+	stem := setup.Stem(s.Gametype, s.UseMissionpack)
+
 	// Write env file (in /etc/trinity, root-owned but group-readable
 	// by the service user; matches what `trinity init` writes).
-	envPath := filepath.Join(configDir, strings.ToLower(s.Key)+".env")
+	envPath := filepath.Join(configDir, s.Key+".env")
 	opts := fmt.Sprintf("+set net_port %d", s.Port)
-	if s.Gametype.IsMissionpack() {
+	if s.RunsMissionpack() {
 		opts += " +set fs_game missionpack"
 	}
+	opts += " +exec " + stem + ".cfg"
 	if err := os.WriteFile(envPath, []byte(fmt.Sprintf("SERVER_OPTS=%s\n", opts)), 0644); err != nil {
 		fmt.Fprintf(os.Stderr, "Error writing env file: %v\n", err)
 		os.Exit(1)
 	}
 	fmt.Println("Wrote:", envPath)
 
-	// Render starter <key>.cfg from gametype template.
+	// Shared <stem>.cfg + rotation.<stem>: only write if absent (other
+	// servers of this gametype already installed them).
 	if cfg.Server.Quake3Dir != "" {
-		body, err := setup.RenderServerCfg(s.Gametype, s.Key)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: cfg template render: %v\n", err)
-		} else {
-			cfgPath := filepath.Join(cfg.Server.Quake3Dir, s.Gametype.ModFolder(), strings.ToLower(s.Key)+".cfg")
-			if _, err := os.Stat(cfgPath); err == nil {
-				fmt.Printf("  NOTE: %s already exists — left alone.\n", cfgPath)
+		cfgPath := filepath.Join(cfg.Server.Quake3Dir, s.ModFolder(), stem+".cfg")
+		if _, err := os.Stat(cfgPath); err == nil {
+			fmt.Printf("  NOTE: %s already exists — left alone.\n", cfgPath)
+		} else if body, rerr := setup.RenderServerCfg(s.Gametype, s.UseMissionpack); rerr != nil {
+			fmt.Fprintf(os.Stderr, "Warning: cfg template render: %v\n", rerr)
+		} else if err := os.MkdirAll(filepath.Dir(cfgPath), 0755); err == nil {
+			if err := os.WriteFile(cfgPath, []byte(body), 0644); err != nil {
+				fmt.Fprintf(os.Stderr, "Error writing %s: %v\n", cfgPath, err)
 			} else {
-				if err := os.MkdirAll(filepath.Dir(cfgPath), 0755); err == nil {
-					if err := os.WriteFile(cfgPath, []byte(body), 0644); err != nil {
-						fmt.Fprintf(os.Stderr, "Error writing %s: %v\n", cfgPath, err)
-					} else {
-						_ = os.Chown(cfgPath, uid, gid)
-						fmt.Println("Wrote:", cfgPath)
-					}
-				}
+				_ = os.Chown(cfgPath, uid, gid)
+				fmt.Println("Wrote:", cfgPath)
 			}
+		}
+
+		rotPath := filepath.Join(cfg.Server.Quake3Dir, s.ModFolder(), "rotation."+stem)
+		if _, err := os.Stat(rotPath); err == nil {
+			// rotation already in place; nothing to do.
+		} else if body, rerr := setup.RenderRotation(s.Gametype, s.UseMissionpack); rerr != nil {
+			fmt.Fprintf(os.Stderr, "Warning: rotation render: %v\n", rerr)
+		} else if err := os.WriteFile(rotPath, body, 0644); err != nil {
+			fmt.Fprintf(os.Stderr, "Error writing %s: %v\n", rotPath, err)
+		} else {
+			_ = os.Chown(rotPath, uid, gid)
+			fmt.Println("Wrote:", rotPath)
 		}
 	}
 
@@ -2186,7 +2200,7 @@ func cmdServerAdd(args []string) {
 	fmt.Println("Next steps:")
 	fmt.Println("  1. Restart trinity:    sudo systemctl restart trinity")
 	if useSd {
-		fmt.Printf("  2. Start this server:  sudo systemctl start quake3-server@%s\n", strings.ToLower(s.Key))
+		fmt.Printf("  2. Start this server:  sudo systemctl start quake3-server@%s\n", s.Key)
 	}
 }
 
@@ -2198,19 +2212,27 @@ func answersFromConfig(cfg *config.Config) *setup.Answers {
 	if cfg.Tracker != nil && cfg.Tracker.Collector != nil {
 		a.PublicURL = cfg.Tracker.Collector.PublicURL
 	}
+	// Just the keys — PromptServer's suggestKey uses them for
+	// collision avoidance. Other fields aren't read.
+	for _, srv := range cfg.Q3Servers {
+		a.Servers = append(a.Servers, setup.ServerAnswers{Key: srv.Key})
+	}
 	return a
 }
 
 // serverAnswersFromFlags builds a ServerAnswers from CLI flags for
 // the non-interactive code path. Defaults mirror what PromptServer
 // would suggest.
-func serverAnswersFromFlags(name, gametypeName string, port int, rcon, logPath string, cfg *config.Config, configDir string) (setup.ServerAnswers, error) {
+func serverAnswersFromFlags(name, gametypeName string, ta bool, port int, rcon, logPath string, cfg *config.Config, configDir string) (setup.ServerAnswers, error) {
 	s := setup.ServerAnswers{Key: strings.ToLower(name)}
 	gt, err := parseGametype(gametypeName)
 	if err != nil {
 		return s, err
 	}
 	s.Gametype = gt
+	if ta && (gt == setup.GametypeTDM || gt == setup.GametypeCTF) {
+		s.UseMissionpack = true
+	}
 	s.Port = port
 	if s.Port == 0 {
 		s.Port = nextAvailablePort(cfg, configDir)

@@ -45,7 +45,7 @@ fi
 
 if [[ $EUID -ne 0 ]]; then
     cat <<EOF
-This script needs root to install nginx + certbot (apt/dnf/pacman),
+This script needs root to install nginx + certbot (apt/pacman),
 write to /etc/nginx, and run certbot. It will re-exec itself under
 sudo, preserving the env vars above.
 
@@ -69,30 +69,30 @@ if [[ -z "$PUBLIC_HOST" ]]; then
 fi
 
 echo "==> installing nginx + certbot"
-# Mirror install.sh's package-manager dispatch so this works on the
-# same set of distros. Package names for the certbot/nginx integration
-# diverge: Debian/Ubuntu and Fedora/RHEL/CentOS ship it as
-# python3-certbot-nginx (different upstream packaging conventions, same
-# Python module); Arch calls it certbot-nginx. We use the --nginx
-# certbot mode (not --webroot) so this plugin is required, not optional.
+# Mirror install.sh's package-manager dispatch. Package names diverge:
+# Debian/Ubuntu ship the certbot --nginx integration as
+# python3-certbot-nginx; Arch calls it certbot-nginx. We use --nginx
+# (not --webroot), so this plugin is required, not optional.
 if command -v apt-get >/dev/null 2>&1; then
     apt-get update
     DEBIAN_FRONTEND=noninteractive apt-get install -y nginx certbot python3-certbot-nginx
-elif command -v dnf >/dev/null 2>&1; then
-    dnf install -y nginx certbot python3-certbot-nginx
 elif command -v pacman >/dev/null 2>&1; then
     pacman -Sy --noconfirm nginx certbot certbot-nginx
 else
-    echo "ERROR: no supported package manager (apt/dnf/pacman) found." >&2
-    echo "       Install nginx + certbot manually and re-run." >&2
+    echo "ERROR: no supported package manager (apt/pacman) found." >&2
+    echo "       Trinity supports Debian/Ubuntu and Arch only." >&2
     exit 1
 fi
 
 echo "==> ensuring asset dirs exist under $STATIC_DIR"
+# install -d only applies -o/-g to the leaf — enumerate each level so
+# the intermediates (assets/, demopk3s/) end up quake-owned too.
 install -d -o quake -g quake \
     "$STATIC_DIR" \
     "$STATIC_DIR/demos" \
+    "$STATIC_DIR/assets" \
     "$STATIC_DIR/assets/levelshots" \
+    "$STATIC_DIR/demopk3s" \
     "$STATIC_DIR/demopk3s/maps"
 
 # Open the firewall before certbot runs — Let's Encrypt validates over
@@ -128,48 +128,6 @@ open_firewall_ports() {
 }
 open_firewall_ports
 
-# Fedora/RHEL ships SELinux in enforcing mode. Out of the box nginx
-# can only bind to ports labeled http_port_t (80/443/8080-ish), and can
-# only serve files labeled httpd_sys_content_t. Our :27970 fast-dl vhost
-# binds outside the default port set, and our doc roots
-# (/var/lib/trinity/web, /usr/lib/quake3) carry their distro-default
-# labels (var_lib_t, lib_t). Without these tweaks nginx -t fails on
-# "bind() to 0.0.0.0:27970 failed (13: Permission denied)" or the
-# served paths come back as 403 even though file perms look fine.
-# No-op on Debian/Arch (no SELinux by default) and on any host where
-# the operator has set SELinux to permissive/disabled.
-configure_selinux() {
-    command -v getenforce >/dev/null 2>&1 || return 0
-    [[ "$(getenforce 2>/dev/null)" == "Enforcing" ]] || return 0
-
-    if ! command -v semanage >/dev/null 2>&1; then
-        echo "==> installing policycoreutils-python-utils for SELinux config"
-        if command -v dnf >/dev/null 2>&1; then
-            dnf install -y policycoreutils-python-utils
-        else
-            echo "    WARN: SELinux is enforcing but semanage is missing and we don't know how to install it on this distro." >&2
-            echo "          Install it manually, or set SELinux to permissive, then re-run." >&2
-            return 0
-        fi
-    fi
-
-    if ! semanage port -l 2>/dev/null | awk '$1=="http_port_t"' | grep -qE '\b27970\b'; then
-        echo "==> adding :27970 to SELinux http_port_t (so nginx can bind it)"
-        semanage port -a -t http_port_t -p tcp 27970
-    fi
-
-    for path in "$STATIC_DIR" "$QUAKE3_DIR"; do
-        [[ -d "$path" ]] || continue
-        echo "==> labeling $path with SELinux httpd_sys_content_t"
-        # -a fails if a rule already exists; fall back to -m (modify).
-        # Either way restorecon then applies the label to existing files.
-        semanage fcontext -a -t httpd_sys_content_t "${path}(/.*)?" 2>/dev/null \
-            || semanage fcontext -m -t httpd_sys_content_t "${path}(/.*)?"
-        restorecon -R "$path" >/dev/null
-    done
-}
-configure_selinux
-
 # Different distros lay out nginx config differently:
 #  - Debian/Ubuntu: site files live in /etc/nginx/sites-available/ and
 #    are activated by symlinking into /etc/nginx/sites-enabled/. The
@@ -187,6 +145,19 @@ else
     SITE=/etc/nginx/conf.d/trinity-collector.conf
     SITE_FD=/etc/nginx/conf.d/trinity-fastdl.conf
     SITE_ENABLED_DIR=
+    # Arch's nginx package ships no conf.d/ and no include for it.
+    install -d -m 0755 /etc/nginx/conf.d
+    if ! grep -qE 'include[[:space:]]+[^;]*conf\.d/' /etc/nginx/nginx.conf 2>/dev/null; then
+        echo "==> patching /etc/nginx/nginx.conf to include conf.d/*.conf"
+        cp -p /etc/nginx/nginx.conf "/etc/nginx/nginx.conf.bak.$(date +%s)"
+        # Last ^} in the file is http{}'s closing brace.
+        last_brace=$(grep -n '^}' /etc/nginx/nginx.conf | tail -1 | cut -d: -f1)
+        if [[ -z "$last_brace" ]]; then
+            echo "ERROR: couldn't find closing http{} brace in /etc/nginx/nginx.conf to patch" >&2
+            exit 1
+        fi
+        sed -i "${last_brace}i\\    include /etc/nginx/conf.d/*.conf;" /etc/nginx/nginx.conf
+    fi
 fi
 
 write_collector_site() {
@@ -377,8 +348,8 @@ if [[ ! -e "$CERT_PATH" ]]; then
 fi
 
 # Enable the auto-renewal timer. Debian's certbot package starts its own
-# (certbot.timer) at install; Fedora/RHEL/Arch install it disabled and
-# the post-install scriptlet just prints "Run 'systemctl start ...'."
+# (certbot.timer) at install; Arch installs it disabled and the
+# post-install scriptlet just prints "Run 'systemctl start ...'."
 # Without this, certs expire silently in 90 days and the collector falls
 # off the hub when its cert dies. We try every known timer name and
 # enable+start whichever exists.

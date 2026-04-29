@@ -37,8 +37,7 @@ func (m Mode) String() string {
 
 // Answers holds everything the wizard collected from the operator. The
 // pure functions in this file convert it to a *config.Config and to
-// the side files (per-server .env, gametype .cfg) the actuator
-// writes.
+// the side files (per-server .env, gametype .cfg) Apply writes.
 type Answers struct {
 	Mode Mode
 
@@ -69,12 +68,26 @@ type Answers struct {
 // ServerAnswers is one q3 server entry (collected per-server in the
 // wizard's loop, also used by `trinity server add`).
 type ServerAnswers struct {
-	Key          string   // q3_servers[].key — short, alnum/underscore/hyphen
-	Gametype     Gametype // selects the cfg template + missionpack flag
-	Address      string   // q3_servers[].address ("host:port")
-	Port         int      // bind port (also embedded in address if collector)
-	RconPassword string   // q3_servers[].rcon_password
-	LogPath      string   // q3_servers[].log_path
+	Key            string   // q3_servers[].key — short, alnum/underscore/hyphen
+	Gametype       Gametype // q3 g_gametype value
+	UseMissionpack bool     // operator picked the (TA) menu variant
+	Address        string   // q3_servers[].address ("host:port")
+	Port           int      // bind port (also embedded in address if collector)
+	RconPassword   string   // q3_servers[].rcon_password
+	LogPath        string   // q3_servers[].log_path
+}
+
+// RunsMissionpack reports whether the server starts with +set fs_game
+// missionpack (TA-only gametypes always do; TDM/CTF only when picked).
+func (s ServerAnswers) RunsMissionpack() bool {
+	return s.UseMissionpack || s.Gametype.IsTeamArenaOnly()
+}
+
+func (s ServerAnswers) ModFolder() string {
+	if s.RunsMissionpack() {
+		return "missionpack"
+	}
+	return "baseq3"
 }
 
 // HasHubFields returns whether the chosen mode runs the hub role
@@ -98,7 +111,7 @@ func (a *Answers) RunsLocalServers() bool {
 	return a.HasCollectorFields()
 }
 
-// Validate runs cheap structural checks before the actuator touches
+// Validate runs cheap structural checks before Apply touches
 // anything. Detailed config validation runs separately via
 // config.validateTracker after the *config.Config has been built.
 func (a *Answers) Validate() error {
@@ -238,7 +251,11 @@ func (a *Answers) ToConfig() *config.Config {
 	return cfg
 }
 
-// validKey is the same shape config.Load enforces for q3_servers[].key.
+// validKey is the same shape config.Load enforces for q3_servers[].key:
+// lowercase alnum + underscore + hyphen, max 64 chars. Uppercase is
+// rejected because filesystem paths and the cfg/rotation filenames are
+// always lowercased — accepting mixed case would let the YAML and the
+// hub identity diverge from what's on disk.
 func validKey(key string) bool {
 	if key == "" || len(key) > 64 {
 		return false
@@ -246,7 +263,6 @@ func validKey(key string) bool {
 	for _, r := range key {
 		switch {
 		case r >= 'a' && r <= 'z':
-		case r >= 'A' && r <= 'Z':
 		case r >= '0' && r <= '9':
 		case r == '_' || r == '-':
 		default:

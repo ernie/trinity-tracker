@@ -10,8 +10,8 @@ import (
 	"strings"
 )
 
-// Plan is the actuator's outbound interface to the host. In real mode
-// it performs the operation; in dry-run mode it prints what it would
+// Plan is Apply's outbound interface to the host. In real mode it
+// performs the operation; in dry-run mode it prints what it would
 // do (prefixed with "[DRY]") and returns nil.
 //
 // Every mutating action (mkdir, write, chown, useradd, systemctl,

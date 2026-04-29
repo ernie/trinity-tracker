@@ -104,8 +104,8 @@ func TestRunWizard_CombinedDefaults(t *testing.T) {
 			"y",         // install engine
 			"",          // quake3 dir → default
 			"y",         // add a server now
-			"",          // server key → ffa (default)
 			"",          // gametype → FFA (default)
+			"",          // server key → ffa (default for FFA)
 			"",          // address → default 127.0.0.1:27960
 			"",          // rcon password → generate
 			"",          // log path → default
@@ -147,6 +147,32 @@ func TestRunWizard_CombinedDefaults(t *testing.T) {
 	}
 }
 
+func TestSuggestKey(t *testing.T) {
+	cases := []struct {
+		name     string
+		g        Gametype
+		useMP    bool
+		existing []ServerAnswers
+		want     string
+	}{
+		{"FFA fresh", GametypeFFA, false, nil, "ffa"},
+		{"TDM fresh", GametypeTDM, false, nil, "tdm"},
+		{"TDM-TA fresh", GametypeTDM, true, nil, "tdm-ta"},
+		{"OneFlag uses 1fctf stem", GametypeOneFlag, true, nil, "1fctf"},
+		{"second FFA gets -2", GametypeFFA, false, []ServerAnswers{{Key: "ffa"}}, "ffa-2"},
+		{"third FFA gets -3", GametypeFFA, false, []ServerAnswers{{Key: "ffa"}, {Key: "ffa-2"}}, "ffa-3"},
+		{"case-insensitive collision", GametypeFFA, false, []ServerAnswers{{Key: "FFA"}}, "ffa-2"},
+		{"TA variant doesn't collide with baseq3", GametypeTDM, true, []ServerAnswers{{Key: "tdm"}}, "tdm-ta"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := suggestKey(tc.g, tc.useMP, tc.existing); got != tc.want {
+				t.Errorf("got %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestRunWizard_CollectorOnly(t *testing.T) {
 	// Default front door: allowHub=false, mode is locked to collector
 	// with no prompt — answers list does NOT include a mode response.
@@ -165,8 +191,8 @@ func TestRunWizard_CollectorOnly(t *testing.T) {
 			"mygame",                 // source ID
 			credsPath,                // creds file (exists)
 			"y",                      // add a server now
-			"ffa",                    // server key
 			"",                       // gametype → FFA (default)
+			"ffa",                    // server key
 			"",                       // address → default q3.example.com:27960
 			"hunter2",                // rcon password (provided, not generated)
 			"",                       // log path → default

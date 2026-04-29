@@ -76,7 +76,7 @@ func TestAnswersValidate_Errors(t *testing.T) {
 		{"bad server key chars", func(a *Answers) { a.Servers[0].Key = "ffa!" }, "alnum"},
 		{"duplicate keys", func(a *Answers) {
 			a.Servers = append(a.Servers, ServerAnswers{
-				Key: "FFA", Gametype: GametypeFFA, Address: "127.0.0.1:27961", Port: 27961, RconPassword: "x", LogPath: "/var/log/quake3/2.log",
+				Key: "ffa", Gametype: GametypeFFA, Address: "127.0.0.1:27961", Port: 27961, RconPassword: "x", LogPath: "/var/log/quake3/2.log",
 			})
 		}, "duplicate key"},
 		{"duplicate ports", func(a *Answers) {
