@@ -118,6 +118,18 @@ if (( ! UPGRADE )); then
 ================================================================
 
 BANNER
+
+    # Read from /dev/tty since stdin is the script itself under curl|bash.
+    if [[ -r /dev/tty ]]; then
+        read -r -p "Proceed with installation? [y/N] " reply </dev/tty || reply=""
+    else
+        echo "ERROR: no controlling tty to confirm — re-run interactively." >&2
+        exit 1
+    fi
+    case "$reply" in
+        [yY]|[yY][eE][sS]) ;;
+        *) echo "Aborted."; exit 0 ;;
+    esac
 fi
 
 echo "==> installing baseline OS packages"
