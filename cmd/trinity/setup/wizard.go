@@ -97,16 +97,12 @@ func promptCommon(p Prompter, a *Answers) error {
 	if a.ServiceUser, err = p.Line("Service user", a.ServiceUser); err != nil {
 		return err
 	}
-	defaultListen := "127.0.0.1"
-	if a.Mode == ModeHubOnly {
-		defaultListen = "0.0.0.0"
-	}
-	if a.ListenAddr, err = p.Line("Listen address (use 0.0.0.0 to expose externally)", defaultListen); err != nil {
-		return err
-	}
-	if a.HTTPPort, err = p.Int("HTTP port", a.HTTPPort, 1, 65535); err != nil {
-		return err
-	}
+	// ListenAddr and HTTPPort are not prompted: collectors auto-install
+	// nginx (which fronts every public path), and even hub mode is
+	// expected to sit behind a reverse proxy. Operators who really
+	// want the Go binary directly on the wire can edit
+	// /etc/trinity/config.yml. Defaults from RunWizard
+	// (127.0.0.1:8080) are kept as-is.
 	return nil
 }
 
@@ -150,14 +146,13 @@ func confirmCollectorPrereqs(p Prompter, out io.Writer) error {
 	fmt.Fprintln(out, "  1. The hub hostname           (e.g. trinity.run)")
 	fmt.Fprintln(out, "  2. A source ID                (approved name from \"My Servers\" on the hub)")
 	fmt.Fprintln(out, "  3. A .creds file              (download from \"My Servers\" after approval)")
-	fmt.Fprintln(out, "  4. A public hostname for       this box, with DNS already pointing here.")
-	fmt.Fprintln(out, "                                 The wizard will install nginx + obtain a")
-	fmt.Fprintln(out, "                                 Let's Encrypt cert (and open the firewall")
-	fmt.Fprintln(out, "                                 ports it needs) automatically — but the")
-	fmt.Fprintln(out, "                                 hostname must resolve to this box BEFORE you")
-	fmt.Fprintln(out, "                                 run the wizard, or the cert fetch will fail.")
-	fmt.Fprintln(out, "  5. An email address           Let's Encrypt registers this against your SSL")
-	fmt.Fprintln(out, "                                 cert and emails here if auto-renewal fails.")
+	fmt.Fprintln(out, "  4. A public hostname          (must already resolve to this box in DNS)")
+	fmt.Fprintln(out, "  5. An email address           (for your Let's Encrypt SSL cert)")
+	fmt.Fprintln(out)
+	fmt.Fprintln(out, "The wizard will install nginx, obtain a Let's Encrypt cert for your hostname,")
+	fmt.Fprintln(out, "and open the firewall ports it needs (80/443/27970/tcp + 27960-28000/udp on")
+	fmt.Fprintln(out, "ufw or firewalld). DNS for the hostname must resolve to this box BEFORE you")
+	fmt.Fprintln(out, "run, or the cert fetch will time out and the wizard will fail mid-apply.")
 	fmt.Fprintln(out)
 	fmt.Fprintln(out, "If your hub has a public web UI, log in there and click \"Add Servers\" — an admin")
 	fmt.Fprintln(out, "will approve your request and the drawer that appears gives you the source ID")

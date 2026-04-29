@@ -99,8 +99,6 @@ func TestRunWizard_CombinedDefaults(t *testing.T) {
 		answers: []string{
 			"1",         // mode → ModeCombined (override the new collector default)
 			"",          // service user → quake
-			"",          // listen addr → 127.0.0.1
-			"",          // http port → 8080
 			"",          // database path → default
 			"",          // static dir → default
 			"y",         // install engine
@@ -158,8 +156,6 @@ func TestRunWizard_CollectorOnly(t *testing.T) {
 		answers: []string{
 			"y",                      // creds prereqs in hand
 			"",                       // service user → quake
-			"",                       // listen addr → 127.0.0.1
-			"",                       // http port → 8080
 			"",                       // install engine? → yes (default)
 			"",                       // quake3 dir → default
 			"trinity.example.com",    // hub host
@@ -254,8 +250,6 @@ func TestRunWizard_LockedCollector_NoModePrompt(t *testing.T) {
 		answers: []string{
 			"y",                   // creds prereqs in hand
 			"",                    // service user
-			"",                    // listen addr
-			"",                    // http port
 			"",                    // install engine
 			"",                    // quake3 dir
 			"trinity.run",         // hub host
@@ -285,12 +279,10 @@ func TestRunWizard_HubOnly_NoServerPrompts(t *testing.T) {
 	p := &scriptedPrompter{
 		t: t,
 		answers: []string{
-			"2",   // mode → ModeHubOnly
-			"",    // service user → quake
-			"",    // listen addr → default 0.0.0.0 for hub-only
-			"",    // http port → 8080
-			"",    // database path → default
-			"",    // static dir → default
+			"2", // mode → ModeHubOnly
+			"",  // service user → quake
+			"",  // database path → default
+			"",  // static dir → default
 		},
 	}
 	var buf bytes.Buffer
@@ -301,8 +293,11 @@ func TestRunWizard_HubOnly_NoServerPrompts(t *testing.T) {
 	if a.Mode != ModeHubOnly {
 		t.Fatalf("mode: %v", a.Mode)
 	}
-	if a.ListenAddr != "0.0.0.0" {
-		t.Errorf("hub-only listen default should be 0.0.0.0, got %q", a.ListenAddr)
+	if a.ListenAddr != "127.0.0.1" {
+		t.Errorf("listen should default to 127.0.0.1 (nginx fronts), got %q", a.ListenAddr)
+	}
+	if a.HTTPPort != 8080 {
+		t.Errorf("http port should default to 8080, got %d", a.HTTPPort)
 	}
 	if len(a.Servers) != 0 {
 		t.Errorf("hub-only should not prompt for servers, got %+v", a.Servers)
