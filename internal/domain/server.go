@@ -22,6 +22,12 @@ type Server struct {
 	HandshakeRequired bool       `json:"handshake_required"`
 	LastMatchUUID     *string    `json:"last_match_uuid,omitempty"`
 	LastMatchEndedAt  *time.Time `json:"last_match_ended_at,omitempty"`
+	// LastHeartbeatAt mirrors sources.last_heartbeat_at, written by
+	// the hub on every collector heartbeat. Drives the "stale" /
+	// "hide" rules in the live-cards endpoint — older than the hide
+	// threshold means the collector isn't checking in and the data
+	// behind the live card is no longer trustworthy.
+	LastHeartbeatAt   *time.Time `json:"last_heartbeat_at,omitempty"`
 	CreatedAt         time.Time  `json:"created_at"`
 }
 
@@ -40,6 +46,10 @@ type ServerStatus struct {
 	BotCount        int               `json:"bot_count"`
 	Online          bool              `json:"online"`
 	LastUpdated     time.Time         `json:"last_updated"`
+	// LastSeenAt is the timestamp of the most recent successful UDP
+	// query. Held even after the server goes offline so the API can
+	// compute "offline duration" from it.
+	LastSeenAt      *time.Time        `json:"last_seen_at,omitempty"`
 	ServerVars      map[string]string `json:"server_vars,omitempty"`
 	TeamScores      *TeamScores       `json:"team_scores,omitempty"`
 	FlagStatus      *FlagStatus       `json:"flag_status,omitempty"`

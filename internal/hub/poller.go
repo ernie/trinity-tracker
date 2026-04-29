@@ -126,6 +126,7 @@ func (p *RemotePoller) pollAll(ctx context.Context) {
 	}
 	for _, r := range servers {
 		status, err := p.querier.QueryStatus(r.Address)
+		now := time.Now().UTC()
 		if err != nil || status == nil {
 			p.mu.Lock()
 			existing, ok := p.statuses[r.ID]
@@ -135,7 +136,9 @@ func (p *RemotePoller) pollAll(ctx context.Context) {
 			}
 			existing.Source = r.Source
 			existing.Online = false
-			existing.LastUpdated = time.Now().UTC()
+			existing.LastUpdated = now
+			// Preserve LastSeenAt — it represents the last successful
+			// UDP query, used to compute offline duration.
 			snapshot := *existing
 			sink := p.sink
 			p.mu.Unlock()
@@ -147,7 +150,9 @@ func (p *RemotePoller) pollAll(ctx context.Context) {
 		status.Source = r.Source
 		status.Address = r.Address
 		status.Online = true
-		status.LastUpdated = time.Now().UTC()
+		status.LastUpdated = now
+		seen := now
+		status.LastSeenAt = &seen
 		status.HumanCount = 0
 		status.BotCount = 0
 		p.enrichPlayers(ctx, r.ID, &status.HumanCount, &status.BotCount, status.Players)

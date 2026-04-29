@@ -60,6 +60,8 @@ export interface Server {
   key: string
   address: string
   active: boolean
+  online?: boolean
+  liveness?: 'live' | 'stale' | 'offline'
 }
 
 export type EventType =

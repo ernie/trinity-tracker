@@ -246,7 +246,30 @@ func cmdServe(args []string) {
 			log.Fatalf("Failed to load publish watermark: %v", err)
 		}
 		collectorWatermark = wm
-		pub, err := natsbus.NewPublisherWithWatermark(collectorNC, collectorSource, wm.Current().LastSeq, wm)
+		rc, err := natsbus.NewRPCClient(collectorNC, collectorSource, 0)
+		if err != nil {
+			log.Fatalf("Failed to build RPC client: %v", err)
+		}
+		collectorRPC = rc
+		// Seed seq from the hub when it leads the local watermark, so
+		// a fresh-install collector doesn't mass-drop against the
+		// prior instance's consumed_seq. Local mode reads the store
+		// directly; remote mode asks the hub via RPC.
+		initialSeq := wm.Current().LastSeq
+		if hasHub && store != nil {
+			if prog, perr := store.GetSourceProgress(ctx, collectorSource); perr == nil && prog.ConsumedSeq > initialSeq {
+				log.Printf("Collector seeding seq from hub: local=%d hub=%d", initialSeq, prog.ConsumedSeq)
+				initialSeq = prog.ConsumedSeq
+			}
+		} else {
+			if reply, perr := rc.GetSourceProgress(ctx, collectorSource); perr == nil && reply.ConsumedSeq > initialSeq {
+				log.Printf("Collector seeding seq from hub: local=%d hub=%d", initialSeq, reply.ConsumedSeq)
+				initialSeq = reply.ConsumedSeq
+			} else if perr != nil {
+				log.Printf("Collector seq seed: hub.GetSourceProgress failed (%v); using local watermark seq=%d", perr, initialSeq)
+			}
+		}
+		pub, err := natsbus.NewPublisherWithWatermark(collectorNC, collectorSource, initialSeq, wm)
 		if err != nil {
 			log.Fatalf("Failed to build fact-event publisher: %v", err)
 		}
@@ -258,12 +281,7 @@ func cmdServe(args []string) {
 		bufPub := natsbus.NewBufferedPublisher(pub, natsbus.BufferedCapacity, spill)
 		bufPub.Start(ctx)
 		bufferedPublisher = bufPub
-		rc, err := natsbus.NewRPCClient(collectorNC, collectorSource, 0)
-		if err != nil {
-			log.Fatalf("Failed to build RPC client: %v", err)
-		}
-		collectorRPC = rc
-		log.Printf("Collector publishing as source=%s (last_seq=%d)", collectorSource, wm.Current().LastSeq)
+		log.Printf("Collector publishing as source=%s (last_seq=%d)", collectorSource, initialSeq)
 
 		// Only tee live events onto NATS when no local hub is co-located
 		// (otherwise manager.Events() → wsHub would double up).

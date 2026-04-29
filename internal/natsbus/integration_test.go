@@ -227,7 +227,8 @@ func TestTwoProcessMatchLifecycle(t *testing.T) {
 	deadline := time.Now().Add(3 * time.Second)
 	var consumed uint64
 	for time.Now().Before(deadline) {
-		consumed, _ = store.GetConsumedSeq(ctx, source)
+		prog, _ := store.GetSourceProgress(ctx, source)
+		consumed = prog.ConsumedSeq
 		if consumed >= 4 {
 			break
 		}

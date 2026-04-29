@@ -193,12 +193,19 @@ CREATE INDEX IF NOT EXISTS idx_link_codes_expires_at ON link_codes(expires_at);
 
 -- Distributed tracking: hub bookkeeping for sources/collectors.
 
--- Per-source event sequence watermark. Primary dedup mechanism against
--- JetStream redelivery; complement to the stream's Msg-Id dedup window.
+-- Per-source event watermark. Tuple of (last_consumed_ts, consumed_seq)
+-- defines forward progress: a re-published event is identified by a
+-- timestamp older than last_consumed_ts (history; drop), the same
+-- timestamp with seq <= consumed_seq (JetStream redelivery; drop), or
+-- something newer (accept and advance both fields). Time-anchored
+-- because seq alone resets to 1 on a fresh-install collector and would
+-- otherwise mass-drop the new collector's events against a stale
+-- consumed_seq from the prior instance.
 CREATE TABLE IF NOT EXISTS source_progress (
-    source       TEXT PRIMARY KEY,
-    consumed_seq INTEGER NOT NULL DEFAULT 0,
-    updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    source           TEXT PRIMARY KEY,
+    consumed_seq     INTEGER NOT NULL DEFAULT 0,
+    last_consumed_ts TIMESTAMP NOT NULL DEFAULT '1970-01-01T00:00:00Z',
+    updated_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Sources known to the hub. Admin pre-provisions every collector here

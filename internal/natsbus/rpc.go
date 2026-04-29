@@ -26,6 +26,7 @@ const (
 	subjectIdentityUpsertPrefix = "trinity.rpc.identity.upsert."
 	subjectIdentityUpsertBot    = "trinity.rpc.identity.upsert_bot."
 	subjectIdentityLookupPrefix = "trinity.rpc.identity.lookup."
+	subjectSourceProgressPrefix = "trinity.rpc.source.progress."
 )
 
 // RPCClient issues NATS req/reply on trinity.rpc.<kind>.<source>.
@@ -121,6 +122,21 @@ func (c *RPCClient) LookupPlayerIdentity(ctx context.Context, guid string) (hub.
 		return hub.PlayerIdentity{}, fmt.Errorf("hub.LookupPlayerIdentity: %s", reply.Error)
 	}
 	return reply.Identity, nil
+}
+
+func (c *RPCClient) GetSourceProgress(ctx context.Context, source string) (hub.SourceProgressReply, error) {
+	if source == "" {
+		source = c.source
+	}
+	req := hub.SourceProgressRequest{Source: source}
+	var reply hub.SourceProgressReply
+	if err := c.request(ctx, subjectSourceProgressPrefix+c.source, req, &reply); err != nil {
+		return hub.SourceProgressReply{}, err
+	}
+	if reply.Error != "" {
+		return hub.SourceProgressReply{}, fmt.Errorf("hub.GetSourceProgress: %s", reply.Error)
+	}
+	return reply, nil
 }
 
 func (c *RPCClient) request(ctx context.Context, subject string, req, reply interface{}) error {
@@ -281,6 +297,22 @@ func RegisterRPCHandlers(nc *nats.Conn, h RPCHandlers) (*RPCServer, error) {
 		}
 		id, err := h.LookupPlayerIdentity(context.Background(), req.GUID)
 		reply := hub.IdentityReply{Identity: id}
+		if err != nil {
+			reply.Error = err.Error()
+		}
+		respond(m, reply)
+	}); err != nil {
+		s.Stop()
+		return nil, err
+	}
+
+	if err := subscribe("trinity.rpc.source.progress.>", func(m *nats.Msg) {
+		var req hub.SourceProgressRequest
+		if err := json.Unmarshal(m.Data, &req); err != nil {
+			log.Printf("natsbus.RPC source.progress: bad request: %v", err)
+			return
+		}
+		reply, err := h.GetSourceProgress(context.Background(), req.Source)
 		if err != nil {
 			reply.Error = err.Error()
 		}

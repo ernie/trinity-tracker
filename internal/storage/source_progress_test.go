@@ -4,6 +4,7 @@ import (
 	"context"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func newTestStore(t *testing.T) *Store {
@@ -17,49 +18,70 @@ func newTestStore(t *testing.T) *Store {
 	return s
 }
 
-func TestGetConsumedSeqMissingReturnsZero(t *testing.T) {
+func TestGetSourceProgressMissingReturnsZero(t *testing.T) {
 	s := newTestStore(t)
-	seq, err := s.GetConsumedSeq(context.Background(), "unknown-source")
+	prog, err := s.GetSourceProgress(context.Background(), "unknown-source")
 	if err != nil {
-		t.Fatalf("GetConsumedSeq: %v", err)
+		t.Fatalf("GetSourceProgress: %v", err)
 	}
-	if seq != 0 {
-		t.Errorf("missing source seq = %d, want 0", seq)
+	if prog.ConsumedSeq != 0 {
+		t.Errorf("missing source seq = %d, want 0", prog.ConsumedSeq)
 	}
-}
-
-func TestAdvanceConsumedSeqInsertsThenUpdates(t *testing.T) {
-	s := newTestStore(t)
-	ctx := context.Background()
-	uuid := "abc-123"
-
-	if err := s.AdvanceConsumedSeq(ctx, uuid, 5); err != nil {
-		t.Fatalf("advance to 5: %v", err)
-	}
-	if seq, _ := s.GetConsumedSeq(ctx, uuid); seq != 5 {
-		t.Errorf("after insert seq = %d, want 5", seq)
-	}
-
-	if err := s.AdvanceConsumedSeq(ctx, uuid, 10); err != nil {
-		t.Fatalf("advance to 10: %v", err)
-	}
-	if seq, _ := s.GetConsumedSeq(ctx, uuid); seq != 10 {
-		t.Errorf("after advance seq = %d, want 10", seq)
+	if !prog.LastConsumedTS.IsZero() {
+		t.Errorf("missing source ts = %v, want zero", prog.LastConsumedTS)
 	}
 }
 
-func TestAdvanceConsumedSeqMonotonic(t *testing.T) {
+func TestAdvanceSourceProgressInsertsThenUpdates(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
-	uuid := "abc-123"
+	source := "abc-123"
+	t1 := time.Date(2026, 4, 29, 14, 0, 0, 0, time.UTC)
+	t2 := time.Date(2026, 4, 29, 14, 5, 0, 0, time.UTC)
 
-	if err := s.AdvanceConsumedSeq(ctx, uuid, 100); err != nil {
-		t.Fatalf("advance to 100: %v", err)
+	if err := s.AdvanceSourceProgress(ctx, source, 5, t1); err != nil {
+		t.Fatalf("advance to (5, %v): %v", t1, err)
 	}
-	if err := s.AdvanceConsumedSeq(ctx, uuid, 50); err != nil {
-		t.Fatalf("advance to 50 (should be no-op, not error): %v", err)
+	prog, _ := s.GetSourceProgress(ctx, source)
+	if prog.ConsumedSeq != 5 || !prog.LastConsumedTS.Equal(t1) {
+		t.Errorf("after insert prog = (%d, %v), want (5, %v)", prog.ConsumedSeq, prog.LastConsumedTS, t1)
 	}
-	if seq, _ := s.GetConsumedSeq(ctx, uuid); seq != 100 {
-		t.Errorf("after regression attempt seq = %d, want 100 (held)", seq)
+
+	if err := s.AdvanceSourceProgress(ctx, source, 10, t2); err != nil {
+		t.Fatalf("advance to (10, %v): %v", t2, err)
+	}
+	prog, _ = s.GetSourceProgress(ctx, source)
+	if prog.ConsumedSeq != 10 || !prog.LastConsumedTS.Equal(t2) {
+		t.Errorf("after advance prog = (%d, %v), want (10, %v)", prog.ConsumedSeq, prog.LastConsumedTS, t2)
+	}
+}
+
+func TestAdvanceSourceProgressMonotonicOnSeq(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	source := "abc-123"
+	tNow := time.Date(2026, 4, 29, 14, 30, 0, 0, time.UTC)
+	tOlder := time.Date(2026, 4, 29, 14, 0, 0, 0, time.UTC)
+
+	if err := s.AdvanceSourceProgress(ctx, source, 100, tNow); err != nil {
+		t.Fatalf("advance to (100, %v): %v", tNow, err)
+	}
+	// Lower seq must not regress, regardless of TS.
+	if err := s.AdvanceSourceProgress(ctx, source, 50, tNow); err != nil {
+		t.Fatalf("advance to lower seq should be no-op: %v", err)
+	}
+	prog, _ := s.GetSourceProgress(ctx, source)
+	if prog.ConsumedSeq != 100 || !prog.LastConsumedTS.Equal(tNow) {
+		t.Errorf("after regression attempt prog = (%d, %v), want (100, %v)", prog.ConsumedSeq, prog.LastConsumedTS, tNow)
+	}
+
+	// Higher seq advances even with an older TS — q3 log timestamps
+	// aren't strictly monotonic at second resolution.
+	if err := s.AdvanceSourceProgress(ctx, source, 101, tOlder); err != nil {
+		t.Fatalf("advance to (101, tOlder): %v", err)
+	}
+	prog, _ = s.GetSourceProgress(ctx, source)
+	if prog.ConsumedSeq != 101 || !prog.LastConsumedTS.Equal(tOlder) {
+		t.Errorf("after older-TS advance prog = (%d, %v), want (101, %v)", prog.ConsumedSeq, prog.LastConsumedTS, tOlder)
 	}
 }

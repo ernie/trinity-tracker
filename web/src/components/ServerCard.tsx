@@ -12,6 +12,7 @@ interface ServerCardProps {
   isSelected?: boolean
   onSelect?: () => void
   onPlayerClick?: (playerName: string, cleanName: string, playerId?: number) => void
+  liveness?: 'live' | 'stale' | 'offline'
 }
 
 // Check if this is a team-based game mode
@@ -200,7 +201,7 @@ export function ModeIcons({ movement, gameplay }: { movement?: string, gameplay?
   )
 }
 
-export function ServerCard({ server, newPlayers, isSelected, onSelect, onPlayerClick }: ServerCardProps) {
+export function ServerCard({ server, newPlayers, isSelected, onSelect, onPlayerClick, liveness }: ServerCardProps) {
   const { hasMultiple: hasMultipleSources } = useSources()
   const humans = server.players?.filter(p => !p.is_bot) ?? []
   const bots = server.players?.filter(p => p.is_bot) ?? []
@@ -212,10 +213,17 @@ export function ServerCard({ server, newPlayers, isSelected, onSelect, onPlayerC
   const { gameTimeMs, warmupRemaining } = useInterpolatedTime(server, timeLimit)
   const interpolatedServer = { ...server, game_time_ms: gameTimeMs, warmup_remaining: warmupRemaining }
   const displayTime = getDisplayTime(interpolatedServer, timeLimit)
-  // Determine state class and label for top-right badge
+  // Determine state class and label for top-right badge.
+  // Liveness from /api/servers wins over match_state when degraded — a
+  // stale collector or UDP-unreachable server should signal that
+  // first, since match-state values like "active" become misleading
+  // when the data behind them is no longer fresh.
   const getStateBadge = (): { className: string; label: string } => {
-    if (!server.online) {
+    if (liveness === 'offline' || !server.online) {
       return { className: 'state-offline', label: 'Offline' }
+    }
+    if (liveness === 'stale') {
+      return { className: 'state-stale', label: 'Stale' }
     }
     switch (server.match_state) {
       case 'overtime':

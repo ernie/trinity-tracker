@@ -456,3 +456,16 @@ rather grandfather currently-enforcing servers, run
 The self-service onboarding columns + `source_audit` table arrived
 together; the corresponding ALTER block is in the matching commit
 message and follows the same "operator runs it pre-deploy" pattern.
+
+The `last_consumed_ts` column on `source_progress` (advanced as
+forward-progress telemetry; envelope dedup is seq-only):
+
+```sql
+ALTER TABLE source_progress ADD COLUMN last_consumed_ts TIMESTAMP NOT NULL DEFAULT '1970-01-01T00:00:00Z';
+```
+
+The fresh-install case (collector watermark wiped, hub still holds
+the prior instance's `consumed_seq`) is handled by seeding the new
+publisher's initial seq from the hub on startup — local mode reads
+`source_progress` directly; remote collectors call the
+`SourceProgress` RPC.

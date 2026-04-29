@@ -402,6 +402,11 @@ h2 {
   color: var(--text-dim);
 }
 
+.server-state-badge.state-stale {
+  background: rgba(234, 179, 8, 0.18);
+  color: #facc15;
+}
+
 .server-header {
   display: flex;
   justify-content: space-between;

@@ -302,6 +302,8 @@ func addSourcePermissions(uc *jwt.UserClaims, sourceID string) {
 		"trinity.rpc.identity.upsert_bot."+sourceID,
 		"trinity.rpc.identity.lookup."+sourceID+".>",
 		"trinity.rpc.identity.lookup."+sourceID,
+		"trinity.rpc.source.progress."+sourceID+".>",
+		"trinity.rpc.source.progress."+sourceID,
 	)
 	uc.Permissions.Sub.Allow.Add(InboxPrefixFor(sourceID) + ".>")
 }

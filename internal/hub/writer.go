@@ -609,6 +609,17 @@ func (w *Writer) LookupPlayerIdentity(ctx context.Context, guid string) (PlayerI
 	}, nil
 }
 
+func (w *Writer) GetSourceProgress(ctx context.Context, source string) (SourceProgressReply, error) {
+	prog, err := w.store.GetSourceProgress(ctx, source)
+	if err != nil {
+		return SourceProgressReply{}, err
+	}
+	return SourceProgressReply{
+		ConsumedSeq:    prog.ConsumedSeq,
+		LastConsumedTS: prog.LastConsumedTS,
+	}, nil
+}
+
 // Greet resolves identity, optionally verifies Trinity auth credentials
 // via SipHash, and auto-associates the GUID with the user's player on
 // successful auth.

@@ -49,6 +49,18 @@ function cleanQ3Name(name: string): string {
 function App() {
   const { hasMultiple: hasMultipleSources } = useSources();
   const [servers, setServers] = useState<Map<number, ServerStatus>>(new Map());
+  // liveness mirrors /api/servers' "liveness" per-server. Re-fetched
+  // on the same cadence as the server list so stale/offline chips
+  // appear without a page reload, and so cards disappear when the
+  // server falls off the API's live list.
+  const [liveness, setLiveness] = useState<Map<number, 'live' | 'stale' | 'offline'>>(new Map());
+  // visibleServerIdsRef gates WebSocket server_update events:
+  // RemotePoller keeps polling every active+handshake server (it
+  // doesn't know about liveness), so a hidden server's update would
+  // otherwise re-add it to the map immediately after the prune. null
+  // sentinel = "list not fetched yet"; allow updates through until
+  // the first /api/servers response lands.
+  const visibleServerIdsRef = useRef<Set<number> | null>(null);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [newPlayers, setNewPlayers] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -159,6 +171,12 @@ function App() {
     (event: WSEvent) => {
       switch (event.event) {
         case "server_update": {
+          if (
+            visibleServerIdsRef.current !== null &&
+            !visibleServerIdsRef.current.has(event.server_id)
+          ) {
+            break;
+          }
           const status = event.data as ServerStatus;
           setServers((prev) => new Map(prev).set(event.server_id, status));
           break;
@@ -535,41 +553,73 @@ function App() {
 
   const { isConnected } = useWebSocket(wsUrl, handleEvent);
 
-  // Fetch initial server data
+  // Fetch server list periodically. /api/servers carries liveness +
+  // an implicit visibility filter (servers fall off when the
+  // collector source stops checking in or UDP has been unreachable
+  // long enough), so refreshing it on a timer keeps the live cards
+  // honest without a page reload.
   useEffect(() => {
-    async function fetchServers() {
+    let cancelled = false;
+    async function fetchServers(initial: boolean) {
       try {
         const res = await fetch("/api/servers");
         const serverList: Server[] = await res.json();
+        if (cancelled) return;
 
-        const statusMap = new Map<number, ServerStatus>();
+        const livenessMap = new Map<number, 'live' | 'stale' | 'offline'>();
+        const visibleIds = new Set<number>();
+        serverList.forEach((s) => {
+          if (s.liveness) livenessMap.set(s.id, s.liveness);
+          visibleIds.add(s.id);
+        });
+        setLiveness(livenessMap);
+        visibleServerIdsRef.current = visibleIds;
 
-        await Promise.all(
-          serverList.map(async (server) => {
-            try {
-              const statusRes = await fetch(`/api/servers/${server.id}/status`);
-              if (statusRes.ok) {
-                const status: ServerStatus = await statusRes.json();
-                statusMap.set(server.id, status);
+        if (initial) {
+          const statusMap = new Map<number, ServerStatus>();
+          await Promise.all(
+            serverList.map(async (server) => {
+              try {
+                const statusRes = await fetch(`/api/servers/${server.id}/status`);
+                if (statusRes.ok) {
+                  const status: ServerStatus = await statusRes.json();
+                  statusMap.set(server.id, status);
+                }
+              } catch (e) {
+                console.error(
+                  `Failed to fetch status for server ${server.id}:`,
+                  e,
+                );
               }
-            } catch (e) {
-              console.error(
-                `Failed to fetch status for server ${server.id}:`,
-                e,
-              );
-            }
-          }),
-        );
-
-        setServers(statusMap);
+            }),
+          );
+          if (cancelled) return;
+          setServers(statusMap);
+        } else {
+          // Subsequent polls: prune any cached statuses for servers
+          // that just dropped off the visible list. Statuses for
+          // still-visible servers keep flowing in via WebSocket.
+          setServers((prev) => {
+            const next = new Map<number, ServerStatus>();
+            prev.forEach((status, id) => {
+              if (visibleIds.has(id)) next.set(id, status);
+            });
+            return next;
+          });
+        }
       } catch (e) {
         console.error("Failed to fetch servers:", e);
       } finally {
-        setLoading(false);
+        if (initial && !cancelled) setLoading(false);
       }
     }
 
-    fetchServers();
+    fetchServers(true);
+    const interval = setInterval(() => fetchServers(false), 30000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, []);
 
   // Handle server selection
@@ -673,6 +723,7 @@ function App() {
                       : undefined
                   }
                   onPlayerClick={handlePlayerClick}
+                  liveness={liveness.get(server.server_id)}
                 />
               ))
             ) : (

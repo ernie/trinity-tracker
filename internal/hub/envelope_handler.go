@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/ernie/trinity-tracker/internal/domain"
 )
@@ -13,6 +14,17 @@ import (
 // source_progress.consumed_seq, resolves RemoteServerID via
 // (source, local_id), decodes the payload, dispatches, and
 // advances consumed_seq.
+//
+// Dedup is seq-only. The fresh-install case (collector watermark
+// gone but the hub holds a stale consumed_seq from the prior
+// instance) is handled by seeding the new publisher's initial seq
+// from the hub, not by time-anchoring this check — q3 log
+// timestamps aren't strictly monotonic at second resolution, so a
+// time-based drop rule will mistakenly silence live events that
+// happen to land in the same second as a slightly-newer envelope.
+//
+// last_consumed_ts is still advanced as telemetry/forward-progress
+// info; nothing in the drop path consults it.
 func (w *Writer) HandleEnvelope(ctx context.Context, env domain.Envelope) error {
 	if env.Source == "" {
 		return fmt.Errorf("hub: envelope missing source (event=%s seq=%d)", env.Event, env.Seq)
@@ -34,11 +46,11 @@ func (w *Writer) HandleEnvelope(ctx context.Context, env domain.Envelope) error 
 		return nil
 	}
 
-	prev, err := w.store.GetConsumedSeq(ctx, env.Source)
+	prog, err := w.store.GetSourceProgress(ctx, env.Source)
 	if err != nil {
 		return err
 	}
-	if env.Seq <= prev {
+	if env.Seq <= prog.ConsumedSeq {
 		return nil
 	}
 
@@ -59,7 +71,7 @@ func (w *Writer) HandleEnvelope(ctx context.Context, env domain.Envelope) error 
 		Data:      payload,
 	})
 
-	return w.store.AdvanceConsumedSeq(ctx, env.Source, env.Seq)
+	return w.store.AdvanceSourceProgress(ctx, env.Source, env.Seq, env.Timestamp.Truncate(time.Second).UTC())
 }
 
 func decodeEventPayload(event string, raw json.RawMessage) (interface{}, error) {

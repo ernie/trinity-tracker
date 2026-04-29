@@ -29,22 +29,76 @@ func parseID(req *http.Request, param string) (int64, error) {
 	return strconv.ParseInt(idStr, 10, 64)
 }
 
+// Liveness thresholds for the live-cards endpoint.
+//
+// stalenessThreshold: a card with collector heartbeat older than this
+// is rendered with a "stale" chip; the card still shows.
+//
+// hideThreshold: a card whose collector hasn't heartbeated OR whose
+// last UDP success is older than this disappears from the response.
+// The thresholds are intentionally distinct so a brief blip surfaces
+// as a chip rather than a vanish.
+const (
+	livenessStalenessThreshold = 60 * time.Second
+	livenessHideThreshold      = 5 * time.Minute
+)
+
+// liveServer is the live-cards payload: a server row plus the
+// hub-derived liveness signal so the UI can render a "stale" or
+// "offline" chip on the card itself.
+type liveServer struct {
+	domain.Server
+	Online    bool   `json:"online"`
+	Liveness  string `json:"liveness"` // "live" | "stale" | "offline"
+}
+
 // handleGetServers returns servers the hub has observed enforcing
-// g_trinityHandshake. Unproven servers are omitted so the UI doesn't
-// surface cards for servers whose data we don't trust.
+// g_trinityHandshake AND that are currently checking in. Servers go
+// missing from this list when the collector source has stopped
+// heartbeating OR the q3 server has been UDP-unreachable for the
+// hide threshold — operators see them disappear instead of stuck on
+// stale data.
 func (r *Router) handleGetServers(w http.ResponseWriter, req *http.Request) {
 	servers, err := r.store.GetServers(req.Context())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	filtered := servers[:0]
+	now := time.Now().UTC()
+	out := make([]liveServer, 0, len(servers))
 	for _, s := range servers {
-		if s.HandshakeRequired {
-			filtered = append(filtered, s)
+		if !s.HandshakeRequired {
+			continue
 		}
+		// Heartbeat staleness.
+		heartbeatAge := livenessHideThreshold + time.Second
+		if s.LastHeartbeatAt != nil {
+			heartbeatAge = now.Sub(*s.LastHeartbeatAt)
+		}
+		// UDP staleness — inferred from the poller's in-memory status.
+		// status==nil happens before the first poll completes.
+		status := r.lookupServerStatus(s.ID)
+		online := false
+		udpAge := livenessHideThreshold + time.Second
+		if status != nil {
+			online = status.Online
+			if status.LastSeenAt != nil {
+				udpAge = now.Sub(*status.LastSeenAt)
+			}
+		}
+		if heartbeatAge > livenessHideThreshold || udpAge > livenessHideThreshold {
+			continue
+		}
+		liveness := "live"
+		switch {
+		case !online:
+			liveness = "offline"
+		case heartbeatAge > livenessStalenessThreshold:
+			liveness = "stale"
+		}
+		out = append(out, liveServer{Server: s, Online: online, Liveness: liveness})
 	}
-	writeJSON(w, http.StatusOK, filtered)
+	writeJSON(w, http.StatusOK, out)
 }
 
 // handleGetServer returns a single server

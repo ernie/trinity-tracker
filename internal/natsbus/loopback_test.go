@@ -122,17 +122,17 @@ func TestLoopbackEventRoundTrip(t *testing.T) {
 	// Wait up to 3s for consumed_seq to advance.
 	deadline := time.Now().Add(3 * time.Second)
 	for time.Now().Before(deadline) {
-		seq, err := store.GetConsumedSeq(ctx, source)
+		prog, err := store.GetSourceProgress(ctx, source)
 		if err != nil {
-			t.Fatalf("GetConsumedSeq: %v", err)
+			t.Fatalf("GetSourceProgress: %v", err)
 		}
-		if seq == 1 {
+		if prog.ConsumedSeq == 1 {
 			break
 		}
 		time.Sleep(25 * time.Millisecond)
 	}
-	if seq, _ := store.GetConsumedSeq(ctx, source); seq != 1 {
-		t.Fatalf("consumed_seq = %d, want 1 (subscriber did not process)", seq)
+	if prog, _ := store.GetSourceProgress(ctx, source); prog.ConsumedSeq != 1 {
+		t.Fatalf("consumed_seq = %d, want 1 (subscriber did not process)", prog.ConsumedSeq)
 	}
 
 	// Verify the match landed in the DB.
@@ -172,7 +172,7 @@ func TestLoopbackEventRoundTrip(t *testing.T) {
 		t.Fatalf("second publish: %v", err)
 	}
 	time.Sleep(200 * time.Millisecond)
-	if seq, _ := store.GetConsumedSeq(ctx, source); seq != 2 {
-		t.Errorf("consumed_seq after second publish = %d, want 2", seq)
+	if prog, _ := store.GetSourceProgress(ctx, source); prog.ConsumedSeq != 2 {
+		t.Errorf("consumed_seq after second publish = %d, want 2", prog.ConsumedSeq)
 	}
 }

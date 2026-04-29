@@ -94,7 +94,7 @@ func (s *Store) UpsertServer(ctx context.Context, source string, srv *domain.Ser
 // GetServers returns all servers
 func (s *Store) GetServers(ctx context.Context) ([]domain.Server, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, source, key, address, active, handshake_required, last_match_uuid, last_match_ended_at, created_at FROM servers ORDER BY id
+		SELECT id, source, key, address, active, handshake_required, last_match_uuid, last_match_ended_at, last_heartbeat_at, created_at FROM servers ORDER BY id
 	`)
 	if err != nil {
 		return nil, err
@@ -106,7 +106,8 @@ func (s *Store) GetServers(ctx context.Context) ([]domain.Server, error) {
 		var srv domain.Server
 		var lastMatchUUID sql.NullString
 		var lastMatchEndedAt sql.NullTime
-		if err := rows.Scan(&srv.ID, &srv.Source, &srv.Key, &srv.Address, &srv.Active, &srv.HandshakeRequired, &lastMatchUUID, &lastMatchEndedAt, &srv.CreatedAt); err != nil {
+		var lastHeartbeatAt sql.NullTime
+		if err := rows.Scan(&srv.ID, &srv.Source, &srv.Key, &srv.Address, &srv.Active, &srv.HandshakeRequired, &lastMatchUUID, &lastMatchEndedAt, &lastHeartbeatAt, &srv.CreatedAt); err != nil {
 			return nil, err
 		}
 		if lastMatchUUID.Valid {
@@ -114,6 +115,9 @@ func (s *Store) GetServers(ctx context.Context) ([]domain.Server, error) {
 		}
 		if lastMatchEndedAt.Valid {
 			srv.LastMatchEndedAt = &lastMatchEndedAt.Time
+		}
+		if lastHeartbeatAt.Valid {
+			srv.LastHeartbeatAt = &lastHeartbeatAt.Time
 		}
 		servers = append(servers, srv)
 	}
@@ -125,9 +129,10 @@ func (s *Store) GetServerByID(ctx context.Context, id int64) (*domain.Server, er
 	var srv domain.Server
 	var lastMatchUUID sql.NullString
 	var lastMatchEndedAt sql.NullTime
+	var lastHeartbeatAt sql.NullTime
 	err := s.db.QueryRowContext(ctx, `
-		SELECT id, source, key, address, active, handshake_required, last_match_uuid, last_match_ended_at, created_at FROM servers WHERE id = ?
-	`, id).Scan(&srv.ID, &srv.Source, &srv.Key, &srv.Address, &srv.Active, &srv.HandshakeRequired, &lastMatchUUID, &lastMatchEndedAt, &srv.CreatedAt)
+		SELECT id, source, key, address, active, handshake_required, last_match_uuid, last_match_ended_at, last_heartbeat_at, created_at FROM servers WHERE id = ?
+	`, id).Scan(&srv.ID, &srv.Source, &srv.Key, &srv.Address, &srv.Active, &srv.HandshakeRequired, &lastMatchUUID, &lastMatchEndedAt, &lastHeartbeatAt, &srv.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -136,6 +141,9 @@ func (s *Store) GetServerByID(ctx context.Context, id int64) (*domain.Server, er
 	}
 	if lastMatchEndedAt.Valid {
 		srv.LastMatchEndedAt = &lastMatchEndedAt.Time
+	}
+	if lastHeartbeatAt.Valid {
+		srv.LastHeartbeatAt = &lastHeartbeatAt.Time
 	}
 	return &srv, nil
 }

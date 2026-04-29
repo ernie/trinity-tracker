@@ -14,6 +14,21 @@ type ServerClient interface {
 	UpsertPlayerIdentity(ctx context.Context, guid, name, cleanName string, ts time.Time, isVR bool) (PlayerIdentity, error)
 	UpsertBotPlayerIdentity(ctx context.Context, name, cleanName string, ts time.Time) (PlayerIdentity, error)
 	LookupPlayerIdentity(ctx context.Context, guid string) (PlayerIdentity, error)
+
+	// GetSourceProgress reports the hub's per-source dedup watermark
+	// so a fresh-install collector can seed its publisher seq above
+	// the prior instance's stored consumed_seq.
+	GetSourceProgress(ctx context.Context, source string) (SourceProgressReply, error)
+}
+
+type SourceProgressRequest struct {
+	Source string `json:"source"`
+}
+
+type SourceProgressReply struct {
+	ConsumedSeq    uint64    `json:"consumed_seq"`
+	LastConsumedTS time.Time `json:"last_consumed_ts"`
+	Error          string    `json:"error,omitempty"`
 }
 
 // RegisterServerRequest / Reply carry the RegisterServer RPC payload.

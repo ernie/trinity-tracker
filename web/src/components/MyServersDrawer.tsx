@@ -246,15 +246,21 @@ function SourceCard({ src, onUpdated }: SourceCardProps) {
       {error && <div className="error-message">{error}</div>}
 
       <ul className="source-card-server-list">
-        {(src.servers ?? []).map((s) => (
-          <li key={s.key} className={s.active ? '' : 'inactive'}>
-            <span className="server-key">{s.key}</span>
-            <span className="server-addr">{s.address}</span>
-            <span className={`server-state ${s.active ? 'running' : 'idle'}`}>
-              {s.active ? '● running' : '○ idle'}
-            </span>
-          </li>
-        ))}
+        {(src.servers ?? []).map((s) => {
+          // active means "in the source's registered roster" — it
+          // doesn't track real-time liveness. If the source isn't
+          // heartbeating we can't claim a server is running.
+          const live = s.active && health === 'green'
+          return (
+            <li key={s.key} className={live ? '' : 'inactive'}>
+              <span className="server-key">{s.key}</span>
+              <span className="server-addr">{s.address}</span>
+              <span className={`server-state ${live ? 'running' : 'idle'}`}>
+                {live ? '● running' : '○ idle'}
+              </span>
+            </li>
+          )
+        })}
         {(src.servers ?? []).length === 0 && (
           <li className="muted">
             No servers registered yet. Start your collector to register its
