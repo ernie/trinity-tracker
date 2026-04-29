@@ -191,7 +191,9 @@ func (a *Answers) ToConfig() *config.Config {
 		},
 	}
 	if a.HasHubFields() {
-		cfg.Database.Path = a.DatabasePath
+		cfg.Database = &config.DatabaseConfig{Path: a.DatabasePath}
+		// AuthConfig is materialized by config.Load with the 24h default
+		// once the YAML is round-tripped — no need to set it here.
 	}
 	// static_dir is also useful for collectors: trinity levelshots and
 	// trinity demobake write into {static_dir}/assets and {static_dir}/pk3s,

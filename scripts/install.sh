@@ -26,28 +26,38 @@ set -euo pipefail
 
 usage() {
     cat <<'EOF'
-Usage: sudo ./scripts/install.sh [--from-source] [--release-tag VERSION]
+Usage: sudo ./scripts/install.sh [--from-source] [--release-tag VERSION] [--upgrade]
 
 Options:
   --from-source            build trinity from this checkout instead of fetching a release
                            (only valid when running from a git checkout, not via curl|bash)
   --release-tag VERSION    pin a trinity-tracker release tag (default: latest)
+  --upgrade                replace the binary on an existing install and restart
+                           trinity.service. Skips the wizard. Requires /etc/trinity/config.yml.
   -h, --help               show this help
 EOF
 }
 
 FROM_SOURCE=0
+UPGRADE=0
 RELEASE_TAG="latest"
 TRACKER_REPO="ernie/trinity-tracker"
 
 while (( $# )); do
     case "$1" in
         --from-source)        FROM_SOURCE=1; shift ;;
+        --upgrade)            UPGRADE=1; shift ;;
         --release-tag)        RELEASE_TAG="$2"; shift 2 ;;
         -h|--help)            usage; exit 0 ;;
         *) echo "Unknown option: $1" >&2; usage >&2; exit 1 ;;
     esac
 done
+
+if (( UPGRADE )) && [[ ! -f /etc/trinity/config.yml ]]; then
+    echo "ERROR: --upgrade needs an existing install — /etc/trinity/config.yml not found." >&2
+    echo "       Drop --upgrade to do a fresh install." >&2
+    exit 1
+fi
 
 if [[ $EUID -ne 0 ]]; then
     echo "This script needs root to install packages and write to /usr/local/bin." >&2
@@ -127,8 +137,8 @@ if (( FROM_SOURCE )); then
     ( cd "$SRC_DIR" && \
         GOPATH="$STAGE/go" GOCACHE="$STAGE/go-cache" \
         "$GO_BIN" build -ldflags "-X main.version=installer-$(date -u +%Y%m%d)" \
-        -o /usr/local/bin/trinity ./cmd/trinity )
-    # Drop the Go build caches now — only the web/ subdir gets handed to init.
+        -o "$STAGE/trinity" ./cmd/trinity )
+    # Drop the Go build caches now — only trinity + the web/ subdir live on.
     rm -rf "$STAGE/go" "$STAGE/go-cache"
     if [[ -d "$SRC_DIR/web/dist" ]]; then
         cp -r "$SRC_DIR/web/dist" "$STAGE/web"
@@ -181,8 +191,39 @@ else
     # always exactly one directory.
     tar -C "$STAGE" -xzf "$STAGE/$asset" --strip-components=1
     rm -f "$STAGE/$asset"
-    install -m 0755 "$STAGE/trinity" /usr/local/bin/trinity
-    rm -f "$STAGE/trinity"
+fi
+
+# Both paths now have $STAGE/trinity ready to install. For upgrades
+# we have to stop trinity.service first (the running binary holds the
+# inode and `install` would fail with "text file busy"). Fresh installs
+# obviously have no service to stop.
+if (( UPGRADE )); then
+    echo "==> stopping trinity.service before binary swap"
+    systemctl stop trinity.service || true
+fi
+install -m 0755 "$STAGE/trinity" /usr/local/bin/trinity
+rm -f "$STAGE/trinity"
+
+if (( UPGRADE )); then
+    # Hub installs need the web bundle overlaid on the static_dir so the
+    # browser app matches the new server. Collector-only installs have no
+    # `tracker.hub:` block and no static_dir to populate.
+    if grep -qE '^[[:space:]]+hub:[[:space:]]*$' /etc/trinity/config.yml \
+        && [[ -d "$STAGE/web" ]]; then
+        static_dir="$(awk '/static_dir:/ {print $2; exit}' /etc/trinity/config.yml)"
+        if [[ -n "$static_dir" && -d "$static_dir" ]]; then
+            echo "==> overlaying web bundle into $static_dir"
+            cp -r "$STAGE/web/." "$static_dir/"
+            svc_user="$(awk '/service_user:/ {print $2; exit}' /etc/trinity/config.yml)"
+            [[ -n "$svc_user" ]] && chown -R "$svc_user:$svc_user" "$static_dir"
+        fi
+    fi
+    echo "==> starting trinity.service"
+    systemctl start trinity.service
+    rm -rf "$STAGE"
+    echo
+    echo "Upgrade complete. $(/usr/local/bin/trinity version 2>/dev/null || echo 'trinity binary installed')."
+    exit 0
 fi
 
 echo "==> /usr/local/bin/trinity installed; handing off to the wizard"

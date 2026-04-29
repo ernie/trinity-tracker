@@ -26,11 +26,16 @@ var idPattern = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
 // distinction between "standalone" and "distributed" is no longer
 // modeled at the config layer.
 type Config struct {
-	Server    ServerConfig   `yaml:"server"`
-	Database  DatabaseConfig `yaml:"database"`
-	Auth      AuthConfig     `yaml:"auth"`
-	Q3Servers []Q3Server     `yaml:"q3_servers"`
-	Tracker   *TrackerConfig `yaml:"tracker,omitempty"`
+	Server ServerConfig `yaml:"server"`
+	// Database / Auth are pointers (not values) so collector-only configs
+	// — which never touch SQLite or JWT auth — can omit them entirely
+	// from the wizard-written YAML rather than emitting `database: { path: "" }`
+	// + `auth: { jwt_secret: "", token_duration: 0s }`. Read sites must
+	// nil-check (config.Load fills defaults for hub modes after parse).
+	Database  *DatabaseConfig `yaml:"database,omitempty"`
+	Auth      *AuthConfig     `yaml:"auth,omitempty"`
+	Q3Servers []Q3Server      `yaml:"q3_servers,omitempty"`
+	Tracker   *TrackerConfig  `yaml:"tracker,omitempty"`
 }
 
 // Duration extends time.Duration's YAML parsing to accept a "d" (days) suffix
@@ -49,6 +54,16 @@ func (d *Duration) UnmarshalYAML(node *yaml.Node) error {
 	}
 	*d = Duration(parsed)
 	return nil
+}
+
+// MarshalYAML implements yaml.Marshaler so Duration round-trips through
+// config writes as a string ("30s") rather than the bare nanosecond
+// integer ("30000000000") that yaml.v3 emits by default for named
+// integer types. Without this, configs the wizard writes fail to load
+// later with "missing unit in duration" — `time.ParseDuration` rejects
+// the unitless integer form.
+func (d Duration) MarshalYAML() (any, error) {
+	return time.Duration(d).String(), nil
 }
 
 // D returns the wrapped time.Duration.
@@ -181,20 +196,33 @@ func Load(path string) (*Config, error) {
 	if cfg.Server.PollInterval == 0 {
 		cfg.Server.PollInterval = 5 * time.Second
 	}
-	if cfg.Database.Path == "" {
-		cfg.Database.Path = "/var/lib/trinity/trinity.db"
-	}
 	// Note: StaticDir intentionally has no default - empty means don't serve static files
 	if cfg.Server.Quake3Dir == "" {
 		cfg.Server.Quake3Dir = "/usr/lib/quake3"
 	}
 
-	// Auth defaults
-	if cfg.Auth.TokenDuration == 0 {
-		cfg.Auth.TokenDuration = 24 * time.Hour
-	}
-
 	applyTrackerDefaults(&cfg)
+
+	// Database + Auth are pointer-typed and may be nil for collector-only
+	// configs (the wizard omits both blocks since collectors don't run
+	// SQLite or JWT). Materialize them with defaults only when there's
+	// actually a hub role to serve. validateNoPlaceholders below + the
+	// hub-using code paths can then assume non-nil whenever they care.
+	hasHub := cfg.Tracker == nil || cfg.Tracker.Hub != nil
+	if hasHub {
+		if cfg.Database == nil {
+			cfg.Database = &DatabaseConfig{}
+		}
+		if cfg.Database.Path == "" {
+			cfg.Database.Path = "/var/lib/trinity/trinity.db"
+		}
+		if cfg.Auth == nil {
+			cfg.Auth = &AuthConfig{}
+		}
+		if cfg.Auth.TokenDuration == 0 {
+			cfg.Auth.TokenDuration = 24 * time.Hour
+		}
+	}
 	if err := validateTracker(cfg.Tracker); err != nil {
 		return nil, err
 	}
@@ -276,7 +304,7 @@ func applyTrackerDefaults(cfg *Config) {
 		if t.Collector.DataDir == "" {
 			// Default alongside the SQLite DB; main.go already creates
 			// this dir on hub deployments.
-			if cfg.Database.Path != "" {
+			if cfg.Database != nil && cfg.Database.Path != "" {
 				t.Collector.DataDir = dirOf(cfg.Database.Path)
 			} else {
 				t.Collector.DataDir = "/var/lib/trinity"

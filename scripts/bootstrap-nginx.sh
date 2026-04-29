@@ -393,13 +393,8 @@ for timer in certbot.timer certbot-renew.timer; do
 done
 
 echo
-echo "Done."
+echo "nginx + TLS ready. URLs the hub will fetch from this host:"
 echo "  Demos:       ${PUBLIC_URL%/}/demos/<uuid>.tvd"
 echo "  Levelshots:  ${PUBLIC_URL%/}/assets/levelshots/<map>.jpg"
 echo "  Demo pk3s:   ${PUBLIC_URL%/}/demopk3s/maps/<map>.pk3"
 echo "  Fast-dl:     http://$PUBLIC_HOST:27970/"
-echo
-echo "Open TCP/80, TCP/443, TCP/27970 in your firewall if you have one."
-echo "Generate the asset content with:"
-echo "  sudo -u quake trinity levelshots /usr/lib/quake3"
-echo "  sudo -u quake trinity demobake   /usr/lib/quake3"

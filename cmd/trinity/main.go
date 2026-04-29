@@ -530,7 +530,13 @@ func loadCLIConfigFromFlags(configPath, url string) *config.Config {
 		return nil
 	}
 
-	dbPath = cfg.Database.Path
+	// dbPath stays empty when cfg.Database is nil (collector-only configs
+	// omit the block entirely). The CLI commands that actually need the DB
+	// — `trinity user *`, `trinity admin *` — error from storage.New(""),
+	// which is the right behavior on a non-hub box.
+	if cfg.Database != nil {
+		dbPath = cfg.Database.Path
+	}
 	// Derive URL from config, but allow --url flag to override
 	if url != "" {
 		baseURL = url
@@ -590,7 +596,7 @@ func cmdStatus(args []string) {
 	}
 	// systemctl missing or failed → silent skip; many environments don't use it.
 
-	if cfg.Database.Path != "" {
+	if cfg.Database != nil && cfg.Database.Path != "" {
 		if info, err := os.Stat(cfg.Database.Path); err == nil && !info.IsDir() {
 			pass("Database", cfg.Database.Path)
 		} else {

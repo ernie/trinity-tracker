@@ -81,15 +81,18 @@ out-of-band onboarding), ask them directly. For `trinity.run` the
 
 ## 2. Run the installer
 
-`scripts/install.sh` installs the OS packages Trinity needs, drops the
-`trinity` binary on the host, then hands off to a collector-only
-wizard that walks you through the rest.
+The one-line installer fetches `install.sh`, installs the OS packages
+Trinity needs, downloads the prebuilt `trinity` binary for this host's
+architecture, then hands off to a collector-only wizard that walks you
+through the rest.
 
 ```bash
-git clone https://github.com/ernie/trinity-tracker
-cd trinity-tracker
-sudo ./scripts/install.sh
+curl -fsSL https://raw.githubusercontent.com/ernie/trinity-tracker/main/scripts/install.sh \
+    | sudo bash
 ```
+
+(If you'd rather work from a checkout, `git clone` the repo and run
+`sudo ./scripts/install.sh` from inside it — same wizard either way.)
 
 When the wizard prompts:
 

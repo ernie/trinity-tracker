@@ -203,8 +203,11 @@ func TestToConfig_CollectorOnly_NoHubBlock(t *testing.T) {
 	if cfg.Tracker.NATS.CredentialsFile != "/etc/trinity/source.creds" {
 		t.Errorf("creds file path: got %q", cfg.Tracker.NATS.CredentialsFile)
 	}
-	if cfg.Database.Path != "" {
-		t.Errorf("collector-only should have empty db path, got %q", cfg.Database.Path)
+	if cfg.Database != nil {
+		t.Errorf("collector-only should omit database block entirely, got %+v", cfg.Database)
+	}
+	if cfg.Auth != nil {
+		t.Errorf("collector-only should omit auth block entirely, got %+v", cfg.Auth)
 	}
 }
 

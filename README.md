@@ -4,11 +4,12 @@ Real-time statistics tracking system for the [Trinity Quake 3 engine](https://gi
 
 The free Quake 3 demo (evaluation version) is not supported — retail only.
 
-> **New install?** Run `sudo ./scripts/install.sh` on a fresh Linux host.
-> It installs deps, drops the `trinity` binary onto the box, then hands
-> off to `trinity init` — an interactive wizard that joins this Trinity
-> server to a hub (defaults to `trinity.run`). Step-by-step walkthrough
-> in [docs/collector-setup.md](./docs/collector-setup.md). Running your
+> **New install?** See [Installation](#installation) below for the
+> one-line `curl | sudo bash`. It drops the `trinity` binary on the
+> box, then hands off to `trinity init` — an interactive wizard that
+> joins this Trinity server to a hub (defaults to `trinity.run`).
+> Step-by-step walkthrough in
+> [docs/collector-setup.md](./docs/collector-setup.md). Running your
 > own hub is an expert path covered in
 > [docs/distributed-deployment.md](./docs/distributed-deployment.md).
 
@@ -39,6 +40,19 @@ sudo ./scripts/install.sh --from-source   # build from this checkout
 
 The wizard refuses to run if `/etc/trinity/config.yml` already
 exists. To redo a setup, delete the file and re-run.
+
+### Upgrading
+
+Same one-liner with `--upgrade` swaps the binary on an existing
+install and restarts `trinity.service` — no wizard prompts:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ernie/trinity-tracker/main/scripts/install.sh \
+    | sudo bash -s -- --upgrade
+```
+
+Hub installs also get the new web bundle overlaid onto `static_dir`.
+Collector-only installs just swap the binary.
 
 Prebuilt release supports:
 

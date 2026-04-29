@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // RunWizard walks the operator through every prompt the install
@@ -165,8 +167,8 @@ func confirmCollectorPrereqs(p Prompter, out io.Writer) error {
 	}
 	if !ok {
 		fmt.Fprintln(out)
-		fmt.Fprintln(out, "Re-run `sudo ./scripts/install.sh` once you have the source ID, .creds file,")
-		fmt.Fprintln(out, "and a public hostname pointed at this box.")
+		fmt.Fprintln(out, "Re-run the install once you have the source ID, .creds file, and a public")
+		fmt.Fprintln(out, "hostname pointed at this box.")
 		return ErrMissingPrereqs
 	}
 	fmt.Fprintln(out)
@@ -294,7 +296,8 @@ func confirmDNSPointsHere(p Prompter, out io.Writer, publicURL string) error {
 		}
 		return nil
 	}
-	if mine := outboundIP(); mine != "" {
+	mine := publicIP()
+	if mine != "" {
 		for _, ip := range ips {
 			if ip == mine {
 				return nil
@@ -302,8 +305,20 @@ func confirmDNSPointsHere(p Prompter, out io.Writer, publicURL string) error {
 		}
 	}
 	fmt.Fprintf(out, "\n  %q resolves to: %s\n", host, strings.Join(ips, ", "))
-	fmt.Fprintln(out, "  Make sure one of those is this box's public IP, or Let's Encrypt")
-	fmt.Fprintln(out, "  HTTP-01 validation will fail.")
+	if mine != "" {
+		fmt.Fprintf(out, "  This box's public IP is:  %s\n", mine)
+		fmt.Fprintln(out, "  DNS doesn't point at this box. Let's Encrypt HTTP-01 validation will fail.")
+		ok, perr := p.YesNo("Continue anyway?", false)
+		if perr != nil {
+			return perr
+		}
+		if !ok {
+			return ErrMissingPrereqs
+		}
+		return nil
+	}
+	fmt.Fprintln(out, "  Couldn't determine this box's public IP. Make sure that address points")
+	fmt.Fprintln(out, "  at it, or Let's Encrypt HTTP-01 validation will fail.")
 	ok, perr := p.YesNo("Continue?", true)
 	if perr != nil {
 		return perr
@@ -314,20 +329,33 @@ func confirmDNSPointsHere(p Prompter, out io.Writer, publicURL string) error {
 	return nil
 }
 
-// outboundIP returns the source address the kernel would use to reach
-// the public Internet, by opening (but not sending on) a UDP socket
-// toward a known external IP. Returns "" if the box has no route to
-// the Internet — the caller treats that as "can't compare, skip the
-// fast-path silent pass." No packets are sent; UDP connect just sets
-// the socket's local address.
-func outboundIP() string {
-	conn, err := net.Dial("udp", "1.1.1.1:80")
-	if err != nil {
-		return ""
+// publicIP returns the box's Internet-facing IP by asking a public
+// echo service. We use this instead of inspecting the local interface
+// (the obvious approach) because cloud VMs commonly sit behind 1:1 NAT:
+// the OS only sees a private address (10.x / 172.16+ / 192.168.x), while
+// inbound traffic — including Let's Encrypt's HTTP-01 challenge — arrives
+// on a different public IP managed by the hypervisor. A UDP-dial trick
+// would return the private address and never match DNS.
+//
+// Returns "" if both services fail (offline, blocked, etc.); the caller
+// treats that as "can't auto-confirm, ask the operator."
+func publicIP() string {
+	services := []string{
+		"https://api.ipify.org",
+		"https://icanhazip.com",
 	}
-	defer conn.Close()
-	if addr, ok := conn.LocalAddr().(*net.UDPAddr); ok {
-		return addr.IP.String()
+	client := &http.Client{Timeout: 2 * time.Second}
+	for _, svc := range services {
+		resp, err := client.Get(svc)
+		if err != nil {
+			continue
+		}
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 64))
+		resp.Body.Close()
+		ip := strings.TrimSpace(string(body))
+		if net.ParseIP(ip) != nil {
+			return ip
+		}
 	}
 	return ""
 }
