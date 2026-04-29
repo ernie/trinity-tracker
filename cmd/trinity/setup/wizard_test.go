@@ -91,6 +91,14 @@ func (s *scriptedPrompter) Password(prompt string, allowEmpty bool) (string, err
 	return a, nil
 }
 
+func (s *scriptedPrompter) Pause(prompt string) error {
+	// Pause is acknowledgment-only — discard whatever's at the top of
+	// the answer queue so the test scripts can be explicit about the
+	// pause without caring what it returns.
+	s.pop()
+	return nil
+}
+
 func TestRunWizard_CombinedDefaults(t *testing.T) {
 	// allowHub=true so the mode prompt is exposed. Pick option 1 (combined)
 	// since the new default is collector.
@@ -297,6 +305,50 @@ func TestRunWizard_LockedCollector_NoModePrompt(t *testing.T) {
 	}
 	if len(p.answers) != 0 {
 		t.Errorf("scripted prompter has %d unused answers — wizard asked fewer questions than expected:\n  remaining: %q", len(p.answers), p.answers)
+	}
+}
+
+// TestRunWizard_CredsAutoDiscovery checks that when the operator runs
+// the wizard from a directory containing a single *.creds file, both
+// SourceID and CredsFile are filled from the filename — collapsing two
+// prompts into one Y/n confirmation. Lifted into its own test (rather
+// than folding it into the main collector test) so the existing
+// manual-path coverage stays intact.
+func TestRunWizard_CredsAutoDiscovery(t *testing.T) {
+	dir := t.TempDir()
+	credsPath := filepath.Join(dir, "myserver.creds")
+	if err := os.WriteFile(credsPath, []byte("placeholder\n"), 0o600); err != nil {
+		t.Fatalf("write creds: %v", err)
+	}
+	t.Chdir(dir)
+	p := &scriptedPrompter{
+		t: t,
+		answers: []string{
+			"y",                   // creds prereqs in hand
+			"",                    // service user → quake
+			"",                    // install engine → yes
+			"",                    // quake3 dir → default
+			"trinity.example.com", // hub host
+			"q3.example.com",      // public hostname
+			"y",                   // continue past DNS warning
+			"ops@example.com",     // admin email
+			"y",                   // YES, use the auto-discovered creds
+			"n",                   // no servers
+		},
+	}
+	var buf bytes.Buffer
+	a, err := RunWizard(p, &buf, false)
+	if err != nil {
+		t.Fatalf("RunWizard: %v", err)
+	}
+	if a.SourceID != "myserver" {
+		t.Errorf("source ID: got %q, want %q", a.SourceID, "myserver")
+	}
+	if a.CredsFile != credsPath {
+		t.Errorf("creds file: got %q, want %q", a.CredsFile, credsPath)
+	}
+	if !strings.Contains(buf.String(), "myserver.creds") {
+		t.Errorf("expected the discovery line to mention myserver.creds; got %q", buf.String())
 	}
 }
 

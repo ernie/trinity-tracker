@@ -26,12 +26,14 @@ The stack:
   policy module, but the curl|bash path will refuse to proceed.
 - **A retail copy of `pak0.pk3`** for baseq3 (and a separate one for
   missionpack if you want gametypes from Team Arena — One Flag CTF,
-  Overload, Harvester). The trinity-engine release zip bundles the
-  engine + the trinity mod + the publicly-distributable game patches,
-  but the retail Quake 3 asset pak isn't redistributable. After the
-  installer finishes you'll drop these into:
-  - `/usr/lib/quake3/baseq3/pak0.pk3`
-  - `/usr/lib/quake3/missionpack/pak0.pk3` *(only if you picked any gametypes from Team Arena)*
+  Overload, Harvester). The trinity-engine release bundles the engine
+  + the trinity mod, but the retail Quake 3 asset pak isn't
+  redistributable, and the engine refuses to load most maps without
+  it. The wizard handles placement during its pak step (§3); to skip
+  the path prompt entirely, copy your retail pak0(s) into the
+  directory you'll run the installer from, renamed:
+  - `q3-pak0.pk3` for baseq3
+  - `mp-pak0.pk3` for missionpack (only if you'll run Team Arena)
 
   > The free Quake 3 demo (evaluation version) is **not supported** —
   > retail only.
@@ -142,22 +144,35 @@ Re-running `trinity init` later refuses to overwrite an existing
 
 ---
 
-## 3. Drop your retail `pak0.pk3` into place
+## 3. Pak files (retail `pak0` + 1.32 patch data)
 
-The engine refuses to load most maps without the retail pak0.pk3
-(the base models, sounds, and original maps). Copy it from your
-licensed Q3 install:
+After the wizard finishes the configuration steps, it walks you
+through pak placement: the retail `pak0.pk3`(s) you supply, plus the
+1.32 point-release patch data redistributed by ioquake3.org under id
+Software's EULA.
 
-```bash
-sudo install -m 0644 -o quake -g quake \
-    /path/to/your/Quake3/baseq3/pak0.pk3 \
-    /usr/lib/quake3/baseq3/pak0.pk3
+**Retail `pak0.pk3`.** If you copied a retail pak0 into the directory
+you ran the installer from as `q3-pak0.pk3` (and `mp-pak0.pk3` for
+Team Arena), the wizard finds them by name and installs them without
+prompting. Otherwise it asks for a path — anywhere on the filesystem
+is fine, any filename is fine, the wizard renames to `pak0.pk3` on
+copy. Hit Enter on a blank prompt to skip; you can place the file
+manually at `/usr/lib/quake3/baseq3/pak0.pk3` (and
+`/usr/lib/quake3/missionpack/pak0.pk3`) before starting the server.
 
-# Repeat for missionpack/ if you picked any gametypes from Team Arena:
-sudo install -m 0644 -o quake -g quake \
-    /path/to/your/Quake3/missionpack/pak0.pk3 \
-    /usr/lib/quake3/missionpack/pak0.pk3
-```
+**Patch data.** If any of `pak1.pk3`–`pak8.pk3` are missing in
+`baseq3/` (or `pak1.pk3`–`pak3.pk3` in `missionpack/` for TA
+installs), the wizard offers to fetch the canonical bundle from
+`https://files.ioquake3.org/quake3-latest-pk3s.zip` (~26 MB). It
+displays the id Software EULA via `more` and prompts for explicit
+agreement before downloading. Decline and the wizard prints the URL
+and moves on — manual install is just an unzip into `baseq3/` and
+`missionpack/`.
+
+**Auto-start.** Once the required paks are all present, the wizard
+offers to `systemctl start trinity.service quake3-servers.target` for
+you. If anything is missing, it lists the unfinished file paths and
+prints the start command for when you've placed them manually.
 
 ---
 

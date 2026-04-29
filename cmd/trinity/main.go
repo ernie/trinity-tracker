@@ -1912,29 +1912,44 @@ func cmdInit(args []string) {
 		return
 	}
 
+	// Pak placement + auto-start. Runs only for installs that host
+	// servers locally — hub-only installs don't have a quake3 dir to
+	// drop paks into. Best-effort: any failure inside falls back to
+	// the manual hints below.
+	var pakResult setup.PakStepResult
+	if answers.RunsLocalServers() {
+		pakResult = setup.RunPakStep(setup.PakStepOptions{
+			Quake3Dir:   answers.Quake3Dir,
+			ServiceUser: answers.ServiceUser,
+			UseSystemd:  useSd,
+			Out:         os.Stderr,
+			Prompter:    prompter,
+		})
+	}
+
+	// Compute leftover work before printing anything — when there's
+	// nothing for the operator to do, the install ends on a celebration,
+	// not an empty "Next steps:" header.
+	needStart := useSd && !pakResult.Started
+	needBake := answers.Mode == setup.ModeCollector && !pakResult.Baked
+
 	fmt.Fprintln(os.Stderr)
+	if !needStart && !needBake {
+		if pakResult.Started {
+			fmt.Fprintln(os.Stderr, "All set — Trinity and your q3 servers are running.")
+		} else {
+			fmt.Fprintln(os.Stderr, "All set.")
+		}
+		if answers.HubHost != "" {
+			fmt.Fprintf(os.Stderr, "Find your source on the hub: https://%s/\n", answers.HubHost)
+		}
+		fmt.Fprintln(os.Stderr, "Now go play some Quake 3.")
+		return
+	}
+
 	fmt.Fprintln(os.Stderr, "Done. Next steps:")
 	step := 1
-	if answers.RunsLocalServers() {
-		needsBaseq3 := false
-		needsMissionpack := false
-		for _, s := range answers.Servers {
-			if s.RunsMissionpack() {
-				needsMissionpack = true
-			} else {
-				needsBaseq3 = true
-			}
-		}
-		if needsBaseq3 {
-			fmt.Fprintf(os.Stderr, "  %d. Place retail pak0.pk3 at %s/baseq3/pak0.pk3\n", step, answers.Quake3Dir)
-			step++
-		}
-		if needsMissionpack {
-			fmt.Fprintf(os.Stderr, "  %d. Place Team Arena's pak0.pk3 at %s/missionpack/pak0.pk3\n", step, answers.Quake3Dir)
-			step++
-		}
-	}
-	if useSd {
+	if needStart {
 		fmt.Fprintf(os.Stderr, "  %d. Start: sudo systemctl start trinity.service", step)
 		if answers.RunsLocalServers() {
 			fmt.Fprint(os.Stderr, " quake3-servers.target")
@@ -1942,12 +1957,11 @@ func cmdInit(args []string) {
 		fmt.Fprintln(os.Stderr)
 		step++
 	}
-	if answers.Mode == setup.ModeCollector {
+	if needBake {
 		fmt.Fprintf(os.Stderr, "  %d. Required: generate the levelshot images and demo-playback pk3s the\n", step)
 		fmt.Fprintln(os.Stderr, "     hub serves to web viewers. Re-run when you add new maps.")
-		// Absolute path because Fedora doesn't put /usr/local/bin on
-		// root's default PATH, and `sudo -u` uses the target user's PATH
-		// which on locked-down systems may also exclude /usr/local/bin.
+		// Absolute path because `sudo -u` uses the target user's PATH,
+		// which on locked-down systems may not include /usr/local/bin.
 		fmt.Fprintf(os.Stderr, "       sudo -u %s /usr/local/bin/trinity levelshots\n", answers.ServiceUser)
 		fmt.Fprintf(os.Stderr, "       sudo -u %s /usr/local/bin/trinity demobake\n", answers.ServiceUser)
 		step++

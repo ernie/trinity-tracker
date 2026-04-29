@@ -150,6 +150,11 @@ func confirmCollectorPrereqs(p Prompter, out io.Writer) error {
 	fmt.Fprintln(out, "  4. A public hostname          (must already resolve to this box in DNS)")
 	fmt.Fprintln(out, "  5. An email address           (for your Let's Encrypt SSL cert)")
 	fmt.Fprintln(out)
+	fmt.Fprintln(out, "Optional (saves a path-prompt during pak install): copy your retail")
+	fmt.Fprintln(out, "Quake 3 pak0.pk3 into the current directory as q3-pak0.pk3, and")
+	fmt.Fprintln(out, "mp-pak0.pk3 if you'll run Team Arena gametypes. The wizard will")
+	fmt.Fprintln(out, "find them by name and place them without prompting.")
+	fmt.Fprintln(out)
 	fmt.Fprintln(out, "The wizard will install nginx, obtain a Let's Encrypt cert for your hostname,")
 	fmt.Fprintln(out, "and open the firewall ports it needs (80/443/27970/tcp + 27960-28000/udp on")
 	fmt.Fprintln(out, "ufw or firewalld). DNS for the hostname must resolve to this box BEFORE you")
@@ -197,17 +202,105 @@ func promptCollectorOnly(p Prompter, a *Answers, out io.Writer) error {
 		"", validateAdminEmail); err != nil {
 		return err
 	}
-	if a.SourceID, err = promptValidated(p, out,
-		"Source ID (from \"My Servers\" on the hub)",
-		"", validateSourceID); err != nil {
+	filled, err := tryAutoFillCreds(p, out, a)
+	if err != nil {
 		return err
 	}
-	if a.CredsFile, err = promptValidated(p, out,
-		"Path to .creds file from hub admin",
-		"", validateCredsFile); err != nil {
-		return err
+	if !filled {
+		if a.SourceID, err = promptValidated(p, out,
+			"Source ID (from \"My Servers\" on the hub)",
+			"", validateSourceID); err != nil {
+			return err
+		}
+		if a.CredsFile, err = promptValidated(p, out,
+			"Path to .creds file from hub admin",
+			"", validateCredsFile); err != nil {
+			return err
+		}
 	}
 	return nil
+}
+
+// credsCandidate is one usable .creds file discovered in the wizard's
+// CWD. The hub UI saves the file as "<source-id>.creds", so the stem
+// gives us the source ID for free — provided the operator didn't
+// hand-rename it to something the hub won't accept.
+type credsCandidate struct {
+	path     string
+	sourceID string
+}
+
+// discoverCredsIn globs *.creds in dir and returns candidates whose
+// stems pass the same validateSourceID check the manual prompt enforces.
+// Files that fail the stat/readability check or whose stems aren't valid
+// source IDs are silently dropped — falling through to the manual flow
+// is always a clean recovery path, and we don't want to surface noise
+// for files the operator wasn't trying to install with.
+func discoverCredsIn(dir string) []credsCandidate {
+	matches, err := filepath.Glob(filepath.Join(dir, "*.creds"))
+	if err != nil {
+		return nil
+	}
+	var out []credsCandidate
+	for _, m := range matches {
+		if validateCredsFile(m) != nil {
+			continue
+		}
+		stem := strings.TrimSuffix(filepath.Base(m), ".creds")
+		if validateSourceID(stem) != nil {
+			continue
+		}
+		out = append(out, credsCandidate{path: m, sourceID: stem})
+	}
+	return out
+}
+
+// tryAutoFillCreds looks for a usable .creds file in the operator's
+// CWD and offers to skip the SourceID/CredsFile prompts. Returns true
+// when a.SourceID and a.CredsFile have been populated. The hub-issued
+// .creds filename is the source name, so a single match lets the
+// wizard collapse two prompts into one Y/n confirmation.
+func tryAutoFillCreds(p Prompter, out io.Writer, a *Answers) (bool, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return false, nil
+	}
+	candidates := discoverCredsIn(cwd)
+	switch len(candidates) {
+	case 0:
+		return false, nil
+	case 1:
+		c := candidates[0]
+		fmt.Fprintf(out, "\nFound %s in this directory.\n", filepath.Base(c.path))
+		ok, err := p.YesNo(fmt.Sprintf("Use source ID %q with this file?", c.sourceID), true)
+		if err != nil {
+			return false, err
+		}
+		if !ok {
+			return false, nil
+		}
+		a.SourceID = c.sourceID
+		a.CredsFile = c.path
+		return true, nil
+	default:
+		// Multi-match: numbered choose menu, with a tail option that
+		// drops back to the manual prompts so the operator isn't trapped.
+		opts := make([]string, len(candidates)+1)
+		for i, c := range candidates {
+			opts[i] = fmt.Sprintf("%s  (source: %s)", filepath.Base(c.path), c.sourceID)
+		}
+		opts[len(candidates)] = "(none — enter manually)"
+		idx, err := p.Choose("Multiple .creds files found in this directory:", opts, 0)
+		if err != nil {
+			return false, err
+		}
+		if idx == len(candidates) {
+			return false, nil
+		}
+		a.SourceID = candidates[idx].sourceID
+		a.CredsFile = candidates[idx].path
+		return true, nil
+	}
 }
 
 // promptValidated wraps p.Line with a validation loop. Validation

@@ -37,6 +37,12 @@ type Prompter interface {
 	// whether an empty answer is accepted (used to mean "generate one
 	// for me").
 	Password(prompt string, allowEmpty bool) (string, error)
+
+	// Pause prints prompt and waits for the operator to press Enter.
+	// Used to gate work that's about to clear or scroll the screen
+	// (e.g. paging the EULA) so a lead-in message has a chance of
+	// being read first.
+	Pause(prompt string) error
 }
 
 // IsTTY reports whether stdin is connected to a real terminal.
@@ -193,6 +199,12 @@ func (p *stdPrompter) Choose(prompt string, options []string, def int) (int, err
 		}
 		return n - 1, nil
 	}
+}
+
+func (p *stdPrompter) Pause(prompt string) error {
+	fmt.Fprint(p.out, prompt)
+	_, err := p.readLine()
+	return err
 }
 
 func (p *stdPrompter) Password(prompt string, allowEmpty bool) (string, error) {

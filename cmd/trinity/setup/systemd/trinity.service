@@ -1,10 +1,12 @@
 [Unit]
 Description=Trinity
-# After (not Before) the q3 servers: their log files only exist once
-# quake3-server@.service has spawned trinity.ded, and the log tailer
-# can't attach until then. This makes the common-case startup
-# ordering correct; the in-process retry covers any residual race.
-After=network.target quake3-servers.target
+# Trinity starts before quake3-servers.target activates the per-server
+# instances (which have After=trinity.service). The reverse ordering
+# would create a cycle via the per-server units' PartOf= → target →
+# After= back to trinity. Log files don't exist until the q3 servers
+# spawn, so the tailer's "wait for file" retry covers the launch race.
+After=network.target
+Before=quake3-servers.target
 
 [Service]
 Type=simple

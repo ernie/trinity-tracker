@@ -111,6 +111,10 @@ if (( ! UPGRADE )); then
    - a public hostname pointing at this box (DNS already in place)
    - an admin email for Let's Encrypt renewal alerts
    - a hub source ID and .creds file from your hub admin
+
+ Optional (saves a path-prompt during pak install):
+   - retail Quake 3 pak0.pk3 copied into the current directory as
+     q3-pak0.pk3, plus mp-pak0.pk3 if you'll run Team Arena gametypes
 ================================================================
 
 BANNER
