@@ -152,6 +152,13 @@ if (( ! UPGRADE )); then
  Optional (saves a path-prompt during pak install):
    - retail Quake 3 pak0.pk3 copied into the current directory as
      q3-pak0.pk3, plus mp-pak0.pk3 if you'll run Team Arena gametypes
+   - quake3-1.32-pk3s.zip in the current directory if you have the
+     1.32 patch bundle on hand. Hub installs mirror it into
+     /var/lib/trinity/web/downloads/ so collectors fetch it from
+     this hub instead of needing their own copy.
+   - hqq-baseq3.zip (and hqq-missionpack.zip if running TA) in the
+     current directory to install High Quality Quake assets for
+     sharper levelshots and player portraits.
 
  If you'd rather manage some of these steps yourself — your own
  reverse proxy, host firewall, or log rotation — abort now and

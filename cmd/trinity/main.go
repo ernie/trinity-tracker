@@ -1951,10 +1951,14 @@ func cmdInit(args []string) {
 	// the manual hints below.
 	var pakResult setup.PakStepResult
 	if answers.RunsLocalServers() {
+		cwd, _ := os.Getwd()
 		pakResult = setup.RunPakStep(setup.PakStepOptions{
 			Quake3Dir:   answers.Quake3Dir,
 			ServiceUser: answers.ServiceUser,
 			UseSystemd:  useSd,
+			HubHost:     answers.HubHost,
+			StaticDir:   answers.StaticDir,
+			Cwd:         cwd,
 			Out:         os.Stderr,
 			Prompter:    prompter,
 		})

@@ -82,6 +82,10 @@ export function PageNav() {
                 {r.version && <span className="download-item-version">{r.version}</span>}
               </a>
             ))}
+            <Link to="/quake3-eula" className="download-item download-item-secondary">
+              <span className="download-item-name">Quake 3 1.32 patches</span>
+              <span className="download-item-version">EULA</span>
+            </Link>
             <Link to="/docs/getting-started" className="getting-started-cta getting-started-cta-sm">
               Get started with Trinity
             </Link>

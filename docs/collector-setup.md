@@ -146,12 +146,12 @@ Re-running `trinity init` later refuses to overwrite an existing
 
 ---
 
-## 3. Pak files (retail `pak0` + 1.32 patch data)
+## 3. Pak files (retail `pak0` + 1.32 patch data + optional HQQ)
 
 After the wizard finishes the configuration steps, it walks you
 through pak placement: the retail `pak0.pk3`(s) you supply, plus the
-1.32 point-release patch data redistributed by ioquake3.org under id
-Software's EULA.
+1.32 point-release patch data distributed under id Software's EULA,
+plus an optional High Quality Quake (HQQ) asset pack.
 
 **Retail `pak0.pk3`.** If you copied a retail pak0 into the directory
 you ran the installer from as `q3-pak0.pk3` (and `mp-pak0.pk3` for
@@ -164,12 +164,44 @@ manually at `/usr/lib/quake3/baseq3/pak0.pk3` (and
 
 **Patch data.** If any of `pak1.pk3`–`pak8.pk3` are missing in
 `baseq3/` (or `pak1.pk3`–`pak3.pk3` in `missionpack/` for TA
-installs), the wizard offers to fetch the canonical bundle from
-`https://files.ioquake3.org/quake3-latest-pk3s.zip` (~26 MB). It
-displays the id Software EULA via `more` and prompts for explicit
-agreement before downloading. Decline and the wizard prints the URL
-and moves on — manual install is just an unzip into `baseq3/` and
-`missionpack/`.
+installs), the wizard offers to fetch `quake3-1.32-pk3s.zip` (~26 MB).
+It displays the id Software EULA via `more` and prompts for explicit
+agreement before downloading. Decline and the wizard prints recovery
+instructions and moves on.
+
+Source resolution order:
+
+1. **Current directory.** Drop `quake3-1.32-pk3s.zip` into the dir
+   you ran the installer from. This is how a first hub bootstraps —
+   no other hub exists to fetch from yet. On a hub install the wizard
+   also mirrors the zip into `/var/lib/trinity/web/downloads/` so
+   future collectors can fetch from this hub.
+2. **Hub static dir.** `<static_dir>/downloads/quake3-1.32-pk3s.zip`,
+   the path the hub serves over HTTPS. Common on hub re-runs.
+3. **Remote hub.** `https://<hub>/downloads/quake3-1.32-pk3s.zip`,
+   the path collectors use to pull from a remote hub.
+
+The zip should have `baseq3/` and `missionpack/` directories at the
+top level with the pak files inside.
+
+The hub publishes the EULA itself at `https://<hub>/quake3-eula`,
+linked from the Getting Started page and the download dropdown — that
+page gates the zip behind a scroll-to-bottom-then-agree control for
+human visitors.
+
+**HQQ assets (optional).** Once patches are in place, the wizard
+offers to install High Quality Quake — a community asset pack with
+sharper levelshots and player portraits. Source resolution is the
+same as for the patch zip:
+
+- `hqq-baseq3.zip` (always offered)
+- `hqq-missionpack.zip` (offered when `missionpack/pak0.pk3` is present)
+
+Each zip should contain a top-level `baseq3/` (or `missionpack/`)
+directory with the pk3s inside. The wizard never overwrites operator
+copies — it only fills missing files. On a hub install, CWD-staged
+zips are mirrored into `<static_dir>/downloads/` so future collectors
+fetch from this hub.
 
 **Auto-start.** Once the required paks are all present, the wizard
 offers to `systemctl start trinity.service quake3-servers.target` for

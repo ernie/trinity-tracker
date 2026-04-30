@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import App from './App'
 import { PlayersPage, AccountPage, LeaderboardPage, MatchesPage, MatchDetailPage, DemoPlayerPage, PlayPage, DocsPage, ClaimPage } from './components'
+import { Quake3EulaPage } from './components/Quake3EulaPage'
 import { DocsGettingStarted } from './components/docs/DocsGettingStarted'
 import { DocsFeatures } from './components/docs/DocsFeatures'
 import { DocsServerAdmin } from './components/docs/DocsServerAdmin'
@@ -48,6 +49,7 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/about" element={<Navigate to="/docs" replace />} />
           <Route path="/getting-started" element={<Navigate to="/docs/getting-started" replace />} />
           <Route path="/claim" element={<ClaimPage />} />
+          <Route path="/quake3-eula" element={<Quake3EulaPage />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

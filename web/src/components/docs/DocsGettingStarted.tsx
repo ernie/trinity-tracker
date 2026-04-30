@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useGitHubReleases } from "../../hooks/useGitHubReleases";
 
 const DOWNLOAD_DESCRIPTIONS: Record<string, string> = {
@@ -49,6 +50,10 @@ export function DocsGettingStarted() {
           The free Quake 3 demo (evaluation version) is not supported —
           Trinity targets retail Quake 3 only. Running demo servers or
           clients against Trinity is entirely on you.
+        </p>
+        <p>
+          Need the 1.32 point-release patch data?{" "}
+          <Link to="/quake3-eula">Read the id Software EULA and download here</Link>.
         </p>
         <div className="about-downloads">
           {releases.map((r) => (

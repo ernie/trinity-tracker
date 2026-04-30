@@ -29,10 +29,18 @@ var requiredMissionpack = []string{
 }
 
 const (
-	// patchZipURL is the canonical bundle ioquake3.org distributes
-	// (~26 MB). Single zip with `quake3-latest-pk3s/{baseq3,missionpack}/pakN.pk3`
-	// inside, so the strip-1 unpack lands files in the right places.
-	patchZipURL = "https://files.ioquake3.org/quake3-latest-pk3s.zip"
+	// patchZipName is the file the wizard fetches for the 1.32 point
+	// release patch data. Hub operators drop the (re-zipped) ioquake3.org
+	// bundle into <static_dir>/downloads/ once at hub setup time; every
+	// install fetches it from there. Zip layout: `baseq3/pakN.pk3` and
+	// `missionpack/pakN.pk3` at the top level.
+	patchZipName = "quake3-1.32-pk3s.zip"
+
+	// hqqBaseq3ZipName / hqqMPZipName are the optional High Quality
+	// Quake assets the wizard offers after patches. Same layout: top-
+	// level `baseq3/...` or `missionpack/...` directories.
+	hqqBaseq3ZipName = "hqq-baseq3.zip"
+	hqqMPZipName     = "hqq-missionpack.zip"
 
 	// canonBaseq3 / canonMP are the filenames the prereq/install banner
 	// suggests the operator copy their retail pak0s as. When present in
@@ -45,10 +53,29 @@ const (
 type PakStepOptions struct {
 	Quake3Dir   string
 	ServiceUser string
-	UseSystemd  bool // controls whether the auto-start prompt fires
+	UseSystemd  bool   // controls whether the auto-start prompt fires
 	TrinityBin  string // path to the installed trinity binary; defaults to /usr/local/bin/trinity
-	Out         io.Writer
-	Prompter    Prompter
+
+	// HubHost is the hostname the wizard uses to fetch hub-hosted
+	// downloads (patch zip, HQQ assets) over HTTPS when no local copy
+	// is found. Required for collector-only installs that have to pull
+	// from a remote hub.
+	HubHost string
+
+	// StaticDir is the hub's web-asset root (e.g. /var/lib/trinity/web).
+	// On a hub install, zips found via Cwd are mirrored into
+	// StaticDir/downloads/ so future collectors can fetch them from
+	// this hub. Empty on collector-only installs.
+	StaticDir string
+
+	// Cwd is the directory `trinity init` was launched from. The wizard
+	// looks here first for operator-supplied zips (patch bundle, HQQ),
+	// matching the pak0 staging pattern. This is how a first hub install
+	// bootstraps before any other hub exists to fetch from.
+	Cwd string
+
+	Out      io.Writer
+	Prompter Prompter
 }
 
 // PakStepResult tells the caller what happened so it can adjust the
@@ -81,6 +108,7 @@ func RunPakStep(opts PakStepOptions) PakStepResult {
 	if len(missingBaseq3) == 0 && len(missingMP) == 0 {
 		fmt.Fprintln(out, "  All required pak files are already in place.")
 		result.AllReady = true
+		offerHQQ(opts, out)
 		result.Baked = runBake(opts, out)
 		result.Started = maybeAutoStart(opts, out)
 		return result
@@ -113,6 +141,7 @@ func RunPakStep(opts PakStepOptions) PakStepResult {
 	if len(missingBaseq3) == 0 && len(missingMP) == 0 {
 		fmt.Fprintln(out, "  All required pak files are now in place.")
 		result.AllReady = true
+		offerHQQ(opts, out)
 		result.Baked = runBake(opts, out)
 		result.Started = maybeAutoStart(opts, out)
 		return result
@@ -303,8 +332,8 @@ func chownByName(path, user string) {
 func offerPatchDownload(opts PakStepOptions, out io.Writer) {
 	fmt.Fprintln(out)
 	fmt.Fprintln(out, "  The Quake 3 1.32 point-release patches are required for the server to")
-	fmt.Fprintln(out, "  run correctly. The ioquake3 project hosts them free of charge under")
-	fmt.Fprintln(out, "  the id Software EULA, reproduced on the next screen.")
+	fmt.Fprintln(out, "  run correctly. They are distributed under the id Software EULA,")
+	fmt.Fprintln(out, "  reproduced on the next screen.")
 	fmt.Fprintln(out)
 	// Gate the pager — `more` scrolls/clears the screen and the lead-in
 	// above is the only context the operator gets that this isn't a
@@ -313,23 +342,86 @@ func offerPatchDownload(opts PakStepOptions, out io.Writer) {
 
 	if err := pageEULA(); err != nil {
 		fmt.Fprintf(out, "  (failed to show EULA via `more`: %v)\n", err)
-		fmt.Fprintln(out, "  EULA is published at https://ioquake3.org/extras/patch-data/")
+		if url := hubURL(opts.HubHost, "/quake3-eula"); url != "" {
+			fmt.Fprintf(out, "  EULA is also available at %s\n", url)
+		}
 	}
 
 	agree, err := opts.Prompter.YesNo("  I have read and agree to the license above. Download patches?", false)
 	if err != nil || !agree {
 		fmt.Fprintln(out, "  Skipping patch download.")
-		fmt.Fprintln(out, "  Manual install: https://ioquake3.org/extras/patch-data/")
+		printManualInstall(out, opts, patchZipName)
 		return
 	}
 
-	fmt.Fprintf(out, "  Downloading %s ...\n", patchZipURL)
-	if err := downloadAndExtractPatches(opts.Quake3Dir, opts.ServiceUser); err != nil {
+	if err := fetchAndExtractMods(opts, out, patchZipName, []string{"baseq3", "missionpack"}); err != nil {
 		fmt.Fprintf(out, "  WARN: patch download failed: %v\n", err)
-		fmt.Fprintln(out, "  Manual install: https://ioquake3.org/extras/patch-data/")
+		printManualInstall(out, opts, patchZipName)
 		return
 	}
 	fmt.Fprintln(out, "  Patches installed.")
+}
+
+// offerHQQ optionally installs High Quality Quake — a community asset
+// pack that ships sharper levelshots and player portraits than the
+// stock retail pk3s. Runs after patches and before bake so the
+// `levelshots` / `demobake` steps see the higher-quality textures.
+//
+// HQQ baseq3 is offered always; HQQ TA is offered only when the
+// missionpack/pak0.pk3 retail asset is in place (no point installing
+// TA assets for an operator who hasn't supplied a TA pak0).
+//
+// Optional, non-fatal: any error or skip just logs and moves on.
+func offerHQQ(opts PakStepOptions, out io.Writer) {
+	mpInstalled := fileExists(filepath.Join(opts.Quake3Dir, "missionpack", "pak0.pk3"))
+
+	fmt.Fprintln(out)
+	fmt.Fprintln(out, "  High Quality Quake (HQQ) is an optional community asset pack with")
+	fmt.Fprintln(out, "  sharper levelshots and player portraits than the stock pk3s. Trinity")
+	fmt.Fprintln(out, "  uses these for the hub UI's map and player thumbnails.")
+	want, err := opts.Prompter.YesNo("  Install High Quality Quake assets?", true)
+	if err != nil || !want {
+		fmt.Fprintln(out, "  Skipping HQQ.")
+		return
+	}
+
+	if err := fetchAndExtractMods(opts, out, hqqBaseq3ZipName, []string{"baseq3"}); err != nil {
+		fmt.Fprintf(out, "  WARN: HQQ baseq3 download failed: %v\n", err)
+		printManualInstall(out, opts, hqqBaseq3ZipName)
+	}
+	if mpInstalled {
+		if err := fetchAndExtractMods(opts, out, hqqMPZipName, []string{"missionpack"}); err != nil {
+			fmt.Fprintf(out, "  WARN: HQQ missionpack download failed: %v\n", err)
+			printManualInstall(out, opts, hqqMPZipName)
+		}
+	}
+}
+
+// printManualInstall tells the operator how to recover when the
+// automated fetch couldn't run — either by dropping the zip in the
+// install dir on a future re-run, or by extracting it manually.
+func printManualInstall(out io.Writer, opts PakStepOptions, name string) {
+	fmt.Fprintf(out, "  Manual install: drop %s into the install directory and re-run trinity init,\n", name)
+	fmt.Fprintf(out, "  or extract it manually into %s\n", opts.Quake3Dir)
+	if url := hubURL(opts.HubHost, "/downloads/"+name); url != "" && opts.StaticDir == "" {
+		fmt.Fprintf(out, "  (the hub serves it at %s).\n", url)
+	}
+}
+
+// hubURL builds an https://<host><path> URL when host is non-empty,
+// returning "" when there's no configured hub (which would mean the
+// wizard is running outside any expected mode — caller should handle
+// the empty case).
+func hubURL(host, path string) string {
+	if host == "" {
+		return ""
+	}
+	return "https://" + host + path
+}
+
+func fileExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
 }
 
 // pageEULA pipes the embedded EULA text through `more` so the operator
@@ -351,80 +443,148 @@ func pageEULA() error {
 	return cmd.Run()
 }
 
-// downloadAndExtractPatches pulls the canonical patch zip from
-// ioquake3.org, walks its entries, and writes the pakN.pk3 files into
-// baseq3/ and missionpack/ — both unconditionally so an operator who
-// later adds a TA server isn't left without patches. Existing files
-// are left alone; we only fill gaps, never overwrite operator copies.
-func downloadAndExtractPatches(quake3Dir, serviceUser string) error {
-	tmp, err := os.CreateTemp("", "trinity-patches-*.zip")
+// fetchAndExtractMods locates the named zip (preferring a local copy
+// under StaticDir/downloads/, otherwise fetching from the hub over
+// HTTPS) and extracts every entry whose top-level dir is one of the
+// allowed mods into <Quake3Dir>/<mod>/<rest>. Existing files are left
+// alone — we only fill gaps, never overwrite operator copies.
+//
+// Hub-hosted zips have `baseq3/...` and/or `missionpack/...` at the
+// top level, so no leading-dir strip is needed. Entries outside the
+// allowed mods (or that resolve outside their mod dir via "..") are
+// skipped.
+func fetchAndExtractMods(opts PakStepOptions, out io.Writer, name string, mods []string) error {
+	zipPath, cleanup, err := resolveZip(opts, out, name)
 	if err != nil {
 		return err
 	}
-	tmpPath := tmp.Name()
-	defer os.Remove(tmpPath)
+	defer cleanup()
 
-	resp, err := http.Get(patchZipURL)
-	if err != nil {
-		tmp.Close()
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		tmp.Close()
-		return fmt.Errorf("HTTP %d from %s", resp.StatusCode, patchZipURL)
-	}
-	if _, err := io.Copy(tmp, resp.Body); err != nil {
-		tmp.Close()
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		return err
-	}
-
-	zr, err := zip.OpenReader(tmpPath)
+	zr, err := zip.OpenReader(zipPath)
 	if err != nil {
 		return fmt.Errorf("open zip: %w", err)
 	}
 	defer zr.Close()
 
+	allowed := make(map[string]bool, len(mods))
+	for _, m := range mods {
+		allowed[m] = true
+	}
+
 	for _, entry := range zr.File {
 		if entry.FileInfo().IsDir() {
 			continue
 		}
-		// Strip leading directory ("quake3-latest-pk3s/"): we only care
-		// about whatever's after the first slash.
-		name := entry.Name
-		if i := strings.IndexByte(name, '/'); i >= 0 {
-			name = name[i+1:]
-		}
-		// Expect "baseq3/pakN.pk3" or "missionpack/pakN.pk3".
-		parts := strings.SplitN(name, "/", 2)
-		if len(parts) != 2 {
+		mod, rest, ok := strings.Cut(entry.Name, "/")
+		if !ok || !allowed[mod] || rest == "" {
 			continue
 		}
-		mod, file := parts[0], parts[1]
-		if mod != "baseq3" && mod != "missionpack" {
+		modRoot := filepath.Join(opts.Quake3Dir, mod)
+		dest := filepath.Join(modRoot, rest)
+		// Zip-slip guard: filepath.Join + .. could escape the mod dir.
+		if !strings.HasPrefix(dest, modRoot+string(os.PathSeparator)) {
 			continue
 		}
-		if !strings.HasPrefix(file, "pak") || !strings.HasSuffix(file, ".pk3") {
-			continue
-		}
-		dest := filepath.Join(quake3Dir, mod, file)
 		if _, err := os.Stat(dest); err == nil {
-			// Don't overwrite an existing file — operator may have a
-			// hand-curated copy or a custom patch.
 			continue
 		}
 		if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
 			return err
 		}
 		if err := extractZipEntry(entry, dest); err != nil {
-			return fmt.Errorf("extract %s: %w", file, err)
+			return fmt.Errorf("extract %s: %w", entry.Name, err)
 		}
-		chownByName(dest, serviceUser)
+		chownByName(dest, opts.ServiceUser)
 	}
 	return nil
+}
+
+// resolveZip returns a filesystem path to the named zip. Sources are
+// tried in order:
+//
+//  1. opts.Cwd/<name> — operator-staged file in the install dir, the
+//     same pattern as pak0 staging. Mirrored into StaticDir/downloads/
+//     on a hub install so the hub serves it to future collectors.
+//  2. opts.StaticDir/downloads/<name> — already-mirrored copy, common
+//     on a hub re-run.
+//  3. https://<HubHost>/downloads/<name> — collector pulling from a
+//     remote hub. Downloaded into a tempfile.
+//
+// The cleanup func removes the tempfile when the source was downloaded;
+// it's a no-op when the path was a local file we shouldn't touch.
+func resolveZip(opts PakStepOptions, out io.Writer, name string) (string, func(), error) {
+	if opts.Cwd != "" {
+		staged := filepath.Join(opts.Cwd, name)
+		if _, err := os.Stat(staged); err == nil {
+			fmt.Fprintf(out, "  Using %s from current directory ...\n", name)
+			mirrorToDownloads(staged, opts, out, name)
+			return staged, func() {}, nil
+		}
+	}
+	if opts.StaticDir != "" {
+		local := filepath.Join(opts.StaticDir, "downloads", name)
+		if _, err := os.Stat(local); err == nil {
+			fmt.Fprintf(out, "  Using local %s ...\n", local)
+			return local, func() {}, nil
+		}
+	}
+	url := hubURL(opts.HubHost, "/downloads/"+name)
+	if url == "" {
+		return "", func() {}, fmt.Errorf("no source for %s — drop it into the current directory and re-run", name)
+	}
+	fmt.Fprintf(out, "  Downloading %s ...\n", url)
+	tmp, err := os.CreateTemp("", "trinity-dl-*.zip")
+	if err != nil {
+		return "", func() {}, err
+	}
+	tmpPath := tmp.Name()
+	cleanup := func() { _ = os.Remove(tmpPath) }
+	resp, err := http.Get(url)
+	if err != nil {
+		tmp.Close()
+		cleanup()
+		return "", func() {}, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		tmp.Close()
+		cleanup()
+		return "", func() {}, fmt.Errorf("HTTP %d from %s", resp.StatusCode, url)
+	}
+	if _, err := io.Copy(tmp, resp.Body); err != nil {
+		tmp.Close()
+		cleanup()
+		return "", func() {}, err
+	}
+	if err := tmp.Close(); err != nil {
+		cleanup()
+		return "", func() {}, err
+	}
+	return tmpPath, cleanup, nil
+}
+
+// mirrorToDownloads copies a CWD-staged zip into <StaticDir>/downloads/
+// so the hub serves it to future collector installs. No-op when no
+// StaticDir (collector install) or when a copy already exists.
+func mirrorToDownloads(src string, opts PakStepOptions, out io.Writer, name string) {
+	if opts.StaticDir == "" {
+		return
+	}
+	dlDir := filepath.Join(opts.StaticDir, "downloads")
+	dest := filepath.Join(dlDir, name)
+	if _, err := os.Stat(dest); err == nil {
+		return
+	}
+	if err := os.MkdirAll(dlDir, 0755); err != nil {
+		fmt.Fprintf(out, "  WARN: could not create %s: %v\n", dlDir, err)
+		return
+	}
+	chownByName(dlDir, opts.ServiceUser)
+	if err := installPakFile(src, dest, opts.ServiceUser); err != nil {
+		fmt.Fprintf(out, "  WARN: mirror %s → %s: %v\n", src, dest, err)
+		return
+	}
+	fmt.Fprintf(out, "  Mirrored %s to %s\n", name, dlDir)
 }
 
 func extractZipEntry(entry *zip.File, dest string) error {
