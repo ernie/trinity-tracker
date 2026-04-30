@@ -70,11 +70,12 @@ After the wizard finishes:
   `sudo -u quake trinity levelshots && sudo -u quake trinity demobake`.
 - Start: `sudo systemctl start trinity quake3-servers.target`.
 
-The wizard installs nginx + obtains a Let's Encrypt cert for demo
-serving and the `:27970` fast-download vhost automatically — it
-also opens the firewall ports it needs (UFW/firewalld). DNS for
-your public hostname must already point at this box before you run
-the wizard, or the cert fetch will fail.
+The wizard installs nginx + obtains a Let's Encrypt SAN cert
+covering both `<hostname>` and `dl.<hostname>` (the latter hosts
+the q3 fast-download vhost on `:80`/`:443`) and opens the firewall
+ports it needs (UFW/firewalld). Both DNS records must already
+point at this box before you run the wizard, or the cert fetch
+will fail.
 
 ### Building from Source
 

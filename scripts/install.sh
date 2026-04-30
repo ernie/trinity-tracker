@@ -133,11 +133,10 @@ if (( ! UPGRADE )); then
    - create the 'quake' service user
    - write /etc/trinity/config.yml and systemd units
      (trinity.service, quake3-server@.service, quake3-servers.target)
-   - obtain a Let's Encrypt cert for the public hostname you give
-     (skip with --skip-cert if you've pre-staged /etc/letsencrypt/
-     yourself, e.g. for a host migration)
-   - open 80, 443, 4222/tcp, 27970/tcp and 27960-28000/udp on UFW
-     or firewalld
+   - obtain a Let's Encrypt SAN cert for both <hostname> and
+     dl.<hostname> (skip with --skip-cert if you've pre-staged
+     /etc/letsencrypt/ yourself, e.g. for a host migration)
+   - open 80, 443, 4222/tcp and 27960-28000/udp on UFW or firewalld
 
  Designed for a fresh Debian/Ubuntu or Arch host. Coexisting with
  other services on the same box (especially other web servers or
@@ -145,7 +144,8 @@ if (( ! UPGRADE )); then
  no built-in uninstall.
 
  You will need:
-   - a public hostname pointing at this box (DNS already in place)
+   - a public hostname pointing at this box (DNS already in place),
+     plus a dl.<hostname> A/AAAA record pointing at the same host
    - an admin email for Let's Encrypt renewal alerts
      (not asked when --skip-cert or --skip-nginx is set)
 
@@ -183,8 +183,9 @@ BANNER
    - create the 'quake' service user
    - write /etc/trinity/{config.yml,source.creds} and systemd units
      (trinity.service, quake3-server@.service, quake3-servers.target)
-   - obtain a Let's Encrypt cert for the public hostname you give
-   - open 80, 443, 27970/tcp and 27960-28000/udp on UFW or firewalld
+   - obtain a Let's Encrypt SAN cert for both <hostname> and
+     dl.<hostname>
+   - open 80, 443/tcp and 27960-28000/udp on UFW or firewalld
 
  Designed for a fresh Debian/Ubuntu or Arch host. Coexisting with
  other services on the same box (especially other web servers or
@@ -192,7 +193,8 @@ BANNER
  no built-in uninstall.
 
  You will need:
-   - a public hostname pointing at this box (DNS already in place)
+   - a public hostname pointing at this box (DNS already in place),
+     plus a dl.<hostname> A/AAAA record pointing at the same host
    - an admin email for Let's Encrypt renewal alerts
    - a hub source ID and .creds file from your hub admin
 

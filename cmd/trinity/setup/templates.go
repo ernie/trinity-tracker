@@ -231,20 +231,19 @@ func RenderTrinityCfg(rconPassword, publicURL string) (string, error) {
 }
 
 // fastdlBlock returns the sv_dlURL/sv_tvDownload cvar lines if a
-// public URL is available, or a commented-out reminder otherwise. The
-// nginx fast-dl vhost (set up by `trinity init`'s nginx step) listens
-// on plain :27970 so we hardcode the port and swap http for https.
+// public URL is available, or a commented-out reminder otherwise.
+// The nginx fastdl vhost lives on dl.<host>.
 func fastdlBlock(publicURL string) string {
 	host := HostFromURL(publicURL)
 	if host == "" {
-		return `// (Set sv_dlURL to your collector's hostname:27970 to enable
+		return `// (Set sv_dlURL to your collector's dl.<hostname> to enable
 // fast-download. Without it, players can't fetch maps they don't
 // already have.)
 // set sv_tvDownload         1
-// set sv_dlURL              "http://your-hostname:27970"`
+// set sv_dlURL              "https://dl.your-hostname"`
 	}
 	return fmt.Sprintf(`set sv_tvDownload         1
-set sv_dlURL              "http://%s:27970"`, host)
+set sv_dlURL              "https://dl.%s"`, host)
 }
 
 // HostFromURL extracts the bare hostname from an http(s) URL. Returns

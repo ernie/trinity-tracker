@@ -12,7 +12,7 @@ The stack:
 |-----------|--------------|
 | **trinity-engine** | Forked ioquake3 server binary (`trinity.ded`) + the trinity mod QVMs (bundled in the same release zip). Vanilla ioquake3 won't work — the tracker keys on log lines only the trinity mod and engine emit. |
 | **trinity-tracker** | Daemon (`trinity`) that tails the q3 server log and publishes facts to the hub. This repo. |
-| **nginx + certbot** | Required. Serves recorded demos + levelshots over HTTPS so the hub UI can load them (the hub 302s users to your `public_url`, and an HTTPS page can't fetch content from a non-HTTPS host), and runs a `:27970` fast-download vhost so q3 clients can pull missing custom-map pk3s when they connect. See §6. |
+| **nginx + certbot** | Required. Serves recorded demos + levelshots over HTTPS so the hub UI can load them (the hub 302s users to your `public_url`, and an HTTPS page can't fetch content from a non-HTTPS host), and runs a `dl.<hostname>` fast-download vhost (HTTP + HTTPS on the same `:80`/`:443`) so q3 clients can pull missing custom-map pk3s when they connect. See §6. |
 
 ---
 
@@ -43,13 +43,15 @@ The stack:
   TLS-inspection proxy).
 - **Inbound UDP** on whatever port(s) you bind your q3 server(s) to
   (typical: 27960, 27961, …).
-- **Inbound TCP/80, TCP/443, TCP/27970** for nginx — see next bullet.
-- **A public hostname pointing at this box, with HTTPS.** Required
-  for joining the network: §6 sets up nginx + a Let's Encrypt cert
-  for the hub-side demo / levelshot URLs and a `:27970` fast-download
-  vhost for in-game pk3 distribution. You don't need either of these
-  running before the wizard, but you do need the DNS in place and
-  the ports open so the cert issuance + fast-download work after.
+- **Inbound TCP/80, TCP/443** for nginx — see next bullet.
+- **A public hostname pointing at this box, plus a `dl.<hostname>`
+  A/AAAA record on the same host.** Required for joining the
+  network: §6 sets up nginx + a Let's Encrypt SAN cert covering both
+  names, with the SPA / demo / levelshot URLs on `<hostname>` and an
+  HTTP-+-HTTPS fast-download vhost on `dl.<hostname>` for in-game
+  pk3 distribution. You don't need either of these running before
+  the wizard, but you do need both DNS records in place and `:80`
+  open so the cert issuance + fast-download work after.
 - **A hub account and an approved source** — see §1. You'll end up
   with a source name (e.g. `mygamesite-jfk`) and a `.creds` file
   scoped to it.
@@ -251,25 +253,28 @@ public-facing surfaces have to be served from your host:
   302s viewers to your `public_url` for matches recorded on your
   host, and an HTTPS hub page can't load mixed content from a
   non-HTTPS origin. No HTTPS, no demo playback.
-- A plain-HTTP `:27970` fast-download vhost — Quake 3 clients pull
-  missing custom-map pk3s from here when they connect to your
-  servers. Without it, the engine falls back to UDP downloads
-  through the q3 server itself; functional, but slow enough on any
-  nontrivial pk3 to frustrate players into disconnecting.
+- A `dl.<hostname>` fast-download vhost (HTTP on `:80`, HTTPS on
+  `:443`) — Quake 3 clients pull missing custom-map pk3s from here
+  when they connect to your servers. Without it, the engine falls
+  back to UDP downloads through the q3 server itself; functional,
+  but slow enough on any nontrivial pk3 to frustrate players into
+  disconnecting.
 
 **`trinity init` handles this automatically.** During the apply phase
-the wizard installs nginx + certbot, opens ports 80/443/27970/tcp
-and 27960-28000/udp on UFW or firewalld, runs `certbot --nginx` to
-get a Let's Encrypt cert, then writes an HTTPS vhost serving
-`/demos/`, `/assets/levelshots/`, and `/demopk3s/` (all CORS-enabled
-for the hub's WASM player) plus a `:27970` fast-download vhost over
+the wizard installs nginx + certbot, opens ports 80/443/tcp and
+27960-28000/udp on UFW or firewalld, runs `certbot --nginx` to get a
+Let's Encrypt SAN cert covering both `<hostname>` and
+`dl.<hostname>`, then writes an HTTPS vhost serving `/demos/`,
+`/assets/levelshots/`, and `/demopk3s/` (all CORS-enabled for the
+hub's WASM player) plus a `dl.<hostname>` fast-download vhost over
 `/usr/lib/quake3/` with `pak0.pk3` blocked.
 
-Pre-flight: your public hostname must resolve to this box before
-running `trinity init`, or the cert fetch will time out at the ACME
-HTTP-01 validation step. (Cloud-side firewalls — Vultr, Hetzner,
-etc. — also need ports 80/443/27970/tcp and 27960-28000/udp opened
-in their dashboard; the wizard only handles the host-local firewall.)
+Pre-flight: both `<hostname>` and `dl.<hostname>` must resolve to
+this box before running `trinity init`, or the cert fetch will time
+out at the ACME HTTP-01 validation step for whichever name is
+missing. (Cloud-side firewalls — Vultr, Hetzner, etc. — also need
+ports 80/443/tcp and 27960-28000/udp opened in their dashboard; the
+wizard only handles the host-local firewall.)
 
 If you ever need to re-run the nginx setup (rotate the cert manually,
 change the public hostname, etc.) the same script lives at

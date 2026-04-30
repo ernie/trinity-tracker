@@ -1,13 +1,13 @@
 # Trinity hub nginx vhost. Rendered by setup.RenderHubNginxConfig and
 # installed by scripts/bootstrap-nginx.sh --mode=hub. Carries:
 #   - HTTP→HTTPS redirect for {{ .PublicHost }}
-#   - HTTPS server with SPA + api/ws + asset fallbacks + /q3/ proxy
-#   - :27970 fastdl vhost with retail-pak block
+#   - HTTPS server with SPA + api/ws + asset fallbacks
+#   - dl.{{ .PublicHost }} fastdl vhost (HTTP + HTTPS)
 #
 # Cert paths assume Let's Encrypt's standard layout. The wizard arranges
 # for /etc/letsencrypt/live/{{ .PublicHost }}/ to exist before nginx is
-# (re)loaded with this config (either via certbot --nginx or via a
-# pre-staged archive when --skip-cert is used).
+# (re)loaded with this config. SAN cert covers both {{ .PublicHost }}
+# and dl.{{ .PublicHost }}.
 
 server {
     listen 80;
@@ -64,14 +64,6 @@ server {
         rewrite ^ /index.html last;
     }
 
-    # Quake 3 fast-download proxy (separate :27970 vhost serves the same
-    # tree directly to game clients; this is for browser-side fetches).
-    location /q3/ {
-        proxy_pass http://127.0.0.1:27970/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-
     location /api/ {
         proxy_pass http://127.0.0.1:8080;
         proxy_set_header Host $host;
@@ -89,28 +81,41 @@ server {
     }
 }
 
-# Quake 3 fast-downloads. Game clients connect directly here (not via
-# 80/443), always plain HTTP. server_name is "_" (catch-all) so certbot
-# --nginx doesn't see this block as a candidate for the cert.
+# Quake 3 fast-downloads.
 server {
-    listen 27970 default_server;
-    listen [::]:27970 default_server;
-    server_name _;
+    listen 80;
+    listen [::]:80;
+    server_name dl.{{ .PublicHost }};
 
     root {{ .Quake3Dir }};
 
-    # Retail pak0.pk3 isn't redistributable — block before the allowlist.
     location ~ ^/(baseq3|missionpack)/pak0\.pk3$ {
         return 403;
     }
-
-    # Positive allowlist: only .pk3 (game assets) and .tvd (recorded
-    # demos) are fetchable. q3 clients only ever ask for these.
     location ~ \.(pk3|tvd)$ {
         try_files $uri =404;
     }
+    location / {
+        return 403;
+    }
+}
 
-    # Default: refuse. Avoids leaking .cfg, .qvm, scripts/, etc.
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name dl.{{ .PublicHost }};
+
+    ssl_certificate     /etc/letsencrypt/live/{{ .PublicHost }}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{{ .PublicHost }}/privkey.pem;
+
+    root {{ .Quake3Dir }};
+
+    location ~ ^/(baseq3|missionpack)/pak0\.pk3$ {
+        return 403;
+    }
+    location ~ \.(pk3|tvd)$ {
+        try_files $uri =404;
+    }
     location / {
         return 403;
     }

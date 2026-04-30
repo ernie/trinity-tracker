@@ -168,8 +168,8 @@ func TestRenderTrinityCfg_WithPublicURL(t *testing.T) {
 	if !strings.Contains(out, `"hunter2"`) {
 		t.Errorf("rcon password not substituted, got:\n%s", out)
 	}
-	if !strings.Contains(out, "q3.example.com:27970") {
-		t.Errorf("expected fastdl URL with q3.example.com, got:\n%s", out)
+	if !strings.Contains(out, `"https://dl.q3.example.com"`) {
+		t.Errorf("expected fastdl URL https://dl.q3.example.com, got:\n%s", out)
 	}
 	if strings.Contains(out, "{{") {
 		t.Errorf("unsubstituted placeholder, got:\n%s", out)

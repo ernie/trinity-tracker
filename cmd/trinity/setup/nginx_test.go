@@ -31,9 +31,8 @@ func TestRenderHubNginxConfig_ContainsExpectedDirectives(t *testing.T) {
 		"location @trinity_fallback {",
 		"location @spa {",
 		"rewrite ^ /index.html last;",
-		"location /q3/ {",
-		"proxy_pass http://127.0.0.1:27970/;",
-		"listen 27970 default_server;",
+		// fastdl block (dl.<host> on :80 + :443)
+		"server_name dl.trinity.run;",
 		"root /usr/lib/quake3;",
 		"location ~ ^/(baseq3|missionpack)/pak0\\.pk3$ {",
 		"location ~ \\.(pk3|tvd)$ {",
@@ -41,6 +40,16 @@ func TestRenderHubNginxConfig_ContainsExpectedDirectives(t *testing.T) {
 	for _, want := range mustContain {
 		if !strings.Contains(rendered, want) {
 			t.Errorf("rendered hub.conf missing %q\n--- output ---\n%s", want, rendered)
+		}
+	}
+
+	// fastdl moved off :27970 onto dl.<host>; the old listener must be gone.
+	for _, unwanted := range []string{
+		"listen 27970",
+		"proxy_pass http://127.0.0.1:27970/",
+	} {
+		if strings.Contains(rendered, unwanted) {
+			t.Errorf("rendered hub.conf still references retired :27970 (%q):\n%s", unwanted, rendered)
 		}
 	}
 
@@ -98,8 +107,8 @@ func TestRenderCollectorNginxConfig_ContainsExpectedDirectives(t *testing.T) {
 		"expires 30d;",
 		"location /demopk3s/ {",
 		"return 404;",
-		// fastdl block
-		"listen 27970 default_server;",
+		// fastdl block (dl.<host> on :80 + :443)
+		"server_name dl.q3.example.com;",
 		"root /usr/lib/quake3;",
 		"location ~ ^/(baseq3|missionpack)/pak0\\.pk3$ {",
 		"return 403;",
@@ -112,11 +121,13 @@ func TestRenderCollectorNginxConfig_ContainsExpectedDirectives(t *testing.T) {
 	}
 
 	// Collector vhost is not an app — no SPA, no api/ws proxy.
+	// fastdl moved off :27970 onto dl.<host>; the old listener must be gone.
 	for _, unwanted := range []string{
 		"location /api/ {",
 		"location /ws {",
 		"@spa",
 		"@trinity_fallback",
+		"listen 27970",
 	} {
 		if strings.Contains(rendered, unwanted) {
 			t.Errorf("collector.conf unexpectedly contains %q\n%s", unwanted, rendered)

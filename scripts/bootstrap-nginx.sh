@@ -10,9 +10,9 @@ set -euo pipefail
 #
 # Modes:
 #   --mode=hub       Public front for a Trinity hub (SPA + api/ws +
-#                    asset-fallback proxy + :27970 fastdl).
+#                    asset-fallback proxy + dl.<host> fastdl).
 #   --mode=collector Static asset host the hub 302s to (demos,
-#                    levelshots, demopk3s + :27970 fastdl).
+#                    levelshots, demopk3s + dl.<host> fastdl).
 #
 # Cross-distro:
 #   - Debian/Ubuntu: sites-available/sites-enabled, certbot --nginx via
@@ -172,7 +172,7 @@ fi
 # HTTP-01 to port 80, so a UFW/firewalld default-deny will time the
 # cert fetch out. Hub mode also opens 4222/tcp for remote collectors.
 open_firewall_ports() {
-    local ports_tcp=(80 443 27970)
+    local ports_tcp=(80 443)
     local ports_udp_range="27960:28000"
     if [[ "$MODE" == "hub" ]]; then
         ports_tcp+=(4222)
@@ -228,14 +228,16 @@ else
 fi
 
 # Both modes write a single combined site file (HTTP→HTTPS + HTTPS
-# vhost + :27970 fastdl all in one). Filename varies by distro layout.
+# vhost + dl.<host> fastdl vhost all in one). Filename varies by distro
+# layout.
 if [[ "$LAYOUT" == "debian" ]]; then
     PRIMARY_SITE="$SITE_DIR/trinity"
 else
     PRIMARY_SITE="$SITE_DIR/trinity.conf"
 fi
 
-# Stage-1 site is mode-agnostic: HTTP-only with the right server_name,
+# Stage-1 site is mode-agnostic: HTTP-only with both server_names (the
+# SAN cert covers both, so certbot needs HTTP-01 to succeed for each),
 # enough for certbot --nginx to add its ACME challenge location. We
 # overwrite it with --site-file once the cert is issued.
 write_stage1_site() {
@@ -243,7 +245,7 @@ write_stage1_site() {
 server {
     listen 80;
     listen [::]:80;
-    server_name $PUBLIC_HOST;
+    server_name $PUBLIC_HOST dl.$PUBLIC_HOST;
 
     root $STATIC_DIR;
 
@@ -315,10 +317,13 @@ if (( NEEDS_CERTBOT )); then
     # config-modification step, which collector configs `include`.
     # certbot's edits to our stage-1 are transient — the final cp
     # below overwrites them.
+    # SAN cert: <host> and dl.<host>. Both A/AAAA records must already
+    # resolve here or LE's HTTP-01 will fail for the missing name.
     certbot --nginx \
         --non-interactive --agree-tos \
         --email "$ADMIN_EMAIL" \
-        -d "$PUBLIC_HOST"
+        -d "$PUBLIC_HOST" \
+        -d "dl.$PUBLIC_HOST"
 
     echo "==> installing final $MODE site from $SITE_FILE"
     cp -f "$SITE_FILE" "$PRIMARY_SITE"
@@ -354,13 +359,13 @@ echo
 case "$MODE" in
     hub)
         echo "Hub nginx ready. Public URL: https://$PUBLIC_HOST/"
-        echo "  Fast-dl:     http://$PUBLIC_HOST:27970/"
+        echo "  Fast-dl:     https://dl.$PUBLIC_HOST/"
         ;;
     collector)
         echo "Collector nginx ready. URLs the hub will fetch from this host:"
         echo "  Demos:       https://$PUBLIC_HOST/demos/<uuid>.tvd"
         echo "  Levelshots:  https://$PUBLIC_HOST/assets/levelshots/<map>.jpg"
         echo "  Demo pk3s:   https://$PUBLIC_HOST/demopk3s/maps/<map>.pk3"
-        echo "  Fast-dl:     http://$PUBLIC_HOST:27970/"
+        echo "  Fast-dl:     https://dl.$PUBLIC_HOST/"
         ;;
 esac

@@ -18,7 +18,7 @@ var nginxTemplates embed.FS
 // NginxFields are the placeholders shared by hub.conf.tmpl and
 // collector.conf.tmpl. Both templates draw from the same struct: hub
 // uses StaticDir as the SPA root, collector uses it as the static
-// asset root the hub fetches from. Quake3Dir is the :27970 fastdl
+// asset root the hub fetches from. Quake3Dir is the dl.<host> fastdl
 // root in both cases.
 //
 // Kept narrow on purpose: any operator-specific tuning (cache TTLs,
@@ -94,9 +94,9 @@ func InstallNginx(plan *Plan, mode NginxMode, publicURL, adminEmail, staticDir, 
 		if skipFirewall {
 			plan.say("would skip ufw/firewalld port-open (--skip-firewall)")
 		} else {
-			ports := "80/tcp, 443/tcp, 27970/tcp, 27960-28000/udp"
+			ports := "80/tcp, 443/tcp, 27960-28000/udp"
 			if mode == NginxModeHub {
-				ports = "80/tcp, 443/tcp, 4222/tcp, 27970/tcp, 27960-28000/udp"
+				ports = "80/tcp, 443/tcp, 4222/tcp, 27960-28000/udp"
 			}
 			plan.say("would open firewall ports %s (ufw/firewalld)", ports)
 		}
