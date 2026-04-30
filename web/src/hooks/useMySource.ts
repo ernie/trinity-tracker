@@ -45,6 +45,7 @@ export function useMySources(): {
   }, [token, isAuthenticated])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchMine()
     if (!isAuthenticated) return
     const id = setInterval(fetchMine, 30_000)

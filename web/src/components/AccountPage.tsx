@@ -63,6 +63,7 @@ export function AccountPage() {
   useEffect(() => {
     if (!auth.token) return
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true)
     fetch('/api/account/profile', {
       headers: {
@@ -107,6 +108,7 @@ export function AccountPage() {
   useEffect(() => {
     if (!auth.token) return
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setGameTokenLoading(true)
     fetch('/api/auth/game-token', {
       headers: {

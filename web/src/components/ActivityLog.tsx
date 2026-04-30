@@ -65,6 +65,7 @@ export function ActivityLog({ activities, servers, onPlayerClick }: ActivityLogP
   useEffect(() => {
     if (!serverFilterValidated.current && servers.size > 0) {
       if (typeof serverFilter === 'number' && !servers.has(serverFilter)) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setServerFilter('all')
       }
       serverFilterValidated.current = true
@@ -102,7 +103,7 @@ export function ActivityLog({ activities, servers, onPlayerClick }: ActivityLogP
     }
 
     return players.sort((a, b) => b.player.score - a.player.score)
-  }, [servers])
+  }, [servers, hasMultipleSources])
 
   // Filter activities
   const filteredActivities = useMemo(() => {

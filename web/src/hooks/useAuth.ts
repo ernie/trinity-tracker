@@ -39,37 +39,39 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Check existing token on mount
   useEffect(() => {
     const token = localStorage.getItem(TOKEN_KEY)
-    if (token) {
-      checkToken(token)
-    } else {
+    if (!token) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoading(false)
+      return
     }
-  }, [])
-
-  const checkToken = async (token: string) => {
-    try {
-      const res = await fetch('/api/auth/check', {
-        headers: { Authorization: `Bearer ${token}` },
+    let cancelled = false
+    fetch('/api/auth/check', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (cancelled) return
+        if (data.authenticated) {
+          setAuth({
+            isAuthenticated: true,
+            username: data.username,
+            token,
+            isAdmin: data.is_admin || false,
+            playerId: data.player_id || null,
+            passwordChangeRequired: data.password_change_required || false,
+          })
+        } else {
+          localStorage.removeItem(TOKEN_KEY)
+        }
       })
-      const data = await res.json()
-      if (data.authenticated) {
-        setAuth({
-          isAuthenticated: true,
-          username: data.username,
-          token,
-          isAdmin: data.is_admin || false,
-          playerId: data.player_id || null,
-          passwordChangeRequired: data.password_change_required || false,
-        })
-      } else {
-        localStorage.removeItem(TOKEN_KEY)
-      }
-    } catch {
-      localStorage.removeItem(TOKEN_KEY)
-    } finally {
-      setLoading(false)
-    }
-  }
+      .catch(() => {
+        if (!cancelled) localStorage.removeItem(TOKEN_KEY)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [])
 
   const login = useCallback(async (credentials: LoginCredentials): Promise<boolean> => {
     try {

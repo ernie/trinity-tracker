@@ -445,6 +445,18 @@ export interface LeaderboardResponse {
   entries: LeaderboardEntry[]
 }
 
+// Trinity engine module — surface used by demo player and play page.
+// Built from emscripten + custom additions in trinity-engine's loader.js.
+export interface EngineModule {
+  abort: () => void
+  shutdown: () => void
+  pauseMainLoop: () => void
+  _exit: (code: number) => void
+  ccall(name: string, returnType: 'string', argTypes: string[], args: unknown[]): string | null
+  ccall(name: string, returnType: null, argTypes: string[], args: unknown[]): void
+  onNextFrame: (cb: () => void) => void
+}
+
 // Self-service collector onboarding.
 
 // SourceStatus mirrors the sources.status enum on the server. Drives

@@ -69,6 +69,9 @@ export function usePlayerSessions(
   )
 
   useEffect(() => {
+    // Reset on player/token change so a new caller doesn't briefly see
+    // the previous player's sessions while the next page is in flight.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSessions([])
     setHasMore(true)
     fetchSessions()

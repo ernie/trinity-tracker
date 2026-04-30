@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import type { ServerStatus, Player } from '../types'
 import { FlagIcon } from './FlagIcon'
 import { PlayerItem } from './PlayerItem'
@@ -91,20 +91,14 @@ function getDisplayTime(server: ServerStatus, timeLimitMinutes: number | null): 
 // Hook to interpolate game time between server updates
 // timeLimitMinutes is used to clamp interpolated time so we don't falsely flag overtime
 function useInterpolatedTime(server: ServerStatus, timeLimitMinutes: number | null): { gameTimeMs: number; warmupRemaining: number | undefined } {
-  const [offset, setOffset] = useState(0)
-  const lastUpdateRef = useRef<string>(server.last_updated)
-  const baseGameTimeRef = useRef(server.game_time_ms)
-  const baseWarmupRef = useRef(server.warmup_remaining)
+  // Track the snapshot we're interpolating from alongside the offset, so when
+  // a new snapshot arrives we can reset offset during render — see
+  // https://react.dev/reference/react/useState#storing-information-from-previous-renders.
+  const [state, setState] = useState({ lastUpdated: server.last_updated, offset: 0 })
 
-  // Reset offset when server data changes
-  useEffect(() => {
-    if (server.last_updated !== lastUpdateRef.current) {
-      lastUpdateRef.current = server.last_updated
-      baseGameTimeRef.current = server.game_time_ms
-      baseWarmupRef.current = server.warmup_remaining
-      setOffset(0)
-    }
-  }, [server.last_updated, server.game_time_ms, server.warmup_remaining])
+  if (state.lastUpdated !== server.last_updated) {
+    setState({ lastUpdated: server.last_updated, offset: 0 })
+  }
 
   // Increment/decrement timer every second based on match state
   useEffect(() => {
@@ -114,29 +108,32 @@ function useInterpolatedTime(server: ServerStatus, timeLimitMinutes: number | nu
     }
 
     const interval = setInterval(() => {
-      setOffset(prev => prev + 1000)
+      setState(s => ({ ...s, offset: s.offset + 1000 }))
     }, 1000)
 
     return () => clearInterval(interval)
   }, [server.match_state, server.last_updated])
 
+  // Use a stable offset only after the reset has landed — for the one render
+  // where we still hold the previous snapshot's offset, treat it as zero.
+  const offset = state.lastUpdated === server.last_updated ? state.offset : 0
+
   // Calculate interpolated values
   let gameTimeMs = (server.match_state === 'active' || server.match_state === 'overtime')
-    ? baseGameTimeRef.current + offset
+    ? server.game_time_ms + offset
     : server.game_time_ms
 
   // Clamp interpolated time at the time limit so we don't falsely flag overtime.
   // Overtime should only be shown when the actual server status reports it.
   if (timeLimitMinutes && timeLimitMinutes > 0 && server.match_state === 'active') {
     const timeLimitMs = timeLimitMinutes * 60 * 1000
-    // Only clamp if the base time from server is still under the limit
-    if (baseGameTimeRef.current <= timeLimitMs) {
+    if (server.game_time_ms <= timeLimitMs) {
       gameTimeMs = Math.min(gameTimeMs, timeLimitMs)
     }
   }
 
-  const warmupRemaining = server.match_state === 'warmup' && baseWarmupRef.current !== undefined
-    ? Math.max(0, baseWarmupRef.current - offset)
+  const warmupRemaining = server.match_state === 'warmup' && server.warmup_remaining !== undefined
+    ? Math.max(0, server.warmup_remaining - offset)
     : server.warmup_remaining
 
   return { gameTimeMs, warmupRemaining }

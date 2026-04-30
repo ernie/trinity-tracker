@@ -25,7 +25,7 @@ const SIZE_CLASSES: Record<NonNullable<PlayerPortraitProps['size']>, string> = {
  */
 function getPortraitPath(model: string): string {
   // Strip Team Arena asterisk prefix
-  let cleanModel = model.startsWith('*') ? model.slice(1) : model
+  const cleanModel = model.startsWith('*') ? model.slice(1) : model
 
   // Split into model name and skin
   const parts = cleanModel.split('/')

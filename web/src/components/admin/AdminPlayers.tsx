@@ -57,6 +57,7 @@ export function AdminPlayers() {
   )
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (selected) fetchGuids(selected.id)
     else setGuids([])
   }, [selected, fetchGuids])

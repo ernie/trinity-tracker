@@ -125,20 +125,18 @@ export function LeaderboardPage() {
 
   const availableCategories = getCategoriesForGameType(gameType);
 
-  // Reset category if it's no longer available for the selected game type
-  useEffect(() => {
-    if (!availableCategories.includes(category)) {
-      setCategory("frags");
-    }
-  }, [gameType, availableCategories, category]);
+  // Effective category — when a game type doesn't support the persisted
+  // category, fall back to "frags" without ever storing the bad value.
+  const effectiveCategory = availableCategories.includes(category) ? category : "frags";
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     setError(null);
 
     const gameTypeParam = gameType !== "all" ? `&game_type=${gameType}` : "";
     fetch(
-      `/api/stats/leaderboard?category=${category}&period=${period}&limit=50${gameTypeParam}`,
+      `/api/stats/leaderboard?category=${effectiveCategory}&period=${period}&limit=50${gameTypeParam}`,
     )
       .then((res) => {
         if (!res.ok) throw new Error("Failed to load leaderboard");
@@ -147,7 +145,7 @@ export function LeaderboardPage() {
       .then((data) => setData(data))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [category, period, gameType]);
+  }, [effectiveCategory, period, gameType]);
 
   return (
     <div className="leaderboard-page">
@@ -171,7 +169,7 @@ export function LeaderboardPage() {
         {availableCategories.map((cat) => (
           <button
             key={cat}
-            className={`category-btn ${category === cat ? "active" : ""}`}
+            className={`category-btn ${effectiveCategory === cat ? "active" : ""}`}
             onClick={() => setCategory(cat)}
           >
             <CategoryIcon category={cat} />
@@ -190,7 +188,7 @@ export function LeaderboardPage() {
         ) : data && data.entries && data.entries.length > 0 ? (
           <LeaderboardTable
             entries={data.entries}
-            category={category}
+            category={effectiveCategory}
           />
         ) : (
           <div className="leaderboard-empty">

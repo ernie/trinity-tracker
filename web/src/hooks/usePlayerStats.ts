@@ -20,6 +20,7 @@ export function usePlayerStats(playerId: number | undefined, period: TimePeriod)
 
   useEffect(() => {
     if (!playerId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setStats(null)
       return
     }

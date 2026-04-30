@@ -32,6 +32,7 @@ export function PageNav() {
   }, [open])
 
   // Close on navigation
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setOpen(false) }, [location.pathname])
 
   return (

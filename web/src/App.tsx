@@ -77,15 +77,21 @@ function App() {
 
   const { auth, changePassword } = useAuth();
 
-  // Show password change modal if required
+  // Show password change modal if required. Done as an effect (not derived
+  // at render) so the user can dismiss the modal without it reopening on
+  // every render until auth flips.
   useEffect(() => {
     if (auth.isAuthenticated && auth.passwordChangeRequired) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setShowPasswordChange(true);
     }
   }, [auth.isAuthenticated, auth.passwordChangeRequired]);
 
-  // Keep ref in sync with state
-  serversRef.current = servers;
+  // Keep ref in sync with state — read by getServerName / getPlayerBotInfo
+  // callbacks that fire from event handlers, where the latest map is needed.
+  useEffect(() => {
+    serversRef.current = servers;
+  }, [servers]);
 
   // Count active human players across all servers (for sidebar indicator)
   const activeHumanPlayersCount = useMemo(() => {

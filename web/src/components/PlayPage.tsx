@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
+import type { EngineModule } from '../types'
 
 export function PlayPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const statusRef = useRef<HTMLDivElement>(null)
-  const moduleRef = useRef<any>(null)
+  const moduleRef = useRef<EngineModule | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [progress, setProgress] = useState({ loaded: 0, total: 0 })
@@ -19,8 +20,8 @@ export function PlayPage() {
 
     async function init() {
       try {
-        // @ts-ignore — runtime module from WASM engine, not in TS source tree
-        const { loadEngine } = await import(/* @vite-ignore */ '/engine/loader.js')
+        // @ts-expect-error — runtime module from WASM engine, not in TS source tree
+        const { loadEngine } = await import('/engine/loader.js')
         if (aborted) return
 
         const rect = canvasRef.current!.getBoundingClientRect()
@@ -40,12 +41,12 @@ export function PlayPage() {
         })
         moduleRef.current = mod
         if (aborted) {
-          try { mod.abort(); } catch {}
+          try { mod.abort() } catch { /* engine may not be ready */ }
           return
         }
         setLoading(false)
-      } catch (e: any) {
-        if (!aborted) setError(e.message || 'Failed to load engine')
+      } catch (e) {
+        if (!aborted) setError(e instanceof Error ? e.message : 'Failed to load engine')
       }
     }
 
@@ -55,9 +56,11 @@ export function PlayPage() {
       aborted = true
       const mod = moduleRef.current
       if (mod) {
-        try { mod.shutdown(); } catch {}
-        try { mod.pauseMainLoop(); } catch {}
-        try { mod._exit(0); } catch {}
+        // Best-effort teardown — any one of these may throw mid-shutdown
+        // and we still want to run the rest.
+        try { mod.shutdown() } catch (e) { console.debug('shutdown failed', e) }
+        try { mod.pauseMainLoop() } catch (e) { console.debug('pauseMainLoop failed', e) }
+        try { mod._exit(0) } catch (e) { console.debug('_exit failed', e) }
         moduleRef.current = null
       }
     }

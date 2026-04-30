@@ -87,6 +87,7 @@ export function AdminSessions() {
 
   // Refresh whenever filters change
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadFirstPage()
   }, [loadFirstPage])
 

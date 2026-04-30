@@ -6,6 +6,9 @@ export function useWebSocket(url: string, onEvent?: (event: WSEvent) => void) {
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectTimeoutRef = useRef<number | null>(null)
   const onEventRef = useRef(onEvent)
+  // Held in a ref so the reconnect setTimeout always invokes the latest
+  // closure (e.g. after url changes), not the one captured at construction.
+  const connectRef = useRef<() => void>(() => {})
 
   // Keep callback ref up to date
   useEffect(() => {
@@ -26,7 +29,7 @@ export function useWebSocket(url: string, onEvent?: (event: WSEvent) => void) {
     ws.onclose = () => {
       setIsConnected(false)
       console.log('WebSocket disconnected, reconnecting in 3s...')
-      reconnectTimeoutRef.current = window.setTimeout(connect, 3000)
+      reconnectTimeoutRef.current = window.setTimeout(() => connectRef.current(), 3000)
     }
 
     ws.onerror = (error) => {
@@ -47,6 +50,10 @@ export function useWebSocket(url: string, onEvent?: (event: WSEvent) => void) {
       }
     }
   }, [url])
+
+  useEffect(() => {
+    connectRef.current = connect
+  }, [connect])
 
   useEffect(() => {
     connect()

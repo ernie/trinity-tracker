@@ -3,6 +3,7 @@ import { flushSync } from 'react-dom'
 import { useParams, Link } from 'react-router-dom'
 import { ColoredText } from './ColoredText'
 import { PlayerPortrait } from './PlayerPortrait'
+import type { EngineModule } from '../types'
 
 interface MatchData {
   id: number
@@ -14,7 +15,7 @@ export function DemoPlayerPage() {
   const { id } = useParams<{ id: string }>()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const statusRef = useRef<HTMLDivElement>(null)
-  const moduleRef = useRef<any>(null)
+  const moduleRef = useRef<EngineModule | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [progress, setProgress] = useState({ loaded: 0, total: 0 })
@@ -69,8 +70,8 @@ export function DemoPlayerPage() {
         }
         if (aborted) return
 
-        // @ts-ignore — runtime module from WASM engine, not in TS source tree
-        const { loadEngine } = await import(/* @vite-ignore */ '/engine/loader.js')
+        // @ts-expect-error — runtime module from WASM engine, not in TS source tree
+        const { loadEngine } = await import('/engine/loader.js')
         if (aborted) return
 
         const rect = canvasRef.current!.getBoundingClientRect()
@@ -90,12 +91,12 @@ export function DemoPlayerPage() {
         })
         moduleRef.current = mod
         if (aborted) {
-          try { mod.abort(); } catch {}
+          try { mod.abort() } catch { /* engine may not be ready */ }
           return
         }
         setLoading(false)
-      } catch (e: any) {
-        if (!aborted) setError(e.message || 'Failed to load demo')
+      } catch (e) {
+        if (!aborted) setError(e instanceof Error ? e.message : 'Failed to load demo')
       }
     }
 
@@ -105,10 +106,12 @@ export function DemoPlayerPage() {
       aborted = true
       const mod = moduleRef.current
       if (mod) {
-        try { mod.shutdown(); } catch {}
+        // Best-effort teardown — any one of these may throw mid-shutdown
+        // and we still want to run the rest.
+        try { mod.shutdown() } catch (e) { console.debug('shutdown failed', e) }
         // pauseMainLoop decrements the keepalive counter so _exit can shut down
-        try { mod.pauseMainLoop(); } catch {}
-        try { mod._exit(0); } catch {}
+        try { mod.pauseMainLoop() } catch (e) { console.debug('pauseMainLoop failed', e) }
+        try { mod._exit(0) } catch (e) { console.debug('_exit failed', e) }
         moduleRef.current = null
       }
     }
@@ -153,7 +156,7 @@ export function DemoPlayerPage() {
           try {
             const v = mod.ccall('Cvar_VariableString', 'string', ['string'], ['sensitivity'])
             if (v) sens = v
-          } catch {}
+          } catch (e) { console.debug('Cvar_VariableString failed', e) }
           mod.ccall('Cbuf_AddText', null, ['string'], ['sensitivity 0\n'])
           canvas.dispatchEvent(new MouseEvent('mousemove', {
             clientX: lastX, clientY: lastY, bubbles: true,
@@ -161,7 +164,8 @@ export function DemoPlayerPage() {
           synthX = lastX
           synthY = lastY
           setTimeout(() => {
-            try { mod.ccall('Cbuf_AddText', null, ['string'], [`sensitivity ${sens}\n`]) } catch {}
+            try { mod.ccall('Cbuf_AddText', null, ['string'], [`sensitivity ${sens}\n`]) }
+            catch (e) { console.debug('sensitivity restore failed', e) }
           }, 50)
         }
       }
@@ -379,7 +383,7 @@ export function DemoPlayerPage() {
     const mod = moduleRef.current
     if (!mod?.ccall) return
     try {
-      const raw: string = mod.ccall('CL_TV_GetPlayerList', 'string', [], [])
+      const raw = mod.ccall('CL_TV_GetPlayerList', 'string', [], [])
       if (!raw) return
       const lines = raw.split('\n').filter(Boolean)
       if (lines.length < 1) return
@@ -390,7 +394,7 @@ export function DemoPlayerPage() {
       })
       players.sort((a, b) => a.team - b.team || a.clientNum - b.clientNum)
       setPlayerList(players)
-    } catch {}
+    } catch (e) { console.debug('refreshPlayerList failed', e) }
   }, [])
 
   const handleScrubToggle = useCallback((e: React.MouseEvent) => {

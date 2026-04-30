@@ -57,12 +57,8 @@ export function useGitHubReleases() {
   const [loading, setLoading] = useState(() => getCached() === null)
 
   useEffect(() => {
-    const cached = getCached()
-    if (cached) {
-      setReleases(cached)
-      setLoading(false)
-      return
-    }
+    // Cache hit was applied during state init — nothing to fetch.
+    if (getCached()) return
 
     const promises = REPOS.map(r =>
       fetch(`https://api.github.com/repos/ernie/${r.repo}/releases/latest`)

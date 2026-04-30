@@ -58,9 +58,11 @@ export function RconSidebar({ server, token, onClose }: RconSidebarProps) {
     }
   }, [width])
 
-  // Check if RCON is available for this server
+  // Check if RCON is available for this server. Keying on server_id only
+  // so we don't re-fetch when other server fields tick (game_time_ms, etc.)
   useEffect(() => {
     if (!server) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setRconAvailable(null)
       return
     }
@@ -69,6 +71,7 @@ export function RconSidebar({ server, token, onClose }: RconSidebarProps) {
       .then(res => res.json())
       .then(data => setRconAvailable(data.available))
       .catch(() => setRconAvailable(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [server?.server_id, token])
 
   // Auto-scroll to bottom when history changes
