@@ -272,12 +272,14 @@ etc. — also need ports 80/443/27970/tcp and 27960-28000/udp opened
 in their dashboard; the wizard only handles the host-local firewall.)
 
 If you ever need to re-run the nginx setup (rotate the cert manually,
-change `PUBLIC_URL`, etc.) the same script lives at
+change the public hostname, etc.) the same script lives at
 `scripts/bootstrap-nginx.sh` and can be invoked directly:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ernie/trinity-tracker/main/scripts/bootstrap-nginx.sh \
-  | sudo PUBLIC_URL=https://q3.example.com ADMIN_EMAIL=you@example.com bash
+sudo scripts/bootstrap-nginx.sh \
+  --mode=collector \
+  --hostname=q3.example.com \
+  --email=you@example.com
 ```
 
 After the wizard completes, populate the static asset directories from your pk3s:

@@ -149,6 +149,8 @@ func TestApply_DryRun_HubOnly(t *testing.T) {
 		HTTPPort:     8080,
 		DatabasePath: filepath.Join(dbDir, "trinity.db"),
 		StaticDir:    staticDir,
+		PublicURL:    "https://hub.example.com",
+		AdminEmail:   "ops@example.com",
 	}
 	if err := a.Validate(); err != nil {
 		t.Fatalf("Validate: %v", err)
@@ -198,5 +200,107 @@ func TestApply_DryRun_HubOnly(t *testing.T) {
 		if strings.Contains(out, unwanted) {
 			t.Errorf("hub-only dry-run referenced %q\n--- output ---\n%s", unwanted, out)
 		}
+	}
+	// Hub-only with PublicURL+AdminEmail set must announce nginx install.
+	if !strings.Contains(out, "would render hub nginx config for hub.example.com") {
+		t.Errorf("expected hub nginx render announcement\n--- output ---\n%s", out)
+	}
+	if !strings.Contains(out, "4222/tcp") {
+		t.Errorf("hub nginx firewall plan missing 4222/tcp\n--- output ---\n%s", out)
+	}
+	// RemoteCollectorsExpected was false → no TLS symlinks should be planned.
+	if strings.Contains(out, "/etc/trinity/tls/fullchain.pem") {
+		t.Errorf("dry-run mentioned TLS symlinks despite RemoteCollectorsExpected=false\n%s", out)
+	}
+}
+
+// TestApply_DryRun_Combined_RemoteCollectors asserts that combined mode
+// with RemoteCollectorsExpected creates the /etc/trinity/tls/ symlinks
+// that the embedded NATS broker reads cert/key from. These are stamped
+// as symlinks (not files) so cert renewals propagate without any extra
+// orchestration.
+func TestApply_DryRun_Combined_RemoteCollectors(t *testing.T) {
+	tmp := t.TempDir()
+	a := &Answers{
+		Mode:                     ModeCombined,
+		ServiceUser:              "quake",
+		ListenAddr:               "127.0.0.1",
+		HTTPPort:                 8080,
+		DatabasePath:             filepath.Join(tmp, "var", "trinity.db"),
+		StaticDir:                filepath.Join(tmp, "web"),
+		Quake3Dir:                filepath.Join(tmp, "q3"),
+		PublicURL:                "https://hub.example.com",
+		AdminEmail:               "ops@example.com",
+		SourceID:                 "hub",
+		RemoteCollectorsExpected: true,
+		Servers: []ServerAnswers{
+			{Key: "ffa", Gametype: GametypeFFA, Address: "127.0.0.1:27960", Port: 27960, RconPassword: "secret", LogPath: "/var/log/quake3/ffa.log"},
+		},
+	}
+	if err := a.Validate(); err != nil {
+		t.Fatalf("Validate: %v", err)
+	}
+	buf := &bytes.Buffer{}
+	if err := Apply(a, ApplyOptions{
+		ConfigPath: filepath.Join(tmp, "config.yml"),
+		UseSystemd: true,
+		DryRun:     true,
+		Out:        buf,
+	}); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	out := buf.String()
+	for _, want := range []string{
+		"would render hub nginx config for hub.example.com",
+		"4222/tcp",
+		"/etc/trinity/tls/fullchain.pem",
+		"/etc/trinity/tls/privkey.pem",
+		"/etc/letsencrypt/live/hub.example.com/fullchain.pem",
+		"/etc/letsencrypt/live/hub.example.com/privkey.pem",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("combined+remote-collectors dry-run missing %q\n--- output ---\n%s", want, out)
+		}
+	}
+}
+
+// TestApply_DryRun_Combined_SkipCert asserts the --skip-cert path is
+// announced in dry-run when SkipCert=true.
+func TestApply_DryRun_Combined_SkipCert(t *testing.T) {
+	tmp := t.TempDir()
+	a := &Answers{
+		Mode:         ModeCombined,
+		ServiceUser:  "quake",
+		ListenAddr:   "127.0.0.1",
+		HTTPPort:     8080,
+		DatabasePath: filepath.Join(tmp, "var", "trinity.db"),
+		StaticDir:    filepath.Join(tmp, "web"),
+		Quake3Dir:    filepath.Join(tmp, "q3"),
+		PublicURL:    "https://hub.example.com",
+		AdminEmail:   "ops@example.com",
+		SourceID:     "hub",
+		SkipCert:     true,
+		Servers: []ServerAnswers{
+			{Key: "ffa", Gametype: GametypeFFA, Address: "127.0.0.1:27960", Port: 27960, RconPassword: "secret", LogPath: "/var/log/quake3/ffa.log"},
+		},
+	}
+	if err := a.Validate(); err != nil {
+		t.Fatalf("Validate: %v", err)
+	}
+	buf := &bytes.Buffer{}
+	if err := Apply(a, ApplyOptions{
+		ConfigPath: filepath.Join(tmp, "config.yml"),
+		UseSystemd: true,
+		DryRun:     true,
+		Out:        buf,
+	}); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "skip-cert: caller has staged /etc/letsencrypt/") {
+		t.Errorf("expected skip-cert announcement\n--- output ---\n%s", out)
+	}
+	if strings.Contains(out, "obtain a Let's Encrypt cert") {
+		t.Errorf("skip-cert path should not announce a cert obtain step\n%s", out)
 	}
 }

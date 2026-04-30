@@ -54,12 +54,37 @@ type Answers struct {
 	InstallEngine bool   // download the latest trinity-engine release into Quake3Dir
 	Quake3Dir     string // server.quake3_dir
 
-	// Collector-only
-	HubHost    string // tracker.collector.hub_host
+	// Public-facing URL + LE (collector, plus hub modes that front the
+	// SPA on a public hostname).
+	HubHost    string // tracker.collector.hub_host (collector: remote hub; combined: this host)
 	PublicURL  string // tracker.collector.public_url
 	AdminEmail string // address Let's Encrypt uses for renewal notices
-	SourceID   string // tracker.collector.source_id
-	CredsFile  string // path to .creds file the operator received
+	SourceID   string // tracker.collector.source_id (combined: defaults to "hub")
+
+	// Hub modes
+	RemoteCollectorsExpected bool // bind NATS on 0.0.0.0 + TLS so remote collectors can connect
+
+	// Collector-only
+	CredsFile string // path to .creds file the operator received
+
+	// Expert-mode skips. Each disables a slice of Apply's side effects
+	// for operators who manage that piece of the stack themselves.
+	//
+	// SkipCert      install nginx + render config + reload, but don't run
+	//               certbot. Caller has /etc/letsencrypt/live/ staged
+	//               already (hub migration use case).
+	// SkipFirewall  don't poke ufw/firewalld. Operator manages firewall
+	//               via cloud dashboard, nftables, config-management, etc.
+	// SkipNginx     don't install/configure nginx at all. Operator runs
+	//               their own reverse proxy (Caddy, Traefik, manual nginx
+	//               elsewhere, etc.). Implies SkipCert (no nginx → no
+	//               certbot --nginx).
+	// SkipLogrotate don't write /etc/logrotate.d/quake3. Operator manages
+	//               log rotation via fluent-bit, vector, journald-only, etc.
+	SkipCert      bool
+	SkipFirewall  bool
+	SkipNginx     bool
+	SkipLogrotate bool
 
 	// Servers (collector and combined)
 	Servers []ServerAnswers
@@ -131,6 +156,21 @@ func (a *Answers) Validate() error {
 		if a.StaticDir == "" {
 			return fmt.Errorf("static dir is required for hub mode")
 		}
+		if a.PublicURL == "" {
+			return fmt.Errorf("public URL is required for hub mode (used for nginx vhost + tracker.collector.public_url)")
+		}
+		if u, err := url.Parse(a.PublicURL); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" {
+			return fmt.Errorf("public URL %q must be an http(s) URL with a hostname", a.PublicURL)
+		}
+		// AdminEmail is for Let's Encrypt renewal alerts only — skip
+		// the requirement when the operator has opted out of either
+		// the certbot run or nginx altogether.
+		if a.AdminEmail == "" && !a.SkipCert && !a.SkipNginx {
+			return fmt.Errorf("admin email is required for hub mode (Let's Encrypt renewal notices)")
+		}
+	}
+	if a.Mode == ModeCombined && a.SourceID == "" {
+		return fmt.Errorf("source ID is required for combined mode (the local collector half publishes events under this name)")
 	}
 	if a.RunsLocalServers() && a.Quake3Dir == "" {
 		return fmt.Errorf("quake3 dir is required when running local servers")
@@ -225,15 +265,26 @@ func (a *Answers) ToConfig() *config.Config {
 		})
 	}
 
-	// Tracker block only when needed. Combined mode (hub+collector)
-	// can omit the block — config.Load fills in the default.
+	// Tracker block: emitted explicitly for every mode. Hub-bearing
+	// modes carry the hub's PublicURL into tracker.collector.public_url
+	// (so event-embedded URLs resolve correctly) and bind NATS externally
+	// only when remote collectors are expected.
 	switch a.Mode {
-	case ModeHubOnly:
+	case ModeCombined:
 		cfg.Tracker = &config.TrackerConfig{
 			Hub: &config.HubConfig{},
-			NATS: config.NATSConfig{
-				URL: "nats://0.0.0.0:4222",
+			Collector: &config.CollectorConfig{
+				SourceID:  a.SourceID,
+				DataDir:   "/var/lib/trinity",
+				PublicURL: a.PublicURL,
+				HubHost:   HostFromURL(a.PublicURL),
 			},
+			NATS: hubNATSConfig(a.RemoteCollectorsExpected),
+		}
+	case ModeHubOnly:
+		cfg.Tracker = &config.TrackerConfig{
+			Hub:  &config.HubConfig{},
+			NATS: hubNATSConfig(a.RemoteCollectorsExpected),
 		}
 	case ModeCollector:
 		cfg.Tracker = &config.TrackerConfig{
@@ -249,6 +300,21 @@ func (a *Answers) ToConfig() *config.Config {
 		}
 	}
 	return cfg
+}
+
+// hubNATSConfig returns the embedded-NATS config for hub modes:
+// localhost-only by default; externally bound with TLS when remote
+// collectors are expected. The TLS files are symlinks created by Apply
+// pointing at /etc/letsencrypt/live/<host>/.
+func hubNATSConfig(remoteCollectorsExpected bool) config.NATSConfig {
+	if !remoteCollectorsExpected {
+		return config.NATSConfig{URL: "nats://127.0.0.1:4222"}
+	}
+	return config.NATSConfig{
+		URL:      "nats://0.0.0.0:4222",
+		CertFile: "/etc/trinity/tls/fullchain.pem",
+		KeyFile:  "/etc/trinity/tls/privkey.pem",
+	}
 }
 
 // validKey is the same shape config.Load enforces for q3_servers[].key:

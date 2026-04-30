@@ -1,0 +1,117 @@
+# Trinity hub nginx vhost. Rendered by setup.RenderHubNginxConfig and
+# installed by scripts/bootstrap-nginx.sh --mode=hub. Carries:
+#   - HTTP→HTTPS redirect for {{ .PublicHost }}
+#   - HTTPS server with SPA + api/ws + asset fallbacks + /q3/ proxy
+#   - :27970 fastdl vhost with retail-pak block
+#
+# Cert paths assume Let's Encrypt's standard layout. The wizard arranges
+# for /etc/letsencrypt/live/{{ .PublicHost }}/ to exist before nginx is
+# (re)loaded with this config (either via certbot --nginx or via a
+# pre-staged archive when --skip-cert is used).
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name {{ .PublicHost }};
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name {{ .PublicHost }};
+
+    ssl_certificate     /etc/letsencrypt/live/{{ .PublicHost }}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{{ .PublicHost }}/privkey.pem;
+
+    root {{ .StaticDir }};
+    index index.html;
+
+    # Asset paths that may exist locally OR live on a remote source. nginx
+    # serves the file when present; on miss it falls back to the trinity
+    # Go binary, which 302s to the source that owns the asset.
+    location /demos/                { try_files $uri @trinity_fallback; }
+    location /assets/levelshots/    { try_files $uri @trinity_fallback; }
+    location /demopk3s/maps/        { try_files $uri @trinity_fallback; }
+    location @trinity_fallback {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    # Vite content-hashed bundles (assets/index-<hash>.js|css). Filename
+    # changes whenever content changes, so cache forever. The longer-
+    # prefix /assets/levelshots/ block above wins for that subtree.
+    location /assets/ {
+        expires 1y;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+    }
+
+    # index.html references those hashed bundle names. Must revalidate
+    # every load so a deploy can't strand users on a stale reference.
+    location = /index.html {
+        add_header Cache-Control "no-cache" always;
+    }
+
+    # SPA fallback. Real files (favicon, /flags/, /modes/, /videos/,
+    # /vr/, trinity.{html,js,wasm}, etc.) keep nginx's default — browser
+    # heuristic caching is fine for them.
+    location / {
+        try_files $uri $uri/ @spa;
+    }
+    location @spa {
+        add_header Cache-Control "no-cache" always;
+        rewrite ^ /index.html last;
+    }
+
+    # Quake 3 fast-download proxy (separate :27970 vhost serves the same
+    # tree directly to game clients; this is for browser-side fetches).
+    location /q3/ {
+        proxy_pass http://127.0.0.1:27970/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    location /ws {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_read_timeout 86400;
+    }
+}
+
+# Quake 3 fast-downloads. Game clients connect directly here (not via
+# 80/443), always plain HTTP. server_name is "_" (catch-all) so certbot
+# --nginx doesn't see this block as a candidate for the cert.
+server {
+    listen 27970 default_server;
+    listen [::]:27970 default_server;
+    server_name _;
+
+    root {{ .Quake3Dir }};
+
+    # Retail pak0.pk3 isn't redistributable — block before the allowlist.
+    location ~ ^/(baseq3|missionpack)/pak0\.pk3$ {
+        return 403;
+    }
+
+    # Positive allowlist: only .pk3 (game assets) and .tvd (recorded
+    # demos) are fetchable. q3 clients only ever ask for these.
+    location ~ \.(pk3|tvd)$ {
+        try_files $uri =404;
+    }
+
+    # Default: refuse. Avoids leaking .cfg, .qvm, scripts/, etc.
+    location / {
+        return 403;
+    }
+}

@@ -16,9 +16,25 @@ func validCombinedAnswers() *Answers {
 		DatabasePath: "/var/lib/trinity/trinity.db",
 		StaticDir:    "/var/lib/trinity/web",
 		Quake3Dir:    "/usr/lib/quake3",
+		PublicURL:    "https://hub.example.com",
+		AdminEmail:   "ops@example.com",
+		SourceID:     "hub",
 		Servers: []ServerAnswers{
 			{Key: "ffa", Gametype: GametypeFFA, Address: "127.0.0.1:27960", Port: 27960, RconPassword: "secret", LogPath: "/var/log/quake3/ffa.log"},
 		},
+	}
+}
+
+func validHubOnlyAnswers() *Answers {
+	return &Answers{
+		Mode:         ModeHubOnly,
+		ServiceUser:  "quake",
+		ListenAddr:   "0.0.0.0",
+		HTTPPort:     8080,
+		DatabasePath: "/var/lib/trinity/trinity.db",
+		StaticDir:    "/var/lib/trinity/web",
+		PublicURL:    "https://hub.example.com",
+		AdminEmail:   "ops@example.com",
 	}
 }
 
@@ -29,15 +45,7 @@ func TestAnswersValidate_Combined_Valid(t *testing.T) {
 }
 
 func TestAnswersValidate_HubOnly_Valid(t *testing.T) {
-	a := &Answers{
-		Mode:         ModeHubOnly,
-		ServiceUser:  "quake",
-		ListenAddr:   "0.0.0.0",
-		HTTPPort:     8080,
-		DatabasePath: "/var/lib/trinity/trinity.db",
-		StaticDir:    "/var/lib/trinity/web",
-	}
-	if err := a.Validate(); err != nil {
+	if err := validHubOnlyAnswers().Validate(); err != nil {
 		t.Fatalf("hub-only valid: %v", err)
 	}
 }
@@ -140,13 +148,33 @@ func TestAnswersValidate_CollectorOnly_RequiresHubFields(t *testing.T) {
 	}
 }
 
-func TestToConfig_Combined_NoTrackerBlock(t *testing.T) {
+func TestToConfig_Combined_EmitsHubAndCollectorBlocks(t *testing.T) {
 	a := validCombinedAnswers()
 	cfg := a.ToConfig()
-	// Combined mode relies on config.Load's default-tracker fill, so
-	// we expect Tracker=nil here.
-	if cfg.Tracker != nil {
-		t.Fatalf("expected nil tracker for combined mode, got %+v", cfg.Tracker)
+	if cfg.Tracker == nil {
+		t.Fatalf("expected explicit tracker block for combined mode")
+	}
+	if cfg.Tracker.Hub == nil {
+		t.Errorf("combined should emit hub block")
+	}
+	if cfg.Tracker.Collector == nil {
+		t.Fatalf("combined should emit collector block, got %+v", cfg.Tracker)
+	}
+	if cfg.Tracker.Collector.SourceID != "hub" {
+		t.Errorf("source id: got %q want %q", cfg.Tracker.Collector.SourceID, "hub")
+	}
+	if cfg.Tracker.Collector.PublicURL != "https://hub.example.com" {
+		t.Errorf("public url: got %q", cfg.Tracker.Collector.PublicURL)
+	}
+	if cfg.Tracker.Collector.HubHost != "hub.example.com" {
+		t.Errorf("hub host: got %q (should be PublicURL hostname)", cfg.Tracker.Collector.HubHost)
+	}
+	// Default (no remote collectors) → localhost-only NATS, no TLS.
+	if cfg.Tracker.NATS.URL != "nats://127.0.0.1:4222" {
+		t.Errorf("nats url: got %q", cfg.Tracker.NATS.URL)
+	}
+	if cfg.Tracker.NATS.CertFile != "" || cfg.Tracker.NATS.KeyFile != "" {
+		t.Errorf("nats TLS should be empty for local-only hub: %+v", cfg.Tracker.NATS)
 	}
 	if cfg.Database.Path != "/var/lib/trinity/trinity.db" {
 		t.Errorf("db path: got %q", cfg.Database.Path)
@@ -156,15 +184,23 @@ func TestToConfig_Combined_NoTrackerBlock(t *testing.T) {
 	}
 }
 
-func TestToConfig_HubOnly_NoCollectorBlock(t *testing.T) {
-	a := &Answers{
-		Mode:         ModeHubOnly,
-		ServiceUser:  "quake",
-		ListenAddr:   "0.0.0.0",
-		HTTPPort:     8080,
-		DatabasePath: "/var/lib/trinity/trinity.db",
-		StaticDir:    "/var/lib/trinity/web",
+func TestToConfig_Combined_RemoteCollectors_BindsExternalNATS(t *testing.T) {
+	a := validCombinedAnswers()
+	a.RemoteCollectorsExpected = true
+	cfg := a.ToConfig()
+	if cfg.Tracker.NATS.URL != "nats://0.0.0.0:4222" {
+		t.Errorf("nats url: got %q want external bind", cfg.Tracker.NATS.URL)
 	}
+	if cfg.Tracker.NATS.CertFile != "/etc/trinity/tls/fullchain.pem" {
+		t.Errorf("nats cert_file: got %q", cfg.Tracker.NATS.CertFile)
+	}
+	if cfg.Tracker.NATS.KeyFile != "/etc/trinity/tls/privkey.pem" {
+		t.Errorf("nats key_file: got %q", cfg.Tracker.NATS.KeyFile)
+	}
+}
+
+func TestToConfig_HubOnly_NoCollectorBlock(t *testing.T) {
+	a := validHubOnlyAnswers()
 	cfg := a.ToConfig()
 	if cfg.Tracker == nil || cfg.Tracker.Hub == nil {
 		t.Fatalf("expected hub block, got %+v", cfg.Tracker)
@@ -172,8 +208,21 @@ func TestToConfig_HubOnly_NoCollectorBlock(t *testing.T) {
 	if cfg.Tracker.Collector != nil {
 		t.Errorf("hub-only should not have collector block: %+v", cfg.Tracker.Collector)
 	}
-	if cfg.Tracker.NATS.URL != "nats://0.0.0.0:4222" {
+	// Default (no remote collectors) → localhost-only NATS.
+	if cfg.Tracker.NATS.URL != "nats://127.0.0.1:4222" {
 		t.Errorf("hub-only nats url: got %q", cfg.Tracker.NATS.URL)
+	}
+}
+
+func TestToConfig_HubOnly_RemoteCollectors_BindsExternalNATS(t *testing.T) {
+	a := validHubOnlyAnswers()
+	a.RemoteCollectorsExpected = true
+	cfg := a.ToConfig()
+	if cfg.Tracker.NATS.URL != "nats://0.0.0.0:4222" {
+		t.Errorf("nats url: got %q want external bind", cfg.Tracker.NATS.URL)
+	}
+	if cfg.Tracker.NATS.CertFile == "" || cfg.Tracker.NATS.KeyFile == "" {
+		t.Errorf("expected TLS cert + key paths, got %+v", cfg.Tracker.NATS)
 	}
 }
 
@@ -219,10 +268,7 @@ func TestToConfig_RoundTripsThroughValidator(t *testing.T) {
 			case ModeCombined:
 				a = validCombinedAnswers()
 			case ModeHubOnly:
-				a = &Answers{
-					Mode: ModeHubOnly, ServiceUser: "quake", ListenAddr: "0.0.0.0", HTTPPort: 8080,
-					DatabasePath: "/var/lib/trinity/trinity.db", StaticDir: "/var/lib/trinity/web",
-				}
+				a = validHubOnlyAnswers()
 			case ModeCollector:
 				a = &Answers{
 					Mode: ModeCollector, ServiceUser: "quake", ListenAddr: "127.0.0.1", HTTPPort: 8080,

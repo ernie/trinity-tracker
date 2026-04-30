@@ -1,0 +1,84 @@
+# Trinity collector nginx vhost. Rendered by setup.RenderCollectorNginxConfig
+# and installed by scripts/bootstrap-nginx.sh --mode=collector. Carries:
+#   - HTTP→HTTPS redirect for {{ .PublicHost }}
+#   - HTTPS server with /demos/, /assets/levelshots/, /demopk3s/ that
+#     the hub's WASM engine loader 302s to (CORS wildcard required)
+#   - :27970 fastdl vhost with retail-pak block
+#
+# Cert paths assume Let's Encrypt's standard layout. The wizard arranges
+# for /etc/letsencrypt/live/{{ .PublicHost }}/ to exist before nginx is
+# (re)loaded with this config (either via certbot --nginx or via a
+# pre-staged archive when --skip-cert is used).
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name {{ .PublicHost }};
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen [::]:443 ssl ipv6only=on;
+    listen 443 ssl;
+    server_name {{ .PublicHost }};
+
+    ssl_certificate     /etc/letsencrypt/live/{{ .PublicHost }}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{{ .PublicHost }}/privkey.pem;
+    include             /etc/letsencrypt/options-ssl-nginx.conf;
+
+    root {{ .StaticDir }};
+
+    # Recorded demos — fetched cross-origin by the hub's WASM engine
+    # loader, so wildcard CORS is required.
+    location /demos/ {
+        autoindex off;
+        add_header Access-Control-Allow-Origin "*" always;
+    }
+
+    # Map levelshots — `<img>` tags don't need CORS for display, but
+    # adding the header is harmless and future-proofs JS use.
+    location /assets/levelshots/ {
+        autoindex off;
+        expires 30d;
+        add_header Cache-Control "public";
+        add_header Access-Control-Allow-Origin "*" always;
+    }
+
+    # Demobaked map pk3s — fetched cross-origin by the engine loader.
+    location /demopk3s/ {
+        autoindex off;
+        add_header Access-Control-Allow-Origin "*" always;
+    }
+
+    # Everything else: this isn't an app, return 404.
+    location / {
+        return 404;
+    }
+}
+
+# Quake 3 fast-downloads. Game clients connect directly here (not via
+# 80/443), always plain HTTP. server_name is "_" (catch-all) so certbot
+# --nginx doesn't see this block as a candidate for the cert.
+server {
+    listen 27970 default_server;
+    listen [::]:27970 default_server;
+    server_name _;
+
+    root {{ .Quake3Dir }};
+
+    # Retail pak0.pk3 isn't redistributable — block before the allowlist.
+    location ~ ^/(baseq3|missionpack)/pak0\.pk3$ {
+        return 403;
+    }
+
+    # Positive allowlist: only .pk3 (game assets) and .tvd (recorded
+    # demos) are fetchable. q3 clients only ever ask for these.
+    location ~ \.(pk3|tvd)$ {
+        try_files $uri =404;
+    }
+
+    # Default: refuse. Avoids leaking .cfg, .qvm, scripts/, etc.
+    location / {
+        return 403;
+    }
+}

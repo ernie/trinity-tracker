@@ -15,10 +15,10 @@ set -euo pipefail
 # Use --from-source to build from a local checkout instead of fetching
 # the prebuilt release (only meaningful when run from a working tree).
 #
-# This script ONLY sets up a collector — the common case, joining a
-# Trinity server to the trinity.run hub network. Standing up your own
-# hub is an expert path: install the binary by hand and run
-# `sudo trinity init --allow-hub`. See docs/distributed-deployment.md.
+# Default mode: collector — joining a Quake 3 host to an existing
+# Trinity hub. Pass --allow-hub to stand up a new hub on this host
+# instead (the wizard then offers Combined and HubOnly modes). See
+# docs/distributed-deployment.md for hub-mode notes.
 #
 # What this does NOT do: pick a mode, write any config, install the
 # trinity-engine release, install systemd units, manage q3 server
@@ -27,6 +27,9 @@ set -euo pipefail
 usage() {
     cat <<'EOF'
 Usage: sudo ./scripts/install.sh [--from-source] [--release-tag VERSION] [--upgrade]
+                                 [--allow-hub]
+                                 [--skip-cert] [--skip-firewall]
+                                 [--skip-nginx] [--skip-logrotate]
 
 Options:
   --from-source            build trinity from this checkout instead of fetching a release
@@ -34,12 +37,33 @@ Options:
   --release-tag VERSION    pin a trinity-tracker release tag (default: latest)
   --upgrade                replace the binary on an existing install and restart
                            trinity.service. Skips the wizard. Requires /etc/trinity/config.yml.
+  --allow-hub              install a Trinity hub on this host instead of a collector.
+                           Enables Combined and HubOnly modes in the wizard. Default
+                           (without this flag) is collector — joining an existing hub.
+
+Expert-mode skips (forwarded to `trinity init`):
+  --skip-cert              install nginx + render config + reload, but skip the certbot
+                           run (caller has staged /etc/letsencrypt/live/<host>/ already;
+                           used during hub migrations)
+  --skip-firewall          do not poke ufw/firewalld; operator manages host firewall via
+                           cloud dashboard, nftables, or config-management
+  --skip-nginx             do not install or configure nginx; operator runs their own
+                           reverse proxy (Caddy, Traefik, manual nginx, etc.).
+                           Implies --skip-cert in the wizard.
+  --skip-logrotate         do not write /etc/logrotate.d/quake3; operator manages log
+                           rotation via fluent-bit, vector, journald-only, etc.
+
   -h, --help               show this help
 EOF
 }
 
 FROM_SOURCE=0
 UPGRADE=0
+ALLOW_HUB=0
+SKIP_CERT=0
+SKIP_FIREWALL=0
+SKIP_NGINX=0
+SKIP_LOGROTATE=0
 RELEASE_TAG="latest"
 TRACKER_REPO="ernie/trinity-tracker"
 
@@ -48,6 +72,11 @@ while (( $# )); do
         --from-source)        FROM_SOURCE=1; shift ;;
         --upgrade)            UPGRADE=1; shift ;;
         --release-tag)        RELEASE_TAG="$2"; shift 2 ;;
+        --allow-hub)          ALLOW_HUB=1; shift ;;
+        --skip-cert)          SKIP_CERT=1; shift ;;
+        --skip-firewall)      SKIP_FIREWALL=1; shift ;;
+        --skip-nginx)         SKIP_NGINX=1; shift ;;
+        --skip-logrotate)     SKIP_LOGROTATE=1; shift ;;
         -h|--help)            usage; exit 0 ;;
         *) echo "Unknown option: $1" >&2; usage >&2; exit 1 ;;
     esac
@@ -85,7 +114,62 @@ fi
 # binary, so skip it there; the operator already knows what trinity
 # is by the time they're upgrading.
 if (( ! UPGRADE )); then
-    cat <<'BANNER'
+    if (( ALLOW_HUB )); then
+        cat <<'BANNER'
+
+================================================================
+ Trinity Hub Installer (--allow-hub)
+================================================================
+ This script stands up a new Trinity hub on this host. The hub
+ serves the SPA, the API, and the WebSocket feed; if you tell the
+ wizard to expect remote collectors, it also exposes an embedded
+ NATS broker on :4222 with TLS for collectors to connect to.
+
+ It will:
+
+   - install OS packages (nginx, certbot, screen, logrotate, ...)
+   - drop /usr/local/bin/trinity onto this host
+   - download the trinity-engine release into /usr/lib/quake3/
+   - create the 'quake' service user
+   - write /etc/trinity/config.yml and systemd units
+     (trinity.service, quake3-server@.service, quake3-servers.target)
+   - obtain a Let's Encrypt cert for the public hostname you give
+     (skip with --skip-cert if you've pre-staged /etc/letsencrypt/
+     yourself, e.g. for a host migration)
+   - open 80, 443, 4222/tcp, 27970/tcp and 27960-28000/udp on UFW
+     or firewalld
+
+ Designed for a fresh Debian/Ubuntu or Arch host. Coexisting with
+ other services on the same box (especially other web servers or
+ anything else holding :80/:443) may need manual cleanup. There is
+ no built-in uninstall.
+
+ You will need:
+   - a public hostname pointing at this box (DNS already in place)
+   - an admin email for Let's Encrypt renewal alerts
+     (not asked when --skip-cert or --skip-nginx is set)
+
+ Optional (saves a path-prompt during pak install):
+   - retail Quake 3 pak0.pk3 copied into the current directory as
+     q3-pak0.pk3, plus mp-pak0.pk3 if you'll run Team Arena gametypes
+
+ If you'd rather manage some of these steps yourself — your own
+ reverse proxy, host firewall, or log rotation — abort now and
+ re-run with one or more of:
+   --skip-cert        (skip certbot; pre-stage /etc/letsencrypt/
+                       yourself, e.g. for a host migration)
+   --skip-nginx       (skip nginx + Let's Encrypt; manage your own
+                       reverse proxy and TLS)
+   --skip-firewall    (skip ufw/firewalld; manage host firewall via
+                       your cloud dashboard, nftables, etc.)
+   --skip-logrotate   (skip /etc/logrotate.d/quake3; ship logs via
+                       fluent-bit/vector/journald-only)
+ See docs/distributed-deployment.md for hub-mode notes.
+================================================================
+
+BANNER
+    else
+        cat <<'BANNER'
 
 ================================================================
  Trinity Collector Installer
@@ -115,9 +199,21 @@ if (( ! UPGRADE )); then
  Optional (saves a path-prompt during pak install):
    - retail Quake 3 pak0.pk3 copied into the current directory as
      q3-pak0.pk3, plus mp-pak0.pk3 if you'll run Team Arena gametypes
+
+ If you'd rather manage some of these steps yourself — your own
+ reverse proxy, host firewall, or log rotation — abort now and
+ re-run with one or more of:
+   --skip-nginx       (skip nginx + Let's Encrypt; manage your own
+                       reverse proxy and TLS)
+   --skip-firewall    (skip ufw/firewalld; manage host firewall via
+                       your cloud dashboard, nftables, etc.)
+   --skip-logrotate   (skip /etc/logrotate.d/quake3; ship logs via
+                       fluent-bit/vector/journald-only)
+ See docs/collector-setup.md for the manual equivalents of each.
 ================================================================
 
 BANNER
+    fi
 
     # Read from /dev/tty since stdin is the script itself under curl|bash.
     if [[ -r /dev/tty ]]; then
@@ -133,8 +229,14 @@ BANNER
 fi
 
 echo "==> installing baseline OS packages"
-# logrotate is missing from Arch's base install.
-pkgs=(curl ca-certificates unzip screen logrotate)
+# logrotate is missing from Arch's base install. Skip it if the operator
+# has opted out — they're shipping logs via fluent-bit/vector/journald
+# and don't need it. nginx + certbot are handled separately by
+# bootstrap-nginx.sh, so --skip-nginx doesn't trim anything here.
+pkgs=(curl ca-certificates unzip screen)
+if (( ! SKIP_LOGROTATE )); then
+    pkgs+=(logrotate)
+fi
 if (( FROM_SOURCE )) && ! command -v go >/dev/null 2>&1; then
     pkgs+=(golang)
 fi
@@ -281,6 +383,17 @@ echo "==> /usr/local/bin/trinity installed; handing off to the wizard"
 echo
 trap - ERR
 
+# Forward mode + expert-mode skips to the wizard. Built up here so
+# the exec line stays readable. --skip-nginx implies --skip-cert in
+# the wizard (no nginx == no LE plumbing); main.go's flag parser
+# handles that.
+init_args=(init)
+(( ALLOW_HUB ))      && init_args+=(--allow-hub)
+(( SKIP_CERT ))      && init_args+=(--skip-cert)
+(( SKIP_FIREWALL ))  && init_args+=(--skip-firewall)
+(( SKIP_NGINX ))     && init_args+=(--skip-nginx)
+(( SKIP_LOGROTATE )) && init_args+=(--skip-logrotate)
+
 # When run via `curl | sudo bash`, bash's stdin is the pipe from
 # curl — so trinity init's TTY check would fail. Re-open stdin from
 # /dev/tty (the controlling terminal sudo gave us, which exists even
@@ -288,8 +401,8 @@ trap - ERR
 # (e.g. ssh -T, container without a PTY), bail with the manual command
 # rather than failing inside the wizard.
 if [[ -r /dev/tty ]]; then
-    exec </dev/tty env TRINITY_INIT_STAGE="$STAGE" /usr/local/bin/trinity init
+    exec </dev/tty env TRINITY_INIT_STAGE="$STAGE" /usr/local/bin/trinity "${init_args[@]}"
 fi
 echo "No controlling terminal detected. Run the wizard manually:" >&2
-echo "  sudo TRINITY_INIT_STAGE=\"$STAGE\" trinity init" >&2
+echo "  sudo TRINITY_INIT_STAGE=\"$STAGE\" trinity ${init_args[*]}" >&2
 exit 0

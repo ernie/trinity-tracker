@@ -1814,8 +1814,17 @@ func cmdInit(args []string) {
 	// your own hub is an expert path covered in docs/distributed-deployment.md.
 	allowHub := fs.Bool("allow-hub", false, "")
 	_ = fs.MarkHidden("allow-hub")
+	skipCert := fs.Bool("skip-cert", false, "install nginx + render config + reload, but skip the certbot run (caller has staged /etc/letsencrypt/live/<host>/ already; used during hub migrations)")
+	skipFirewall := fs.Bool("skip-firewall", false, "do not poke ufw/firewalld; operator manages host firewall via cloud dashboard, nftables, or config-management")
+	skipNginx := fs.Bool("skip-nginx", false, "do not install or configure nginx; operator runs their own reverse proxy (Caddy, Traefik, etc.). Implies --skip-cert.")
+	skipLogrotate := fs.Bool("skip-logrotate", false, "do not write /etc/logrotate.d/quake3; operator manages log rotation via fluent-bit, vector, journald-only, etc.")
 	configPathFlag := fs.String("config", "/etc/trinity/config.yml", "destination config path")
 	fs.Parse(args)
+
+	// --skip-nginx implies --skip-cert (no nginx → no certbot --nginx run).
+	if *skipNginx {
+		*skipCert = true
+	}
 
 	// Dry-run is for previewing/testing: no host state changes, so no
 	// root is needed and an existing config is fine to "re-plan" against.
@@ -1849,7 +1858,13 @@ func cmdInit(args []string) {
 	}
 
 	prompter := setup.NewStdPrompter()
-	answers, err := setup.RunWizard(prompter, os.Stderr, *allowHub)
+	answers, err := setup.RunWizard(prompter, os.Stderr, setup.WizardOptions{
+		AllowHub:      *allowHub,
+		SkipCert:      *skipCert,
+		SkipFirewall:  *skipFirewall,
+		SkipNginx:     *skipNginx,
+		SkipLogrotate: *skipLogrotate,
+	})
 	if errors.Is(err, setup.ErrMissingPrereqs) {
 		// The wizard already printed the "go get the creds file"
 		// hint — exit non-zero (so install.sh sees the failure) but

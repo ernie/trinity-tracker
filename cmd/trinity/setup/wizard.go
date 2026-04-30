@@ -13,31 +13,51 @@ import (
 	"time"
 )
 
+// WizardOptions controls non-prompt-collected behavior of RunWizard:
+// whether hub modes are unlocked, and which expert-mode skips are
+// active (which can suppress prompts that would otherwise be unused).
+type WizardOptions struct {
+	AllowHub      bool
+	SkipCert      bool
+	SkipFirewall  bool
+	SkipNginx     bool
+	SkipLogrotate bool
+}
+
 // RunWizard walks the operator through every prompt the install
 // needs and returns a populated Answers. mode-specific prompts
 // branch off the leading mode question; per-server prompts repeat
 // until the operator answers "no" to "add another?".
 //
-// allowHub controls whether the operator may pick a hub-bearing mode.
-// The default front door (`scripts/install.sh`, `trinity init`) runs
-// collector-only — Trinity is a network of collectors joining a shared
-// hub at trinity.run, and extra hubs are easy to stand up by accident
-// and hard to consolidate later. Hub installs are an expert path:
-// `trinity init --allow-hub`, documented in distributed-deployment.md.
-func RunWizard(p Prompter, out io.Writer, allowHub bool) (*Answers, error) {
+// opts.AllowHub controls whether the operator may pick a hub-bearing
+// mode. The default front door (`scripts/install.sh`, `trinity init`)
+// runs collector-only — Trinity is a network of collectors joining a
+// shared hub at trinity.run, and extra hubs are easy to stand up by
+// accident and hard to consolidate later. Hub installs are an expert
+// path: `trinity init --allow-hub`, documented in
+// distributed-deployment.md.
+//
+// The Skip* fields are copied onto the returned Answers so Apply can
+// act on them; they also gate prompts the wizard would otherwise ask
+// (e.g. AdminEmail is unused when SkipCert or SkipNginx is set).
+func RunWizard(p Prompter, out io.Writer, opts WizardOptions) (*Answers, error) {
 	fmt.Fprintln(out, "Welcome to Trinity setup.")
 	fmt.Fprintln(out)
 
 	a := &Answers{
-		ServiceUser:  "quake",
-		ListenAddr:   "127.0.0.1",
-		HTTPPort:     8080,
-		DatabasePath: "/var/lib/trinity/trinity.db",
-		StaticDir:    "/var/lib/trinity/web",
-		Quake3Dir:    "/usr/lib/quake3",
+		ServiceUser:   "quake",
+		ListenAddr:    "127.0.0.1",
+		HTTPPort:      8080,
+		DatabasePath:  "/var/lib/trinity/trinity.db",
+		StaticDir:     "/var/lib/trinity/web",
+		Quake3Dir:     "/usr/lib/quake3",
+		SkipCert:      opts.SkipCert,
+		SkipFirewall:  opts.SkipFirewall,
+		SkipNginx:     opts.SkipNginx,
+		SkipLogrotate: opts.SkipLogrotate,
 	}
 
-	if !allowHub {
+	if !opts.AllowHub {
 		a.Mode = ModeCollector
 	} else {
 		// When hub modes are unlocked we still default to collector —
@@ -68,6 +88,9 @@ func RunWizard(p Prompter, out io.Writer, allowHub bool) (*Answers, error) {
 
 	if a.HasHubFields() {
 		if err := promptHub(p, a); err != nil {
+			return nil, err
+		}
+		if err := promptHubPublic(p, a, out); err != nil {
 			return nil, err
 		}
 	}
@@ -113,6 +136,48 @@ func promptHub(p Prompter, a *Answers) error {
 		return err
 	}
 	if a.StaticDir, err = p.Line("Web assets path", a.StaticDir); err != nil {
+		return err
+	}
+	return nil
+}
+
+// promptHubPublic gathers the public-facing knobs hub modes need:
+// the SPA's public URL (also the LE cert hostname), the admin email
+// for renewal alerts, and — for Combined mode — the local source ID
+// the in-process collector publishes events under. Asks once whether
+// remote collectors will connect, which decides whether the embedded
+// NATS broker binds externally with TLS or only on loopback.
+func promptHubPublic(p Prompter, a *Answers, out io.Writer) error {
+	hostInput, err := promptValidated(p, out,
+		"Public hostname for this hub, e.g. trinity.example.org (must already resolve here)",
+		"", validatePublicHostname)
+	if err != nil {
+		return err
+	}
+	host, _ := normalizePublicHostname(hostInput)
+	a.PublicURL = "https://" + host
+	if err := confirmDNSPointsHere(p, out, a.PublicURL); err != nil {
+		return err
+	}
+	// AdminEmail is for Let's Encrypt renewal alerts only — skip the
+	// prompt when the operator has opted out of either the certbot run
+	// or nginx altogether.
+	if !a.SkipCert && !a.SkipNginx {
+		if a.AdminEmail, err = promptValidated(p, out,
+			"Email for Let's Encrypt renewal alerts",
+			"", validateAdminEmail); err != nil {
+			return err
+		}
+	}
+	if a.Mode == ModeCombined {
+		if a.SourceID, err = promptValidated(p, out,
+			"Local source ID (the local collector publishes events under this name)",
+			"hub", validateSourceID); err != nil {
+			return err
+		}
+	}
+	if a.RemoteCollectorsExpected, err = p.YesNo(
+		"Expect remote collectors to connect to this hub?", false); err != nil {
 		return err
 	}
 	return nil
@@ -197,10 +262,12 @@ func promptCollectorOnly(p Prompter, a *Answers, out io.Writer) error {
 	if err := confirmDNSPointsHere(p, out, a.PublicURL); err != nil {
 		return err
 	}
-	if a.AdminEmail, err = promptValidated(p, out,
-		"Email for Let's Encrypt renewal alerts",
-		"", validateAdminEmail); err != nil {
-		return err
+	if !a.SkipCert && !a.SkipNginx {
+		if a.AdminEmail, err = promptValidated(p, out,
+			"Email for Let's Encrypt renewal alerts",
+			"", validateAdminEmail); err != nil {
+			return err
+		}
 	}
 	filled, err := tryAutoFillCreds(p, out, a)
 	if err != nil {

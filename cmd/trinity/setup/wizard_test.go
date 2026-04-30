@@ -105,23 +105,28 @@ func TestRunWizard_CombinedDefaults(t *testing.T) {
 	p := &scriptedPrompter{
 		t: t,
 		answers: []string{
-			"1",         // mode → ModeCombined (override the new collector default)
-			"",          // service user → quake
-			"",          // database path → default
-			"",          // static dir → default
-			"y",         // install engine
-			"",          // quake3 dir → default
-			"y",         // add a server now
-			"",          // gametype → FFA (default)
-			"",          // server key → ffa (default for FFA)
-			"",          // address → default 127.0.0.1:27960
-			"",          // rcon password → generate
-			"",          // log path → default
-			"n",         // add another? → no
+			"1",                 // mode → ModeCombined (override the new collector default)
+			"",                  // service user → quake
+			"",                  // database path → default
+			"",                  // static dir → default
+			"hub.example.com", // public hostname (we prepend https://)
+			"y",                 // continue past DNS warning (host does not resolve)
+			"ops@example.com",   // admin email
+			"",                  // local source id → "hub" (default)
+			"y",                 // expect remote collectors
+			"y",                 // install engine
+			"",                  // quake3 dir → default
+			"y",                 // add a server now
+			"",                  // gametype → FFA (default)
+			"",                  // server key → ffa (default for FFA)
+			"",                  // address → default 127.0.0.1:27960
+			"",                  // rcon password → generate
+			"",                  // log path → default
+			"n",                 // add another? → no
 		},
 	}
 	var buf bytes.Buffer
-	a, err := RunWizard(p, &buf, true)
+	a, err := RunWizard(p, &buf, WizardOptions{AllowHub: true})
 	if err != nil {
 		t.Fatalf("RunWizard: %v", err)
 	}
@@ -130,6 +135,18 @@ func TestRunWizard_CombinedDefaults(t *testing.T) {
 	}
 	if a.ServiceUser != "quake" {
 		t.Errorf("service user: %q", a.ServiceUser)
+	}
+	if a.PublicURL != "https://hub.example.com" {
+		t.Errorf("public url: %q", a.PublicURL)
+	}
+	if a.AdminEmail != "ops@example.com" {
+		t.Errorf("admin email: %q", a.AdminEmail)
+	}
+	if a.SourceID != "hub" {
+		t.Errorf("source id should default to %q, got %q", "hub", a.SourceID)
+	}
+	if !a.RemoteCollectorsExpected {
+		t.Errorf("RemoteCollectorsExpected should be true")
 	}
 	if !a.InstallEngine {
 		t.Errorf("expected install engine")
@@ -208,7 +225,7 @@ func TestRunWizard_CollectorOnly(t *testing.T) {
 		},
 	}
 	var buf bytes.Buffer
-	a, err := RunWizard(p, &buf, false)
+	a, err := RunWizard(p, &buf, WizardOptions{})
 	if err != nil {
 		t.Fatalf("RunWizard: %v", err)
 	}
@@ -258,7 +275,7 @@ func TestRunWizard_NoCredsExits(t *testing.T) {
 		},
 	}
 	var buf bytes.Buffer
-	a, err := RunWizard(p, &buf, false)
+	a, err := RunWizard(p, &buf, WizardOptions{})
 	if !errors.Is(err, ErrMissingPrereqs) {
 		t.Fatalf("expected ErrMissingPrereqs, got %v", err)
 	}
@@ -296,7 +313,7 @@ func TestRunWizard_LockedCollector_NoModePrompt(t *testing.T) {
 		},
 	}
 	var buf bytes.Buffer
-	a, err := RunWizard(p, &buf, false)
+	a, err := RunWizard(p, &buf, WizardOptions{})
 	if err != nil {
 		t.Fatalf("RunWizard: %v", err)
 	}
@@ -337,7 +354,7 @@ func TestRunWizard_CredsAutoDiscovery(t *testing.T) {
 		},
 	}
 	var buf bytes.Buffer
-	a, err := RunWizard(p, &buf, false)
+	a, err := RunWizard(p, &buf, WizardOptions{})
 	if err != nil {
 		t.Fatalf("RunWizard: %v", err)
 	}
@@ -357,14 +374,18 @@ func TestRunWizard_HubOnly_NoServerPrompts(t *testing.T) {
 	p := &scriptedPrompter{
 		t: t,
 		answers: []string{
-			"2", // mode → ModeHubOnly
-			"",  // service user → quake
-			"",  // database path → default
-			"",  // static dir → default
+			"2",                 // mode → ModeHubOnly
+			"",                  // service user → quake
+			"",                  // database path → default
+			"",                  // static dir → default
+			"hub.example.com", // public hostname
+			"y",                 // continue past DNS warning
+			"ops@example.com",   // admin email
+			"n",                 // expect remote collectors → no
 		},
 	}
 	var buf bytes.Buffer
-	a, err := RunWizard(p, &buf, true)
+	a, err := RunWizard(p, &buf, WizardOptions{AllowHub: true})
 	if err != nil {
 		t.Fatalf("RunWizard: %v", err)
 	}
@@ -376,6 +397,18 @@ func TestRunWizard_HubOnly_NoServerPrompts(t *testing.T) {
 	}
 	if a.HTTPPort != 8080 {
 		t.Errorf("http port should default to 8080, got %d", a.HTTPPort)
+	}
+	if a.PublicURL != "https://hub.example.com" {
+		t.Errorf("public url: %q", a.PublicURL)
+	}
+	if a.AdminEmail != "ops@example.com" {
+		t.Errorf("admin email: %q", a.AdminEmail)
+	}
+	if a.SourceID != "" {
+		t.Errorf("hub-only should not set SourceID (no local collector), got %q", a.SourceID)
+	}
+	if a.RemoteCollectorsExpected {
+		t.Errorf("RemoteCollectorsExpected should be false")
 	}
 	if len(a.Servers) != 0 {
 		t.Errorf("hub-only should not prompt for servers, got %+v", a.Servers)

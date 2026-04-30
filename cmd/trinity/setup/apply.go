@@ -99,10 +99,12 @@ func Apply(a *Answers, opts ApplyOptions) error {
 		}
 	}
 
-	if a.RunsLocalServers() {
+	if a.RunsLocalServers() && !a.SkipLogrotate {
 		if err := installLogrotate(plan); err != nil {
 			return err
 		}
+	} else if a.SkipLogrotate {
+		plan.say("Skipping /etc/logrotate.d/quake3 (--skip-logrotate)")
 	}
 
 	if a.RunsLocalServers() && len(a.Servers) > 0 {
@@ -111,8 +113,23 @@ func Apply(a *Answers, opts ApplyOptions) error {
 		}
 	}
 
-	if a.Mode == ModeCollector && a.PublicURL != "" && a.AdminEmail != "" {
-		if err := InstallNginx(plan, a.PublicURL, a.AdminEmail, a.StaticDir, a.Quake3Dir); err != nil {
+	if a.SkipNginx {
+		plan.say("Skipping nginx install (--skip-nginx); operator manages reverse proxy")
+	} else if (a.Mode == ModeCollector || a.HasHubFields()) && a.PublicURL != "" {
+		mode := NginxModeCollector
+		if a.HasHubFields() {
+			mode = NginxModeHub
+		}
+		if err := InstallNginx(plan, mode, a.PublicURL, a.AdminEmail, a.StaticDir, a.Quake3Dir, a.SkipCert, a.SkipFirewall); err != nil {
+			return err
+		}
+	}
+	// NATS TLS symlinks land regardless of who's running nginx — the
+	// embedded broker reads cert/key from /etc/trinity/tls/ when remote
+	// collectors are expected, and the symlink target is just LE's
+	// standard layout.
+	if a.RemoteCollectorsExpected {
+		if err := installNATSTLSSymlinks(plan, a.PublicURL); err != nil {
 			return err
 		}
 	}
@@ -126,6 +143,32 @@ func runtimeArch() string {
 		return strings.TrimSpace(string(out))
 	}
 	return "unknown"
+}
+
+// installNATSTLSSymlinks creates /etc/trinity/tls/{fullchain,privkey}.pem
+// as symlinks into /etc/letsencrypt/live/<publicHost>/. The embedded NATS
+// broker reads from these paths when remote collectors are expected; the
+// symlinks let cert renewals propagate without rewriting any config.
+func installNATSTLSSymlinks(plan *Plan, publicURL string) error {
+	host := HostFromURL(publicURL)
+	if host == "" {
+		return fmt.Errorf("installNATSTLSSymlinks: empty hostname from %q", publicURL)
+	}
+	tlsDir := "/etc/trinity/tls"
+	if err := plan.MkdirAll(tlsDir, 0o755); err != nil {
+		return err
+	}
+	pairs := []struct{ name, target string }{
+		{"fullchain.pem", "/etc/letsencrypt/live/" + host + "/fullchain.pem"},
+		{"privkey.pem", "/etc/letsencrypt/live/" + host + "/privkey.pem"},
+	}
+	for _, p := range pairs {
+		linkPath := filepath.Join(tlsDir, p.name)
+		if err := plan.Symlink(p.target, linkPath); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func ensureDirs(plan *Plan, a *Answers, uid, gid int) error {

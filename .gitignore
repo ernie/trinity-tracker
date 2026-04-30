@@ -31,3 +31,6 @@ vendor/
 # Claude
 .claude/
 CLAUDE.md
+
+# Personal migration helpers (one-off, not for distribution)
+scripts/migrate/
