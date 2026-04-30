@@ -80,8 +80,8 @@ will fail.
 ### Building from Source
 
 ```bash
-# Install frontend dependencies (first time only)
-npm --prefix web install
+# Install frontend dependencies (first time only) — requires bun >= 1.2
+bun install --cwd web
 
 # Build everything
 make

@@ -11,7 +11,7 @@ ifdef BUILD_ENGINE
 	$(MAKE) engine
 endif
 	rm -rf web/dist/
-	npm --prefix web run build
+	cd web && bun run build
 
 install: build
 	install -d $(DESTDIR)$(BINDIR)
