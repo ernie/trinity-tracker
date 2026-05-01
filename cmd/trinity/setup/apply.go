@@ -479,10 +479,12 @@ func installLogrotate(plan *Plan) error {
 // file with the bind port + +exec, and enables the systemd template
 // instance.
 //
-// Note: q3 only supports a single rcon_password per server process,
-// so RCON is effectively per-host. The wizard prompts per-server but
-// they should match; we use the first server's value as the canonical
-// trinity.cfg one.
+// rconpassword is per-stem: it lives in <stem>.cfg (mode 0640
+// root:<service-user>) so it's neither exposed to `ps` nor
+// world-readable on disk. Servers sharing a stem (rare; e.g. two
+// FFA instances) share the rcon — q3 itself supports per-process
+// rcons, but the per-stem cfg is shared, so co-stem servers
+// inherit the first one's value.
 func installPerServerFiles(plan *Plan, a *Answers, uid, gid int) error {
 	publicURL := a.PublicURL
 
@@ -495,7 +497,7 @@ func installPerServerFiles(plan *Plan, a *Answers, uid, gid int) error {
 		}
 	}
 	if len(a.Servers) > 0 {
-		trinityCfg, err := RenderTrinityCfg(a.Servers[0].RconPassword, publicURL)
+		trinityCfg, err := RenderTrinityCfg(publicURL)
 		if err != nil {
 			return err
 		}
@@ -578,14 +580,16 @@ func installPerServerFiles(plan *Plan, a *Answers, uid, gid int) error {
 		if err := plan.MkdirAll(filepath.Dir(cfgPath), 0755); err != nil {
 			return err
 		}
-		body, err := RenderServerCfg(s.Gametype, s.UseMissionpack)
+		body, err := RenderServerCfg(s.Gametype, s.UseMissionpack, s.RconPassword)
 		if err != nil {
 			return err
 		}
-		if err := plan.WriteFile(cfgPath, []byte(body), 0644); err != nil {
+		// 0640 root:<service-user> — rconpassword lives here. World
+		// read access would let any local user grab it.
+		if err := plan.WriteFile(cfgPath, []byte(body), 0640); err != nil {
 			return err
 		}
-		if err := plan.Chown(cfgPath, uid, gid); err != nil {
+		if err := plan.Chown(cfgPath, 0, gid); err != nil {
 			return err
 		}
 		plan.say("Wrote: %s", cfgPath)

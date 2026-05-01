@@ -172,9 +172,12 @@ func bareStem(g Gametype) string {
 
 // RenderServerCfg fills the shared-per-gametype cfg template.
 // {{stem}} → the cfg's filename stem (e.g. "tdm-ta"); {{hostname}} →
-// "Trinity <DISPLAY>" derived from the same stem. Operators tweak the
-// rendered file post-install for per-instance customization.
-func RenderServerCfg(g Gametype, useMissionpack bool) (string, error) {
+// "Trinity <DISPLAY>" derived from the same stem; {{rcon_password}} →
+// the rcon credential, which lives here (mode 0640) rather than in
+// trinity.cfg or the .env file so it's not exposed via `ps` and not
+// world-readable. Operators tweak the rendered file post-install for
+// per-instance customization.
+func RenderServerCfg(g Gametype, useMissionpack bool, rconPassword string) (string, error) {
 	name := cfgTemplateFor(g, useMissionpack)
 	if name == "" {
 		return "", fmt.Errorf("no template for gametype %d", int(g))
@@ -186,6 +189,7 @@ func RenderServerCfg(g Gametype, useMissionpack bool) (string, error) {
 	stem := Stem(g, useMissionpack)
 	out := strings.ReplaceAll(string(raw), "{{stem}}", stem)
 	out = strings.ReplaceAll(out, "{{hostname}}", displayHostname(stem))
+	out = strings.ReplaceAll(out, "{{rcon_password}}", rconPassword)
 	return out, nil
 }
 
@@ -220,14 +224,14 @@ func TrinityBotsFile() ([]byte, error) {
 // shared across servers). publicURL is used to derive the optional
 // fast-download block and the default g_motd; pass an empty string
 // to omit fastdl and leave the MOTD blank (collector-only installs
-// without nginx, or hub-only installs).
-func RenderTrinityCfg(rconPassword, publicURL string) (string, error) {
+// without nginx, or hub-only installs). rconpassword is intentionally
+// not set here — see the per-server +set in installPerServerFiles.
+func RenderTrinityCfg(publicURL string) (string, error) {
 	raw, err := cfgTemplates.ReadFile("cfgtemplates/trinity.cfg")
 	if err != nil {
 		return "", fmt.Errorf("reading trinity.cfg template: %w", err)
 	}
-	out := strings.ReplaceAll(string(raw), "{{rcon_password}}", rconPassword)
-	out = strings.ReplaceAll(out, "{{fastdl_block}}", fastdlBlock(publicURL))
+	out := strings.ReplaceAll(string(raw), "{{fastdl_block}}", fastdlBlock(publicURL))
 	out = strings.ReplaceAll(out, "{{motd_host}}", HostFromURL(publicURL))
 	return out, nil
 }

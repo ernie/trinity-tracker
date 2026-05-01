@@ -2394,14 +2394,15 @@ func cmdServerAdd(args []string) {
 	if cfg.Server.Quake3Dir != "" {
 		cfgPath := filepath.Join(cfg.Server.Quake3Dir, s.ModFolder(), stem+".cfg")
 		if _, err := os.Stat(cfgPath); err == nil {
-			fmt.Printf("  NOTE: %s already exists — left alone.\n", cfgPath)
-		} else if body, rerr := setup.RenderServerCfg(s.Gametype, s.UseMissionpack); rerr != nil {
+			fmt.Printf("  NOTE: %s already exists — left alone (existing rconpassword preserved).\n", cfgPath)
+		} else if body, rerr := setup.RenderServerCfg(s.Gametype, s.UseMissionpack, s.RconPassword); rerr != nil {
 			fmt.Fprintf(os.Stderr, "Warning: cfg template render: %v\n", rerr)
 		} else if err := os.MkdirAll(filepath.Dir(cfgPath), 0755); err == nil {
-			if err := os.WriteFile(cfgPath, []byte(body), 0644); err != nil {
+			// 0640 root:<service-user> — rconpassword is in this file.
+			if err := os.WriteFile(cfgPath, []byte(body), 0640); err != nil {
 				fmt.Fprintf(os.Stderr, "Error writing %s: %v\n", cfgPath, err)
 			} else {
-				_ = os.Chown(cfgPath, uid, gid)
+				_ = os.Chown(cfgPath, 0, gid)
 				fmt.Println("Wrote:", cfgPath)
 			}
 		}

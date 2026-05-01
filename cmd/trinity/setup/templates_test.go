@@ -13,7 +13,7 @@ func hasGametype(out string, n int) bool {
 }
 
 func TestRenderServerCfg_FFA(t *testing.T) {
-	out, err := RenderServerCfg(GametypeFFA, false)
+	out, err := RenderServerCfg(GametypeFFA, false, "test-rcon")
 	if err != nil {
 		t.Fatalf("render: %v", err)
 	}
@@ -29,7 +29,7 @@ func TestRenderServerCfg_FFA(t *testing.T) {
 }
 
 func TestRenderServerCfg_Tournament(t *testing.T) {
-	out, err := RenderServerCfg(GametypeTournament, false)
+	out, err := RenderServerCfg(GametypeTournament, false, "test-rcon")
 	if err != nil {
 		t.Fatalf("render: %v", err)
 	}
@@ -76,7 +76,7 @@ func TestRenderServerCfg_TeamArenaGametypes(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.g.Label(), func(t *testing.T) {
-			out, err := RenderServerCfg(tc.g, true)
+			out, err := RenderServerCfg(tc.g, true, "test-rcon")
 			if err != nil {
 				t.Fatalf("render: %v", err)
 			}
@@ -109,7 +109,7 @@ func TestGametype_IsTeamArenaOnly(t *testing.T) {
 func TestStartingMapIsInRotation(t *testing.T) {
 	for _, c := range GametypeChoices {
 		t.Run(c.Label(), func(t *testing.T) {
-			cfg, err := RenderServerCfg(c.Gametype, c.UseMissionpack)
+			cfg, err := RenderServerCfg(c.Gametype, c.UseMissionpack, "test-rcon")
 			if err != nil {
 				t.Fatalf("cfg: %v", err)
 			}
@@ -161,12 +161,9 @@ func TestServerAnswers_ModFolder(t *testing.T) {
 }
 
 func TestRenderTrinityCfg_WithPublicURL(t *testing.T) {
-	out, err := RenderTrinityCfg("hunter2", "https://q3.example.com")
+	out, err := RenderTrinityCfg("https://q3.example.com")
 	if err != nil {
 		t.Fatalf("render: %v", err)
-	}
-	if !strings.Contains(out, `"hunter2"`) {
-		t.Errorf("rcon password not substituted, got:\n%s", out)
 	}
 	if !strings.Contains(out, `"https://dl.q3.example.com"`) {
 		t.Errorf("expected fastdl URL https://dl.q3.example.com, got:\n%s", out)
@@ -174,15 +171,31 @@ func TestRenderTrinityCfg_WithPublicURL(t *testing.T) {
 	if strings.Contains(out, "{{") {
 		t.Errorf("unsubstituted placeholder, got:\n%s", out)
 	}
+	if strings.Contains(out, "set rconpassword") {
+		t.Errorf("trinity.cfg must not set rconpassword (per-stem cfg owns that), got:\n%s", out)
+	}
 }
 
 func TestRenderTrinityCfg_WithoutPublicURL_LeavesFastdlCommented(t *testing.T) {
-	out, err := RenderTrinityCfg("hunter2", "")
+	out, err := RenderTrinityCfg("")
 	if err != nil {
 		t.Fatalf("render: %v", err)
 	}
 	if !strings.Contains(out, "// set sv_dlURL") {
 		t.Errorf("expected commented sv_dlURL when public URL is empty, got:\n%s", out)
+	}
+}
+
+func TestRenderServerCfg_EmbedsRconPassword(t *testing.T) {
+	out, err := RenderServerCfg(GametypeFFA, false, "hunter2")
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	if !strings.Contains(out, `set rconpassword       "hunter2"`) {
+		t.Errorf("rcon password not substituted in stem cfg, got:\n%s", out)
+	}
+	if strings.Contains(out, "{{rcon_password}}") {
+		t.Errorf("unsubstituted rcon placeholder, got:\n%s", out)
 	}
 }
 
