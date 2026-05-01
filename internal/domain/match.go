@@ -20,23 +20,33 @@ type Match struct {
 
 // GameType constants
 const (
-	GameTypeFFA  = "ffa"
-	GameTypeTDM  = "tdm"
-	GameTypeCTF  = "ctf"
-	GameType1v1  = "1v1"
+	GameTypeFFA       = "ffa"
+	GameTypeTDM       = "tdm"
+	GameTypeCTF       = "ctf"
+	GameType1v1       = "1v1"
+	GameType1FCTF     = "1fctf"
+	GameTypeOverload  = "overload"
+	GameTypeHarvester = "harvester"
 )
 
-// GameTypeFromInt converts Q3's numeric gametype to string
+// GameTypeFromInt converts Q3's numeric gametype to string. Mirrors the
+// engine's g_gametype values; 5/6/7 are Team Arena gametypes.
 func GameTypeFromInt(gt int) string {
 	switch gt {
 	case 0:
 		return GameTypeFFA
+	case 1:
+		return GameType1v1
 	case 3:
 		return GameTypeTDM
 	case 4:
 		return GameTypeCTF
-	case 1:
-		return GameType1v1
+	case 5:
+		return GameType1FCTF
+	case 6:
+		return GameTypeOverload
+	case 7:
+		return GameTypeHarvester
 	default:
 		return "unknown"
 	}

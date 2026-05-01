@@ -43,6 +43,9 @@ export function formatGameType(gameType: string): string {
   if (gt === 'team deathmatch' || gt === 'tdm') return 'TDM'
   if (gt === 'capture the flag' || gt === 'ctf') return 'CTF'
   if (gt === 'tournament' || gt === '1v1') return '1v1'
+  if (gt === 'one flag ctf' || gt === '1fctf') return '1FCTF'
+  if (gt === 'overload') return 'OVL'
+  if (gt === 'harvester') return 'HRV'
   return gameType.slice(0, 3).toUpperCase()
 }
 
@@ -51,7 +54,8 @@ export function isTeamGame(gameType: string): boolean {
   const gt = gameType.toLowerCase()
   return gt === 'team deathmatch' || gt === 'tdm' ||
          gt === 'capture the flag' || gt === 'ctf' ||
-         gt === 'one flag ctf' || gt === 'overload' || gt === 'harvester'
+         gt === 'one flag ctf' || gt === '1fctf' ||
+         gt === 'overload' || gt === 'harvester'
 }
 
 function getTeamClass(team?: number): string {

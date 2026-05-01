@@ -265,7 +265,7 @@ func parsePlayerLine(line string) (domain.PlayerStatus, error) {
 func isTeamGameType(gameType string) bool {
 	switch gameType {
 	case "Team Deathmatch", "TDM", "Capture the Flag", "CTF", "One Flag CTF", "Overload", "Harvester",
-		"tdm", "ctf": // lowercase variants from GameTypeFromInt()
+		"tdm", "ctf", "1fctf", "overload", "harvester": // lowercase variants from GameTypeFromInt()
 		return true
 	default:
 		return false

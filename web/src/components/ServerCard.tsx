@@ -23,7 +23,7 @@ function isTeamGame(gameType: string): boolean {
 
 // Check if this is CTF mode
 function isCTF(gameType: string): boolean {
-  const ctfModes = ['capture the flag', 'ctf', 'one flag ctf']
+  const ctfModes = ['capture the flag', 'ctf', 'one flag ctf', '1fctf']
   return ctfModes.includes(gameType.toLowerCase())
 }
 
