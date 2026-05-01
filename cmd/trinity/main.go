@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"image/color"
 	"image/jpeg"
 	"image/png"
 	"io"
@@ -77,6 +78,8 @@ func main() {
 		cmdMedals(os.Args[2:])
 	case "skills":
 		cmdSkills(os.Args[2:])
+	case "flags":
+		cmdFlags(os.Args[2:])
 	case "assets":
 		cmdAssets(os.Args[2:])
 	case "demobake":
@@ -116,7 +119,8 @@ func printUsage() {
 	fmt.Println("  portraits [path]                    Extract player portraits from pk3 file(s)")
 	fmt.Println("  medals [path]                       Extract medal icons from pk3 file(s)")
 	fmt.Println("  skills [path]                       Extract skill icons from pk3 file(s)")
-	fmt.Println("  assets [path]                       Extract all assets (portraits, medals, skills, levelshots)")
+	fmt.Println("  flags [path]                        Extract CTF flag-status icons from pk3 file(s)")
+	fmt.Println("  assets [path]                       Extract all assets (portraits, medals, skills, flags, levelshots)")
 	fmt.Println("  demobake [path]                     Build baseline pk3, map pk3s, and manifest for web demo playback")
 	fmt.Println("  version                             Show version")
 	fmt.Println("  help                                Show this help")
@@ -1616,6 +1620,162 @@ func extractSkillsFromPk3(pk3Path, outputDir, displayPath string) (int, error) {
 	return extracted, nil
 }
 
+// flagTeamColors maps the team suffix on the output PNG to the RGB
+// color the source TGA's white silhouette is recolored to.
+var flagTeamColors = map[string]color.NRGBA{
+	"red":  {R: 0xFF, G: 0x44, B: 0x44, A: 0xFF},
+	"blue": {R: 0x66, G: 0x88, B: 0xFF, A: 0xFF},
+}
+
+// flagSourceStates lists the missionpack pak0 statusbar TGA stems that
+// FlagIcon.tsx renders. Each one is emitted twice — once per team color.
+var flagSourceStates = []string{"flag_in_base", "flag_capture", "flag_missing"}
+
+// cmdFlags extracts CTF flag-status icons from pk3 files. Source assets
+// are 32x32 GrayscaleAlpha TGAs at ui/assets/statusbar/flag_*.tga in the
+// missionpack pak0; the extractor recolors the white silhouette to red
+// or blue, scales to 128x128 with Catmull-Rom, and emits one PNG per
+// (state, team) pair into <static_dir>/assets/flags/.
+func cmdFlags(args []string) {
+	fs := flag.NewFlagSet("flags", flag.ExitOnError)
+	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
+	fs.Parse(args)
+
+	cfg := loadCLIConfigFromFlags(*configPath, "")
+	if cfg == nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to load config\n")
+		os.Exit(1)
+	}
+
+	if cfg.Server.StaticDir == "" {
+		fmt.Fprintf(os.Stderr, "Error: static_dir not configured in config file\n")
+		os.Exit(1)
+	}
+
+	remaining := fs.Args()
+	inputPath := cfg.Server.Quake3Dir
+	if len(remaining) > 0 {
+		inputPath = remaining[0]
+	}
+
+	outputDir := filepath.Join(cfg.Server.StaticDir, "assets", "flags")
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to create output directory: %v\n", err)
+		os.Exit(1)
+	}
+
+	pk3Files := collectPk3FilesOrdered(inputPath)
+	if len(pk3Files) == 0 {
+		fmt.Fprintf(os.Stderr, "Error: no pk3 files found in %s\n", inputPath)
+		os.Exit(1)
+	}
+
+	var totalExtracted int
+	for _, pk3Path := range pk3Files {
+		displayPath := pk3DisplayPath(pk3Path, inputPath)
+		n, err := extractFlagsFromPk3(pk3Path, outputDir, displayPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "  Warning: %s: %v\n", displayPath, err)
+			continue
+		}
+		totalExtracted += n
+	}
+
+	fmt.Printf("Flags: %d extracted\n", totalExtracted)
+}
+
+// extractFlagsFromPk3 looks for ui/assets/statusbar/flag_{state}.tga
+// inside the pk3 and writes one tinted, upscaled PNG per (state, team)
+// pair to outputDir.
+func extractFlagsFromPk3(pk3Path, outputDir, displayPath string) (int, error) {
+	r, err := zip.OpenReader(pk3Path)
+	if err != nil {
+		return 0, fmt.Errorf("failed to open pk3: %w", err)
+	}
+	defer r.Close()
+
+	extracted := 0
+	for _, f := range r.File {
+		lowerName := strings.ToLower(f.Name)
+		if !strings.HasPrefix(lowerName, "ui/assets/statusbar/") {
+			continue
+		}
+		base := strings.ToLower(filepath.Base(f.Name))
+		stem := strings.TrimSuffix(base, ".tga")
+		if !strings.HasSuffix(base, ".tga") {
+			continue
+		}
+		matched := false
+		for _, want := range flagSourceStates {
+			if stem == want {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			continue
+		}
+
+		for _, team := range []string{"red", "blue"} {
+			outputName := stem + "_" + team + ".png"
+			outputPath := filepath.Join(outputDir, outputName)
+			if err := extractFlagToPng(f, outputPath, flagTeamColors[team], 128); err != nil {
+				fmt.Fprintf(os.Stderr, "  Warning: failed to extract %s as %s: %v\n", f.Name, team, err)
+				continue
+			}
+			fmt.Printf("  %s: %s\n", displayPath, outputName)
+			extracted++
+		}
+	}
+
+	return extracted, nil
+}
+
+// extractFlagToPng decodes the source statusbar TGA (32-bit RGBA where
+// alpha is always 255 — the silhouette is a luminance ramp from black
+// foreground to white background) and emits a fully-opaque, two-tone
+// PNG: white pixels become the team color, dark pixels become black,
+// midtones lerp between them. Output is then scaled to targetSize with
+// Catmull-Rom.
+func extractFlagToPng(f *zip.File, outputPath string, tint color.NRGBA, targetSize int) error {
+	rc, err := f.Open()
+	if err != nil {
+		return err
+	}
+	defer rc.Close()
+
+	src, err := tga.Decode(rc)
+	if err != nil {
+		return fmt.Errorf("decode TGA: %w", err)
+	}
+
+	bounds := src.Bounds()
+	tinted := image.NewNRGBA(bounds)
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			r, _, _, _ := src.At(x, y).RGBA()
+			lum := uint32(r >> 8)
+			tinted.SetNRGBA(x, y, color.NRGBA{
+				R: uint8(uint32(tint.R) * lum / 255),
+				G: uint8(uint32(tint.G) * lum / 255),
+				B: uint8(uint32(tint.B) * lum / 255),
+				A: 255,
+			})
+		}
+	}
+
+	dst := image.NewNRGBA(image.Rect(0, 0, targetSize, targetSize))
+	draw.CatmullRom.Scale(dst, dst.Bounds(), tinted, bounds, draw.Over, nil)
+
+	out, err := os.Create(outputPath)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	return png.Encode(out, dst)
+}
+
 // cmdAssets runs all asset extraction commands
 func cmdAssets(args []string) {
 	fs := flag.NewFlagSet("assets", flag.ExitOnError)
@@ -1651,6 +1811,10 @@ func cmdAssets(args []string) {
 
 	fmt.Println("=== Extracting Skills ===")
 	cmdSkills(subArgs)
+	fmt.Println()
+
+	fmt.Println("=== Extracting Flags ===")
+	cmdFlags(subArgs)
 	fmt.Println()
 
 	fmt.Println("=== All asset extraction complete ===")

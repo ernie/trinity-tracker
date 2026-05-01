@@ -218,8 +218,9 @@ func TrinityBotsFile() ([]byte, error) {
 
 // RenderTrinityCfg fills the trinity.cfg template (required cvars
 // shared across servers). publicURL is used to derive the optional
-// fast-download block; pass an empty string to omit it (collector-only
-// installs without nginx, or hub-only installs).
+// fast-download block and the default g_motd; pass an empty string
+// to omit fastdl and leave the MOTD blank (collector-only installs
+// without nginx, or hub-only installs).
 func RenderTrinityCfg(rconPassword, publicURL string) (string, error) {
 	raw, err := cfgTemplates.ReadFile("cfgtemplates/trinity.cfg")
 	if err != nil {
@@ -227,6 +228,7 @@ func RenderTrinityCfg(rconPassword, publicURL string) (string, error) {
 	}
 	out := strings.ReplaceAll(string(raw), "{{rcon_password}}", rconPassword)
 	out = strings.ReplaceAll(out, "{{fastdl_block}}", fastdlBlock(publicURL))
+	out = strings.ReplaceAll(out, "{{motd_host}}", HostFromURL(publicURL))
 	return out, nil
 }
 
