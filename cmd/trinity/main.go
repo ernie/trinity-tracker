@@ -566,14 +566,16 @@ func loadCLIConfigFromFlags(configPath, url string) *config.Config {
 	return cfg
 }
 
-func loadCLIConfig(args []string) (*config.Config, []string) {
-	fs := flag.NewFlagSet("cli", flag.ContinueOnError)
-	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
-	url := fs.String("url", "", "base URL of the trinity server")
-	fs.Parse(args)
-
-	cfg := loadCLIConfigFromFlags(*configPath, *url)
-	return cfg, fs.Args()
+// openStoreForCLI loads the config (warning if missing) and opens the
+// database. Used by CLI subcommands that need direct DB access.
+func openStoreForCLI(configPath, url string) *storage.Store {
+	loadCLIConfigFromFlags(configPath, url)
+	store, err := storage.New(dbPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to open database: %v\n", err)
+		os.Exit(1)
+	}
+	return store
 }
 
 // cmdStatus reports overall install health (config, service, DB,
@@ -906,62 +908,46 @@ func cmdLeaderboard(args []string) {
 	w.Flush()
 }
 
-// cmdUser handles user subcommands
+// cmdUser dispatches `trinity user <subcommand>`. Each subcommand
+// parses its own flags (including --config / --url) in a single pass,
+// avoiding the unknown-flag / arg-eating behavior pflag exhibits when
+// subcommand flags are pre-parsed by a global FlagSet.
 func cmdUser(args []string) {
 	if len(args) < 1 {
 		fmt.Fprintf(os.Stderr, "Error: user subcommand required: add, remove, list, reset, admin\n")
 		os.Exit(1)
 	}
-
-	// For user commands, we need config but also the subcommand
 	subCmd := args[0]
-	cfg, remaining := loadCLIConfig(args[1:])
-	_ = cfg // cfg may be nil if config loading failed
-
-	// Open database
-	store, err := storage.New(dbPath)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to open database: %v\n", err)
-		os.Exit(1)
-	}
-	defer store.Close()
+	subArgs := args[1:]
 
 	ctx := context.Background()
 
+	var err error
 	switch subCmd {
 	case "add":
-		if err := cmdUserAdd(ctx, store, remaining); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
+		err = cmdUserAdd(ctx, subArgs)
 	case "remove":
-		if err := cmdUserRemove(ctx, store, remaining); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
+		err = cmdUserRemove(ctx, subArgs)
 	case "list":
-		if err := cmdUserList(ctx, store); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
+		err = cmdUserList(ctx, subArgs)
 	case "reset":
-		if err := cmdUserReset(ctx, store, remaining); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
+		err = cmdUserReset(ctx, subArgs)
 	case "admin":
-		if err := cmdUserAdmin(ctx, store, remaining); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
+		err = cmdUserAdmin(ctx, subArgs)
 	default:
 		fmt.Fprintf(os.Stderr, "Error: unknown user command: %s (use: add, remove, list, reset, admin)\n", subCmd)
 		os.Exit(1)
 	}
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
 }
 
-func cmdUserAdd(ctx context.Context, store *storage.Store, args []string) error {
+func cmdUserAdd(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("user add", flag.ExitOnError)
+	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
+	url := fs.String("url", "", "base URL of the trinity server")
 	isAdmin := fs.Bool("admin", false, "create as admin user")
 	playerIDFlag := fs.Int64("player-id", 0, "link to player ID")
 	fs.Parse(args)
@@ -970,6 +956,9 @@ func cmdUserAdd(ctx context.Context, store *storage.Store, args []string) error 
 	if len(remaining) < 1 {
 		return fmt.Errorf("usage: trinity user add [--admin] [--player-id N] <username>")
 	}
+
+	store := openStoreForCLI(*configPath, *url)
+	defer store.Close()
 
 	username := remaining[0]
 	var playerID *int64
@@ -1032,11 +1021,20 @@ func cmdUserAdd(ctx context.Context, store *storage.Store, args []string) error 
 	return nil
 }
 
-func cmdUserRemove(ctx context.Context, store *storage.Store, args []string) error {
-	if len(args) < 1 {
+func cmdUserRemove(ctx context.Context, args []string) error {
+	fs := flag.NewFlagSet("user remove", flag.ExitOnError)
+	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
+	url := fs.String("url", "", "base URL of the trinity server")
+	fs.Parse(args)
+
+	remaining := fs.Args()
+	if len(remaining) < 1 {
 		return fmt.Errorf("usage: trinity user remove <username>")
 	}
-	username := args[0]
+	username := remaining[0]
+
+	store := openStoreForCLI(*configPath, *url)
+	defer store.Close()
 
 	if err := store.DeleteUser(ctx, username); err != nil {
 		return fmt.Errorf("failed to remove user: %w", err)
@@ -1046,7 +1044,15 @@ func cmdUserRemove(ctx context.Context, store *storage.Store, args []string) err
 	return nil
 }
 
-func cmdUserList(ctx context.Context, store *storage.Store) error {
+func cmdUserList(ctx context.Context, args []string) error {
+	fs := flag.NewFlagSet("user list", flag.ExitOnError)
+	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
+	url := fs.String("url", "", "base URL of the trinity server")
+	fs.Parse(args)
+
+	store := openStoreForCLI(*configPath, *url)
+	defer store.Close()
+
 	users, err := store.ListUsers(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to list users: %w", err)
@@ -1083,11 +1089,20 @@ func cmdUserList(ctx context.Context, store *storage.Store) error {
 	return w.Flush()
 }
 
-func cmdUserReset(ctx context.Context, store *storage.Store, args []string) error {
-	if len(args) < 1 {
+func cmdUserReset(ctx context.Context, args []string) error {
+	fs := flag.NewFlagSet("user reset", flag.ExitOnError)
+	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
+	url := fs.String("url", "", "base URL of the trinity server")
+	fs.Parse(args)
+
+	remaining := fs.Args()
+	if len(remaining) < 1 {
 		return fmt.Errorf("usage: trinity user reset <username>")
 	}
-	username := args[0]
+	username := remaining[0]
+
+	store := openStoreForCLI(*configPath, *url)
+	defer store.Close()
 
 	user, err := store.GetUserByUsername(ctx, username)
 	if err != nil {
@@ -1129,11 +1144,20 @@ func cmdUserReset(ctx context.Context, store *storage.Store, args []string) erro
 	return nil
 }
 
-func cmdUserAdmin(ctx context.Context, store *storage.Store, args []string) error {
-	if len(args) < 1 {
+func cmdUserAdmin(ctx context.Context, args []string) error {
+	fs := flag.NewFlagSet("user admin", flag.ExitOnError)
+	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
+	url := fs.String("url", "", "base URL of the trinity server")
+	fs.Parse(args)
+
+	remaining := fs.Args()
+	if len(remaining) < 1 {
 		return fmt.Errorf("usage: trinity user admin <username>")
 	}
-	username := args[0]
+	username := remaining[0]
+
+	store := openStoreForCLI(*configPath, *url)
+	defer store.Close()
 
 	user, err := store.GetUserByUsername(ctx, username)
 	if err != nil {
