@@ -129,7 +129,7 @@ func Apply(a *Answers, opts ApplyOptions) error {
 	// collectors are expected, and the symlink target is just LE's
 	// standard layout.
 	if a.RemoteCollectorsExpected {
-		if err := installNATSTLSSymlinks(plan, a.PublicURL); err != nil {
+		if err := installNATSTLSSymlinks(plan, a.PublicURL, a.ServiceUser); err != nil {
 			return err
 		}
 	}
@@ -149,10 +149,20 @@ func runtimeArch() string {
 // as symlinks into /etc/letsencrypt/live/<publicHost>/. The embedded NATS
 // broker reads from these paths when remote collectors are expected; the
 // symlinks let cert renewals propagate without rewriting any config.
-func installNATSTLSSymlinks(plan *Plan, publicURL string) error {
+//
+// Certbot's default layout (archive/ + live/ at 0700 root:root,
+// privkey.pem at 0600 root:root) blocks the service user from reading
+// the key. We grant access via POSIX ACLs rather than chmod/chgrp,
+// which avoids touching certbot-managed ownership and survives
+// renewals: a default ACL on archive/<host>/ propagates to each new
+// privkeyN.pem certbot writes.
+func installNATSTLSSymlinks(plan *Plan, publicURL, serviceUser string) error {
 	host := HostFromURL(publicURL)
 	if host == "" {
 		return fmt.Errorf("installNATSTLSSymlinks: empty hostname from %q", publicURL)
+	}
+	if serviceUser == "" {
+		return fmt.Errorf("installNATSTLSSymlinks: empty service user")
 	}
 	tlsDir := "/etc/trinity/tls"
 	if err := plan.MkdirAll(tlsDir, 0o755); err != nil {
@@ -168,7 +178,40 @@ func installNATSTLSSymlinks(plan *Plan, publicURL string) error {
 			return err
 		}
 	}
-	return nil
+	return grantNATSTLSACLs(plan, host, serviceUser)
+}
+
+// grantNATSTLSACLs sets POSIX ACLs that let the service user traverse
+// /etc/letsencrypt/{archive,live} and read the current and future
+// privkey/fullchain files for the given host.
+func grantNATSTLSACLs(plan *Plan, host, serviceUser string) error {
+	traversal := "u:" + serviceUser + ":rx"
+	if err := plan.Setfacl("-m", traversal, "/etc/letsencrypt/archive", "/etc/letsencrypt/live"); err != nil {
+		return err
+	}
+	archiveDir := "/etc/letsencrypt/archive/" + host
+	read := "u:" + serviceUser + ":r"
+	// Default ACL on archive/<host>/ → applied to every future
+	// privkeyN.pem / fullchainN.pem certbot writes on renewal, so the
+	// service user keeps read access without a deploy hook.
+	if err := plan.Setfacl("-d", "-m", read, archiveDir); err != nil {
+		return err
+	}
+	// Apply to the existing files. In dry-run we can't glob (the dir
+	// may not exist), so emit a single intent line and skip the glob.
+	if plan.DryRun {
+		plan.say("would setfacl -m %s %s/*.pem", read, archiveDir)
+		return nil
+	}
+	matches, err := filepath.Glob(filepath.Join(archiveDir, "*.pem"))
+	if err != nil {
+		return fmt.Errorf("globbing %s: %w", archiveDir, err)
+	}
+	if len(matches) == 0 {
+		return fmt.Errorf("no *.pem files under %s — was certbot run yet?", archiveDir)
+	}
+	args := append([]string{"-m", read}, matches...)
+	return plan.Setfacl(args...)
 }
 
 func ensureDirs(plan *Plan, a *Answers, uid, gid int) error {

@@ -167,3 +167,21 @@ func (p *Plan) Systemctl(args ...string) error {
 	}
 	return nil
 }
+
+// Setfacl runs `setfacl` with the given args. In dry-run mode prints
+// what it would run. Used by installNATSTLSSymlinks to grant the
+// service user read access to /etc/letsencrypt without changing
+// certbot's default ownership / mode.
+func (p *Plan) Setfacl(args ...string) error {
+	if p.DryRun {
+		p.say("would setfacl %s", strings.Join(args, " "))
+		return nil
+	}
+	cmd := exec.Command("setfacl", args...)
+	cmd.Stdout = p.Out
+	cmd.Stderr = p.Out
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("setfacl %s: %w", strings.Join(args, " "), err)
+	}
+	return nil
+}

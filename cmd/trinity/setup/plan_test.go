@@ -257,6 +257,12 @@ func TestApply_DryRun_Combined_RemoteCollectors(t *testing.T) {
 		"/etc/trinity/tls/privkey.pem",
 		"/etc/letsencrypt/live/hub.example.com/fullchain.pem",
 		"/etc/letsencrypt/live/hub.example.com/privkey.pem",
+		// ACLs grant the service user traversal of /etc/letsencrypt
+		// and read on the archived cert files (incl. a default ACL
+		// on archive/<host>/ for future renewals).
+		"would setfacl -m u:quake:rx /etc/letsencrypt/archive /etc/letsencrypt/live",
+		"would setfacl -d -m u:quake:r /etc/letsencrypt/archive/hub.example.com",
+		"would setfacl -m u:quake:r /etc/letsencrypt/archive/hub.example.com/*.pem",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("combined+remote-collectors dry-run missing %q\n--- output ---\n%s", want, out)

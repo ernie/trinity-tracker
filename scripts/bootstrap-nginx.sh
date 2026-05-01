@@ -144,11 +144,11 @@ echo "==> installing nginx + certbot"
 # python3-certbot-nginx; Arch calls it certbot-nginx.
 if command -v apt-get >/dev/null 2>&1; then
     apt-get update
-    DEBIAN_FRONTEND=noninteractive apt-get install -y nginx certbot python3-certbot-nginx
+    DEBIAN_FRONTEND=noninteractive apt-get install -y nginx certbot python3-certbot-nginx acl
 elif command -v pacman >/dev/null 2>&1; then
-    pacman -Sy --noconfirm nginx certbot certbot-nginx
+    pacman -Sy --noconfirm nginx certbot certbot-nginx acl
 elif command -v dnf >/dev/null 2>&1; then
-    dnf install -y nginx certbot python3-certbot-nginx
+    dnf install -y nginx certbot python3-certbot-nginx acl
 else
     echo "ERROR: no supported package manager (apt/pacman/dnf) found." >&2
     exit 1
