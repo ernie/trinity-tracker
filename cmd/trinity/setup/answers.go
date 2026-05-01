@@ -49,6 +49,8 @@ type Answers struct {
 	// Hub modes
 	DatabasePath string // database.path
 	StaticDir    string // server.static_dir (web assets root)
+	JWTSecret    string // auth.jwt_secret — generated once at install time
+	// and persisted in /etc/trinity/config.yml. Empty for collector-only.
 
 	// Collector modes
 	InstallEngine bool   // download the latest trinity-engine release into Quake3Dir
@@ -245,8 +247,13 @@ func (a *Answers) ToConfig() *config.Config {
 	}
 	if a.HasHubFields() {
 		cfg.Database = &config.DatabaseConfig{Path: a.DatabasePath}
-		// AuthConfig is materialized by config.Load with the 24h default
-		// once the YAML is round-tripped — no need to set it here.
+		// JWTSecret is install-time entropy: generated once by the
+		// wizard and pinned in config.yml so re-applies don't
+		// invalidate every existing auth token. Without it, the hub
+		// signs JWTs with an empty secret — i.e. forgeable tokens.
+		// TokenDuration is left zero on purpose; config.Load applies
+		// the 24h default on round-trip.
+		cfg.Auth = &config.AuthConfig{JWTSecret: a.JWTSecret}
 	}
 	// static_dir is also useful for collectors: trinity levelshots and
 	// trinity demobake write into {static_dir}/assets and {static_dir}/pk3s,

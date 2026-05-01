@@ -260,6 +260,27 @@ func TestToConfig_CollectorOnly_NoHubBlock(t *testing.T) {
 	}
 }
 
+func TestToConfig_HubModes_EmitJWTSecret(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		a    *Answers
+	}{
+		{"combined", validCombinedAnswers()},
+		{"hub-only", validHubOnlyAnswers()},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.a.JWTSecret = "test-secret-from-wizard"
+			cfg := tc.a.ToConfig()
+			if cfg.Auth == nil {
+				t.Fatalf("hub mode should populate cfg.Auth, got nil")
+			}
+			if cfg.Auth.JWTSecret != "test-secret-from-wizard" {
+				t.Errorf("JWTSecret: got %q, want pass-through from Answers", cfg.Auth.JWTSecret)
+			}
+		})
+	}
+}
+
 func TestToConfig_RoundTripsThroughValidator(t *testing.T) {
 	for _, mode := range []Mode{ModeCombined, ModeHubOnly, ModeCollector} {
 		t.Run(mode.String(), func(t *testing.T) {

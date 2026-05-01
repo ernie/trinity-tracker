@@ -138,6 +138,11 @@ func promptHub(p Prompter, a *Answers) error {
 	if a.StaticDir, err = p.Line("Web assets path", a.StaticDir); err != nil {
 		return err
 	}
+	// JWT secret isn't operator-tunable — silently mint one. Pre-set
+	// values (e.g. tests) pass through untouched.
+	if a.JWTSecret == "" {
+		a.JWTSecret = GenerateJWTSecret()
+	}
 	return nil
 }
 
@@ -708,6 +713,16 @@ func GenerateRCONPassword() string {
 		// crypto/rand failures on Linux are essentially impossible.
 		// Falling back to a constant would be worse than panicking
 		// — silently weak passwords are how you get owned.
+		panic("setup: failed to read crypto/rand: " + err.Error())
+	}
+	return base64.RawURLEncoding.EncodeToString(b[:])
+}
+
+// GenerateJWTSecret returns a base64-encoded 32-byte random string
+// (43 chars). Used as the HMAC key for hub auth tokens.
+func GenerateJWTSecret() string {
+	var b [32]byte
+	if _, err := rand.Read(b[:]); err != nil {
 		panic("setup: failed to read crypto/rand: " + err.Error())
 	}
 	return base64.RawURLEncoding.EncodeToString(b[:])
