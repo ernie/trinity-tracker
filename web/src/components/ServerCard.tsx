@@ -41,11 +41,21 @@ function getFlagIndicator(status: number): { className: string; title: string; s
   }
 }
 
+// usesCaptureLimit returns true for the gametypes that score on
+// captures/objectives rather than frags. Mirrors the engine's
+// `g_gametype >= GT_CTF` check (g_main.c) — CTF, 1FCTF, Overload,
+// and Harvester all read g_capturelimit, not g_fraglimit.
+function usesCaptureLimit(gameType: string): boolean {
+  if (isCTF(gameType)) return true
+  const gt = gameType.toLowerCase()
+  return gt === 'overload' || gt === 'harvester'
+}
+
 // Get the relevant score limit for the game type
 function getScoreLimit(gameType: string, serverVars?: Record<string, string>): number | null {
   if (!serverVars) return null
 
-  if (isCTF(gameType)) {
+  if (usesCaptureLimit(gameType)) {
     const limit = parseInt(serverVars.capturelimit || '0', 10)
     if (limit > 0) return limit
   } else {
