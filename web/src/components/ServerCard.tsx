@@ -17,7 +17,7 @@ interface ServerCardProps {
 
 // Check if this is a team-based game mode
 function isTeamGame(gameType: string): boolean {
-  const teamModes = ['team deathmatch', 'tdm', 'capture the flag', 'ctf', 'one flag ctf', 'overload', 'harvester']
+  const teamModes = ['team deathmatch', 'tdm', 'capture the flag', 'ctf', 'one flag ctf', '1fctf', 'overload', 'harvester']
   return teamModes.includes(gameType.toLowerCase())
 }
 
@@ -315,8 +315,14 @@ export function ServerCard({ server, newPlayers, isSelected, onSelect, onPlayerC
           {server.flag_status?.mode === '1fctf' && (() => {
             const indicator = getNeutralFlagIndicator(server.flag_status.neutral ?? 0)
             return (
-              <span className={`team-flag-center ${indicator.drift}`}>
-                <FlagIcon team="neutral" status={indicator.status} size="sm" title={indicator.title} />
+              <span className={`team-score team-flag-center ${indicator.drift}`}>
+                <span className="team-label" aria-hidden="true">&nbsp;</span>
+                <span className="score-row">
+                  <span className="score-value" aria-hidden="true">&nbsp;</span>
+                  <span className="flag-indicator">
+                    <FlagIcon team="neutral" status={indicator.status} size="sm" title={indicator.title} />
+                  </span>
+                </span>
               </span>
             )
           })()}

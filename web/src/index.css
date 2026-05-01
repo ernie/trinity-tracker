@@ -694,15 +694,14 @@ h2 {
   opacity: 0.6;
 }
 
-/* 1FCTF center-slot neutral flag. The slot sits between the red and
- * blue .team-score columns; the icon inside it slides to whichever
- * side is currently carrying. */
-.team-flag-center {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 60px;
-  margin: 0 4px;
+/* 1FCTF center-slot neutral flag. Reuses the .team-score column
+ * structure so the flag-indicator inside .score-row aligns the same
+ * way as red/blue flag indicators do in CTF. The team-label and
+ * score-value are hidden but kept in flow as height spacers so this
+ * cell matches a real score cell's vertical metrics. */
+.team-flag-center .team-label,
+.team-flag-center .score-value {
+  visibility: hidden;
 }
 
 .team-flag-center .flag-icon {
