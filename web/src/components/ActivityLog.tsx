@@ -281,20 +281,20 @@ function ActivityMessage({ activity, onPlayerClick }: ActivityMessageProps) {
 function getActivityIcon(activity: ActivityItem): React.ReactNode {
   const { activityType, team, awardType } = activity
 
-  // Flag events
+  // Flag events. team=0 means the neutral 1FCTF flag; 1=Red, 2=Blue.
   if (activityType === 'flag_capture') {
     return <MedalIcon type="capture" showCount={false} />
   }
-  if (activityType === 'flag_taken' && team) {
-    const flagTeam = team === 1 ? 'red' : 'blue'
+  if (activityType === 'flag_taken' && team !== undefined) {
+    const flagTeam = team === 1 ? 'red' : team === 2 ? 'blue' : 'neutral'
     return <FlagIcon team={flagTeam} status="taken" size="sm" />
   }
-  if (activityType === 'flag_return' && team) {
-    const flagTeam = team === 1 ? 'red' : 'blue'
+  if (activityType === 'flag_return' && team !== undefined) {
+    const flagTeam = team === 1 ? 'red' : team === 2 ? 'blue' : 'neutral'
     return <FlagIcon team={flagTeam} status="base" size="sm" />
   }
-  if (activityType === 'flag_drop' && team) {
-    const flagTeam = team === 1 ? 'red' : 'blue'
+  if (activityType === 'flag_drop' && team !== undefined) {
+    const flagTeam = team === 1 ? 'red' : team === 2 ? 'blue' : 'neutral'
     return <FlagIcon team={flagTeam} status="dropped" size="sm" />
   }
 

@@ -132,6 +132,10 @@ function App() {
     [],
   );
 
+  const getServerGameType = useCallback((serverId: number): string | undefined => {
+    return serversRef.current.get(serverId)?.game_type;
+  }, []);
+
   // Determine WebSocket URL based on current location
   const wsUrl = `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/ws`;
 
@@ -260,7 +264,7 @@ function App() {
         case "flag_capture": {
           const data = event.data as FlagCaptureData;
           const serverName = getServerName(event.server_id);
-          const flagTeam = data.team === 1 ? "Blue" : "Red"; // Captured enemy flag
+          const gameType = getServerGameType(event.server_id);
           const cleanName = cleanQ3Name(data.player_name);
           const botInfo = getPlayerBotInfo(event.server_id, cleanName);
           const player = {
@@ -269,7 +273,13 @@ function App() {
             playerId: data.player_id,
             ...botInfo,
           };
-          addActivity("info", `${data.player_name}${COLOR_RESET} captured the ${flagTeam} flag!`, {
+          // 1FCTF has a single neutral flag — no Red/Blue color. Plain CTF
+          // event team is the team that scored, so the captured flag was
+          // the *other* team's.
+          const message = gameType === "1fctf"
+            ? `${data.player_name}${COLOR_RESET} captured the flag!`
+            : `${data.player_name}${COLOR_RESET} captured the ${data.team === 1 ? "Blue" : "Red"} flag!`;
+          addActivity("info", message, {
             player,
             serverId: event.server_id,
             serverName,
@@ -282,7 +292,7 @@ function App() {
         case "flag_taken": {
           const data = event.data as FlagTakenData;
           const serverName = getServerName(event.server_id);
-          const flagTeam = data.team === 1 ? "Red" : "Blue";
+          const gameType = getServerGameType(event.server_id);
           const cleanName = cleanQ3Name(data.player_name);
           const botInfo = getPlayerBotInfo(event.server_id, cleanName);
           const player = {
@@ -291,7 +301,10 @@ function App() {
             playerId: data.player_id,
             ...botInfo,
           };
-          addActivity("info", `${data.player_name}${COLOR_RESET} took the ${flagTeam} flag`, {
+          const message = gameType === "1fctf"
+            ? `${data.player_name}${COLOR_RESET} took the flag`
+            : `${data.player_name}${COLOR_RESET} took the ${data.team === 1 ? "Red" : "Blue"} flag`;
+          addActivity("info", message, {
             player,
             serverId: event.server_id,
             serverName,
@@ -304,6 +317,8 @@ function App() {
         case "flag_return": {
           const data = event.data as FlagReturnData;
           const serverName = getServerName(event.server_id);
+          const gameType = getServerGameType(event.server_id);
+          const isOneFlag = gameType === "1fctf";
           const flagTeam = data.team === 1 ? "Red" : "Blue";
           if (data.player_name) {
             const cleanName = cleanQ3Name(data.player_name);
@@ -314,7 +329,10 @@ function App() {
               playerId: data.player_id,
               ...botInfo,
             };
-            addActivity("info", `${data.player_name}${COLOR_RESET} returned the ${flagTeam} flag`, {
+            const message = isOneFlag
+              ? `${data.player_name}${COLOR_RESET} returned the flag`
+              : `${data.player_name}${COLOR_RESET} returned the ${flagTeam} flag`;
+            addActivity("info", message, {
               player,
               serverId: event.server_id,
               serverName,
@@ -322,7 +340,10 @@ function App() {
               team: data.team,
             });
           } else {
-            addActivity("info", `The ${flagTeam} flag was returned`, {
+            const message = isOneFlag
+              ? `The flag was returned`
+              : `The ${flagTeam} flag was returned`;
+            addActivity("info", message, {
               serverId: event.server_id,
               serverName,
               activityType: "flag_return",
@@ -335,7 +356,7 @@ function App() {
         case "flag_drop": {
           const data = event.data as FlagDropData;
           const serverName = getServerName(event.server_id);
-          const flagTeam = data.team === 1 ? "Red" : "Blue";
+          const gameType = getServerGameType(event.server_id);
           const cleanName = cleanQ3Name(data.player_name);
           const botInfo = getPlayerBotInfo(event.server_id, cleanName);
           const player = {
@@ -344,7 +365,10 @@ function App() {
             playerId: data.player_id,
             ...botInfo,
           };
-          addActivity("info", `${data.player_name}${COLOR_RESET} dropped the ${flagTeam} flag`, {
+          const message = gameType === "1fctf"
+            ? `${data.player_name}${COLOR_RESET} dropped the flag`
+            : `${data.player_name}${COLOR_RESET} dropped the ${data.team === 1 ? "Red" : "Blue"} flag`;
+          addActivity("info", message, {
             player,
             serverId: event.server_id,
             serverName,
@@ -527,9 +551,21 @@ function App() {
               }
               break;
             case "defend": {
-              const flagTeam = data.team === 1 ? "Red" : data.team === 2 ? "Blue" : null;
-              if (flagTeam) {
-                message = `${data.player_name}${COLOR_RESET} defended the ${flagTeam} flag!`;
+              // Award team is the defender's own team. In Overload they
+              // defend their team's obelisk; in Harvester they defend the
+              // neutral scoring obelisk; in 1FCTF the only flag is neutral.
+              const gameType = getServerGameType(event.server_id);
+              const teamColor = data.team === 1 ? "Red" : data.team === 2 ? "Blue" : null;
+              if (gameType === "overload") {
+                message = teamColor
+                  ? `${data.player_name}${COLOR_RESET} defended the ${teamColor} obelisk!`
+                  : `${data.player_name}${COLOR_RESET} defended the obelisk!`;
+              } else if (gameType === "harvester") {
+                message = `${data.player_name}${COLOR_RESET} defended the obelisk!`;
+              } else if (gameType === "1fctf") {
+                message = `${data.player_name}${COLOR_RESET} defended the flag!`;
+              } else if (teamColor) {
+                message = `${data.player_name}${COLOR_RESET} defended the ${teamColor} flag!`;
               } else {
                 message = `${data.player_name}${COLOR_RESET} defended the flag!`;
               }
@@ -554,7 +590,7 @@ function App() {
         }
       }
     },
-    [addActivity, getServerName, getPlayerBotInfo],
+    [addActivity, getServerName, getServerGameType, getPlayerBotInfo],
   );
 
   const { isConnected } = useWebSocket(wsUrl, handleEvent);
