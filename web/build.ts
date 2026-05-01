@@ -20,7 +20,11 @@ if (!result.success) {
   process.exit(1)
 }
 
-await cp('./public', dist, { recursive: true })
+// dereference: true → follow symlinks like quake3-eula.txt → ../../cmd/...
+// and write the target's content as a real file under dist/. Without it,
+// node's cp copies the symlink but rewrites its target relative to the
+// destination, leaving a broken link.
+await cp('./public', dist, { recursive: true, dereference: true })
 
 const href = (p: string) => '/' + relative(dist, p)
 const js = result.outputs.find((o) => o.kind === 'entry-point')!
