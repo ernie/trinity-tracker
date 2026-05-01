@@ -284,33 +284,52 @@ func parseIntVar(vars map[string]string, names ...string) (int, bool) {
 	return 0, false
 }
 
-// parseFlagStatus parses the g_flagStatus cvar
-// Format: "<red_status>:<red_carrier>,<blue_status>:<blue_carrier>"
-// Example: "1:5,0:-1" = red flag taken by client 5, blue flag at base
+// parseFlagStatus parses the g_flagStatus cvar.
+// CTF format:   "<red_status>:<red_carrier>,<blue_status>:<blue_carrier>"
+//   Example: "1:5,0:-1" = red flag taken by client 5, blue flag at base
+// 1FCTF format: "<status>:<carrier>" (single neutral flag)
+//   Example: "2:7" = neutral flag carried by red player, client 7
+// The legacy two-char form "00" (engine default before any update) is
+// rejected — it carries no usable state.
 func parseFlagStatus(s string) *domain.FlagStatus {
 	parts := strings.Split(s, ",")
-	if len(parts) != 2 {
+	switch len(parts) {
+	case 1:
+		segment := strings.Split(parts[0], ":")
+		if len(segment) != 2 {
+			return nil
+		}
+		status, err1 := strconv.Atoi(segment[0])
+		carrier, err2 := strconv.Atoi(segment[1])
+		if err1 != nil || err2 != nil {
+			return nil
+		}
+		return &domain.FlagStatus{
+			Mode:           "1fctf",
+			Neutral:        status,
+			NeutralCarrier: carrier,
+		}
+	case 2:
+		redParts := strings.Split(parts[0], ":")
+		blueParts := strings.Split(parts[1], ":")
+		if len(redParts) != 2 || len(blueParts) != 2 {
+			return nil
+		}
+		redStatus, err1 := strconv.Atoi(redParts[0])
+		redCarrier, err2 := strconv.Atoi(redParts[1])
+		blueStatus, err3 := strconv.Atoi(blueParts[0])
+		blueCarrier, err4 := strconv.Atoi(blueParts[1])
+		if err1 != nil || err2 != nil || err3 != nil || err4 != nil {
+			return nil
+		}
+		return &domain.FlagStatus{
+			Mode:        "ctf",
+			Red:         redStatus,
+			RedCarrier:  redCarrier,
+			Blue:        blueStatus,
+			BlueCarrier: blueCarrier,
+		}
+	default:
 		return nil
-	}
-
-	redParts := strings.Split(parts[0], ":")
-	blueParts := strings.Split(parts[1], ":")
-	if len(redParts) != 2 || len(blueParts) != 2 {
-		return nil
-	}
-
-	redStatus, err1 := strconv.Atoi(redParts[0])
-	redCarrier, err2 := strconv.Atoi(redParts[1])
-	blueStatus, err3 := strconv.Atoi(blueParts[0])
-	blueCarrier, err4 := strconv.Atoi(blueParts[1])
-	if err1 != nil || err2 != nil || err3 != nil || err4 != nil {
-		return nil
-	}
-
-	return &domain.FlagStatus{
-		Red:         redStatus,
-		RedCarrier:  redCarrier,
-		Blue:        blueStatus,
-		BlueCarrier: blueCarrier,
 	}
 }

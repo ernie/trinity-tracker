@@ -27,10 +27,15 @@ export interface TeamScores {
 }
 
 export interface FlagStatus {
+  mode?: 'ctf' | '1fctf'
   red: number         // 0=at base, 1=taken, 2=dropped
   red_carrier: number // client_num of carrier, or -1
   blue: number
   blue_carrier: number
+  // 1FCTF only — single neutral flag.
+  // Status values: 0=at base, 2=carried by red, 3=carried by blue, 4=dropped.
+  neutral?: number
+  neutral_carrier?: number
 }
 
 export interface ServerStatus {

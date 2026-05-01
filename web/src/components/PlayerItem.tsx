@@ -11,7 +11,7 @@ import { stripVRPrefix } from '../utils'
 interface PlayerItemProps {
   player: Player
   isNew?: boolean
-  carryingFlag?: 'red' | 'blue'
+  carryingFlag?: 'red' | 'blue' | 'neutral'
   onClick?: () => void
 }
 

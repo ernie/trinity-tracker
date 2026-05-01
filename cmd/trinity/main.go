@@ -1645,10 +1645,14 @@ func extractSkillsFromPk3(pk3Path, outputDir, displayPath string) (int, error) {
 }
 
 // flagTeamColors maps the team suffix on the output PNG to the RGB
-// color the source TGA's white silhouette is recolored to.
+// color the source TGA's white silhouette is recolored to. The
+// "neutral" white tint passes the source luminance through unchanged
+// for 1FCTF, where there is one shared neutral flag and team color
+// would mislead.
 var flagTeamColors = map[string]color.NRGBA{
-	"red":  {R: 0xFF, G: 0x44, B: 0x44, A: 0xFF},
-	"blue": {R: 0x66, G: 0x88, B: 0xFF, A: 0xFF},
+	"red":     {R: 0xFF, G: 0x44, B: 0x44, A: 0xFF},
+	"blue":    {R: 0x66, G: 0x88, B: 0xFF, A: 0xFF},
+	"neutral": {R: 0xFF, G: 0xFF, B: 0xFF, A: 0xFF},
 }
 
 // flagSourceStates lists the missionpack pak0 statusbar TGA stems that
@@ -1740,7 +1744,7 @@ func extractFlagsFromPk3(pk3Path, outputDir, displayPath string) (int, error) {
 			continue
 		}
 
-		for _, team := range []string{"red", "blue"} {
+		for _, team := range []string{"red", "blue", "neutral"} {
 			outputName := stem + "_" + team + ".png"
 			outputPath := filepath.Join(outputDir, outputName)
 			if err := extractFlagToPng(f, outputPath, flagTeamColors[team], 128); err != nil {

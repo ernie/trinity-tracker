@@ -41,6 +41,24 @@ function getFlagIndicator(status: number): { className: string; title: string; s
   }
 }
 
+// 1FCTF status values: 0=at base, 2=carried by red, 3=carried by blue,
+// 4=dropped. The single neutral flag drifts toward whichever side
+// currently carries it.
+function getNeutralFlagIndicator(status: number): { drift: string; title: string; status: 'base' | 'taken' | 'dropped' } {
+  switch (status) {
+    case 0:
+      return { drift: 'flag-center', title: 'Neutral flag at base', status: 'base' }
+    case 2:
+      return { drift: 'flag-toward-red', title: 'Neutral flag carried by red', status: 'taken' }
+    case 3:
+      return { drift: 'flag-toward-blue', title: 'Neutral flag carried by blue', status: 'taken' }
+    case 4:
+      return { drift: 'flag-center', title: 'Neutral flag dropped', status: 'dropped' }
+    default:
+      return { drift: 'flag-center', title: 'Neutral flag', status: 'base' }
+  }
+}
+
 // usesCaptureLimit returns true for the gametypes that score on
 // captures/objectives rather than frags. Mirrors the engine's
 // `g_gametype >= GT_CTF` check (g_main.c) — CTF, 1FCTF, Overload,
@@ -284,7 +302,7 @@ export function ServerCard({ server, newPlayers, isSelected, onSelect, onPlayerC
             <span className="team-label">{server.server_vars?.g_redteam || 'Red'}</span>
             <span className="score-row">
               <span className="score-value">{formatNumber(server.team_scores.red)}</span>
-              {server.flag_status && isCTF(server.game_type) && (() => {
+              {server.flag_status?.mode === 'ctf' && (() => {
                 const indicator = getFlagIndicator(server.flag_status.red)
                 return (
                   <span className={`flag-indicator ${indicator.className}`}>
@@ -294,11 +312,19 @@ export function ServerCard({ server, newPlayers, isSelected, onSelect, onPlayerC
               })()}
             </span>
           </span>
+          {server.flag_status?.mode === '1fctf' && (() => {
+            const indicator = getNeutralFlagIndicator(server.flag_status.neutral ?? 0)
+            return (
+              <span className={`team-flag-center ${indicator.drift}`}>
+                <FlagIcon team="neutral" status={indicator.status} size="sm" title={indicator.title} />
+              </span>
+            )
+          })()}
           <span className="team-score blue">
             <span className="team-label">{server.server_vars?.g_blueteam || 'Blue'}</span>
             <span className="score-row">
               <span className="score-value">{formatNumber(server.team_scores.blue)}</span>
-              {server.flag_status && isCTF(server.game_type) && (() => {
+              {server.flag_status?.mode === 'ctf' && (() => {
                 const indicator = getFlagIndicator(server.flag_status.blue)
                 return (
                   <span className={`flag-indicator ${indicator.className}`}>
@@ -324,6 +350,9 @@ export function ServerCard({ server, newPlayers, isSelected, onSelect, onPlayerC
               player={player}
               isNew={newPlayers.has(player.clean_name)}
               carryingFlag={
+                server.flag_status?.neutral_carrier !== undefined &&
+                server.flag_status.neutral_carrier >= 0 &&
+                server.flag_status.neutral_carrier === player.client_num ? 'neutral' :
                 server.flag_status?.red_carrier !== undefined &&
                 server.flag_status.red_carrier >= 0 &&
                 server.flag_status.red_carrier === player.client_num ? 'red' :

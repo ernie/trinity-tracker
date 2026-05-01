@@ -694,6 +694,29 @@ h2 {
   opacity: 0.6;
 }
 
+/* 1FCTF center-slot neutral flag. The slot sits between the red and
+ * blue .team-score columns; the icon inside it slides to whichever
+ * side is currently carrying. */
+.team-flag-center {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  margin: 0 4px;
+}
+
+.team-flag-center .flag-icon {
+  transition: transform 0.45s ease-out;
+}
+
+.team-flag-center.flag-toward-red .flag-icon {
+  transform: translateX(-30px);
+}
+
+.team-flag-center.flag-toward-blue .flag-icon {
+  transform: translateX(30px);
+}
+
 .score-limit {
   color: var(--text-dim);
   font-size: 0.9rem;

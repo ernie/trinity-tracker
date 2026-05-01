@@ -1,5 +1,5 @@
 interface FlagIconProps {
-  team: 'red' | 'blue'
+  team: 'red' | 'blue' | 'neutral'
   status?: 'base' | 'taken' | 'dropped'
   size?: 'sm' | 'md' | 'lg'
   className?: string

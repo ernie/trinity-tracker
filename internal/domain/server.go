@@ -63,14 +63,19 @@ type TeamScores struct {
 	BlueScore int `json:"blue"`
 }
 
-// FlagStatus represents CTF flag states
-// Status values: 0=at base, 1=taken, 2=dropped
-// Carrier values: client_num of carrier, or -1 if not carried
+// FlagStatus represents CTF / 1FCTF flag states. Mode disambiguates
+// which fields are meaningful. CTF status values: 0=at base, 1=taken,
+// 2=dropped. 1FCTF status values (neutral flag only): 0=at base,
+// 2=carried by red, 3=carried by blue, 4=dropped. Carrier values are
+// client_num of the carrier, or -1 if not carried.
 type FlagStatus struct {
-	Red         int `json:"red"`
-	RedCarrier  int `json:"red_carrier"`
-	Blue        int `json:"blue"`
-	BlueCarrier int `json:"blue_carrier"`
+	Mode           string `json:"mode,omitempty"` // "ctf" | "1fctf"
+	Red            int    `json:"red"`
+	RedCarrier     int    `json:"red_carrier"`
+	Blue           int    `json:"blue"`
+	BlueCarrier    int    `json:"blue_carrier"`
+	Neutral        int    `json:"neutral,omitempty"`
+	NeutralCarrier int    `json:"neutral_carrier,omitempty"`
 }
 
 // PlayerStatus represents a player's current state on a server
