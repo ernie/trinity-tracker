@@ -488,32 +488,26 @@ func installLogrotate(plan *Plan) error {
 func installPerServerFiles(plan *Plan, a *Answers, uid, gid int) error {
 	publicURL := a.PublicURL
 
-	// trinity.cfg is per-mod-folder. If any server uses missionpack
-	// we install it there too.
-	mods := map[string]bool{"baseq3": true}
-	for _, s := range a.Servers {
-		if s.RunsMissionpack() {
-			mods["missionpack"] = true
-		}
-	}
 	if len(a.Servers) > 0 {
+		// trinity.cfg lands in baseq3 only — q3's vfs falls back from
+		// fs_game (missionpack) to baseq3 for cfg lookup, so a single
+		// copy covers every server. Same rationale as autoexec.cfg
+		// below.
 		trinityCfg, err := RenderTrinityCfg(publicURL)
 		if err != nil {
 			return err
 		}
-		for mod := range mods {
-			path := filepath.Join(a.Quake3Dir, mod, "trinity.cfg")
-			if err := plan.MkdirAll(filepath.Dir(path), 0755); err != nil {
-				return err
-			}
-			if err := plan.WriteFile(path, []byte(trinityCfg), 0644); err != nil {
-				return err
-			}
-			if err := plan.Chown(path, uid, gid); err != nil {
-				return err
-			}
-			plan.say("Installed: %s", path)
+		path := filepath.Join(a.Quake3Dir, "baseq3", "trinity.cfg")
+		if err := plan.MkdirAll(filepath.Dir(path), 0755); err != nil {
+			return err
 		}
+		if err := plan.WriteFile(path, []byte(trinityCfg), 0644); err != nil {
+			return err
+		}
+		if err := plan.Chown(path, uid, gid); err != nil {
+			return err
+		}
+		plan.say("Installed: %s", path)
 
 		// trinity-bots.txt: curated bot list referenced by
 		// quake3-server@.service's `+set g_botsfile`. bot_minplayers
