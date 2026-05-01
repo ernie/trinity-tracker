@@ -89,6 +89,18 @@ if (( UPGRADE )) && [[ ! -f /etc/trinity/config.yml ]]; then
 fi
 
 if [[ $EUID -ne 0 ]]; then
+    # When run from a checkout ($0 is a real file path), self-escalate
+    # via sudo. Under curl|bash $0 is "bash" — `exec sudo -E bash` would
+    # spawn a new bash with no script source, silently dropping the
+    # script's variables and producing 404s downstream. Bail loudly
+    # there so the operator just retries with `sudo bash`.
+    if [[ ! -f "$0" ]]; then
+        echo "ERROR: this script needs root, but it's being run via curl|bash" >&2
+        echo "       without sudo. Self-escalation can't preserve the piped" >&2
+        echo "       script source. Re-run with sudo before bash:" >&2
+        echo "         curl ... | sudo bash -s -- $*" >&2
+        exit 1
+    fi
     echo "This script needs root to install packages and write to /usr/local/bin." >&2
     echo "Re-running under sudo..." >&2
     exec sudo -E "$0" "$@"
