@@ -200,6 +200,31 @@ func TestFetchAndExtractMods_PreservesExistingFiles(t *testing.T) {
 	}
 }
 
+func TestFetchAndExtractMods_StripsSingleWrapperDir(t *testing.T) {
+	root := t.TempDir()
+	staticDir := filepath.Join(root, "web")
+	q3Dir := filepath.Join(root, "quake3")
+	if err := os.MkdirAll(filepath.Join(staticDir, "downloads"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	// Real-world quake3-1.32-pk3s.zip wraps everything in
+	// quake3-latest-pk3s/. Same shape exercised here.
+	makeTestZip(t, filepath.Join(staticDir, "downloads", "patch.zip"), map[string][]byte{
+		"quake3-latest-pk3s/baseq3/pak1.pk3":      []byte("p1"),
+		"quake3-latest-pk3s/baseq3/pak8.pk3":      []byte("p8"),
+		"quake3-latest-pk3s/missionpack/pak1.pk3": []byte("mp1"),
+	})
+	opts := PakStepOptions{Quake3Dir: q3Dir, StaticDir: staticDir}
+	if err := fetchAndExtractMods(opts, io.Discard, "patch.zip", []string{"baseq3", "missionpack"}); err != nil {
+		t.Fatalf("fetchAndExtractMods: %v", err)
+	}
+	for _, want := range []string{"baseq3/pak1.pk3", "baseq3/pak8.pk3", "missionpack/pak1.pk3"} {
+		if _, err := os.Stat(filepath.Join(q3Dir, want)); err != nil {
+			t.Errorf("expected %s to exist after wrapper strip: %v", want, err)
+		}
+	}
+}
+
 func TestFetchAndExtractMods_RejectsZipSlip(t *testing.T) {
 	root := t.TempDir()
 	staticDir := filepath.Join(root, "web")

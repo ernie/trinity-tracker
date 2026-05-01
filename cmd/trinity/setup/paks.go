@@ -450,9 +450,10 @@ func pageEULA() error {
 // alone — we only fill gaps, never overwrite operator copies.
 //
 // Hub-hosted zips have `baseq3/...` and/or `missionpack/...` at the
-// top level, so no leading-dir strip is needed. Entries outside the
-// allowed mods (or that resolve outside their mod dir via "..") are
-// skipped.
+// top level. Some upstream patch/HQQ zips wrap everything in a single
+// release-name dir (e.g. `quake3-latest-pk3s/baseq3/...`); we strip
+// that wrapper transparently. Entries outside the allowed mods (or
+// that resolve outside their mod dir via "..") are skipped.
 func fetchAndExtractMods(opts PakStepOptions, out io.Writer, name string, mods []string) error {
 	zipPath, cleanup, err := resolveZip(opts, out, name)
 	if err != nil {
@@ -471,11 +472,14 @@ func fetchAndExtractMods(opts PakStepOptions, out io.Writer, name string, mods [
 		allowed[m] = true
 	}
 
+	stripPrefix := detectWrapperDir(zr.File, allowed)
+
 	for _, entry := range zr.File {
 		if entry.FileInfo().IsDir() {
 			continue
 		}
-		mod, rest, ok := strings.Cut(entry.Name, "/")
+		entryName := strings.TrimPrefix(entry.Name, stripPrefix)
+		mod, rest, ok := strings.Cut(entryName, "/")
 		if !ok || !allowed[mod] || rest == "" {
 			continue
 		}
@@ -497,6 +501,33 @@ func fetchAndExtractMods(opts PakStepOptions, out io.Writer, name string, mods [
 		chownByName(dest, opts.ServiceUser)
 	}
 	return nil
+}
+
+// detectWrapperDir returns "wrapper/" when every entry in the zip
+// shares one non-allowed top-level dir (the typical patch/HQQ layout),
+// or "" when entries already start with allowed mod names. Mixed
+// layouts return "" — we'd rather extract nothing than partially.
+func detectWrapperDir(files []*zip.File, allowed map[string]bool) string {
+	tops := make(map[string]bool)
+	for _, entry := range files {
+		top, _, _ := strings.Cut(entry.Name, "/")
+		if top == "" {
+			continue
+		}
+		tops[top] = true
+	}
+	for top := range tops {
+		if allowed[top] {
+			return ""
+		}
+	}
+	if len(tops) != 1 {
+		return ""
+	}
+	for top := range tops {
+		return top + "/"
+	}
+	return ""
 }
 
 // resolveZip returns a filesystem path to the named zip. Sources are
