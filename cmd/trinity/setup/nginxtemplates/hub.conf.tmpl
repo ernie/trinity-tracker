@@ -39,6 +39,19 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
     }
 
+    # /q3/ exposes pak/tvd files from {{ .Quake3Dir }} for the in-browser
+    # engine (demo player + live client). pak0 is forbidden (id Software
+    # content, not redistributable); anything other than pk3/tvd is denied.
+    location ~ ^/q3/(baseq3|missionpack)/pak0\.pk3$ {
+        return 403;
+    }
+    location ~ ^/q3/(.+\.(pk3|tvd))$ {
+        alias {{ .Quake3Dir }}/$1;
+    }
+    location /q3/ {
+        return 403;
+    }
+
     # Vite content-hashed bundles (assets/index-<hash>.js|css). Filename
     # changes whenever content changes, so cache forever. The longer-
     # prefix /assets/levelshots/ block above wins for that subtree.

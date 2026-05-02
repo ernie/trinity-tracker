@@ -316,6 +316,33 @@ func (s *Store) ListPollableServers(ctx context.Context) ([]RemoteServer, error)
 	return out, rows.Err()
 }
 
+// ListDirectoryGateEntries returns active=1 servers rows with a non-empty
+// address — the membership gate for the Q3 directory server. A server
+// can register with the directory before it has played its first match,
+// so handshake_required (which is what ListPollableServers gates on) is
+// intentionally not part of the filter here.
+func (s *Store) ListDirectoryGateEntries(ctx context.Context) ([]RemoteServer, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, source, key, address
+		FROM servers
+		WHERE active = 1 AND address <> ''
+		ORDER BY id
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("storage: ListDirectoryGateEntries: %w", err)
+	}
+	defer rows.Close()
+	var out []RemoteServer
+	for rows.Next() {
+		var r RemoteServer
+		if err := rows.Scan(&r.ID, &r.Source, &r.Key, &r.Address); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
 // ListRemoteServers returns all servers rows where is_remote=1.
 // Ordered by id.
 func (s *Store) ListRemoteServers(ctx context.Context) ([]RemoteServer, error) {

@@ -31,6 +31,10 @@ func TestRenderHubNginxConfig_ContainsExpectedDirectives(t *testing.T) {
 		"location @trinity_fallback {",
 		"location @spa {",
 		"rewrite ^ /index.html last;",
+		// /q3/ pak/tvd alias on the main vhost (used by the in-browser engine).
+		"location ~ ^/q3/(baseq3|missionpack)/pak0\\.pk3$ {",
+		"location ~ ^/q3/(.+\\.(pk3|tvd))$ {",
+		"alias /usr/lib/quake3/$1;",
 		// fastdl block (dl.<host> on :80 + :443)
 		"server_name dl.trinity.run;",
 		"root /usr/lib/quake3;",

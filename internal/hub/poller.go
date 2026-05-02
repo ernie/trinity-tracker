@@ -4,12 +4,20 @@ import (
 	"context"
 	"log"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/ernie/trinity-tracker/internal/domain"
 	"github.com/ernie/trinity-tracker/internal/storage"
 )
+
+// trinityEnginePrefix is what the trinity-engine fork advertises in
+// the `engine` infostring field (com_engine cvar). Servers without this
+// prefix are treated as offline by the poller — they don't appear in
+// live UI even if their address is reachable. Stock ioquake3 has no
+// `engine` field at all, so its absence is enough to fail the check.
+const trinityEnginePrefix = "trinity-engine/"
 
 // StatusQuerier answers a Q3 server's getstatus.
 type StatusQuerier interface {
@@ -33,6 +41,11 @@ type RemotePoller struct {
 	mu       sync.RWMutex
 	statuses map[int64]*domain.ServerStatus
 	sink     LiveEventSink
+	// warnedNonTrinity tracks server IDs we've already logged a
+	// non-trinity-engine warning for. Without this dedup the poll loop
+	// would spam the log every poll_interval for every misconfigured
+	// server.
+	warnedNonTrinity map[int64]string
 
 	stopOnce sync.Once
 	stopCh   chan struct{}
@@ -46,14 +59,15 @@ func NewRemotePoller(store *storage.Store, q StatusQuerier, interval time.Durati
 		interval = 10 * time.Second
 	}
 	return &RemotePoller{
-		store:    store,
-		querier:  q,
-		interval: interval,
-		presence: presence,
-		identity: identity,
-		statuses: make(map[int64]*domain.ServerStatus),
-		stopCh:   make(chan struct{}),
-		doneCh:   make(chan struct{}),
+		store:            store,
+		querier:          q,
+		interval:         interval,
+		presence:         presence,
+		identity:         identity,
+		statuses:         make(map[int64]*domain.ServerStatus),
+		warnedNonTrinity: make(map[int64]string),
+		stopCh:           make(chan struct{}),
+		doneCh:           make(chan struct{}),
 	}
 }
 
@@ -149,8 +163,37 @@ func (p *RemotePoller) pollAll(ctx context.Context) {
 		status.Key = r.Key
 		status.Source = r.Source
 		status.Address = r.Address
-		status.Online = true
 		status.LastUpdated = now
+		// Engine fingerprint gate: trinity-engine self-identifies via the
+		// `engine` infostring field (added to SVC_Info / SVC_Status by
+		// the fork). Stock ioquake3 has no such field. Anything that
+		// fails the prefix check is treated as offline so it never lands
+		// in live UI.
+		engine := status.ServerVars["engine"]
+		if !strings.HasPrefix(engine, trinityEnginePrefix) {
+			p.noteNonTrinity(r.ID, r.Source, r.Key, engine)
+			p.mu.Lock()
+			existing, ok := p.statuses[r.ID]
+			if !ok {
+				existing = &domain.ServerStatus{ServerID: r.ID, Key: r.Key, Source: r.Source, Address: r.Address}
+				p.statuses[r.ID] = existing
+			}
+			existing.Source = r.Source
+			existing.Online = false
+			existing.LastUpdated = now
+			snapshot := *existing
+			sink := p.sink
+			p.mu.Unlock()
+			p.broadcast(sink, snapshot)
+			continue
+		}
+		// Once a server is verified, clear any prior warning so a future
+		// regression re-logs.
+		p.mu.Lock()
+		delete(p.warnedNonTrinity, r.ID)
+		p.mu.Unlock()
+
+		status.Online = true
 		seen := now
 		status.LastSeenAt = &seen
 		status.HumanCount = 0
@@ -162,6 +205,25 @@ func (p *RemotePoller) pollAll(ctx context.Context) {
 		sink := p.sink
 		p.mu.Unlock()
 		p.broadcast(sink, snapshot)
+	}
+}
+
+// noteNonTrinity logs the first time we see a non-trinity engine
+// signature for a server (or when the signature changes). Subsequent
+// polls of the same server with the same signature are silent.
+func (p *RemotePoller) noteNonTrinity(serverID int64, source, key, engine string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if prior, ok := p.warnedNonTrinity[serverID]; ok && prior == engine {
+		return
+	}
+	p.warnedNonTrinity[serverID] = engine
+	if engine == "" {
+		log.Printf("hub.RemotePoller: %s/%s (id=%d) reports no engine field — hiding from live status",
+			source, key, serverID)
+	} else {
+		log.Printf("hub.RemotePoller: %s/%s (id=%d) engine=%q does not match %q — hiding from live status",
+			source, key, serverID, engine, trinityEnginePrefix)
 	}
 }
 

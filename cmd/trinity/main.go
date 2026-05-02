@@ -34,6 +34,7 @@ import (
 	"github.com/ernie/trinity-tracker/internal/collector"
 	"github.com/ernie/trinity-tracker/internal/config"
 	"github.com/ernie/trinity-tracker/internal/hub"
+	"github.com/ernie/trinity-tracker/internal/directory"
 	"github.com/ernie/trinity-tracker/internal/natsbus"
 	"github.com/ernie/trinity-tracker/internal/storage"
 	"github.com/nats-io/nats.go"
@@ -389,6 +390,30 @@ func cmdServe(args []string) {
 		remotePoller = hub.NewRemotePoller(store, collector.NewQ3Client(), cfg.Server.PollInterval, writer.Presence(), writer)
 		remotePoller.Start(ctx)
 		log.Printf("Hub polling every %v", cfg.Server.PollInterval)
+	}
+
+	// Optional Q3 directory (master) server. Off by default; opt in via
+	// tracker.hub.directory.enabled.
+	if hasHub && cfg.Tracker.Hub.Directory != nil && cfg.Tracker.Hub.Directory.Enabled {
+		d := cfg.Tracker.Hub.Directory
+		dirSrv, err := directory.New(directory.Config{
+			ListenAddr:       d.ListenAddr,
+			Port:             d.Port,
+			HeartbeatExpiry:  d.HeartbeatExpiry.D(),
+			ChallengeTimeout: d.ChallengeTimeout.D(),
+			GateRefresh:      d.GateRefresh.D(),
+			MaxServers:       d.MaxServers,
+			Store:            store,
+		})
+		if err != nil {
+			log.Fatalf("Q3 directory server init: %v", err)
+		}
+		go func() {
+			if err := dirSrv.Run(ctx); err != nil {
+				log.Printf("Q3 directory server: %v", err)
+			}
+		}()
+		defer dirSrv.Stop()
 	}
 
 	// Route manager I/O: writer directly in hub-only; NATS RPC +
@@ -785,7 +810,9 @@ func cmdPlayers(args []string) {
 
 	for _, srv := range servers {
 		id := int64(srv["id"].(float64))
-		name := srv["name"].(string)
+		source, _ := srv["source"].(string)
+		key, _ := srv["key"].(string)
+		name := source + "/" + key
 
 		var status map[string]interface{}
 		if err := getJSON(fmt.Sprintf("/api/servers/%d/status", id), &status); err != nil {

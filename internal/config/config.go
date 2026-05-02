@@ -111,8 +111,24 @@ type NATSConfig struct {
 
 // HubConfig configures the aggregator role.
 type HubConfig struct {
-	DedupWindow Duration `yaml:"dedup_window"`
-	Retention   Duration `yaml:"retention"`
+	DedupWindow Duration         `yaml:"dedup_window"`
+	Retention   Duration         `yaml:"retention"`
+	Directory   *DirectoryConfig `yaml:"directory,omitempty"`
+}
+
+// DirectoryConfig configures the optional Quake 3 directory (a.k.a.
+// master) server. Off by default: even when the block is present,
+// Enabled must be true before the hub binds UDP. Heartbeats are gated
+// by membership in the servers table — only servers whose stored
+// address resolves to the heartbeat's source IP:port are admitted.
+type DirectoryConfig struct {
+	Enabled          bool     `yaml:"enabled"`
+	ListenAddr       string   `yaml:"listen_addr,omitempty"`
+	Port             int      `yaml:"port,omitempty"`
+	HeartbeatExpiry  Duration `yaml:"heartbeat_expiry,omitempty"`
+	ChallengeTimeout Duration `yaml:"challenge_timeout,omitempty"`
+	GateRefresh      Duration `yaml:"gate_refresh,omitempty"`
+	MaxServers       int      `yaml:"max_servers,omitempty"`
 }
 
 // CollectorConfig configures the log-parser / publisher role.
@@ -286,6 +302,24 @@ func applyTrackerDefaults(cfg *Config) {
 		}
 		if t.Hub.Retention == 0 {
 			t.Hub.Retention = Duration(10 * 24 * time.Hour)
+		}
+		if t.Hub.Directory != nil {
+			d := t.Hub.Directory
+			if d.Port == 0 {
+				d.Port = 27950
+			}
+			if d.HeartbeatExpiry == 0 {
+				d.HeartbeatExpiry = Duration(15 * time.Minute)
+			}
+			if d.ChallengeTimeout == 0 {
+				d.ChallengeTimeout = Duration(2 * time.Second)
+			}
+			if d.GateRefresh == 0 {
+				d.GateRefresh = Duration(30 * time.Second)
+			}
+			if d.MaxServers == 0 {
+				d.MaxServers = 4096
+			}
 		}
 	}
 	if t.Collector != nil {

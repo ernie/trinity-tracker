@@ -52,7 +52,11 @@ func TestRemotePollerPollsRegisteredServers(t *testing.T) {
 	}
 
 	q := &fakeQuerier{responses: map[string]*domain.ServerStatus{
-		"r.example:27960": {Map: "q3dm17", GameType: "FFA"},
+		"r.example:27960": {
+			Map:        "q3dm17",
+			GameType:   "FFA",
+			ServerVars: map[string]string{"engine": "trinity-engine/0.4.2"},
+		},
 	}}
 	poller := NewRemotePoller(store, q, 50*time.Millisecond, nil, nil)
 	pctx, cancel := context.WithCancel(ctx)
@@ -120,5 +124,70 @@ func TestRemotePollerUnreachableMarksOffline(t *testing.T) {
 	}
 	if statuses[0].Online {
 		t.Errorf("expected offline for unreachable server")
+	}
+}
+
+// TestRemotePollerHidesNonTrinityEngine verifies that a server which
+// answers getstatus but does not advertise the trinity-engine fork is
+// kept out of live status (Online=false). Stock ioquake3 has no
+// `engine` infostring field, so its absence is enough to fail.
+func TestRemotePollerHidesNonTrinityEngine(t *testing.T) {
+	cases := []struct {
+		name   string
+		engine string
+	}{
+		{"missing engine field", ""},
+		{"stock ioq3", "ioq3-1.36"},
+		{"close-but-no-cigar prefix", "trinity-engine-fake/1.0"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, store := newTestWriter(t)
+			ctx := context.Background()
+			reg := domain.Registration{
+				Source:  "remote",
+				Servers: []domain.RegdServer{{LocalID: 1, Key: "r1", Address: "imposter:27960"}},
+			}
+			if err := store.CreateSource(ctx, reg.Source, true); err != nil {
+				t.Fatalf("create source: %v", err)
+			}
+			if err := store.UpsertRemoteServers(ctx, reg); err != nil {
+				t.Fatalf("upsert roster: %v", err)
+			}
+			for _, s := range reg.Servers {
+				id, _ := store.ResolveServerIDForSource(ctx, reg.Source, s.LocalID)
+				if err := store.SetServerHandshakeRequired(ctx, id, true); err != nil {
+					t.Fatalf("SetServerHandshakeRequired: %v", err)
+				}
+			}
+
+			vars := map[string]string{}
+			if tc.engine != "" {
+				vars["engine"] = tc.engine
+			}
+			q := &fakeQuerier{responses: map[string]*domain.ServerStatus{
+				"imposter:27960": {Map: "q3dm17", ServerVars: vars},
+			}}
+			poller := NewRemotePoller(store, q, 50*time.Millisecond, nil, nil)
+			pctx, cancel := context.WithCancel(ctx)
+			defer cancel()
+			poller.Start(pctx)
+			defer poller.Stop()
+
+			deadline := time.Now().Add(2 * time.Second)
+			for time.Now().Before(deadline) {
+				if len(poller.GetAllStatuses()) > 0 {
+					break
+				}
+				time.Sleep(10 * time.Millisecond)
+			}
+			statuses := poller.GetAllStatuses()
+			if len(statuses) != 1 {
+				t.Fatalf("statuses len = %d, want 1", len(statuses))
+			}
+			if statuses[0].Online {
+				t.Errorf("expected Online=false for engine=%q", tc.engine)
+			}
+		})
 	}
 }
