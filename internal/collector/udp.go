@@ -308,6 +308,11 @@ func parseFlagStatus(s string) *domain.FlagStatus {
 			Mode:           "1fctf",
 			Neutral:        status,
 			NeutralCarrier: carrier,
+			// RedCarrier/BlueCarrier aren't meaningful in 1FCTF, but the
+			// JSON tags lack omitempty, so a zero value would falsely
+			// match client_num 0 in the UI's carrier lookup.
+			RedCarrier:  -1,
+			BlueCarrier: -1,
 		}
 	case 2:
 		redParts := strings.Split(parts[0], ":")

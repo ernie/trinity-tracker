@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import type { ServerStatus, Player } from '../types'
+import type { ServerStatus, Player, FlagStatus } from '../types'
 import { FlagIcon } from './FlagIcon'
 import { PlayerItem } from './PlayerItem'
 import { formatNumber, serverDisplay } from '../utils'
@@ -25,6 +25,18 @@ function isTeamGame(gameType: string): boolean {
 function isCTF(gameType: string): boolean {
   const ctfModes = ['capture the flag', 'ctf', 'one flag ctf', '1fctf']
   return ctfModes.includes(gameType.toLowerCase())
+}
+
+// In 1FCTF only neutral_carrier is meaningful; in CTF only red/blue.
+// The unused fields are present-but-meaningless and must not be matched.
+function flagCarriedBy(fs: FlagStatus | undefined, clientNum: number): 'red' | 'blue' | 'neutral' | undefined {
+  if (!fs) return undefined
+  if (fs.mode === '1fctf') {
+    return fs.neutral_carrier !== undefined && fs.neutral_carrier === clientNum ? 'neutral' : undefined
+  }
+  if (fs.red_carrier === clientNum && fs.red_carrier >= 0) return 'red'
+  if (fs.blue_carrier === clientNum && fs.blue_carrier >= 0) return 'blue'
+  return undefined
 }
 
 // Get flag status indicator: 0=at base, 1=taken, 2=dropped
@@ -355,18 +367,7 @@ export function ServerCard({ server, newPlayers, isSelected, onSelect, onPlayerC
               key={`${player.clean_name}-${index}`}
               player={player}
               isNew={newPlayers.has(player.clean_name)}
-              carryingFlag={
-                server.flag_status?.neutral_carrier !== undefined &&
-                server.flag_status.neutral_carrier >= 0 &&
-                server.flag_status.neutral_carrier === player.client_num ? 'neutral' :
-                server.flag_status?.red_carrier !== undefined &&
-                server.flag_status.red_carrier >= 0 &&
-                server.flag_status.red_carrier === player.client_num ? 'red' :
-                server.flag_status?.blue_carrier !== undefined &&
-                server.flag_status.blue_carrier >= 0 &&
-                server.flag_status.blue_carrier === player.client_num ? 'blue' :
-                undefined
-              }
+              carryingFlag={flagCarriedBy(server.flag_status, player.client_num)}
               onClick={onPlayerClick ? () => onPlayerClick(player.name, player.clean_name, player.player_id) : undefined}
             />
           ))
