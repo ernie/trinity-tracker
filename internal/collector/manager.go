@@ -1766,9 +1766,11 @@ func (m *ServerManager) sendCenterPrint(serverID int64, clientID int, message st
 	}
 }
 
-// performGreet issues the greet RPC and applies the reply: either an
-// auth-fail rcon response or a formatted welcome. auth is nil when the
-// client sent no Trinity handshake auth info.
+// performGreet issues the greet RPC and applies the reply with a
+// formatted welcome. auth is nil when the client sent no Trinity
+// handshake auth info. On AuthFailed we still greet — the GUID
+// already binds to a known player and can't be rebound — but follow
+// up with a prominent re-login notice.
 func (m *ServerManager) performGreet(ctx context.Context, serverID int64, clientID int, guid, playerName, cleanName string, isVR, isTrinityEngine bool, auth *hub.AuthProof) {
 	req := hub.GreetRequest{
 		ServerID:   serverID,
@@ -1784,8 +1786,8 @@ func (m *ServerManager) performGreet(ctx context.Context, serverID int64, client
 	}
 
 	if reply.AuthResult == hub.AuthFailed {
+		// Clears cl_trinityToken/cl_trinityUser engine-side.
 		m.sendTrinityAuthFail(serverID, clientID)
-		return
 	}
 
 	var message, cpMessage string
@@ -1833,6 +1835,12 @@ func (m *ServerManager) performGreet(ctx context.Context, serverID int64, client
 		time.Sleep(3 * time.Second)
 		m.sendPrintSync(serverID, clientID, upgradeMsg)
 		m.sendCenterPrint(serverID, clientID, upgradeCpMsg)
+	}
+
+	if reply.AuthResult == hub.AuthFailed {
+		time.Sleep(3 * time.Second)
+		m.sendPrintSync(serverID, clientID, "^1Trinity authentication failed. ^7Your saved credentials are invalid — log in again from the main menu to verify your identity.")
+		m.sendCenterPrint(serverID, clientID, "^1Authentication failed\n^7Log in again from the main menu")
 	}
 }
 
