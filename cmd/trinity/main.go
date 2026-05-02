@@ -85,6 +85,8 @@ func main() {
 		cmdAssets(os.Args[2:])
 	case "demobake":
 		cmdDemobake(os.Args[2:])
+	case "maps":
+		cmdMaps(os.Args[2:])
 	case "version":
 		fmt.Printf("trinity %s\n", version)
 	case "help", "-h", "--help":
@@ -123,6 +125,7 @@ func printUsage() {
 	fmt.Println("  flags [path]                        Extract CTF flag-status icons from pk3 file(s)")
 	fmt.Println("  assets [path]                       Extract all assets (portraits, medals, skills, flags, levelshots)")
 	fmt.Println("  demobake [path]                     Build baseline pk3, map pk3s, and manifest for web demo playback")
+	fmt.Println("  maps [--mode <mode>] [path]         Scan pk3s and report which game modes each map supports")
 	fmt.Println("  version                             Show version")
 	fmt.Println("  help                                Show this help")
 	fmt.Println()
