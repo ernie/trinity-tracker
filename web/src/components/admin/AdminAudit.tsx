@@ -94,11 +94,6 @@ export function AdminAudit() {
     <div className="admin-audit">
       <div className="admin-section-header">
         <h2>Audit Log</h2>
-        <p className="admin-section-help">
-          All source-lifecycle events: requests, approvals, rejections, renames,
-          credential rotations and downloads, leave/revoke/reactivate. Newest first,
-          capped at {DEFAULT_LIMIT} rows.
-        </p>
       </div>
 
       <div className="admin-audit-filters">

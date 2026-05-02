@@ -122,6 +122,7 @@ func TestRunWizard_CombinedDefaults(t *testing.T) {
 			"",                  // address → default 127.0.0.1:27960
 			"",                  // rcon password → generate
 			"",                  // log path → default
+			"",                  // allow hub admin rcon → default no
 			"n",                 // add another? → no
 		},
 	}
@@ -221,6 +222,7 @@ func TestRunWizard_CollectorOnly(t *testing.T) {
 			"",                       // address → default q3.example.com:27960
 			"hunter2",                // rcon password (provided, not generated)
 			"",                       // log path → default
+			"y",                      // allow hub admin rcon → yes (exercise the opt-in)
 			"n",                      // no more servers
 		},
 	}
@@ -243,6 +245,9 @@ func TestRunWizard_CollectorOnly(t *testing.T) {
 	}
 	if len(a.Servers) != 1 || a.Servers[0].Address != "q3.example.com:27960" {
 		t.Errorf("server address (should pull host from public URL): %+v", a.Servers)
+	}
+	if !a.Servers[0].AllowHubAdminRcon {
+		t.Errorf("AllowHubAdminRcon should be true (operator answered y at the prompt)")
 	}
 	if err := a.Validate(); err != nil {
 		t.Errorf("answers should validate: %v", err)

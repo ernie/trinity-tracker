@@ -34,7 +34,7 @@ func TestHandleRegistrationKnownSourceUpdatesHeartbeatAndRoster(t *testing.T) {
 	w, store := newTestWriter(t)
 	ctx := context.Background()
 
-	if err := store.CreateSource(ctx, "remote", true); err != nil {
+	if err := store.CreateSource(ctx, "remote", true, seedOwnerID(t, store)); err != nil {
 		t.Fatalf("create source: %v", err)
 	}
 

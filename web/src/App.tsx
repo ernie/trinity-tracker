@@ -10,7 +10,13 @@ import {
   RconSidebar,
   PlayerStatsModal,
   AppLogo,
+  ServerFilters,
 } from "./components";
+import {
+  applyServerFilters,
+  loadServerFilters,
+  type ServerFilterState,
+} from "./components/ServerFilters";
 import { Header } from "./components/Header";
 import { PasswordChangeModal } from "./components/PasswordChangeModal";
 import { serverDisplay } from "./utils";
@@ -54,6 +60,11 @@ function App() {
   // appear without a page reload, and so cards disappear when the
   // server falls off the API's live list.
   const [liveness, setLiveness] = useState<Map<number, 'live' | 'stale' | 'offline'>>(new Map());
+  // manageable mirrors /api/servers' "manageable_by_me" per-server. Drives
+  // the click-to-open-RCON affordance on each card. Re-fetched on every
+  // server list poll so a permission change (admin opting a server in or
+  // an admin flag flip) propagates within one polling interval.
+  const [manageable, setManageable] = useState<Map<number, boolean>>(new Map());
   // visibleServerIdsRef gates WebSocket server_update events:
   // RemotePoller keeps polling every active+handshake server (it
   // doesn't know about liveness), so a hidden server's update would
@@ -72,6 +83,7 @@ function App() {
   } | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [serverFilters, setServerFilters] = useState<ServerFilterState>(() => loadServerFilters());
   const activityIdRef = useRef(0);
   const serversRef = useRef<Map<number, ServerStatus>>(new Map());
 
@@ -599,22 +611,29 @@ function App() {
   // an implicit visibility filter (servers fall off when the
   // collector source stops checking in or UDP has been unreachable
   // long enough), so refreshing it on a timer keeps the live cards
-  // honest without a page reload.
+  // honest without a page reload. Also re-runs whenever auth changes,
+  // so manageable_by_me is recomputed on login/logout.
   useEffect(() => {
     let cancelled = false;
     async function fetchServers(initial: boolean) {
       try {
-        const res = await fetch("/api/servers");
+        const headers: HeadersInit = auth.token
+          ? { Authorization: `Bearer ${auth.token}` }
+          : {};
+        const res = await fetch("/api/servers", { headers });
         const serverList: Server[] = await res.json();
         if (cancelled) return;
 
         const livenessMap = new Map<number, 'live' | 'stale' | 'offline'>();
+        const manageableMap = new Map<number, boolean>();
         const visibleIds = new Set<number>();
         serverList.forEach((s) => {
           if (s.liveness) livenessMap.set(s.id, s.liveness);
+          if (s.manageable_by_me) manageableMap.set(s.id, true);
           visibleIds.add(s.id);
         });
         setLiveness(livenessMap);
+        setManageable(manageableMap);
         visibleServerIdsRef.current = visibleIds;
 
         if (initial) {
@@ -662,7 +681,7 @@ function App() {
       cancelled = true;
       clearInterval(interval);
     };
-  }, []);
+  }, [auth.token]);
 
   // Handle server selection
   const handleServerSelect = (serverId: number) => {
@@ -700,9 +719,10 @@ function App() {
     );
   }
 
-  const serverList = Array.from(servers.values()).sort(
+  const fullServerList = Array.from(servers.values()).sort(
     (a, b) => a.server_id - b.server_id,
   );
+  const serverList = applyServerFilters(fullServerList, serverFilters);
 
   return (
     <div
@@ -751,6 +771,11 @@ function App() {
         className={`app-layout ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}
       >
         <div className="main-content">
+          <ServerFilters
+            servers={fullServerList}
+            filters={serverFilters}
+            onChange={setServerFilters}
+          />
           <div className="servers-grid">
             {serverList.length > 0 ? (
               serverList.map((server) => (
@@ -760,7 +785,7 @@ function App() {
                   newPlayers={newPlayers}
                   isSelected={selectedServerId === server.server_id}
                   onSelect={
-                    auth.isAuthenticated
+                    manageable.get(server.server_id)
                       ? () => handleServerSelect(server.server_id)
                       : undefined
                   }
@@ -768,6 +793,8 @@ function App() {
                   liveness={liveness.get(server.server_id)}
                 />
               ))
+            ) : fullServerList.length > 0 ? (
+              <div className="loading">No servers match the current filters</div>
             ) : (
               <div className="loading">No servers available</div>
             )}

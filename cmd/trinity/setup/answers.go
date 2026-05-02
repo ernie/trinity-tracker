@@ -95,13 +95,14 @@ type Answers struct {
 // ServerAnswers is one q3 server entry (collected per-server in the
 // wizard's loop, also used by `trinity server add`).
 type ServerAnswers struct {
-	Key            string   // q3_servers[].key — short, alnum/underscore/hyphen
-	Gametype       Gametype // q3 g_gametype value
-	UseMissionpack bool     // operator picked the (TA) menu variant
-	Address        string   // q3_servers[].address ("host:port")
-	Port           int      // bind port (also embedded in address if collector)
-	RconPassword   string   // q3_servers[].rcon_password
-	LogPath        string   // q3_servers[].log_path
+	Key               string   // q3_servers[].key — short, alnum/underscore/hyphen
+	Gametype          Gametype // q3 g_gametype value
+	UseMissionpack    bool     // operator picked the (TA) menu variant
+	Address           string   // q3_servers[].address ("host:port")
+	Port              int      // bind port (also embedded in address if collector)
+	RconPassword      string   // q3_servers[].rcon_password
+	LogPath           string   // q3_servers[].log_path
+	AllowHubAdminRcon bool     // q3_servers[].allow_hub_admin_rcon
 }
 
 // RunsMissionpack reports whether the server starts with +set fs_game
@@ -265,10 +266,11 @@ func (a *Answers) ToConfig() *config.Config {
 
 	for _, s := range a.Servers {
 		cfg.Q3Servers = append(cfg.Q3Servers, config.Q3Server{
-			Key:          s.Key,
-			Address:      s.Address,
-			LogPath:      s.LogPath,
-			RconPassword: s.RconPassword,
+			Key:               s.Key,
+			Address:           s.Address,
+			LogPath:           s.LogPath,
+			RconPassword:      s.RconPassword,
+			AllowHubAdminRcon: s.AllowHubAdminRcon,
 		})
 	}
 

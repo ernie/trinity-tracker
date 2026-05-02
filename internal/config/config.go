@@ -178,11 +178,19 @@ type DatabaseConfig struct {
 // Q3Server represents a Quake 3 server to monitor. Key is the stable
 // identifier shown in the UI as "<source> / <key>"; same character
 // restrictions as a source name (alnum/underscore/hyphen).
+//
+// AllowHubAdminRcon opts this server in to admin delegation: when
+// true, hub admins (is_admin=1 users on the hub this collector
+// reports to) are allowed to RCON the server even though they don't
+// own this collector's source. Owners of the source can RCON
+// regardless of this flag. Default false — operators must explicitly
+// hand the keys over.
 type Q3Server struct {
-	Key          string `yaml:"key"`
-	Address      string `yaml:"address"`
-	LogPath      string `yaml:"log_path"`
-	RconPassword string `yaml:"rcon_password"`
+	Key               string `yaml:"key"`
+	Address           string `yaml:"address"`
+	LogPath           string `yaml:"log_path"`
+	RconPassword      string `yaml:"rcon_password"`
+	AllowHubAdminRcon bool   `yaml:"allow_hub_admin_rcon"`
 }
 
 // Load reads configuration from a YAML file

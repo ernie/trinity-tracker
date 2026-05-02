@@ -28,6 +28,11 @@ type Server struct {
 	// threshold means the collector isn't checking in and the data
 	// behind the live card is no longer trustworthy.
 	LastHeartbeatAt   *time.Time `json:"last_heartbeat_at,omitempty"`
+	// AdminDelegationEnabled is the operator's per-server opt-in for
+	// hub-admin RCON. Refreshed on every collector heartbeat. The
+	// collector stays authoritative — this column drives UI gating
+	// only.
+	AdminDelegationEnabled bool   `json:"admin_delegation_enabled"`
 	CreatedAt         time.Time  `json:"created_at"`
 }
 

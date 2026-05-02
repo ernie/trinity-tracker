@@ -14,6 +14,7 @@ import (
 	"github.com/ernie/trinity-tracker/internal/collector"
 	"github.com/ernie/trinity-tracker/internal/domain"
 	"github.com/ernie/trinity-tracker/internal/hub"
+	"github.com/ernie/trinity-tracker/internal/natsbus"
 	"github.com/ernie/trinity-tracker/internal/storage"
 )
 
@@ -31,6 +32,12 @@ type Router struct {
 	staticDir     string
 	quake3Dir     string
 	userProv      hub.UserProvisioner
+	// rconClient and localSource together drive RCON dispatch:
+	// requests for a remote source go via rconClient (NATS request/
+	// reply), requests for localSource short-circuit through the
+	// in-process ServerManager. See SetRconClient / SetLocalSource.
+	rconClient    *natsbus.RconClient
+	localSource   string
 }
 
 // SetPoller plugs in the hub's UDP poller. Always set in hub mode —
@@ -122,8 +129,9 @@ func NewRouter(store *storage.Store, manager *collector.ServerManager, writer *h
 	r.mux.HandleFunc("PATCH /api/users/{id}", r.requireAdmin(r.handleUpdateUser))
 	r.mux.HandleFunc("POST /api/users/{id}/reset-password", r.requireAdmin(r.handleResetUserPassword))
 
-	// RCON routes (admin only)
-	r.mux.HandleFunc("POST /api/servers/{id}/rcon", r.requireAdmin(r.handleRconCommand))
+	// RCON routes. Auth-only (not admin-only); the handler
+	// authorizes by source ownership + per-server admin delegation.
+	r.mux.HandleFunc("POST /api/servers/{id}/rcon", r.requireAuth(r.handleRconCommand))
 	r.mux.HandleFunc("GET /api/servers/{id}/rcon-status", r.handleRconStatus)
 
 	// WebSocket endpoints
@@ -157,6 +165,7 @@ func NewRouter(store *storage.Store, manager *collector.ServerManager, writer *h
 	r.mux.HandleFunc("POST /api/admin/sources/{source}/reactivate", r.requireAdmin(r.handleReactivateSource))
 	r.mux.HandleFunc("GET /api/admin/sources/{source}/creds", r.requireAdmin(r.handleDownloadSourceCreds))
 	r.mux.HandleFunc("POST /api/admin/sources/{source}/rotate-creds", r.requireAdmin(r.handleRotateSourceCreds))
+	r.mux.HandleFunc("POST /api/admin/sources/{source}/owner", r.requireAdmin(r.handleTransferSourceOwner))
 	r.mux.HandleFunc("GET /api/admin/sessions", r.requireAdmin(r.handleListAdminSessions))
 	r.mux.HandleFunc("GET /api/admin/audit", r.requireAdmin(r.handleListAudit))
 

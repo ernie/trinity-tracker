@@ -67,7 +67,9 @@ export function RconSidebar({ server, token, onClose }: RconSidebarProps) {
       return
     }
 
-    fetch(`/api/servers/${server.server_id}/rcon-status`)
+    fetch(`/api/servers/${server.server_id}/rcon-status`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
       .then(res => res.json())
       .then(data => setRconAvailable(data.available))
       .catch(() => setRconAvailable(false))

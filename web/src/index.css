@@ -4528,6 +4528,75 @@ h2 {
   color: var(--text);
 }
 
+/* Server filters — toolbar above the live server grid. Each axis renders
+   only when the visible servers contain more than one distinct value, so
+   a single-server install shows no toolbar at all. Reuses .game-type-btn
+   styling for game-type chips and .source-filter for the source dropdown
+   so the toolbar reads as one set with the matches-page filters. */
+.server-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.server-filter-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.server-filter-label {
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  margin-right: 2px;
+}
+
+.server-filters .source-filter {
+  flex: 0 0 auto;
+  min-width: 140px;
+}
+
+.mode-filter-btn {
+  padding: 4px 10px;
+  background: var(--bg-card);
+  border: 1px solid #333;
+  color: var(--text-dim);
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.8rem;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mode-filter-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+}
+
+.mode-filter-btn.active {
+  background: var(--red);
+  border-color: var(--red);
+  color: #fff;
+}
+
+.mode-filter-btn.icon-btn {
+  padding: 3px 6px;
+}
+
+.mode-filter-btn.icon-btn img {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
 .matches-content {
 }
 
@@ -6310,6 +6379,46 @@ h2 {
 
 .admin-sources-actions {
   white-space: nowrap;
+}
+
+/* Owner column: a name on the left, a small Transfer button on the
+   right that swaps for an inline picker when activated. */
+.admin-sources-owner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-sources-transfer {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.admin-sources-transfer select {
+  background: var(--bg-dark);
+  border: 1px solid #444;
+  border-radius: 4px;
+  padding: 4px 8px;
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+.admin-btn-small {
+  padding: 4px 10px;
+  font-size: 0.8rem;
+}
+
+.admin-btn-ghost {
+  background: transparent;
+  border: 1px solid #444;
+  color: var(--text-dim);
+}
+
+.admin-btn-ghost:hover {
+  border-color: var(--text);
+  color: var(--text);
 }
 
 @media (max-width: 768px) {

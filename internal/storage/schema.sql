@@ -34,6 +34,13 @@ CREATE TABLE IF NOT EXISTS servers (
     -- pollute the hub). Updated by handleMatchStart on every observed
     -- match_start, both accept and reject paths.
     handshake_required INTEGER NOT NULL DEFAULT 0,
+    -- Per-server opt-in by the source operator: when 1, a hub admin
+    -- (is_admin=1) is allowed to RCON this server even if they don't
+    -- own its source. Mirrored on every collector heartbeat from the
+    -- collector's per-server config; the collector remains authoritative
+    -- and refuses proxy requests not matching its current state. Owners
+    -- of the source can RCON regardless of this flag.
+    admin_delegation_enabled INTEGER NOT NULL DEFAULT 0,
     UNIQUE(source, key COLLATE NOCASE)
 );
 

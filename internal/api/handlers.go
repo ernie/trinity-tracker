@@ -45,11 +45,14 @@ const (
 
 // liveServer is the live-cards payload: a server row plus the
 // hub-derived liveness signal so the UI can render a "stale" or
-// "offline" chip on the card itself.
+// "offline" chip on the card itself. ManageableByMe is computed per
+// request from auth claims + source ownership + admin delegation —
+// the UI uses it to gate the click-to-open-RCON affordance.
 type liveServer struct {
 	domain.Server
-	Online    bool   `json:"online"`
-	Liveness  string `json:"liveness"` // "live" | "stale" | "offline"
+	Online         bool   `json:"online"`
+	Liveness       string `json:"liveness"` // "live" | "stale" | "offline"
+	ManageableByMe bool   `json:"manageable_by_me"`
 }
 
 // handleGetServers returns servers the hub has observed enforcing
@@ -63,6 +66,17 @@ func (r *Router) handleGetServers(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
+	}
+	// Resolve auth once per request. owners is loaded lazily — anonymous
+	// callers never get a non-zero manageable_by_me, so we skip the query.
+	claims := r.getAuthClaims(req)
+	var owners map[string]int64
+	if claims != nil {
+		owners, err = r.store.SourceOwners(req.Context())
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
 	}
 	now := time.Now().UTC()
 	out := make([]liveServer, 0, len(servers))
@@ -96,7 +110,27 @@ func (r *Router) handleGetServers(w http.ResponseWriter, req *http.Request) {
 		case heartbeatAge > livenessStalenessThreshold:
 			liveness = "stale"
 		}
-		out = append(out, liveServer{Server: s, Online: online, Liveness: liveness})
+		manageable := false
+		if claims != nil {
+			ownerID, hasOwner := owners[s.Source]
+			isLocal := r.localSource != "" && s.Source == r.localSource
+			switch {
+			case hasOwner && ownerID == claims.UserID:
+				// User owns this source — RCON regardless of admin status.
+				manageable = true
+			case claims.IsAdmin && isLocal:
+				// Local hub+collector: admin runs the box.
+				manageable = true
+			case claims.IsAdmin && s.AdminDelegationEnabled:
+				// Remote source whose operator opted in to admin delegation.
+				// Includes admin-minted remotes (no owner row) — the
+				// operator behind the .creds still has to flip the cfg
+				// flag before admin gets RCON. The collector re-validates
+				// on every proxy request as a backstop.
+				manageable = true
+			}
+		}
+		out = append(out, liveServer{Server: s, Online: online, Liveness: liveness, ManageableByMe: manageable})
 	}
 	writeJSON(w, http.StatusOK, out)
 }

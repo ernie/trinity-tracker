@@ -23,8 +23,15 @@ type Registration struct {
 // the collector-local identifier (the collector's own servers.id);
 // Key is the stable identifier from the collector's q3_servers cfg;
 // Address is the public host:port the hub uses for UDP status polling.
+//
+// AdminDelegationEnabled mirrors the operator's per-server opt-in
+// (Q3Server.AllowHubAdminRcon). It travels with every heartbeat so a
+// flip in cfg propagates within one heartbeat interval — the collector
+// stays authoritative and re-validates on each proxied RCON request,
+// but the hub uses the value to gate UI affordances for hub admins.
 type RegdServer struct {
-	LocalID int64  `json:"local_id"`
-	Key     string `json:"key"`
-	Address string `json:"address"`
+	LocalID                int64  `json:"local_id"`
+	Key                    string `json:"key"`
+	Address                string `json:"address"`
+	AdminDelegationEnabled bool   `json:"admin_delegation_enabled,omitempty"`
 }

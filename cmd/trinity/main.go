@@ -470,6 +470,18 @@ func cmdServe(args []string) {
 		}
 		registrar.Start(ctx)
 		log.Printf("Collector heartbeating every %v", cfg.Tracker.Collector.HeartbeatInterval.D())
+
+		// Subscribe to RCON proxy requests addressed to this collector's
+		// source. The hub publishes here when a user with auth'd access
+		// asks to RCON one of this collector's servers; the handler
+		// re-validates the per-server allow_hub_admin_rcon flag before
+		// running the command.
+		rconHandler := collector.NewRconProxyHandler(manager)
+		if rconServer, err := natsbus.RegisterRconHandler(collectorNC, collectorSource, rconHandler); err != nil {
+			log.Fatalf("Failed to register RCON proxy handler: %v", err)
+		} else {
+			defer rconServer.Stop()
+		}
 	}
 
 	// Collector-only mode: no HTTP UI, just wait for signal.
@@ -499,6 +511,21 @@ func cmdServe(args []string) {
 	}
 	if ns != nil {
 		router.SetUserProvisioner(ns.Auth())
+	}
+	// Wire RCON dispatch. Local-source servers short-circuit through
+	// the in-process manager (still needs collectorSource set so the
+	// dispatcher knows which source is "us"); remote-source servers
+	// go via the NATS RCON client. Hub subNC has system-level pub
+	// permissions so it can target any source's exec subject.
+	if hasCollector {
+		router.SetLocalSource(collectorSource)
+	}
+	if subNC != nil {
+		rconClient, err := natsbus.NewRconClient(subNC, 0)
+		if err != nil {
+			log.Fatalf("Failed to create RCON client: %v", err)
+		}
+		router.SetRconClient(rconClient)
 	}
 	router.StartWebSocketHub()
 	log.Printf("Serving static files from %s", cfg.Server.StaticDir)
@@ -2344,6 +2371,7 @@ func cmdServerAdd(args []string) {
 	taFlag := fs.Bool("ta", false, "run under fs_game=missionpack (Team Arena weapons + maps); only meaningful for tdm/ctf")
 	rconPassword := fs.String("rcon-password", "", "RCON password (default: generate)")
 	logPath := fs.String("log-path", "", "log file path")
+	allowHubAdminRcon := fs.Bool("allow-hub-admin-rcon", false, "allow hub admins to RCON this server in your absence (default: false)")
 	fs.Parse(args)
 
 	remaining := fs.Args()
@@ -2373,7 +2401,7 @@ func cmdServerAdd(args []string) {
 			os.Exit(1)
 		}
 	} else {
-		s, err = serverAnswersFromFlags(remaining[0], *gametypeFlag, *taFlag, *port, *rconPassword, *logPath, cfg, configDir)
+		s, err = serverAnswersFromFlags(remaining[0], *gametypeFlag, *taFlag, *port, *rconPassword, *logPath, *allowHubAdminRcon, cfg, configDir)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
@@ -2455,10 +2483,11 @@ func cmdServerAdd(args []string) {
 	// doesn't leave us inconsistent — env+cfg without a config entry
 	// is benign; reverse is harder to debug).
 	server := config.Q3Server{
-		Key:          s.Key,
-		Address:      s.Address,
-		LogPath:      s.LogPath,
-		RconPassword: s.RconPassword,
+		Key:               s.Key,
+		Address:           s.Address,
+		LogPath:           s.LogPath,
+		RconPassword:      s.RconPassword,
+		AllowHubAdminRcon: s.AllowHubAdminRcon,
 	}
 	config.AddServer(cfg, server)
 	if err := config.Save(*configPath, cfg); err != nil {
@@ -2494,8 +2523,8 @@ func answersFromConfig(cfg *config.Config) *setup.Answers {
 // serverAnswersFromFlags builds a ServerAnswers from CLI flags for
 // the non-interactive code path. Defaults mirror what PromptServer
 // would suggest.
-func serverAnswersFromFlags(name, gametypeName string, ta bool, port int, rcon, logPath string, cfg *config.Config, configDir string) (setup.ServerAnswers, error) {
-	s := setup.ServerAnswers{Key: strings.ToLower(name)}
+func serverAnswersFromFlags(name, gametypeName string, ta bool, port int, rcon, logPath string, allowHubAdminRcon bool, cfg *config.Config, configDir string) (setup.ServerAnswers, error) {
+	s := setup.ServerAnswers{Key: strings.ToLower(name), AllowHubAdminRcon: allowHubAdminRcon}
 	gt, err := parseGametype(gametypeName)
 	if err != nil {
 		return s, err

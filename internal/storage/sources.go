@@ -57,18 +57,30 @@ type Source struct {
 // local collector. Errors on duplicate source. demo_base_url is
 // left empty — the operator populates it via registration heartbeat
 // so they can change it without admin intervention.
-func (s *Store) CreateSource(ctx context.Context, source string, isRemote bool) error {
+//
+// ownerUserID is required for remote sources so RCON delegation,
+// rotate, and leave actions all have a real human to authorize
+// against. Pass nil for local sources (the hub's own collector
+// belongs to the admin who runs the box, not to a user row).
+func (s *Store) CreateSource(ctx context.Context, source string, isRemote bool, ownerUserID *int64) error {
 	if err := ValidateSource(source); err != nil {
 		return fmt.Errorf("storage.CreateSource: %w", err)
+	}
+	if isRemote && ownerUserID == nil {
+		return fmt.Errorf("storage.CreateSource: remote sources require an owner_user_id")
 	}
 	remoteInt := 0
 	if isRemote {
 		remoteInt = 1
 	}
+	var owner sql.NullInt64
+	if ownerUserID != nil {
+		owner = sql.NullInt64{Int64: *ownerUserID, Valid: true}
+	}
 	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO sources (source, is_remote)
-		VALUES (?, ?)
-	`, source, remoteInt)
+		INSERT INTO sources (source, is_remote, owner_user_id)
+		VALUES (?, ?, ?)
+	`, source, remoteInt, owner)
 	if err != nil {
 		return fmt.Errorf("storage: CreateSource(%s): %w", source, err)
 	}
@@ -380,6 +392,8 @@ type ApprovedSource struct {
 	DemoBaseURL     string
 	IsRemote        bool
 	Active          bool
+	OwnerUserID     sql.NullInt64
+	OwnerUsername   string
 	Servers         []ApprovedSourceServer
 }
 
@@ -406,12 +420,15 @@ func (s *Store) ListApprovedSources(ctx context.Context) ([]ApprovedSource, erro
 			s.last_heartbeat_at,
 			s.is_remote,
 			s.active,
+			s.owner_user_id,
+			COALESCE(u.username, ''),
 			sv.id,
 			COALESCE(sv.local_id, 0),
 			COALESCE(sv.key, ''),
 			COALESCE(sv.address, ''),
 			COALESCE(sv.active, 0)
 		FROM sources s
+		LEFT JOIN users u ON u.id = s.owner_user_id
 		LEFT JOIN servers sv ON sv.source = s.source
 		ORDER BY s.source, COALESCE(sv.local_id, sv.id)
 	`)
@@ -424,29 +441,33 @@ func (s *Store) ListApprovedSources(ctx context.Context) ([]ApprovedSource, erro
 	var order []string
 	for rows.Next() {
 		var (
-			source       string
-			version      string
-			demoBaseURL  string
-			hb           sql.NullTime
-			isRemote     int
-			sourceActive int
-			srvID        sql.NullInt64
-			localID      int64
-			key          string
-			address      string
-			srvActive    int
+			source        string
+			version       string
+			demoBaseURL   string
+			hb            sql.NullTime
+			isRemote      int
+			sourceActive  int
+			ownerUserID   sql.NullInt64
+			ownerUsername string
+			srvID         sql.NullInt64
+			localID       int64
+			key           string
+			address       string
+			srvActive     int
 		)
-		if err := rows.Scan(&source, &version, &demoBaseURL, &hb, &isRemote, &sourceActive, &srvID, &localID, &key, &address, &srvActive); err != nil {
+		if err := rows.Scan(&source, &version, &demoBaseURL, &hb, &isRemote, &sourceActive, &ownerUserID, &ownerUsername, &srvID, &localID, &key, &address, &srvActive); err != nil {
 			return nil, err
 		}
 		entry, ok := bySource[source]
 		if !ok {
 			entry = &ApprovedSource{
-				Source:      source,
-				Version:     version,
-				DemoBaseURL: demoBaseURL,
-				IsRemote:    isRemote != 0,
-				Active:      sourceActive != 0,
+				Source:        source,
+				Version:       version,
+				DemoBaseURL:   demoBaseURL,
+				IsRemote:      isRemote != 0,
+				Active:        sourceActive != 0,
+				OwnerUserID:   ownerUserID,
+				OwnerUsername: ownerUsername,
 			}
 			if hb.Valid {
 				entry.LastHeartbeatAt = hb.Time
@@ -475,6 +496,35 @@ func (s *Store) ListApprovedSources(ctx context.Context) ([]ApprovedSource, erro
 	return out, nil
 }
 
+// TransferSourceOwner reassigns owner_user_id for a remote source.
+// Refuses on local sources (owner is meaningless there) and on a
+// source that doesn't exist. The caller is responsible for verifying
+// the new owner exists; the FK enforces it again at write time.
+func (s *Store) TransferSourceOwner(ctx context.Context, source string, newOwnerUserID int64) error {
+	if source == "" {
+		return fmt.Errorf("storage.TransferSourceOwner: source is required")
+	}
+	if newOwnerUserID <= 0 {
+		return fmt.Errorf("storage.TransferSourceOwner: owner_user_id is required")
+	}
+	res, err := s.db.ExecContext(ctx, `
+		UPDATE sources
+		   SET owner_user_id = ?
+		 WHERE source = ? AND is_remote = 1
+	`, newOwnerUserID, source)
+	if err != nil {
+		return fmt.Errorf("storage.TransferSourceOwner(%s): %w", source, err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return fmt.Errorf("storage.TransferSourceOwner: source %q not found or not remote", source)
+	}
+	return nil
+}
+
 // UpsertRemoteServers creates or refreshes servers rows for every
 // entry in the registration roster, stamping them is_remote=1 and
 // attaching source/local_id. Called from the registration handler on
@@ -497,21 +547,25 @@ func (s *Store) UpsertRemoteServers(ctx context.Context, reg domain.Registration
 			"SELECT id FROM servers WHERE source = ? AND local_id = ? LIMIT 1",
 			reg.Source, rs.LocalID,
 		).Scan(&existingID)
+		delegate := 0
+		if rs.AdminDelegationEnabled {
+			delegate = 1
+		}
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
 			if _, err := tx.ExecContext(ctx, `
-				INSERT INTO servers (key, address, source, local_id, is_remote, active, last_heartbeat_at, demo_base_url, source_version)
-				VALUES (?, ?, ?, ?, 1, 1, CURRENT_TIMESTAMP, ?, ?)
-			`, rs.Key, rs.Address, reg.Source, rs.LocalID, reg.DemoBaseURL, reg.Version); err != nil {
+				INSERT INTO servers (key, address, source, local_id, is_remote, active, last_heartbeat_at, demo_base_url, source_version, admin_delegation_enabled)
+				VALUES (?, ?, ?, ?, 1, 1, CURRENT_TIMESTAMP, ?, ?, ?)
+			`, rs.Key, rs.Address, reg.Source, rs.LocalID, reg.DemoBaseURL, reg.Version, delegate); err != nil {
 				return fmt.Errorf("storage: insert remote server: %w", err)
 			}
 		case err != nil:
 			return err
 		default:
 			if _, err := tx.ExecContext(ctx, `
-				UPDATE servers SET key = ?, address = ?, active = 1, last_heartbeat_at = CURRENT_TIMESTAMP, demo_base_url = ?, source_version = ?
+				UPDATE servers SET key = ?, address = ?, active = 1, last_heartbeat_at = CURRENT_TIMESTAMP, demo_base_url = ?, source_version = ?, admin_delegation_enabled = ?
 				WHERE id = ?
-			`, rs.Key, rs.Address, reg.DemoBaseURL, reg.Version, existingID); err != nil {
+			`, rs.Key, rs.Address, reg.DemoBaseURL, reg.Version, delegate, existingID); err != nil {
 				return fmt.Errorf("storage: update remote server: %w", err)
 			}
 		}

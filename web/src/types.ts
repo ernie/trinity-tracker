@@ -67,6 +67,13 @@ export interface Server {
   active: boolean
   online?: boolean
   liveness?: 'live' | 'stale' | 'offline'
+  // True when the logged-in user is allowed to RCON this server:
+  // they own the server's source, OR they're a hub admin and the
+  // operator opted this server in to admin delegation, OR the source
+  // has no per-user owner and the caller is an admin (local install).
+  // Always false for unauthenticated callers.
+  manageable_by_me?: boolean
+  admin_delegation_enabled?: boolean
 }
 
 export type EventType =

@@ -8,11 +8,22 @@ import (
 	"github.com/ernie/trinity-tracker/internal/domain"
 )
 
+// fixtureOwner inserts a single "owner" user into s and returns its
+// id as a *int64 — convenient for tests that just need a non-nil
+// owner pointer to satisfy CreateSource's remote-source contract.
+// Each test gets its own DB via newTestStore, so the fixed username
+// never collides across tests.
+func fixtureOwner(t *testing.T, s *Store) *int64 {
+	t.Helper()
+	id := mustCreateUser(t, s, "owner")
+	return &id
+}
+
 func TestCreateAndListSources(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
 
-	if err := s.CreateSource(ctx, "remote-1", true); err != nil {
+	if err := s.CreateSource(ctx, "remote-1", true, fixtureOwner(t, s)); err != nil {
 		t.Fatalf("create remote: %v", err)
 	}
 	if err := s.UpsertLocalSource(ctx, "local"); err != nil {
@@ -56,9 +67,10 @@ func TestCreateAndListSources(t *testing.T) {
 func TestCreateSourceRejectsInvalidName(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
+	owner := fixtureOwner(t, s)
 	cases := []string{"", "with space", "with.dot", "has/slash", "star*", ">wild"}
 	for _, name := range cases {
-		if err := s.CreateSource(ctx, name, true); err == nil {
+		if err := s.CreateSource(ctx, name, true, owner); err == nil {
 			t.Errorf("CreateSource(%q) accepted, want rejection", name)
 		}
 	}
@@ -71,7 +83,7 @@ func TestIsSourceApprovedFollowsSourcesRow(t *testing.T) {
 	if ok, _ := s.IsSourceApproved(ctx, "nope"); ok {
 		t.Error("unknown source should not be approved")
 	}
-	if err := s.CreateSource(ctx, "ffa", true); err != nil {
+	if err := s.CreateSource(ctx, "ffa", true, fixtureOwner(t, s)); err != nil {
 		t.Fatalf("create: %v", err)
 	}
 	if ok, _ := s.IsSourceApproved(ctx, "ffa"); !ok {
@@ -82,7 +94,7 @@ func TestIsSourceApprovedFollowsSourcesRow(t *testing.T) {
 func TestTouchSourceHeartbeatUpdatesBothTables(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
-	if err := s.CreateSource(ctx, "ffa", true); err != nil {
+	if err := s.CreateSource(ctx, "ffa", true, fixtureOwner(t, s)); err != nil {
 		t.Fatalf("create: %v", err)
 	}
 	srv := &domain.Server{Key: "ffa", Address: "x:27960"}
@@ -151,7 +163,7 @@ func TestResolveServerIDForSource(t *testing.T) {
 func TestUpsertRemoteServersRoster(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
-	if err := s.CreateSource(ctx, "remote-1", true); err != nil {
+	if err := s.CreateSource(ctx, "remote-1", true, fixtureOwner(t, s)); err != nil {
 		t.Fatalf("create source: %v", err)
 	}
 	reg := domain.Registration{
@@ -188,7 +200,7 @@ func TestUpsertRemoteServersRoster(t *testing.T) {
 func TestDeactivateSourceCascadesAndIsReversible(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
-	if err := s.CreateSource(ctx, "remote-1", true); err != nil {
+	if err := s.CreateSource(ctx, "remote-1", true, fixtureOwner(t, s)); err != nil {
 		t.Fatalf("create: %v", err)
 	}
 	reg := domain.Registration{

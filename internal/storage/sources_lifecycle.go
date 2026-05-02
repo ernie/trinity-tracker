@@ -472,3 +472,27 @@ func (s *Store) ListServersForSource(ctx context.Context, source string) ([]Sour
 	}
 	return out, rows.Err()
 }
+
+// SourceOwners returns source -> owner_user_id for every source with a
+// non-NULL owner. Local (admin-minted) sources have no owner row in
+// this map. Used by the live-server endpoint to compute manageable_by_me
+// without N+1 queries.
+func (s *Store) SourceOwners(ctx context.Context) (map[string]int64, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT source, owner_user_id FROM sources WHERE owner_user_id IS NOT NULL
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("storage.SourceOwners: %w", err)
+	}
+	defer rows.Close()
+	out := make(map[string]int64)
+	for rows.Next() {
+		var src string
+		var uid int64
+		if err := rows.Scan(&src, &uid); err != nil {
+			return nil, err
+		}
+		out[src] = uid
+	}
+	return out, rows.Err()
+}

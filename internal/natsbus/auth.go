@@ -304,8 +304,19 @@ func addSourcePermissions(uc *jwt.UserClaims, sourceID string) {
 		"trinity.rpc.identity.lookup."+sourceID,
 		"trinity.rpc.source.progress."+sourceID+".>",
 		"trinity.rpc.source.progress."+sourceID,
+		// _INBOX.> lets the collector m.Respond() to a hub-issued RCON
+		// proxy request. NATS request-reply uses random reply tokens
+		// under _INBOX.<random>, so the broad rule is fine here — the
+		// collector still can't invent its own request to a known
+		// inbox token (those are unguessable per-call).
+		"_INBOX.>",
 	)
 	uc.Permissions.Sub.Allow.Add(InboxPrefixFor(sourceID) + ".>")
+	// Hub → collector RCON proxy: collector listens on
+	// trinity.rcon.exec.<sourceID>. Scoped to the collector's own
+	// source so a malicious collector can't intercept requests
+	// addressed to a different source.
+	uc.Permissions.Sub.Allow.Add(RconExecSubjectPrefix + sourceID)
 }
 
 func loadOrCreateSeed(path string, ctor func() (nkeys.KeyPair, error)) (nkeys.KeyPair, error) {

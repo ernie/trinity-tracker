@@ -394,18 +394,82 @@ func (m *ServerManager) HasRconAccess(serverID int64) bool {
 	return false
 }
 
+// ExecuteRconByKey runs an RCON command against the server identified
+// by its per-collector key (not the hub's global server ID). Used by
+// the NATS RCON proxy handler — the hub forwards (key, command) and
+// the collector resolves locally.
+func (m *ServerManager) ExecuteRconByKey(key, command string) (string, error) {
+	m.mu.RLock()
+	var address string
+	for _, state := range m.servers {
+		if strings.EqualFold(state.server.Key, key) {
+			address = state.server.Address
+			break
+		}
+	}
+	m.mu.RUnlock()
+	if address == "" {
+		return "", fmt.Errorf("server %q not found", key)
+	}
+	var rconPassword string
+	for _, srv := range m.cfg.Q3Servers {
+		if srv.Address == address {
+			rconPassword = srv.RconPassword
+			break
+		}
+	}
+	if rconPassword == "" {
+		return "", fmt.Errorf("rcon not configured for server %q", key)
+	}
+	return m.q3client.RconCommand(address, rconPassword, command)
+}
+
+// AdminDelegationFor returns whether the operator opted this server
+// (by key) in to hub-admin RCON delegation. Match is case-insensitive
+// on key. Used by the collector-side RCON handler to re-validate hub
+// admin requests against current config.
+func (m *ServerManager) AdminDelegationFor(key string) bool {
+	m.mu.RLock()
+	var address string
+	for _, state := range m.servers {
+		if strings.EqualFold(state.server.Key, key) {
+			address = state.server.Address
+			break
+		}
+	}
+	m.mu.RUnlock()
+	if address == "" {
+		return false
+	}
+	for _, srv := range m.cfg.Q3Servers {
+		if srv.Address == address {
+			return srv.AllowHubAdminRcon
+		}
+	}
+	return false
+}
+
 // Roster returns the current list of registered servers as RegdServer
 // entries. Used by the distributed-tracking Registrar to broadcast the
-// collector's roster on heartbeat.
+// collector's roster on heartbeat. AdminDelegationEnabled mirrors the
+// per-server config flag so the hub UI can decide whether a hub admin
+// gets the click-to-RCON affordance.
 func (m *ServerManager) Roster() []domain.RegdServer {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+	// Resolve cfg flag by address (cfg.Q3Servers and m.servers both key
+	// off Address; see ExecuteRcon below for the same lookup pattern).
+	delegationByAddress := make(map[string]bool, len(m.cfg.Q3Servers))
+	for _, srv := range m.cfg.Q3Servers {
+		delegationByAddress[srv.Address] = srv.AllowHubAdminRcon
+	}
 	out := make([]domain.RegdServer, 0, len(m.servers))
 	for _, state := range m.servers {
 		out = append(out, domain.RegdServer{
-			LocalID: state.server.ID,
-			Key:     state.server.Key,
-			Address: state.server.Address,
+			LocalID:                state.server.ID,
+			Key:                    state.server.Key,
+			Address:                state.server.Address,
+			AdminDelegationEnabled: delegationByAddress[state.server.Address],
 		})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].LocalID < out[j].LocalID })

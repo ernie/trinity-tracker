@@ -69,7 +69,14 @@ func TestProvisionedSourcePublishesStraightThrough(t *testing.T) {
 
 	// --- Admin provisions the source up-front ---
 	const source = "remote"
-	if err := store.CreateSource(ctx, source, true); err != nil {
+	if err := store.CreateUser(ctx, "owner", "x", false, nil); err != nil {
+		t.Fatalf("seed owner user: %v", err)
+	}
+	owner, err := store.GetUserByUsername(ctx, "owner")
+	if err != nil {
+		t.Fatalf("lookup seeded owner: %v", err)
+	}
+	if err := store.CreateSource(ctx, source, true, &owner.ID); err != nil {
 		t.Fatalf("CreateSource: %v", err)
 	}
 	writer.MarkSourceApproved(source)

@@ -10,7 +10,7 @@ func TestSourceRegistryStateApprovedFromDB(t *testing.T) {
 	_, store := newTestWriter(t)
 	ctx := context.Background()
 
-	if err := store.CreateSource(ctx, "remote-1", true); err != nil {
+	if err := store.CreateSource(ctx, "remote-1", true, seedOwnerID(t, store)); err != nil {
 		t.Fatalf("create: %v", err)
 	}
 
@@ -68,7 +68,7 @@ func TestSourceRegistryUnknownNegativeCache(t *testing.T) {
 
 	// Approving via the DB inside the TTL should still return Unknown
 	// until the cache entry ages out.
-	if err := store.CreateSource(context.Background(), "uuid-x", true); err != nil {
+	if err := store.CreateSource(context.Background(), "uuid-x", true, seedOwnerID(t, store)); err != nil {
 		t.Fatalf("create: %v", err)
 	}
 

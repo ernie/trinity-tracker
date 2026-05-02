@@ -7,7 +7,23 @@ import (
 	"time"
 
 	"github.com/ernie/trinity-tracker/internal/domain"
+	"github.com/ernie/trinity-tracker/internal/storage"
 )
+
+// seedOwnerID inserts an "owner" user into store and returns its id
+// as a *int64. Used to satisfy CreateSource's remote-source
+// requirement that owner_user_id reference a real users row.
+func seedOwnerID(t *testing.T, store *storage.Store) *int64 {
+	t.Helper()
+	if err := store.CreateUser(context.Background(), "owner", "x", false, nil); err != nil {
+		t.Fatalf("seed owner user: %v", err)
+	}
+	u, err := store.GetUserByUsername(context.Background(), "owner")
+	if err != nil {
+		t.Fatalf("lookup seeded owner user: %v", err)
+	}
+	return &u.ID
+}
 
 type fakeQuerier struct {
 	mu       sync.Mutex
@@ -36,7 +52,7 @@ func TestRemotePollerPollsRegisteredServers(t *testing.T) {
 		Source:  "remote",
 		Servers: []domain.RegdServer{{LocalID: 1, Key: "r1", Address: "r.example:27960"}},
 	}
-	if err := store.CreateSource(ctx, reg.Source, true); err != nil {
+	if err := store.CreateSource(ctx, reg.Source, true, seedOwnerID(t, store)); err != nil {
 		t.Fatalf("create source: %v", err)
 	}
 	if err := store.UpsertRemoteServers(ctx, reg); err != nil {
@@ -97,7 +113,7 @@ func TestRemotePollerUnreachableMarksOffline(t *testing.T) {
 		Source:  "remote",
 		Servers: []domain.RegdServer{{LocalID: 1, Key: "r1", Address: "dead:27960"}},
 	}
-	if err := store.CreateSource(ctx, reg.Source, true); err != nil {
+	if err := store.CreateSource(ctx, reg.Source, true, seedOwnerID(t, store)); err != nil {
 		t.Fatalf("create source: %v", err)
 	}
 	if err := store.UpsertRemoteServers(ctx, reg); err != nil {
@@ -148,7 +164,7 @@ func TestRemotePollerHidesNonTrinityEngine(t *testing.T) {
 				Source:  "remote",
 				Servers: []domain.RegdServer{{LocalID: 1, Key: "r1", Address: "imposter:27960"}},
 			}
-			if err := store.CreateSource(ctx, reg.Source, true); err != nil {
+			if err := store.CreateSource(ctx, reg.Source, true, seedOwnerID(t, store)); err != nil {
 				t.Fatalf("create source: %v", err)
 			}
 			if err := store.UpsertRemoteServers(ctx, reg); err != nil {

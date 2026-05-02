@@ -40,17 +40,24 @@ func (r *Router) handleListApprovedSources(w http.ResponseWriter, req *http.Requ
 		LastHeartbeatAt string   `json:"last_heartbeat_at,omitempty"`
 		IsRemote        bool     `json:"is_remote"`
 		Active          bool     `json:"active"`
+		OwnerUserID     *int64   `json:"owner_user_id,omitempty"`
+		OwnerUsername   string   `json:"owner_username,omitempty"`
 		Servers         []server `json:"servers"`
 	}
 	out := make([]entry, 0, len(sources))
 	for _, s := range sources {
 		e := entry{
-			Source:      s.Source,
-			Version:     s.Version,
-			DemoBaseURL: s.DemoBaseURL,
-			IsRemote:    s.IsRemote,
-			Active:      s.Active,
-			Servers:     make([]server, 0, len(s.Servers)),
+			Source:        s.Source,
+			Version:       s.Version,
+			DemoBaseURL:   s.DemoBaseURL,
+			IsRemote:      s.IsRemote,
+			Active:        s.Active,
+			OwnerUsername: s.OwnerUsername,
+			Servers:       make([]server, 0, len(s.Servers)),
+		}
+		if s.OwnerUserID.Valid {
+			id := s.OwnerUserID.Int64
+			e.OwnerUserID = &id
 		}
 		if !s.LastHeartbeatAt.IsZero() {
 			e.LastHeartbeatAt = s.LastHeartbeatAt.UTC().Format("2006-01-02T15:04:05Z")
@@ -77,7 +84,13 @@ func (r *Router) handleListApprovedSources(w http.ResponseWriter, req *http.Requ
 // collector's demo_base_url is operator-owned and arrives via
 // registration heartbeats — not an admin input here. Body:
 //
-//	{ "source": "remote-1" }
+//	{ "source": "remote-1", "owner_user_id": 17 }
+//
+// owner_user_id is required: every remote source has a human owner so
+// the lifecycle endpoints (rotate, leave, RCON delegation) all have
+// someone to authorize against. The admin self-assigning is the
+// expected default; assigning to another user is the "minting on
+// their behalf" path.
 //
 // path: POST /api/admin/sources
 func (r *Router) handleCreateSource(w http.ResponseWriter, req *http.Request) {
@@ -86,7 +99,8 @@ func (r *Router) handleCreateSource(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	var body struct {
-		Source string `json:"source"`
+		Source      string `json:"source"`
+		OwnerUserID int64  `json:"owner_user_id"`
 	}
 	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
 		http.Error(w, "invalid request body: "+err.Error(), http.StatusBadRequest)
@@ -96,8 +110,16 @@ func (r *Router) handleCreateSource(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	if body.OwnerUserID <= 0 {
+		http.Error(w, "owner_user_id is required", http.StatusBadRequest)
+		return
+	}
+	if _, err := r.store.GetUserByID(req.Context(), body.OwnerUserID); err != nil {
+		http.Error(w, "owner_user_id does not match any user", http.StatusBadRequest)
+		return
+	}
 
-	if err := r.store.CreateSource(req.Context(), body.Source, true); err != nil {
+	if err := r.store.CreateSource(req.Context(), body.Source, true, &body.OwnerUserID); err != nil {
 		http.Error(w, "create source: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -112,6 +134,52 @@ func (r *Router) handleCreateSource(w http.ResponseWriter, req *http.Request) {
 	r.writer.MarkSourceApproved(body.Source)
 	r.auditCredsAccess(req, "create", body.Source)
 	w.WriteHeader(http.StatusCreated)
+}
+
+// handleTransferSourceOwner reassigns owner_user_id on a remote
+// source. Used when an admin minted on the wrong user's behalf, or
+// when the original owner has left and the source needs a new
+// caretaker. Body:
+//
+//	{ "owner_user_id": 17 }
+//
+// path: POST /api/admin/sources/{source}/owner
+func (r *Router) handleTransferSourceOwner(w http.ResponseWriter, req *http.Request) {
+	source, ok := sourceFromPath(req)
+	if !ok {
+		http.Error(w, "source path parameter required", http.StatusBadRequest)
+		return
+	}
+	var body struct {
+		OwnerUserID int64 `json:"owner_user_id"`
+	}
+	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+		http.Error(w, "invalid request body: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	if body.OwnerUserID <= 0 {
+		http.Error(w, "owner_user_id is required", http.StatusBadRequest)
+		return
+	}
+	newOwner, err := r.store.GetUserByID(req.Context(), body.OwnerUserID)
+	if err != nil {
+		http.Error(w, "owner_user_id does not match any user", http.StatusBadRequest)
+		return
+	}
+	if err := r.store.TransferSourceOwner(req.Context(), source, body.OwnerUserID); err != nil {
+		http.Error(w, "transfer owner: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	claims := r.getAuthClaims(req)
+	var actor *int64
+	if claims != nil {
+		uid := claims.UserID
+		actor = &uid
+	}
+	if err := r.store.WriteSourceAudit(req.Context(), source, actor, "owner.transfer", "→ "+newOwner.Username); err != nil {
+		log.Printf("admin: source_audit insert failed: %v", err)
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // sourceFromPath pulls {source} out of the URL and validates it. The

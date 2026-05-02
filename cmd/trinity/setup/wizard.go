@@ -656,6 +656,13 @@ func PromptServer(p Prompter, a *Answers, index int) (ServerAnswers, error) {
 	if s.LogPath, err = p.Line("  Log path", defaultLog); err != nil {
 		return s, err
 	}
+	// Per-server opt-in for hub-admin RCON delegation. Defaults off
+	// — operators must explicitly grant the keys. Stored alongside the
+	// rcon password and re-published to the hub on every heartbeat;
+	// flipping it later is a config edit + service restart away.
+	if s.AllowHubAdminRcon, err = p.YesNo("  Allow hub admins to RCON this server in your absence?", false); err != nil {
+		return s, err
+	}
 	return s, nil
 }
 

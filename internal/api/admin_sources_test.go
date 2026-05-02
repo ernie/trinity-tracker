@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -236,10 +237,11 @@ func TestHandleListApprovedSources_RequiresAdmin(t *testing.T) {
 
 func TestHandleCreateSource_HappyPath(t *testing.T) {
 	tr := newTestRouter(t)
-	adminTok, _ := tr.loginAs(t, "admin", true)
+	adminTok, adminID := tr.loginAs(t, "admin", true)
 
 	mintsBefore := tr.userProv.mintCalls
-	w := tr.do("POST", "/api/admin/sources", `{"source":"hub-direct"}`, adminTok)
+	body := fmt.Sprintf(`{"source":"hub-direct","owner_user_id":%d}`, adminID)
+	w := tr.do("POST", "/api/admin/sources", body, adminTok)
 	if w.Code != http.StatusCreated {
 		t.Fatalf("create: %d %s", w.Code, w.Body)
 	}
@@ -253,10 +255,29 @@ func TestHandleCreateSource_HappyPath(t *testing.T) {
 	}
 }
 
-func TestHandleCreateSource_BadName(t *testing.T) {
+func TestHandleCreateSource_RequiresOwner(t *testing.T) {
 	tr := newTestRouter(t)
 	adminTok, _ := tr.loginAs(t, "admin", true)
-	w := tr.do("POST", "/api/admin/sources", `{"source":"contains spaces"}`, adminTok)
+	w := tr.do("POST", "/api/admin/sources", `{"source":"orphan"}`, adminTok)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("missing owner_user_id = %d, want 400", w.Code)
+	}
+}
+
+func TestHandleCreateSource_RejectsUnknownOwner(t *testing.T) {
+	tr := newTestRouter(t)
+	adminTok, _ := tr.loginAs(t, "admin", true)
+	w := tr.do("POST", "/api/admin/sources", `{"source":"phantom","owner_user_id":99999}`, adminTok)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("unknown owner = %d, want 400", w.Code)
+	}
+}
+
+func TestHandleCreateSource_BadName(t *testing.T) {
+	tr := newTestRouter(t)
+	adminTok, adminID := tr.loginAs(t, "admin", true)
+	body := fmt.Sprintf(`{"source":"contains spaces","owner_user_id":%d}`, adminID)
+	w := tr.do("POST", "/api/admin/sources", body, adminTok)
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("invalid name = %d, want 400", w.Code)
 	}
@@ -264,10 +285,60 @@ func TestHandleCreateSource_BadName(t *testing.T) {
 
 func TestHandleCreateSource_RequiresAdmin(t *testing.T) {
 	tr := newTestRouter(t)
-	tok, _ := tr.loginAs(t, "alice", false)
-	w := tr.do("POST", "/api/admin/sources", `{"source":"alice-attempt"}`, tok)
+	tok, uid := tr.loginAs(t, "alice", false)
+	body := fmt.Sprintf(`{"source":"alice-attempt","owner_user_id":%d}`, uid)
+	w := tr.do("POST", "/api/admin/sources", body, tok)
 	if w.Code != http.StatusForbidden {
 		t.Errorf("non-admin code = %d, want 403", w.Code)
+	}
+}
+
+func TestHandleTransferSourceOwner_Reassigns(t *testing.T) {
+	tr := newTestRouter(t)
+	adminTok, adminID := tr.loginAs(t, "admin", true)
+	_, aliceID := tr.loginAs(t, "alice", false)
+
+	createBody := fmt.Sprintf(`{"source":"transfer-me","owner_user_id":%d}`, adminID)
+	mustOK(t, tr.do("POST", "/api/admin/sources", createBody, adminTok))
+
+	transferBody := fmt.Sprintf(`{"owner_user_id":%d}`, aliceID)
+	w := tr.do("POST", "/api/admin/sources/transfer-me/owner", transferBody, adminTok)
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("transfer: %d %s", w.Code, w.Body)
+	}
+
+	// Confirm the owner stuck.
+	listed := tr.do("GET", "/api/admin/sources", "", adminTok)
+	if !strings.Contains(listed.Body.String(), `"owner_username":"alice"`) {
+		t.Errorf("expected alice as new owner; body = %s", listed.Body)
+	}
+}
+
+func TestHandleTransferSourceOwner_RejectsUnknownUser(t *testing.T) {
+	tr := newTestRouter(t)
+	adminTok, adminID := tr.loginAs(t, "admin", true)
+
+	createBody := fmt.Sprintf(`{"source":"orphan-test","owner_user_id":%d}`, adminID)
+	mustOK(t, tr.do("POST", "/api/admin/sources", createBody, adminTok))
+
+	w := tr.do("POST", "/api/admin/sources/orphan-test/owner", `{"owner_user_id":99999}`, adminTok)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("unknown user = %d, want 400", w.Code)
+	}
+}
+
+func TestHandleTransferSourceOwner_RequiresAdmin(t *testing.T) {
+	tr := newTestRouter(t)
+	adminTok, adminID := tr.loginAs(t, "admin", true)
+	aliceTok, aliceID := tr.loginAs(t, "alice", false)
+
+	createBody := fmt.Sprintf(`{"source":"locked","owner_user_id":%d}`, adminID)
+	mustOK(t, tr.do("POST", "/api/admin/sources", createBody, adminTok))
+
+	body := fmt.Sprintf(`{"owner_user_id":%d}`, aliceID)
+	w := tr.do("POST", "/api/admin/sources/locked/owner", body, aliceTok)
+	if w.Code != http.StatusForbidden {
+		t.Errorf("non-admin = %d, want 403", w.Code)
 	}
 }
 

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { heartbeatHealth, healthLabel } from '../../utils/sourceHealth'
-import type { PendingRequest } from '../../types'
+import type { PendingRequest, User } from '../../types'
 
 type ApprovedSourceServer = {
   id: number
@@ -18,6 +18,8 @@ type ApprovedSource = {
   last_heartbeat_at?: string
   is_remote: boolean
   active: boolean
+  owner_user_id?: number
+  owner_username?: string
   servers: ApprovedSourceServer[]
 }
 
@@ -29,14 +31,26 @@ export function AdminSources() {
 
   const [approved, setApproved] = useState<ApprovedSource[]>([])
   const [pending, setPending] = useState<PendingRequest[]>([])
+  const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [newSource, setNewSource] = useState('')
+  // Default the owner to the admin themselves once auth is loaded —
+  // self-service is the common case, and the admin can always pick
+  // a different user from the dropdown when minting on someone else's
+  // behalf.
+  const [ownerUserID, setOwnerUserID] = useState<number | ''>('')
   const [creating, setCreating] = useState(false)
+  // transferTarget tracks which row's transfer-owner inline form is
+  // open. null = closed. The selected user_id state is kept here too
+  // so closing the form discards an unsubmitted choice.
+  const [transferTarget, setTransferTarget] = useState<string | null>(null)
+  const [transferUserID, setTransferUserID] = useState<number | ''>('')
 
   const newSourceTrimmed = newSource.trim()
   const newSourceValid = newSourceTrimmed !== '' && SOURCE_NAME_PATTERN.test(newSourceTrimmed)
+  const formValid = newSourceValid && typeof ownerUserID === 'number' && ownerUserID > 0
 
   const fetchAll = useCallback(async () => {
     try {
@@ -64,16 +78,40 @@ export function AdminSources() {
     }
   }, [token])
 
+  // Fetch the user list once for the owner dropdown. Refreshed on the
+  // same interval as sources so a freshly-created user becomes
+  // pickable without a page reload.
+  const fetchUsers = useCallback(async () => {
+    try {
+      const res = await fetch('/api/users', { headers: { Authorization: `Bearer ${token}` } })
+      if (!res.ok) throw new Error(`users: ${res.status}`)
+      const list: User[] = (await res.json()) ?? []
+      setUsers(list)
+      // Self-default: pre-select the logged-in admin once we know who
+      // they are. Only on first load; don't overwrite a deliberate
+      // pick on subsequent refreshes.
+      setOwnerUserID((prev) => {
+        if (prev !== '') return prev
+        const me = list.find((u) => u.username === auth.username)
+        return me ? me.id : prev
+      })
+    } catch (e) {
+      setError(`Failed to load users: ${(e as Error).message}`)
+    }
+  }, [token, auth.username])
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchAll()
     fetchPending()
+    fetchUsers()
     const id = setInterval(() => {
       fetchAll()
       fetchPending()
+      fetchUsers()
     }, 15_000)
     return () => clearInterval(id)
-  }, [fetchAll, fetchPending])
+  }, [fetchAll, fetchPending, fetchUsers])
 
   const approveRequest = async (req: PendingRequest) => {
     setError('')
@@ -152,12 +190,16 @@ export function AdminSources() {
       setError('Source name must contain only letters, digits, hyphen, or underscore.')
       return
     }
+    if (typeof ownerUserID !== 'number' || ownerUserID <= 0) {
+      setError('Pick an owner — every remote source must be assigned to a user.')
+      return
+    }
     setCreating(true)
     try {
       const res = await fetch('/api/admin/sources', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ source: newSourceTrimmed }),
+        body: JSON.stringify({ source: newSourceTrimmed, owner_user_id: ownerUserID }),
       })
       if (!res.ok) {
         throw new Error(`${res.status} ${res.statusText}`)
@@ -190,6 +232,29 @@ export function AdminSources() {
       await fetchAll()
     } catch (err) {
       setError(`Deactivate failed: ${(err as Error).message}`)
+    }
+  }
+
+  const transferOwner = async (source: ApprovedSource, newOwnerID: number) => {
+    setError('')
+    setNotice('')
+    try {
+      const res = await fetch(`/api/admin/sources/${encodeURIComponent(source.source)}/owner`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ owner_user_id: newOwnerID }),
+      })
+      if (!res.ok) {
+        const text = await res.text()
+        throw new Error(text || `${res.status} ${res.statusText}`)
+      }
+      const newOwnerName = users.find((u) => u.id === newOwnerID)?.username ?? `user ${newOwnerID}`
+      setNotice(`Transferred ${source.source} to ${newOwnerName}.`)
+      setTransferTarget(null)
+      setTransferUserID('')
+      await fetchAll()
+    } catch (err) {
+      setError(`Transfer failed: ${(err as Error).message}`)
     }
   }
 
@@ -297,7 +362,10 @@ export function AdminSources() {
         <p className="admin-help">
           Pick a short name — it becomes the NATS subject scope, and
           the remote operator configures it as{' '}
-          <code>tracker.collector.source_id</code>.
+          <code>tracker.collector.source_id</code>. Every remote
+          source has an owner; the default is you, but you can mint
+          on another user's behalf and they'll see it under their
+          My Servers.
         </p>
         <form className="admin-sources-form" onSubmit={createSource}>
           <div className="form-group">
@@ -316,8 +384,28 @@ export function AdminSources() {
               Letters, digits, <code>-</code>, and <code>_</code> only.
             </p>
           </div>
+          <div className="form-group">
+            <label htmlFor="new-source-owner">Owner</label>
+            <select
+              id="new-source-owner"
+              value={ownerUserID}
+              onChange={(e) => setOwnerUserID(e.target.value === '' ? '' : Number(e.target.value))}
+              required
+            >
+              <option value="">Pick an owner…</option>
+              {users.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.username}{u.is_admin ? ' (admin)' : ''}
+                </option>
+              ))}
+            </select>
+            <p className="form-hint">
+              The owner can rotate creds, leave the source, and RCON
+              its servers without admin delegation.
+            </p>
+          </div>
           <div className="admin-sources-form-actions">
-            <button type="submit" className="admin-btn" disabled={creating || !newSourceValid}>
+            <button type="submit" className="admin-btn" disabled={creating || !formValid}>
               {creating ? 'Creating…' : 'Create source'}
             </button>
           </div>
@@ -334,6 +422,7 @@ export function AdminSources() {
               <tr>
                 <th>Health</th>
                 <th>Source</th>
+                <th>Owner</th>
                 <th>Version</th>
                 <th>Last heartbeat</th>
                 <th>Servers</th>
@@ -360,6 +449,68 @@ export function AdminSources() {
                         <div className="admin-sources-demo-url admin-muted">
                           no demo URL reported yet
                         </div>
+                      )}
+                    </td>
+                    <td data-label="Owner">
+                      {s.is_remote ? (
+                        transferTarget === s.source ? (
+                          <form
+                            className="admin-sources-transfer"
+                            onSubmit={(e) => {
+                              e.preventDefault()
+                              if (typeof transferUserID === 'number' && transferUserID > 0) {
+                                transferOwner(s, transferUserID)
+                              }
+                            }}
+                          >
+                            <select
+                              value={transferUserID}
+                              onChange={(e) => setTransferUserID(e.target.value === '' ? '' : Number(e.target.value))}
+                              required
+                              autoFocus
+                            >
+                              <option value="">Pick a user…</option>
+                              {users.map((u) => (
+                                <option key={u.id} value={u.id} disabled={u.id === s.owner_user_id}>
+                                  {u.username}{u.is_admin ? ' (admin)' : ''}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              type="submit"
+                              className="admin-btn admin-btn-small"
+                              disabled={typeof transferUserID !== 'number' || transferUserID <= 0 || transferUserID === s.owner_user_id}
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              className="admin-btn admin-btn-small admin-btn-ghost"
+                              onClick={() => {
+                                setTransferTarget(null)
+                                setTransferUserID('')
+                              }}
+                            >
+                              Cancel
+                            </button>
+                          </form>
+                        ) : (
+                          <div className="admin-sources-owner">
+                            <span>{s.owner_username || <span className="admin-muted">unassigned</span>}</span>
+                            <button
+                              type="button"
+                              className="admin-btn admin-btn-small admin-btn-ghost"
+                              onClick={() => {
+                                setTransferTarget(s.source)
+                                setTransferUserID(s.owner_user_id ?? '')
+                              }}
+                            >
+                              Transfer
+                            </button>
+                          </div>
+                        )
+                      ) : (
+                        <span className="admin-muted">—</span>
                       )}
                     </td>
                     <td data-label="Version">{s.version || '—'}</td>
