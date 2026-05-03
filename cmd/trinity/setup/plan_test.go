@@ -117,6 +117,28 @@ func TestPlan_DryRun_RemoveAll(t *testing.T) {
 	}
 }
 
+// Regression: os.WriteFile silently ignores its perm arg when the
+// file already exists. The rconpassword-bearing *.cfg files must be
+// re-tightened to 0640 on every trinity init re-run.
+func TestPlan_WriteFile_EnforcesModeOnExistingFile(t *testing.T) {
+	buf := &bytes.Buffer{}
+	plan := &Plan{DryRun: false, UseSystemd: false, Out: buf}
+	path := filepath.Join(t.TempDir(), "stale.cfg")
+	if err := os.WriteFile(path, []byte("old"), 0666); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	if err := plan.WriteFile(path, []byte("new"), 0640); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	st, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat: %v", err)
+	}
+	if got := st.Mode().Perm(); got != 0640 {
+		t.Errorf("mode = %#o, want 0640", got)
+	}
+}
+
 func TestPlan_RealMode_NoPrefix(t *testing.T) {
 	buf := &bytes.Buffer{}
 	plan := &Plan{DryRun: false, UseSystemd: false, Out: buf}

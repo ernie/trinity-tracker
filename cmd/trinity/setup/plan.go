@@ -103,6 +103,12 @@ func (p *Plan) WriteFile(path string, data []byte, mode os.FileMode) error {
 	if err := os.WriteFile(path, data, mode); err != nil {
 		return fmt.Errorf("writing %s: %w", path, err)
 	}
+	// os.WriteFile only applies perm on creation. Re-runs over an
+	// existing file (e.g. trinity init after a manual chmod) would
+	// otherwise leave stale modes on rconpassword-bearing cfgs.
+	if err := os.Chmod(path, mode); err != nil {
+		return fmt.Errorf("chmod %s: %w", path, err)
+	}
 	return nil
 }
 
