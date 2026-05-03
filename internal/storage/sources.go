@@ -25,8 +25,8 @@ func ValidateSource(s string) error {
 	if s == "" {
 		return fmt.Errorf("source must be non-empty")
 	}
-	if len(s) > 64 {
-		return fmt.Errorf("source must be at most 64 chars")
+	if len(s) > 16 {
+		return fmt.Errorf("source must be at most 16 chars")
 	}
 	if !sourceIDPattern.MatchString(s) {
 		return fmt.Errorf("source %q must match %s", s, sourceIDPattern.String())

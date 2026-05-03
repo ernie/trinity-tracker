@@ -254,7 +254,7 @@ func TestHandleRequestSource_NameTakenByOther(t *testing.T) {
 func TestHandleRequestSource_InvalidName(t *testing.T) {
 	tr := newTestRouter(t)
 	tok, _ := tr.loginAs(t, "alice", false)
-	cases := []string{"ab", "with space", "with.dot", "$bad", "way-too-long-name-exceeding-the-32-character-limit-for-sure"}
+	cases := []string{"ab", "with space", "with.dot", "$bad", "way-too-long-name-exceeds-limit"}
 	for _, name := range cases {
 		w := tr.requestSource(t, tok, name, "")
 		if w.Code != http.StatusBadRequest {

@@ -272,9 +272,9 @@ function SourceCard({ src, onUpdated }: SourceCardProps) {
   )
 }
 
-// Naming rules mirror the server-side validator: 3-32 chars, alnum +
+// Naming rules mirror the server-side validator: 3-16 chars, alnum +
 // underscore + hyphen.
-const NAME_PATTERN = /^[A-Za-z0-9_-]{3,32}$/
+const NAME_PATTERN = /^[A-Za-z0-9_-]{3,16}$/
 const MAX_PURPOSE_LEN = 200
 
 interface RequestFormProps {
@@ -303,7 +303,7 @@ function RequestForm({
     e.preventDefault()
     setError(null)
     if (!NAME_PATTERN.test(name)) {
-      setError('Name must be 3-32 characters: letters, numbers, _ or -.')
+      setError('Name must be 3-16 characters: letters, numbers, _ or -.')
       return
     }
     if (purpose.length > MAX_PURPOSE_LEN) {
@@ -384,12 +384,12 @@ function RequestForm({
             placeholder="mygame-jfk"
             disabled={submitting}
             minLength={3}
-            maxLength={32}
+            maxLength={16}
             autoFocus
             required
           />
           <small>
-            3–32 characters: letters, numbers, _ or -. A name + location
+            3–16 characters: letters, numbers, _ or -. A name + location
             code (e.g. <code>mygame-jfk</code>, <code>mygame-fra</code>) is
             a good convention if you'll run hosts in multiple regions.
           </small>

@@ -305,29 +305,41 @@ type credsCandidate struct {
 	sourceID string
 }
 
-// discoverCredsIn globs *.creds in dir and returns candidates whose
-// stems pass the same validateSourceID check the manual prompt enforces.
-// Files that fail the stat/readability check or whose stems aren't valid
-// source IDs are silently dropped — falling through to the manual flow
-// is always a clean recovery path, and we don't want to surface noise
-// for files the operator wasn't trying to install with.
-func discoverCredsIn(dir string) []credsCandidate {
+// credsRejection is a *.creds file we found but can't auto-fill from —
+// either unreadable, or its stem isn't a valid source ID. Surfaced
+// to the operator so they're not left wondering why a file they
+// can see in `ls` was ignored.
+type credsRejection struct {
+	path   string
+	reason string
+}
+
+// discoverCredsIn globs *.creds in dir and partitions them into
+// usable candidates (stem passes validateSourceID, file is readable)
+// and rejections (everything else, with a human-readable reason).
+// The wizard prints rejections so an operator with a hand-renamed
+// file or a stale candidate sees why it was skipped.
+func discoverCredsIn(dir string) (valid []credsCandidate, rejected []credsRejection) {
 	matches, err := filepath.Glob(filepath.Join(dir, "*.creds"))
 	if err != nil {
-		return nil
+		return nil, nil
 	}
-	var out []credsCandidate
 	for _, m := range matches {
-		if validateCredsFile(m) != nil {
+		if err := validateCredsFile(m); err != nil {
+			rejected = append(rejected, credsRejection{path: m, reason: err.Error()})
 			continue
 		}
 		stem := strings.TrimSuffix(filepath.Base(m), ".creds")
-		if validateSourceID(stem) != nil {
+		if err := validateSourceID(stem); err != nil {
+			rejected = append(rejected, credsRejection{
+				path:   m,
+				reason: fmt.Sprintf("stem %q is not a valid source ID (%v)", stem, err),
+			})
 			continue
 		}
-		out = append(out, credsCandidate{path: m, sourceID: stem})
+		valid = append(valid, credsCandidate{path: m, sourceID: stem})
 	}
-	return out
+	return valid, rejected
 }
 
 // tryAutoFillCreds looks for a usable .creds file in the operator's
@@ -340,7 +352,10 @@ func tryAutoFillCreds(p Prompter, out io.Writer, a *Answers) (bool, error) {
 	if err != nil {
 		return false, nil
 	}
-	candidates := discoverCredsIn(cwd)
+	candidates, rejected := discoverCredsIn(cwd)
+	for _, r := range rejected {
+		fmt.Fprintf(out, "\nIgnoring %s: %s\n", filepath.Base(r.path), r.reason)
+	}
 	switch len(candidates) {
 	case 0:
 		return false, nil
@@ -395,14 +410,17 @@ func promptValidated(p Prompter, out io.Writer, prompt, def string, validate fun
 	}
 }
 
-// validateSourceID enforces the same shape the hub's
-// owner-source-request flow accepts (`api/owner_sources.go`):
-// 3-32 chars, alnum + '_' + '-'. Catching this in the wizard
-// turns an opaque NATS auth failure later into a clear "fix this
-// answer now" prompt.
+// validateSourceID mirrors storage.ValidateSource on shape (alnum +
+// '_' + '-') but with the project-wide 16-char ceiling. Looser on the
+// floor than the owner-request modal's 3-char minimum
+// (`api/owner_sources.go`) — admin-provisioned sources bypass that
+// modal and may be shorter, and the wizard has to accept anything the
+// hub already issued a .creds for. Catching the shape here turns an
+// opaque NATS auth failure later into a clear "fix this answer now"
+// prompt.
 func validateSourceID(s string) error {
-	if len(s) < 3 || len(s) > 32 {
-		return fmt.Errorf("source ID must be 3-32 characters")
+	if len(s) < 1 || len(s) > 16 {
+		return fmt.Errorf("source ID must be 1-16 characters")
 	}
 	for _, r := range s {
 		switch {

@@ -296,15 +296,15 @@ func (s *Store) LeaveSource(ctx context.Context, source string) error {
 // collector. Returns ErrSourceNotPending if the row isn't pending,
 // ErrSourceNameTaken if newName collides with any non-'left' row.
 //
-// The new name must pass ValidateSource AND the user-facing 3-32
-// length rule (the request modal enforces this on entry; admins
-// renaming should respect the same convention).
+// The new name must pass ValidateSource AND the user-facing 3-char
+// floor (the request modal enforces this on entry; admins renaming
+// should respect the same convention).
 func (s *Store) RenamePendingSource(ctx context.Context, oldName, newName string) error {
 	if err := ValidateSource(newName); err != nil {
 		return fmt.Errorf("storage.RenamePendingSource: %w", err)
 	}
-	if len(newName) < 3 || len(newName) > 32 {
-		return errors.New("storage.RenamePendingSource: name must be 3-32 characters")
+	if len(newName) < 3 {
+		return errors.New("storage.RenamePendingSource: name must be at least 3 characters")
 	}
 	if oldName == newName {
 		return nil // no-op

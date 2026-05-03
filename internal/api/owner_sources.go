@@ -119,10 +119,11 @@ func (r *Router) handleRequestSource(w http.ResponseWriter, req *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid name: "+err.Error())
 		return
 	}
-	// User-facing tighter bound than the storage layer's 64-char ceiling:
-	// the request modal enforces 3–32 to keep names short and memorable.
-	if len(body.Name) < 3 || len(body.Name) > 32 {
-		writeError(w, http.StatusBadRequest, "name must be 3-32 characters")
+	// User-facing floor on top of the storage layer's 1-16 ceiling:
+	// the request modal enforces a 3-char minimum to keep names
+	// memorable.
+	if len(body.Name) < 3 || len(body.Name) > 16 {
+		writeError(w, http.StatusBadRequest, "name must be 3-16 characters")
 		return
 	}
 	if len(body.Purpose) > MaxRequestPurposeLen {

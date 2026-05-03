@@ -556,7 +556,7 @@ interface PendingRowProps {
   onRename: (newName: string) => Promise<string | null>
 }
 
-const NAME_PATTERN = /^[A-Za-z0-9_-]{3,32}$/
+const NAME_PATTERN = /^[A-Za-z0-9_-]{3,16}$/
 
 function PendingRow({ req, onApprove, onReject, onRename }: PendingRowProps) {
   const [mode, setMode] = useState<'idle' | 'rejecting' | 'renaming'>('idle')
@@ -581,7 +581,7 @@ function PendingRow({ req, onApprove, onReject, onRename }: PendingRowProps) {
   const submitRename = async () => {
     setRenameError(null)
     if (!NAME_PATTERN.test(text)) {
-      setRenameError('Name must be 3-32 characters: letters, numbers, _ or -.')
+      setRenameError('Name must be 3-16 characters: letters, numbers, _ or -.')
       return
     }
     setSubmitting(true)

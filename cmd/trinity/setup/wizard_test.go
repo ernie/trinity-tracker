@@ -374,6 +374,32 @@ func TestRunWizard_CredsAutoDiscovery(t *testing.T) {
 	}
 }
 
+// TestDiscoverCredsIn_PartitionsValidAndRejected covers the silent-drop
+// regression that hid a 2-char source ID's .creds from auto-fill: the
+// hub admin path can mint sources with names the wizard's old strict
+// validator rejected, and the operator deserves a "why was this ignored"
+// line rather than silence.
+func TestDiscoverCredsIn_PartitionsValidAndRejected(t *testing.T) {
+	dir := t.TempDir()
+	good := filepath.Join(dir, "myserver.creds")
+	bad := filepath.Join(dir, "bad$name.creds")
+	for _, p := range []string{good, bad} {
+		if err := os.WriteFile(p, []byte("placeholder\n"), 0o600); err != nil {
+			t.Fatalf("write %s: %v", p, err)
+		}
+	}
+	valid, rejected := discoverCredsIn(dir)
+	if len(valid) != 1 || valid[0].path != good || valid[0].sourceID != "myserver" {
+		t.Errorf("valid: got %+v, want one entry for myserver.creds", valid)
+	}
+	if len(rejected) != 1 || rejected[0].path != bad {
+		t.Fatalf("rejected: got %+v, want one entry for bad$name.creds", rejected)
+	}
+	if !strings.Contains(rejected[0].reason, "bad$name") {
+		t.Errorf("rejection reason should mention the bad stem; got %q", rejected[0].reason)
+	}
+}
+
 func TestRunWizard_HubOnly_NoServerPrompts(t *testing.T) {
 	// Hub mode requires allowHub=true.
 	p := &scriptedPrompter{
