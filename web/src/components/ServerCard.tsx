@@ -158,10 +158,19 @@ function useInterpolatedTime(server: ServerStatus, timeLimitMinutes: number | nu
   // where we still hold the previous snapshot's offset, treat it as zero.
   const offset = state.lastUpdated === server.last_updated ? state.offset : 0
 
-  // Calculate interpolated values
-  let gameTimeMs = (server.match_state === 'active' || server.match_state === 'overtime')
-    ? server.game_time_ms + offset
-    : server.game_time_ms
+  // Calculate interpolated values. During warmup the engine's
+  // game_time_ms is time-since-map-load (it includes warmup), so falling
+  // through to it once the countdown hits 0 would briefly flash ~warmup
+  // duration as "active" time. Synthesize the active clock locally
+  // (offset past warmup_remaining) for a smooth handoff.
+  let gameTimeMs: number
+  if (server.match_state === 'active' || server.match_state === 'overtime') {
+    gameTimeMs = server.game_time_ms + offset
+  } else if (server.match_state === 'warmup' && server.warmup_remaining !== undefined) {
+    gameTimeMs = Math.max(0, offset - server.warmup_remaining)
+  } else {
+    gameTimeMs = server.game_time_ms
+  }
 
   // Clamp interpolated time at the time limit so we don't falsely flag overtime.
   // Overtime should only be shown when the actual server status reports it.
