@@ -60,6 +60,15 @@ type serverState struct {
 	pendingRedScore  *int                    // team scores captured at Exit time (before server resets)
 	pendingBlueScore *int
 
+	// GUIDs the collector knows have an open session on this server.
+	// Mirrors the hub's sessions table for live, on-server players;
+	// persists across InitGame so a map-change ClientBegin can be told
+	// apart from a fresh connect (Q3 re-emits userinfo+Begin for every
+	// persistent client at each map change). When set, the Begin is a
+	// continuation: emit FactPresenceSnapshot, no greet. When unset,
+	// it's a genuine join: emit FactPlayerJoin and greet.
+	openSessions map[string]bool
+
 	// Trinity handshake state
 	trinityNonces    map[int]string           // map[clientNum]nonce
 	pendingGreetings map[int]*pendingGreeting // map[clientNum]greeting awaiting handshake
@@ -148,6 +157,7 @@ func (m *ServerManager) Start(ctx context.Context) error {
 			server:        *fullSrv,
 			clients:       make(map[int]*clientState),
 			trinityNonces: make(map[int]string),
+			openSessions:  make(map[string]bool),
 		}
 
 		// Serial replay: concurrent tailers fight for the SQLite write lock.
@@ -228,6 +238,7 @@ func (m *ServerManager) bootstrapServerPresence(serverID int64) {
 			skipped++
 			continue
 		}
+		state.openSessions[client.guid] = true
 		pending = append(pending, pendingSnapshot{
 			ts: client.joinedAt,
 			data: domain.PresenceSnapshotData{
@@ -699,36 +710,59 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 		if client, ok := state.clients[data.ClientID]; ok {
 			client.began = true
 
-			// Emit player_join for every client with a resolved GUID —
-			// humans AND bots. The hub's presence tracker needs model /
-			// skill / vr for every slot so the live-status poller can
-			// render bot portraits and badges. Session rows are still
-			// human-only; the hub's handlePlayerJoin skips session
-			// creation when IsBot=true and is idempotent (continues an
-			// existing open session for (server, guid) instead of
-			// creating a duplicate). Map-change continuations land here
-			// with client.guid == "" because Q3 doesn't re-emit
-			// ClientUserinfoChanged for persistent clients, so this
-			// branch only fires for fresh connects and post-restart
-			// reconnects — exactly when the hub needs a fresh signal.
+			// A Begin is either a genuine fresh join or a map-change
+			// continuation. The collector mirrors the hub's session
+			// table in state.openSessions so it can tell them apart
+			// without round-tripping; the publish type and the greet
+			// both branch off the same answer.
 			if client.guid != "" && !replayMode {
-				m.pub.Publish(domain.FactEvent{
-					Type:      domain.FactPlayerJoin,
-					ServerID:  serverID,
-					Timestamp: event.Timestamp,
-					Data: domain.PlayerJoinData{
-						GUID:      client.guid,
-						Name:      client.name,
-						CleanName: client.cleanName,
-						Model:     client.model,
-						IP:        client.ipAddress,
-						IsBot:     client.isBot,
-						IsVR:      client.isVR,
-						Skill:     client.skill,
-						JoinedAt:  event.Timestamp,
-						ClientNum: data.ClientID,
-					},
-				})
+				if state.openSessions[client.guid] {
+					m.pub.Publish(domain.FactEvent{
+						Type:      domain.FactPresenceSnapshot,
+						ServerID:  serverID,
+						Timestamp: event.Timestamp,
+						Data: domain.PresenceSnapshotData{
+							GUID:      client.guid,
+							Name:      client.name,
+							CleanName: client.cleanName,
+							Model:     client.model,
+							IsBot:     client.isBot,
+							IsVR:      client.isVR,
+							Skill:     client.skill,
+							ClientNum: data.ClientID,
+						},
+					})
+				} else {
+					state.openSessions[client.guid] = true
+					m.pub.Publish(domain.FactEvent{
+						Type:      domain.FactPlayerJoin,
+						ServerID:  serverID,
+						Timestamp: event.Timestamp,
+						Data: domain.PlayerJoinData{
+							GUID:      client.guid,
+							Name:      client.name,
+							CleanName: client.cleanName,
+							Model:     client.model,
+							IP:        client.ipAddress,
+							IsBot:     client.isBot,
+							IsVR:      client.isVR,
+							Skill:     client.skill,
+							JoinedAt:  event.Timestamp,
+							ClientNum: data.ClientID,
+						},
+					})
+					// Greet only humans; bots' synthetic GUID passes
+					// guid != "" but they shouldn't get a welcome.
+					if !client.isBot && m.startupComplete {
+						if m.handshakeRequired(state) {
+							// Delay greeting until handshake completes (or warn on timeout).
+							// The handshake handler calls performGreet with auth bundled in.
+							m.scheduleGreetingAfterHandshake(ctx, state, serverID, data.ClientID, client.guid, client.name, client.cleanName, client.isVR, client.isTrinityEngine)
+						} else {
+							go m.performGreet(ctx, serverID, data.ClientID, client.guid, client.name, client.cleanName, client.isVR, client.isTrinityEngine, nil)
+						}
+					}
+				}
 			}
 
 			if !replayMode {
@@ -749,22 +783,6 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 						},
 					},
 				})
-
-				// Greet on every fresh begin where userinfo arrived
-				// (client.guid != ""). Map-change continuations have
-				// guid=="" and are skipped naturally; this matches the
-				// PlayerJoin gate above. Bots get neither the welcome
-				// nor the handshake warning — they have a synthetic
-				// guid that'd otherwise sneak past client.guid != "".
-				if m.startupComplete && !client.isBot && client.guid != "" {
-					if m.handshakeRequired(state) {
-						// Delay greeting until handshake completes (or warn on timeout).
-						// The handshake handler calls performGreet with auth bundled in.
-						m.scheduleGreetingAfterHandshake(ctx, state, serverID, data.ClientID, client.guid, client.name, client.cleanName, client.isVR, client.isTrinityEngine)
-					} else {
-						go m.performGreet(ctx, serverID, data.ClientID, client.guid, client.name, client.cleanName, client.isVR, client.isTrinityEngine, nil)
-					}
-				}
 			}
 		}
 
@@ -809,6 +827,9 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 				})
 			}
 
+			if client.guid != "" {
+				delete(state.openSessions, client.guid)
+			}
 			delete(state.trinityNonces, data.ClientID)
 			if state.pendingGreetings != nil {
 				if pg, ok := state.pendingGreetings[data.ClientID]; ok {
