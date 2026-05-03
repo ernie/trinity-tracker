@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { BotBadge } from './BotBadge'
 import { ColoredText } from './ColoredText'
@@ -10,6 +10,7 @@ import { Header } from './Header'
 import { StatItem } from './StatItem'
 import { PeriodSelector } from './PeriodSelector'
 import { useAuth } from '../hooks/useAuth'
+import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { usePlayerStats } from '../hooks/usePlayerStats'
 import { formatDate, formatDuration } from '../utils/formatters'
 import { stripVRPrefix } from '../utils'
@@ -20,39 +21,33 @@ export function PlayersPage() {
   const navigate = useNavigate()
   const { auth } = useAuth()
 
+  // Live search (includes GUID search if admin) — fires automatically as the user types.
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<PlayerProfile[]>([])
-  const [searching, setSearching] = useState(false)
+  const debouncedSearchQuery = useDebouncedValue(searchQuery, 200)
 
   const [period, setPeriod] = useState<TimePeriod>('all')
   const { stats, loading, error } = usePlayerStats(id ? Number(id) : undefined, period)
 
-  // Search for players (includes GUID search if admin)
-  const handleSearch = useCallback(() => {
-    if (!searchQuery.trim()) {
+  useEffect(() => {
+    if (debouncedSearchQuery.trim().length < 2) {
       setSearchResults([])
       return
     }
-
     const headers: HeadersInit = {}
-    if (auth.token) {
-      headers['Authorization'] = `Bearer ${auth.token}`
-    }
-
-    setSearching(true)
-    fetch(`/api/players?search=${encodeURIComponent(searchQuery)}&limit=10`, { headers })
-      .then(res => res.json())
-      .then(data => setSearchResults(data || []))
-      .catch(() => setSearchResults([]))
-      .finally(() => setSearching(false))
-  }, [searchQuery, auth.token])
-
-  // Search on Enter key
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleSearch()
-    }
-  }
+    if (auth.token) headers['Authorization'] = `Bearer ${auth.token}`
+    const ctrl = new AbortController()
+    fetch(`/api/players?search=${encodeURIComponent(debouncedSearchQuery)}&limit=10`, {
+      headers,
+      signal: ctrl.signal,
+    })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: PlayerProfile[]) => setSearchResults(data ?? []))
+      .catch(() => {
+        /* aborted or network error */
+      })
+    return () => ctrl.abort()
+  }, [debouncedSearchQuery, auth.token])
 
   // Select a player from search results
   const selectPlayer = (playerId: number) => {
@@ -71,12 +66,8 @@ export function PlayersPage() {
           placeholder={auth.isAuthenticated ? "Search players by name or GUID..." : "Search players by name..."}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          onKeyDown={handleKeyDown}
           className="search-input"
         />
-        <button onClick={handleSearch} disabled={searching} className="search-btn">
-          {searching ? 'Searching...' : 'Search'}
-        </button>
       </div>
 
       {searchResults.length > 0 && (
