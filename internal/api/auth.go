@@ -9,6 +9,7 @@ import (
 
 	"github.com/ernie/trinity-tracker/internal/auth"
 	"github.com/ernie/trinity-tracker/internal/domain"
+	"github.com/ernie/trinity-tracker/internal/storage"
 )
 
 // LoginRequest is the request body for login
@@ -267,9 +268,20 @@ type UserResponse struct {
 	LastLogin              *time.Time `json:"last_login,omitempty"`
 }
 
-// handleListUsers returns all users (admin only)
+// handleListUsers returns users (admin only). Without query params it returns
+// the full list; with ?search=q[&limit=n] it returns up to limit matches by
+// username or linked player name.
 func (r *Router) handleListUsers(w http.ResponseWriter, req *http.Request) {
-	users, err := r.store.ListUsersWithPlayer(req.Context())
+	var (
+		users []storage.UserWithPlayer
+		err   error
+	)
+	if search := req.URL.Query().Get("search"); search != "" {
+		limit := parseLimit(req, 10, 50)
+		users, err = r.store.SearchUsersWithPlayer(req.Context(), search, limit)
+	} else {
+		users, err = r.store.ListUsersWithPlayer(req.Context())
+	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

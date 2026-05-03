@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { heartbeatHealth, healthLabel } from '../../utils/sourceHealth'
-import type { PendingRequest, User } from '../../types'
+import type { PendingRequest } from '../../types'
+import { UserPicker, type UserOption } from './UserPicker'
 
 type ApprovedSourceServer = {
   id: number
@@ -31,26 +32,23 @@ export function AdminSources() {
 
   const [approved, setApproved] = useState<ApprovedSource[]>([])
   const [pending, setPending] = useState<PendingRequest[]>([])
-  const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [newSource, setNewSource] = useState('')
-  // Default the owner to the admin themselves once auth is loaded —
-  // self-service is the common case, and the admin can always pick
-  // a different user from the dropdown when minting on someone else's
-  // behalf.
-  const [ownerUserID, setOwnerUserID] = useState<number | ''>('')
+  // Default the owner to the admin themselves — self-service is the
+  // common case. Pre-populated from /api/account/profile on mount.
+  const [selectedOwner, setSelectedOwner] = useState<UserOption | null>(null)
   const [creating, setCreating] = useState(false)
   // transferTarget tracks which row's transfer-owner inline form is
-  // open. null = closed. The selected user_id state is kept here too
-  // so closing the form discards an unsubmitted choice.
+  // open. null = closed. The picked user is kept here too so closing
+  // the form discards an unsubmitted choice.
   const [transferTarget, setTransferTarget] = useState<string | null>(null)
-  const [transferUserID, setTransferUserID] = useState<number | ''>('')
+  const [transferTo, setTransferTo] = useState<UserOption | null>(null)
 
   const newSourceTrimmed = newSource.trim()
   const newSourceValid = newSourceTrimmed !== '' && SOURCE_NAME_PATTERN.test(newSourceTrimmed)
-  const formValid = newSourceValid && typeof ownerUserID === 'number' && ownerUserID > 0
+  const formValid = newSourceValid && selectedOwner !== null
 
   const fetchAll = useCallback(async () => {
     try {
@@ -78,40 +76,42 @@ export function AdminSources() {
     }
   }, [token])
 
-  // Fetch the user list once for the owner dropdown. Refreshed on the
-  // same interval as sources so a freshly-created user becomes
-  // pickable without a page reload.
-  const fetchUsers = useCallback(async () => {
-    try {
-      const res = await fetch('/api/users', { headers: { Authorization: `Bearer ${token}` } })
-      if (!res.ok) throw new Error(`users: ${res.status}`)
-      const list: User[] = (await res.json()) ?? []
-      setUsers(list)
-      // Self-default: pre-select the logged-in admin once we know who
-      // they are. Only on first load; don't overwrite a deliberate
-      // pick on subsequent refreshes.
-      setOwnerUserID((prev) => {
-        if (prev !== '') return prev
-        const me = list.find((u) => u.username === auth.username)
-        return me ? me.id : prev
+  // Pre-populate the create-form picker with the logged-in admin so
+  // the common self-service case is one click away. Only on first
+  // mount; subsequent picks are not overwritten.
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/account/profile', { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((profile) => {
+        if (cancelled || !profile?.user) return
+        setSelectedOwner((prev) =>
+          prev ?? {
+            id: profile.user.id,
+            username: profile.user.username,
+            is_admin: profile.user.is_admin,
+            player_name: profile.player?.name ?? null,
+          },
+        )
       })
-    } catch (e) {
-      setError(`Failed to load users: ${(e as Error).message}`)
+      .catch(() => {
+        /* non-fatal: picker just starts empty */
+      })
+    return () => {
+      cancelled = true
     }
-  }, [token, auth.username])
+  }, [token])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchAll()
     fetchPending()
-    fetchUsers()
     const id = setInterval(() => {
       fetchAll()
       fetchPending()
-      fetchUsers()
     }, 15_000)
     return () => clearInterval(id)
-  }, [fetchAll, fetchPending, fetchUsers])
+  }, [fetchAll, fetchPending])
 
   const approveRequest = async (req: PendingRequest) => {
     setError('')
@@ -190,7 +190,7 @@ export function AdminSources() {
       setError('Source name must contain only letters, digits, hyphen, or underscore.')
       return
     }
-    if (typeof ownerUserID !== 'number' || ownerUserID <= 0) {
+    if (!selectedOwner) {
       setError('Pick an owner — every remote source must be assigned to a user.')
       return
     }
@@ -199,7 +199,7 @@ export function AdminSources() {
       const res = await fetch('/api/admin/sources', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ source: newSourceTrimmed, owner_user_id: ownerUserID }),
+        body: JSON.stringify({ source: newSourceTrimmed, owner_user_id: selectedOwner.id }),
       })
       if (!res.ok) {
         throw new Error(`${res.status} ${res.statusText}`)
@@ -235,23 +235,22 @@ export function AdminSources() {
     }
   }
 
-  const transferOwner = async (source: ApprovedSource, newOwnerID: number) => {
+  const transferOwner = async (source: ApprovedSource, newOwner: UserOption) => {
     setError('')
     setNotice('')
     try {
       const res = await fetch(`/api/admin/sources/${encodeURIComponent(source.source)}/owner`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ owner_user_id: newOwnerID }),
+        body: JSON.stringify({ owner_user_id: newOwner.id }),
       })
       if (!res.ok) {
         const text = await res.text()
         throw new Error(text || `${res.status} ${res.statusText}`)
       }
-      const newOwnerName = users.find((u) => u.id === newOwnerID)?.username ?? `user ${newOwnerID}`
-      setNotice(`Transferred ${source.source} to ${newOwnerName}.`)
+      setNotice(`Transferred ${source.source} to ${newOwner.username}.`)
       setTransferTarget(null)
-      setTransferUserID('')
+      setTransferTo(null)
       await fetchAll()
     } catch (err) {
       setError(`Transfer failed: ${(err as Error).message}`)
@@ -386,19 +385,13 @@ export function AdminSources() {
           </div>
           <div className="form-group">
             <label htmlFor="new-source-owner">Owner</label>
-            <select
-              id="new-source-owner"
-              value={ownerUserID}
-              onChange={(e) => setOwnerUserID(e.target.value === '' ? '' : Number(e.target.value))}
+            <UserPicker
+              token={token}
+              selected={selectedOwner}
+              onChange={setSelectedOwner}
+              placeholder="Search users by name or linked player…"
               required
-            >
-              <option value="">Pick an owner…</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.username}{u.is_admin ? ' (admin)' : ''}
-                </option>
-              ))}
-            </select>
+            />
             <p className="form-hint">
               The owner can rotate creds, leave the source, and RCON
               its servers without admin delegation.
@@ -458,28 +451,24 @@ export function AdminSources() {
                             className="admin-sources-transfer"
                             onSubmit={(e) => {
                               e.preventDefault()
-                              if (typeof transferUserID === 'number' && transferUserID > 0) {
-                                transferOwner(s, transferUserID)
+                              if (transferTo && transferTo.id !== s.owner_user_id) {
+                                transferOwner(s, transferTo)
                               }
                             }}
                           >
-                            <select
-                              value={transferUserID}
-                              onChange={(e) => setTransferUserID(e.target.value === '' ? '' : Number(e.target.value))}
-                              required
+                            <UserPicker
+                              token={token}
+                              selected={transferTo}
+                              onChange={setTransferTo}
+                              placeholder="Search users…"
+                              excludeUserId={s.owner_user_id}
                               autoFocus
-                            >
-                              <option value="">Pick a user…</option>
-                              {users.map((u) => (
-                                <option key={u.id} value={u.id} disabled={u.id === s.owner_user_id}>
-                                  {u.username}{u.is_admin ? ' (admin)' : ''}
-                                </option>
-                              ))}
-                            </select>
+                              required
+                            />
                             <button
                               type="submit"
                               className="admin-btn admin-btn-small"
-                              disabled={typeof transferUserID !== 'number' || transferUserID <= 0 || transferUserID === s.owner_user_id}
+                              disabled={!transferTo || transferTo.id === s.owner_user_id}
                             >
                               Save
                             </button>
@@ -488,7 +477,7 @@ export function AdminSources() {
                               className="admin-btn admin-btn-small admin-btn-ghost"
                               onClick={() => {
                                 setTransferTarget(null)
-                                setTransferUserID('')
+                                setTransferTo(null)
                               }}
                             >
                               Cancel
@@ -502,7 +491,7 @@ export function AdminSources() {
                               className="admin-btn admin-btn-small admin-btn-ghost"
                               onClick={() => {
                                 setTransferTarget(s.source)
-                                setTransferUserID(s.owner_user_id ?? '')
+                                setTransferTo(null)
                               }}
                             >
                               Transfer

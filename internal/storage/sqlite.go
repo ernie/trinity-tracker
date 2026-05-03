@@ -1568,6 +1568,57 @@ func (s *Store) ListUsersWithPlayer(ctx context.Context) ([]UserWithPlayer, erro
 	return out, rows.Err()
 }
 
+// SearchUsersWithPlayer matches users by username or linked player name/clean_name
+// (case-insensitive substring). Limit is required (default 10 if non-positive).
+func (s *Store) SearchUsersWithPlayer(ctx context.Context, query string, limit int) ([]UserWithPlayer, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	pattern := "%" + query + "%"
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT u.id, u.username, u.password_hash, u.is_admin, u.player_id,
+		       u.password_change_required, u.created_at, u.last_login, u.game_token,
+		       p.name
+		FROM users u
+		LEFT JOIN players p ON p.id = u.player_id
+		WHERE u.username LIKE ? OR p.clean_name LIKE ? OR p.name LIKE ?
+		ORDER BY u.username
+		LIMIT ?
+	`, pattern, pattern, pattern, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []UserWithPlayer
+	for rows.Next() {
+		var u User
+		var playerID sql.NullInt64
+		var lastLogin sql.NullTime
+		var playerName sql.NullString
+		if err := rows.Scan(
+			&u.ID, &u.Username, &u.PasswordHash, &u.IsAdmin, &playerID,
+			&u.PasswordChangeRequired, &u.CreatedAt, &lastLogin, &u.GameToken,
+			&playerName,
+		); err != nil {
+			return nil, err
+		}
+		if playerID.Valid {
+			u.PlayerID = &playerID.Int64
+		}
+		if lastLogin.Valid {
+			u.LastLogin = &lastLogin.Time
+		}
+		entry := UserWithPlayer{User: u}
+		if playerName.Valid {
+			name := playerName.String
+			entry.PlayerName = &name
+		}
+		out = append(out, entry)
+	}
+	return out, rows.Err()
+}
+
 // UpdateUserLastLogin updates the last login timestamp
 func (s *Store) UpdateUserLastLogin(ctx context.Context, userID int64) error {
 	_, err := s.db.ExecContext(ctx, `

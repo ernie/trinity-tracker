@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
+import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { ColoredText } from '../ColoredText'
 import { formatDate } from '../../utils/formatters'
 import type { PlayerProfile, PlayerGUID } from '../../types'
@@ -9,10 +10,10 @@ export function AdminPlayers() {
   const { auth } = useAuth()
   const token = auth.token!
 
-  // Player search (target selection)
+  // Player search (target selection) — fires automatically as the admin types.
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<PlayerProfile[]>([])
-  const [searching, setSearching] = useState(false)
+  const debouncedSearchQuery = useDebouncedValue(searchQuery, 200)
 
   // Selected target player
   const [selected, setSelected] = useState<PlayerProfile | null>(null)
@@ -22,26 +23,30 @@ export function AdminPlayers() {
   // Merge state
   const [mergeQuery, setMergeQuery] = useState('')
   const [mergeResults, setMergeResults] = useState<PlayerProfile[]>([])
-  const [mergeSearching, setMergeSearching] = useState(false)
+  const debouncedMergeQuery = useDebouncedValue(mergeQuery, 200)
   const [merging, setMerging] = useState(false)
   const [splitting, setSplitting] = useState<number | null>(null)
   const [error, setError] = useState('')
 
   const headers = { Authorization: `Bearer ${token}` }
 
-  const handleSearch = useCallback(() => {
-    if (!searchQuery.trim()) {
+  useEffect(() => {
+    if (debouncedSearchQuery.trim().length < 2) {
       setSearchResults([])
       return
     }
-    setSearching(true)
-    fetch(`/api/players?search=${encodeURIComponent(searchQuery)}&limit=10`, { headers })
-      .then((res) => res.json())
-      .then((data) => setSearchResults(data || []))
-      .catch(() => setSearchResults([]))
-      .finally(() => setSearching(false))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, token])
+    const ctrl = new AbortController()
+    fetch(`/api/players?search=${encodeURIComponent(debouncedSearchQuery)}&limit=10`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: ctrl.signal,
+    })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: PlayerProfile[]) => setSearchResults(data ?? []))
+      .catch(() => {
+        /* aborted or network error */
+      })
+    return () => ctrl.abort()
+  }, [debouncedSearchQuery, token])
 
   const fetchGuids = useCallback(
     (playerId: number) => {
@@ -71,22 +76,26 @@ export function AdminPlayers() {
     setError('')
   }
 
-  const handleMergeSearch = useCallback(() => {
-    if (!mergeQuery.trim() || !selected) {
+  useEffect(() => {
+    if (!selected || debouncedMergeQuery.trim().length < 2) {
       setMergeResults([])
       return
     }
-    setMergeSearching(true)
-    fetch(`/api/players?search=${encodeURIComponent(mergeQuery)}&limit=10`, { headers })
-      .then((res) => res.json())
-      .then((data) => {
-        const filtered = (data || []).filter((p: PlayerProfile) => p.id !== selected.id)
+    const ctrl = new AbortController()
+    fetch(`/api/players?search=${encodeURIComponent(debouncedMergeQuery)}&limit=10`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: ctrl.signal,
+    })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: PlayerProfile[]) => {
+        const filtered = (data ?? []).filter((p) => p.id !== selected.id)
         setMergeResults(filtered)
       })
-      .catch(() => setMergeResults([]))
-      .finally(() => setMergeSearching(false))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mergeQuery, selected, token])
+      .catch(() => {
+        /* aborted or network error */
+      })
+    return () => ctrl.abort()
+  }, [debouncedMergeQuery, selected, token])
 
   const handleMerge = async (mergePlayerId: number) => {
     if (!selected) return
@@ -154,11 +163,7 @@ export function AdminPlayers() {
           placeholder="Search players by name or GUID…"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
         />
-        <button onClick={handleSearch} disabled={searching}>
-          {searching ? 'Searching…' : 'Search'}
-        </button>
       </div>
 
       {searchResults.length > 0 && (
@@ -220,11 +225,7 @@ export function AdminPlayers() {
                 placeholder="Search players by name or GUID…"
                 value={mergeQuery}
                 onChange={(e) => setMergeQuery(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleMergeSearch()}
               />
-              <button onClick={handleMergeSearch} disabled={mergeSearching}>
-                {mergeSearching ? 'Searching…' : 'Search'}
-              </button>
             </div>
             {mergeResults.length > 0 && (
               <div className="merge-results">

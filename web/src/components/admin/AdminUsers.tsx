@@ -1,5 +1,6 @@
 import { useState, useEffect, FormEvent } from 'react'
 import { useAuth } from '../../hooks/useAuth'
+import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { ColoredText } from '../ColoredText'
 import { PlayerStatsModal } from '../PlayerStatsModal'
 import type { User, PlayerProfile } from '../../types'
@@ -140,26 +141,46 @@ export function AdminUsers() {
     }
   }
 
-  const searchPlayers = async (query: string, forEdit = false) => {
-    if (query.length < 2) {
-      if (forEdit) setEditPlayerResults([])
-      else setPlayerResults([])
+  // Both player-search inputs debounce against this hook so a fast typist
+  // fires one fetch per pause, not one per keystroke.
+  const debouncedPlayerSearch = useDebouncedValue(playerSearch, 200)
+  const debouncedEditPlayerSearch = useDebouncedValue(editPlayerSearch, 200)
+
+  useEffect(() => {
+    if (debouncedPlayerSearch.length < 2) {
+      setPlayerResults([])
       return
     }
-
-    try {
-      const res = await fetch(`/api/players?search=${encodeURIComponent(query)}&limit=10`, {
-        headers: { Authorization: `Bearer ${token}` },
+    const ctrl = new AbortController()
+    fetch(`/api/players?search=${encodeURIComponent(debouncedPlayerSearch)}&limit=10`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: ctrl.signal,
+    })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((players: PlayerProfile[]) => setPlayerResults(players ?? []))
+      .catch(() => {
+        /* aborted or network error */
       })
-      if (res.ok) {
-        const players = await res.json()
-        if (forEdit) setEditPlayerResults(players)
-        else setPlayerResults(players)
-      }
-    } catch {
-      // Ignore search errors
+    return () => ctrl.abort()
+  }, [debouncedPlayerSearch, token])
+
+  useEffect(() => {
+    if (debouncedEditPlayerSearch.length < 2) {
+      setEditPlayerResults([])
+      return
     }
-  }
+    const ctrl = new AbortController()
+    fetch(`/api/players?search=${encodeURIComponent(debouncedEditPlayerSearch)}&limit=10`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: ctrl.signal,
+    })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((players: PlayerProfile[]) => setEditPlayerResults(players ?? []))
+      .catch(() => {
+        /* aborted or network error */
+      })
+    return () => ctrl.abort()
+  }, [debouncedEditPlayerSearch, token])
 
   const startEditingUser = (user: User) => {
     setEditingUserId(user.id)
@@ -251,10 +272,7 @@ export function AdminUsers() {
               type="text"
               placeholder="Search players…"
               value={playerSearch}
-              onChange={(e) => {
-                setPlayerSearch(e.target.value)
-                searchPlayers(e.target.value)
-              }}
+              onChange={(e) => setPlayerSearch(e.target.value)}
             />
             {playerResults.length > 0 && (
               <ul className="player-results">
@@ -314,10 +332,7 @@ export function AdminUsers() {
                       type="text"
                       placeholder="Search players…"
                       value={editPlayerSearch}
-                      onChange={(e) => {
-                        setEditPlayerSearch(e.target.value)
-                        searchPlayers(e.target.value, true)
-                      }}
+                      onChange={(e) => setEditPlayerSearch(e.target.value)}
                     />
                     {editPlayerResults.length > 0 && (
                       <ul className="player-results">
