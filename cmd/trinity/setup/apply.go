@@ -521,7 +521,7 @@ func installPerServerFiles(plan *Plan, a *Answers, uid, gid int) error {
 		}
 		for _, m := range []string{"baseq3", "missionpack"} {
 			botsPath := filepath.Join(a.Quake3Dir, m, "scripts", "trinity-bots.txt")
-			if err := plan.MkdirAll(filepath.Dir(botsPath), 0755); err != nil {
+			if err := plan.MkdirChown(filepath.Dir(botsPath), 0755, uid, gid); err != nil {
 				return err
 			}
 			if err := plan.WriteFile(botsPath, botsFile, 0644); err != nil {
