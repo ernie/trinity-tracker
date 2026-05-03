@@ -337,6 +337,22 @@ func (r *Router) handleGetMatches(w http.ResponseWriter, req *http.Request) {
 		filter.Source = src
 	}
 
+	if mv := req.URL.Query().Get("movement"); mv != "" {
+		if !validateMovementMode(mv) {
+			writeError(w, http.StatusBadRequest, "invalid movement")
+			return
+		}
+		filter.Movement = mv
+	}
+
+	if gp := req.URL.Query().Get("gameplay"); gp != "" {
+		if !validateGameplayMode(gp) {
+			writeError(w, http.StatusBadRequest, "invalid gameplay")
+			return
+		}
+		filter.Gameplay = gp
+	}
+
 	filter.IncludeBotOnly = req.URL.Query().Get("include_bot_only") == "true"
 
 	matches, err := r.store.GetFilteredMatchSummaries(req.Context(), filter)

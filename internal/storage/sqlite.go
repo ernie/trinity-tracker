@@ -2156,6 +2156,8 @@ func (s *Store) GetMatchSummaryByID(ctx context.Context, matchID int64) (*domain
 type MatchFilter struct {
 	GameType       string
 	Source         string
+	Movement       string // raw g_movement value, e.g. "0".."3"; "" = any
+	Gameplay       string // raw g_gameplay value, e.g. "0".."2"; "" = any
 	StartDate      *time.Time
 	EndDate        *time.Time
 	BeforeID       *int64
@@ -2187,6 +2189,14 @@ func (s *Store) GetFilteredMatchSummaries(ctx context.Context, filter MatchFilte
 	if filter.Source != "" {
 		query += ` AND s.source = ?`
 		args = append(args, filter.Source)
+	}
+	if filter.Movement != "" {
+		query += ` AND m.movement = ?`
+		args = append(args, filter.Movement)
+	}
+	if filter.Gameplay != "" {
+		query += ` AND m.gameplay = ?`
+		args = append(args, filter.Gameplay)
 	}
 	if filter.StartDate != nil {
 		query += ` AND m.started_at >= ?`

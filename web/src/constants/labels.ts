@@ -10,13 +10,11 @@ export const PERIOD_LABELS: Record<TimePeriod, string> = {
 
 export type GameTypeFilter = 'all' | 'ffa' | 'tdm' | 'ctf' | '1fctf' | '1v1' | 'overload' | 'harvester'
 
-export const GAME_TYPE_LABELS: Record<GameTypeFilter, string> = {
-  all: 'All',
-  ffa: 'FFA',
-  '1v1': '1v1',
-  tdm: 'TDM',
-  ctf: 'CTF',
-  '1fctf': '1F CTF',
-  overload: 'Overload',
-  harvester: 'Harvester',
+// Filter-button order; 'all' is rendered separately. Labels via formatGameType().
+export const GAME_TYPES: readonly Exclude<GameTypeFilter, 'all'>[] = [
+  '1fctf', '1v1', 'ctf', 'ffa', 'harvester', 'overload', 'tdm',
+]
+
+export function isGameTypeFilter(s: string): s is GameTypeFilter {
+  return s === 'all' || (GAME_TYPES as readonly string[]).includes(s)
 }

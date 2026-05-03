@@ -8,7 +8,8 @@ import { MedalIcon } from "./MedalIcon";
 import { Header } from "./Header";
 import { PeriodSelector } from "./PeriodSelector";
 
-import { GAME_TYPE_LABELS, type GameTypeFilter } from "../constants/labels";
+import { GAME_TYPES, type GameTypeFilter } from "../constants/labels";
+import { formatGameType } from "./MatchCard";
 import { formatNumber, stripVRPrefix } from "../utils";
 import type {
   LeaderboardResponse,
@@ -153,13 +154,20 @@ export function LeaderboardPage() {
 
       <div className="filter-row">
         <div className="game-type-selector">
-          {(Object.keys(GAME_TYPE_LABELS) as GameTypeFilter[]).map((gt) => (
+          <button
+            key="all"
+            className={`game-type-btn ${gameType === "all" ? "active" : ""}`}
+            onClick={() => setGameType("all")}
+          >
+            All
+          </button>
+          {GAME_TYPES.map((gt) => (
             <button
               key={gt}
               className={`game-type-btn ${gameType === gt ? "active" : ""}`}
               onClick={() => setGameType(gt)}
             >
-              {GAME_TYPE_LABELS[gt]}
+              {formatGameType(gt)}
             </button>
           ))}
         </div>

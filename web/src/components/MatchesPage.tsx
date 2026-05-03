@@ -1,12 +1,17 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { MatchCard } from './MatchCard'
+import { MatchCard, formatGameType } from './MatchCard'
 import { Header } from './Header'
 import { SourceFilter } from './SourceFilter'
-import { GAME_TYPE_LABELS, type GameTypeFilter } from '../constants/labels'
+import { ModeFilterGroup } from './ServerFilters'
+import { MOVEMENT_MODES, GAMEPLAY_MODES } from './ServerCard'
+import { GAME_TYPES, isGameTypeFilter, type GameTypeFilter } from '../constants/labels'
 import type { MatchSummary } from '../types'
 
 const PAGE_SIZE = 10
+
+const MOVEMENT_KEYS = Object.keys(MOVEMENT_MODES)
+const GAMEPLAY_KEYS = Object.keys(GAMEPLAY_MODES)
 
 function parseDateTimeLocal(value: string): Date | null {
   if (!value) return null
@@ -22,7 +27,7 @@ export function MatchesPage() {
   // Read initial state from URL
   const [gameType, setGameType] = useState<GameTypeFilter>(() => {
     const gt = searchParams.get('game_type')
-    return (gt && gt in GAME_TYPE_LABELS) ? gt as GameTypeFilter : 'all'
+    return gt && isGameTypeFilter(gt) ? gt : 'all'
   })
   const [startDate, setStartDate] = useState<string>(() => searchParams.get('start_date') || '')
   const [endDate, setEndDate] = useState<string>(() => searchParams.get('end_date') || '')
@@ -30,6 +35,14 @@ export function MatchesPage() {
     searchParams.get('include_bot_only') === 'true'
   )
   const [source, setSource] = useState<string>(() => searchParams.get('source') || '')
+  const [movement, setMovement] = useState<string>(() => {
+    const m = searchParams.get('movement') || ''
+    return m && m in MOVEMENT_MODES ? m : ''
+  })
+  const [gameplay, setGameplay] = useState<string>(() => {
+    const g = searchParams.get('gameplay') || ''
+    return g && g in GAMEPLAY_MODES ? g : ''
+  })
 
   const [matches, setMatches] = useState<MatchSummary[]>([])
   const [loading, setLoading] = useState(true)
@@ -44,8 +57,10 @@ export function MatchesPage() {
     if (endDate) params.set('end_date', endDate)
     if (includeBotOnly) params.set('include_bot_only', 'true')
     if (source) params.set('source', source)
+    if (movement) params.set('movement', movement)
+    if (gameplay) params.set('gameplay', gameplay)
     setSearchParams(params, { replace: true })
-  }, [gameType, startDate, endDate, includeBotOnly, source, setSearchParams])
+  }, [gameType, startDate, endDate, includeBotOnly, source, movement, gameplay, setSearchParams])
 
   // Fetch matches when filters change
   useEffect(() => {
@@ -60,6 +75,8 @@ export function MatchesPage() {
         if (gameType !== 'all') params.set('game_type', gameType)
         if (includeBotOnly) params.set('include_bot_only', 'true')
         if (source) params.set('source', source)
+        if (movement) params.set('movement', movement)
+        if (gameplay) params.set('gameplay', gameplay)
 
         // Convert datetime-local to RFC3339
         if (startDate) {
@@ -86,7 +103,7 @@ export function MatchesPage() {
     }
 
     fetchMatches()
-  }, [gameType, startDate, endDate, includeBotOnly, source])
+  }, [gameType, startDate, endDate, includeBotOnly, source, movement, gameplay])
 
   const loadMore = async () => {
     if (loadingMore || !hasMore || matches.length === 0) return
@@ -101,6 +118,8 @@ export function MatchesPage() {
       if (gameType !== 'all') params.set('game_type', gameType)
       if (includeBotOnly) params.set('include_bot_only', 'true')
       if (source) params.set('source', source)
+      if (movement) params.set('movement', movement)
+      if (gameplay) params.set('gameplay', gameplay)
       if (startDate) {
         const date = parseDateTimeLocal(startDate)
         if (date) params.set('start_date', date.toISOString())
@@ -136,9 +155,12 @@ export function MatchesPage() {
     setEndDate('')
     setIncludeBotOnly(false)
     setSource('')
+    setMovement('')
+    setGameplay('')
   }
 
-  const hasActiveFilters = gameType !== 'all' || startDate || endDate || includeBotOnly || source
+  const hasActiveFilters =
+    gameType !== 'all' || startDate || endDate || includeBotOnly || source || movement || gameplay
 
   return (
     <div className="matches-page">
@@ -146,15 +168,41 @@ export function MatchesPage() {
 
       <div className="match-filters">
         <div className="game-type-selector">
-          {(Object.keys(GAME_TYPE_LABELS) as GameTypeFilter[]).map((gt) => (
+          <button
+            key="all"
+            className={`game-type-btn ${gameType === 'all' ? 'active' : ''}`}
+            onClick={() => setGameType('all')}
+          >
+            All
+          </button>
+          {GAME_TYPES.map((gt) => (
             <button
               key={gt}
               className={`game-type-btn ${gameType === gt ? 'active' : ''}`}
               onClick={() => setGameType(gt)}
             >
-              {GAME_TYPE_LABELS[gt]}
+              {formatGameType(gt)}
             </button>
           ))}
+        </div>
+
+        <div className="match-mode-filters">
+          <ModeFilterGroup
+            label="Movement"
+            shortLabel="Movement:"
+            modes={MOVEMENT_MODES}
+            available={MOVEMENT_KEYS}
+            value={movement}
+            onChange={setMovement}
+          />
+          <ModeFilterGroup
+            label="Gameplay"
+            shortLabel="Gameplay:"
+            modes={GAMEPLAY_MODES}
+            available={GAMEPLAY_KEYS}
+            value={gameplay}
+            onChange={setGameplay}
+          />
         </div>
 
         <div className="date-range-filters">

@@ -144,7 +144,7 @@ export function ServerFilters({ servers, filters, onChange }: ServerFiltersProps
       {showMovement && (
         <ModeFilterGroup
           label="Movement"
-          shortLabel="M"
+          shortLabel="Movement:"
           modes={MOVEMENT_MODES}
           available={movements}
           value={filters.movement}
@@ -154,7 +154,7 @@ export function ServerFilters({ servers, filters, onChange }: ServerFiltersProps
       {showGameplay && (
         <ModeFilterGroup
           label="Gameplay"
-          shortLabel="G"
+          shortLabel="Gameplay:"
           modes={GAMEPLAY_MODES}
           available={gameplays}
           value={filters.gameplay}
@@ -174,7 +174,7 @@ export function ServerFilters({ servers, filters, onChange }: ServerFiltersProps
   )
 }
 
-interface ModeFilterGroupProps {
+export interface ModeFilterGroupProps {
   label: string
   shortLabel: string
   modes: Record<string, { icon: string; label: string }>
@@ -183,7 +183,7 @@ interface ModeFilterGroupProps {
   onChange: (next: string) => void
 }
 
-function ModeFilterGroup({ label, shortLabel, modes, available, value, onChange }: ModeFilterGroupProps) {
+export function ModeFilterGroup({ label, shortLabel, modes, available, value, onChange }: ModeFilterGroupProps) {
   return (
     <div className="server-filter-group" role="radiogroup" aria-label={`Filter by ${label.toLowerCase()}`}>
       <span className="server-filter-label" aria-hidden="true">{shortLabel}</span>
