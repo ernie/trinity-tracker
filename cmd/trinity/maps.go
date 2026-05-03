@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -27,6 +28,7 @@ const (
 	entRedObelisk  = "team_redobelisk"
 	entBlueObelisk = "team_blueobelisk"
 	entNeutObelisk = "team_neutralobelisk"
+	entCPMAArmor   = "item_armor_jacket"
 )
 
 // Team Arena items. Holdable kamikaze/invulnerability are the TA additions
@@ -55,17 +57,8 @@ type mapEntities struct {
 	HasTAPowerup  bool
 	HasTAHoldable bool
 	HasTAWeapon   bool
-}
 
-// hasTeamSpawns reports whether both teams have at least one spawn (initial or respawn).
-func (m mapEntities) hasTeamSpawns() bool {
-	return (m.RedPlayer+m.RedSpawn) > 0 && (m.BluePlayer+m.BlueSpawn) > 0
-}
-
-// hasFullTAOutfit means the map has both a persistent TA powerup and a TA weapon
-// placed in the level. Holdables are informational (not all TA maps include them).
-func (m mapEntities) hasFullTAOutfit() bool {
-	return m.HasTAPowerup && m.HasTAWeapon
+	HasCPMAArmor bool
 }
 
 // mapRow is one entry in the scan results.
@@ -75,136 +68,157 @@ type mapRow struct {
 	Ents mapEntities
 }
 
-// mapMode describes a Trinity-supported mode and its requirements.
-type mapMode struct {
-	canonical string   // canonical name (matches parseGametype's preferred token)
-	aliases   []string // accepted CLI tokens
-	desc      string
-	suitable  func(mapEntities) bool
+// mapFilter holds the per-flag filter values parsed from the CLI. Numeric
+// filters use 0/MaxInt as no-op sentinels so the keep predicate is just
+// arithmetic with no extra "is set" tracking.
+type mapFilter struct {
+	minDM, maxDM                     int
+	minTeamPlayers, maxTeamPlayers   int
+	minTeamRespawns, maxTeamRespawns int
+
+	ctf, neutralFlag                bool
+	obelisks, neutralObelisk        bool
+	taPowerup, taHoldable, taWeapon bool
+	cpma                            bool
 }
 
-var supportedModes = []mapMode{
-	{
-		canonical: "ffa",
-		aliases:   []string{"ffa"},
-		desc:      "Free-For-All",
-		suitable:  func(e mapEntities) bool { return e.DM > 0 },
-	},
-	{
-		canonical: "1v1",
-		aliases:   []string{"1v1", "tournament"},
-		desc:      "Tournament (1v1)",
-		suitable:  func(e mapEntities) bool { return e.DM > 0 },
-	},
-	{
-		canonical: "tdm",
-		aliases:   []string{"tdm"},
-		desc:      "Team Deathmatch",
-		suitable:  func(e mapEntities) bool { return e.DM > 0 },
-	},
-	{
-		canonical: "tdm-ta",
-		aliases:   []string{"tdm-ta"},
-		desc:      "Team Deathmatch (Team Arena)",
-		suitable:  func(e mapEntities) bool { return e.DM > 0 && e.hasFullTAOutfit() },
-	},
-	{
-		canonical: "ctf",
-		aliases:   []string{"ctf"},
-		desc:      "Capture The Flag",
-		suitable: func(e mapEntities) bool {
-			return e.hasTeamSpawns() && e.HasRedFlag && e.HasBlueFlag
-		},
-	},
-	{
-		canonical: "ctf-ta",
-		aliases:   []string{"ctf-ta"},
-		desc:      "Capture The Flag (Team Arena)",
-		suitable: func(e mapEntities) bool {
-			return e.hasTeamSpawns() && e.HasRedFlag && e.HasBlueFlag && e.hasFullTAOutfit()
-		},
-	},
-	{
-		canonical: "1fctf",
-		aliases:   []string{"1fctf", "oneflag"},
-		desc:      "One Flag CTF",
-		suitable: func(e mapEntities) bool {
-			return e.hasTeamSpawns() &&
-				e.HasRedFlag && e.HasBlueFlag && e.HasNeutralFlag &&
-				e.hasFullTAOutfit()
-		},
-	},
-	{
-		canonical: "overload",
-		aliases:   []string{"overload"},
-		desc:      "Overload",
-		suitable: func(e mapEntities) bool {
-			return e.hasTeamSpawns() && e.HasRedObelisk && e.HasBlueObelisk && e.hasFullTAOutfit()
-		},
-	},
-	{
-		canonical: "harvester",
-		aliases:   []string{"harvester"},
-		desc:      "Harvester",
-		suitable: func(e mapEntities) bool {
-			return e.hasTeamSpawns() &&
-				e.HasRedObelisk && e.HasBlueObelisk && e.HasNeutObelisk &&
-				e.hasFullTAOutfit()
-		},
-	},
-}
-
-// findMode resolves a CLI token to a registered mode.
-func findMode(name string) (mapMode, bool) {
-	name = strings.ToLower(strings.TrimSpace(name))
-	for _, m := range supportedModes {
-		for _, a := range m.aliases {
-			if a == name {
-				return m, true
-			}
-		}
+// keep ANDs every active filter together. Numeric bounds for both teams must
+// each fall within the bound (a CTF map with 2 red + 8 blue spawns is a 2v2
+// map for filtering purposes).
+func (f mapFilter) keep(e mapEntities) bool {
+	if e.DM < f.minDM || e.DM > f.maxDM {
+		return false
 	}
-	return mapMode{}, false
+	if e.RedPlayer < f.minTeamPlayers || e.BluePlayer < f.minTeamPlayers {
+		return false
+	}
+	if e.RedPlayer > f.maxTeamPlayers || e.BluePlayer > f.maxTeamPlayers {
+		return false
+	}
+	if e.RedSpawn < f.minTeamRespawns || e.BlueSpawn < f.minTeamRespawns {
+		return false
+	}
+	if e.RedSpawn > f.maxTeamRespawns || e.BlueSpawn > f.maxTeamRespawns {
+		return false
+	}
+	if f.ctf && !(e.HasRedFlag && e.HasBlueFlag) {
+		return false
+	}
+	if f.neutralFlag && !e.HasNeutralFlag {
+		return false
+	}
+	if f.obelisks && !(e.HasRedObelisk && e.HasBlueObelisk) {
+		return false
+	}
+	if f.neutralObelisk && !e.HasNeutObelisk {
+		return false
+	}
+	if f.taPowerup && !e.HasTAPowerup {
+		return false
+	}
+	if f.taHoldable && !e.HasTAHoldable {
+		return false
+	}
+	if f.taWeapon && !e.HasTAWeapon {
+		return false
+	}
+	if f.cpma && !e.HasCPMAArmor {
+		return false
+	}
+	return true
+}
+
+// labels returns the active filters in CLI form, suitable for echoing back
+// in the footer summary. Order matches the help text.
+func (f mapFilter) labels() []string {
+	var out []string
+	if f.minDM > 0 {
+		out = append(out, fmt.Sprintf("--min-dm %d", f.minDM))
+	}
+	if f.maxDM < math.MaxInt {
+		out = append(out, fmt.Sprintf("--max-dm %d", f.maxDM))
+	}
+	if f.minTeamPlayers > 0 {
+		out = append(out, fmt.Sprintf("--min-team-players %d", f.minTeamPlayers))
+	}
+	if f.maxTeamPlayers < math.MaxInt {
+		out = append(out, fmt.Sprintf("--max-team-players %d", f.maxTeamPlayers))
+	}
+	if f.minTeamRespawns > 0 {
+		out = append(out, fmt.Sprintf("--min-team-respawns %d", f.minTeamRespawns))
+	}
+	if f.maxTeamRespawns < math.MaxInt {
+		out = append(out, fmt.Sprintf("--max-team-respawns %d", f.maxTeamRespawns))
+	}
+	if f.ctf {
+		out = append(out, "--ctf")
+	}
+	if f.neutralFlag {
+		out = append(out, "--neutral-flag")
+	}
+	if f.obelisks {
+		out = append(out, "--obelisks")
+	}
+	if f.neutralObelisk {
+		out = append(out, "--neutral-obelisk")
+	}
+	if f.taPowerup {
+		out = append(out, "--ta-powerup")
+	}
+	if f.taHoldable {
+		out = append(out, "--ta-holdable")
+	}
+	if f.taWeapon {
+		out = append(out, "--ta-weapon")
+	}
+	if f.cpma {
+		out = append(out, "--cpma")
+	}
+	return out
 }
 
 func cmdMaps(args []string) {
 	fs := flag.NewFlagSet("maps", flag.ExitOnError)
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
-	mode := fs.String("mode", "", "list only maps suitable for this mode (ffa, 1v1, tdm, tdm-ta, ctf, ctf-ta, 1fctf, overload, harvester)")
 	namesOnly := fs.Bool("names-only", false, "print only map names, one per line (suitable for piping into rotation files)")
+
+	var f mapFilter
+	fs.IntVar(&f.minDM, "min-dm", 0, "require at least N info_player_deathmatch spawns")
+	fs.IntVar(&f.maxDM, "max-dm", math.MaxInt, "allow at most N info_player_deathmatch spawns")
+	fs.IntVar(&f.minTeamPlayers, "min-team-players", 0, "require at least N initial spawns per team (both teams)")
+	fs.IntVar(&f.maxTeamPlayers, "max-team-players", math.MaxInt, "allow at most N initial spawns per team (both teams)")
+	fs.IntVar(&f.minTeamRespawns, "min-team-respawns", 0, "require at least N respawns per team (both teams)")
+	fs.IntVar(&f.maxTeamRespawns, "max-team-respawns", math.MaxInt, "allow at most N respawns per team (both teams)")
+	fs.BoolVar(&f.ctf, "ctf", false, "require both red and blue CTF flag bases")
+	fs.BoolVar(&f.neutralFlag, "neutral-flag", false, "require neutral flag (One Flag CTF)")
+	fs.BoolVar(&f.obelisks, "obelisks", false, "require both red and blue obelisks (Overload)")
+	fs.BoolVar(&f.neutralObelisk, "neutral-obelisk", false, "require neutral obelisk (Harvester)")
+	fs.BoolVar(&f.taPowerup, "ta-powerup", false, "require a Team Arena persistent powerup (scout/guard/doubler/ammoregen)")
+	fs.BoolVar(&f.taHoldable, "ta-holdable", false, "require a Team Arena holdable (kamikaze/invulnerability)")
+	fs.BoolVar(&f.taWeapon, "ta-weapon", false, "require a Team Arena weapon (nailgun/chaingun/proximity launcher)")
+	fs.BoolVar(&f.cpma, "cpma", false, "require CPMA green armor (item_armor_jacket)")
+
+	// Cosmetic: hide the MaxInt sentinel in --help; the value still defaults to MaxInt.
+	for _, name := range []string{"max-dm", "max-team-players", "max-team-respawns"} {
+		fs.Lookup(name).DefValue = "no limit"
+	}
+
 	fs.Usage = func() {
-		fmt.Fprintln(os.Stderr, "Usage: trinity maps [--mode <mode>] [--names-only] [path]")
+		fmt.Fprintln(os.Stderr, "Usage: trinity maps [filters...] [--names-only] [path]")
 		fmt.Fprintln(os.Stderr)
-		fmt.Fprintln(os.Stderr, "Scans pk3 files for map entities and reports which game modes each map supports.")
+		fmt.Fprintln(os.Stderr, "Scans pk3 files for map entities and reports each map's capabilities.")
 		fmt.Fprintln(os.Stderr, "Without [path], uses server.quake3_dir from the config (default /usr/lib/quake3).")
 		fmt.Fprintln(os.Stderr)
-		fmt.Fprintln(os.Stderr, "Modes accepted by --mode:")
-		for _, m := range supportedModes {
-			fmt.Fprintf(os.Stderr, "  %-10s %s\n", m.canonical, m.desc)
-		}
+		fmt.Fprintln(os.Stderr, "Filters AND together. Examples:")
+		fmt.Fprintln(os.Stderr, "  trinity maps --ctf --min-team-players 4       playable 4v4 CTF maps")
+		fmt.Fprintln(os.Stderr, "  trinity maps --cpma --min-dm 6                CPMA-aware FFA maps")
+		fmt.Fprintln(os.Stderr, "  trinity maps --neutral-flag --ta-powerup      1FCTF with TA powerups")
 		fmt.Fprintln(os.Stderr)
 		fmt.Fprintln(os.Stderr, "Options:")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
 		os.Exit(2)
-	}
-
-	// Validate --mode before touching config/disk so bad input fails fast.
-	var filterMode mapMode
-	var haveFilter bool
-	if *mode != "" {
-		m, ok := findMode(*mode)
-		if !ok {
-			names := make([]string, len(supportedModes))
-			for i, m := range supportedModes {
-				names[i] = m.canonical
-			}
-			fmt.Fprintf(os.Stderr, "Error: unknown mode %q. Try one of: %s\n", *mode, strings.Join(names, ", "))
-			os.Exit(2)
-		}
-		filterMode = m
-		haveFilter = true
 	}
 
 	// Resolve input dir: positional arg wins; else config; else default.
@@ -227,16 +241,11 @@ func cmdMaps(args []string) {
 		os.Exit(1)
 	}
 
-	keep := func(mapEntities) bool { return true }
-	if haveFilter {
-		keep = filterMode.suitable
-	}
-
 	if *namesOnly {
-		streamMapNames(pk3Files, inputPath, keep)
+		streamMapNames(pk3Files, inputPath, f)
 		return
 	}
-	streamMapsTable(pk3Files, inputPath, keep, haveFilter, filterMode)
+	streamMapsTable(pk3Files, inputPath, f)
 }
 
 // bspLocation records where to find a .bsp's entity lump.
@@ -388,6 +397,8 @@ func parseEntityClasses(lump []byte) mapEntities {
 			ents.HasBlueObelisk = true
 		case entNeutObelisk:
 			ents.HasNeutObelisk = true
+		case entCPMAArmor:
+			ents.HasCPMAArmor = true
 		default:
 			if taPowerups[cn] {
 				ents.HasTAPowerup = true
@@ -463,6 +474,7 @@ func defaultMapsCols() []col {
 		{"POW", 5, false, true},
 		{"HLD", 5, false, true},
 		{"WPN", 5, false, true},
+		{"CPMA", 6, false, true},
 	}
 }
 
@@ -486,10 +498,11 @@ const (
 // streamMapsTable scans pk3s alphabetically and emits each row to stdout as
 // it's parsed, wrapped in a Unicode box-drawn table. With filter, non-matching
 // rows are silently dropped.
-func streamMapsTable(pk3Files []string, basePath string, keep func(mapEntities) bool, filtered bool, m mapMode) {
+func streamMapsTable(pk3Files []string, basePath string, f mapFilter) {
 	printColumnKey(os.Stdout)
-	if filtered {
-		fmt.Fprintf(os.Stdout, "\nMaps suitable for %s (%s):\n\n", m.canonical, m.desc)
+	labels := f.labels()
+	if len(labels) > 0 {
+		fmt.Fprintf(os.Stdout, "\nFilters: %s\n\n", strings.Join(labels, " "))
 	} else {
 		fmt.Fprintln(os.Stdout)
 	}
@@ -505,7 +518,7 @@ func streamMapsTable(pk3Files []string, basePath string, keep func(mapEntities) 
 
 	matched := 0
 	scanned := streamFromIndex(index, names, func(r mapRow) {
-		if !keep(r.Ents) {
+		if !f.keep(r.Ents) {
 			return
 		}
 		matched++
@@ -514,18 +527,18 @@ func streamMapsTable(pk3Files []string, basePath string, keep func(mapEntities) 
 
 	fmt.Fprintln(out, borderLine(cols, "└", "┴", "┘"))
 
-	if filtered {
-		fmt.Fprintf(out, "\n%d maps suitable for %s out of %d scanned.\n", matched, m.canonical, scanned)
+	if len(labels) > 0 {
+		fmt.Fprintf(out, "\n%d of %d maps matched filters: %s\n", matched, scanned, strings.Join(labels, " "))
 	} else {
 		fmt.Fprintf(out, "\nScanned %d maps.\n", scanned)
 	}
 }
 
 // streamMapNames emits just bare map names alphabetically as they're parsed.
-func streamMapNames(pk3Files []string, basePath string, keep func(mapEntities) bool) {
+func streamMapNames(pk3Files []string, basePath string, f mapFilter) {
 	index, names := indexMaps(pk3Files, basePath)
 	streamFromIndex(index, names, func(r mapRow) {
-		if !keep(r.Ents) {
+		if !f.keep(r.Ents) {
 			return
 		}
 		fmt.Println(r.Name)
@@ -571,6 +584,7 @@ func dataRow(cols []col, r mapRow) string {
 		padEmoji(e.HasTAPowerup, cols[10].width),
 		padEmoji(e.HasTAHoldable, cols[11].width),
 		padEmoji(e.HasTAWeapon, cols[12].width),
+		padEmoji(e.HasCPMAArmor, cols[13].width),
 	}
 	return "│" + strings.Join(cells, "│") + "│"
 }
@@ -637,4 +651,5 @@ func printColumnKey(w io.Writer) {
 	fmt.Fprintln(w, "  POW    has at least one Team Arena persistent powerup (scout/guard/doubler/ammoregen)")
 	fmt.Fprintln(w, "  HLD    has at least one Team Arena holdable (kamikaze/invulnerability)")
 	fmt.Fprintln(w, "  WPN    has at least one Team Arena weapon (nailgun/chaingun/proximity launcher)")
+	fmt.Fprintln(w, "  CPMA   has CPMA green armor (item_armor_jacket)")
 }
