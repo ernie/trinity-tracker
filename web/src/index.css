@@ -4231,12 +4231,12 @@ h2 {
   color: #fff;
 }
 
-/* Category selector */
+/* Category selector — 6 columns so 8–12 categories pack as 2 even rows. */
 .category-selector {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 4px;
   margin-bottom: 15px;
-  flex-wrap: wrap;
   background: var(--bg-card);
   border-radius: 8px;
   padding: 8px;
@@ -4357,7 +4357,7 @@ h2 {
 
 @media (max-width: 768px) {
   .category-selector {
-    justify-content: center;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .category-btn {
@@ -4489,6 +4489,13 @@ h2 {
 }
 
 .date-range-filters {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.match-mode-filters {
   display: flex;
   gap: 15px;
   align-items: center;
