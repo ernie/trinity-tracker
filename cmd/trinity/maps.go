@@ -63,9 +63,10 @@ type mapEntities struct {
 
 // mapRow is one entry in the scan results.
 type mapRow struct {
-	Name string
-	Pk3  string
-	Ents mapEntities
+	Name    string
+	Pk3     string
+	Ents    mapEntities
+	HasBots bool // a matching .aas file exists in some pk3 (bot navigation data)
 }
 
 // mapFilter holds the per-flag filter values parsed from the CLI. Numeric
@@ -80,12 +81,14 @@ type mapFilter struct {
 	obelisks, neutralObelisk        bool
 	taPowerup, taHoldable, taWeapon bool
 	cpma                            bool
+	bots                            bool
 }
 
 // keep ANDs every active filter together. Numeric bounds for both teams must
 // each fall within the bound (a CTF map with 2 red + 8 blue spawns is a 2v2
 // map for filtering purposes).
-func (f mapFilter) keep(e mapEntities) bool {
+func (f mapFilter) keep(r mapRow) bool {
+	e := r.Ents
 	if e.DM < f.minDM || e.DM > f.maxDM {
 		return false
 	}
@@ -123,6 +126,9 @@ func (f mapFilter) keep(e mapEntities) bool {
 		return false
 	}
 	if f.cpma && !e.HasCPMAArmor {
+		return false
+	}
+	if f.bots && !r.HasBots {
 		return false
 	}
 	return true
@@ -174,6 +180,9 @@ func (f mapFilter) labels() []string {
 	if f.cpma {
 		out = append(out, "--cpma")
 	}
+	if f.bots {
+		out = append(out, "--bots")
+	}
 	return out
 }
 
@@ -197,6 +206,7 @@ func cmdMaps(args []string) {
 	fs.BoolVar(&f.taHoldable, "ta-holdable", false, "require a Team Arena holdable (kamikaze/invulnerability)")
 	fs.BoolVar(&f.taWeapon, "ta-weapon", false, "require a Team Arena weapon (nailgun/chaingun/proximity launcher)")
 	fs.BoolVar(&f.cpma, "cpma", false, "require CPMA green armor (item_armor_jacket)")
+	fs.BoolVar(&f.bots, "bots", false, "require bot support (matching .aas navigation file in any pk3)")
 
 	// Cosmetic: hide the MaxInt sentinel in --help; the value still defaults to MaxInt.
 	for _, name := range []string{"max-dm", "max-team-players", "max-team-respawns"} {
@@ -213,6 +223,7 @@ func cmdMaps(args []string) {
 		fmt.Fprintln(os.Stderr, "  trinity maps --ctf --min-team-players 4       playable 4v4 CTF maps")
 		fmt.Fprintln(os.Stderr, "  trinity maps --cpma --min-dm 6                CPMA-aware FFA maps")
 		fmt.Fprintln(os.Stderr, "  trinity maps --neutral-flag --ta-powerup      1FCTF with TA powerups")
+		fmt.Fprintln(os.Stderr, "  trinity maps --bots --min-dm 4                FFA maps that support bots")
 		fmt.Fprintln(os.Stderr)
 		fmt.Fprintln(os.Stderr, "Options:")
 		fs.PrintDefaults()
@@ -256,11 +267,15 @@ type bspLocation struct {
 }
 
 // indexMaps walks every pk3's central directory (no decompression) to find all
-// .bsp entries. Returns the index keyed by lowercased map basename and the
-// alphabetically sorted list of names. Last-loaded pk3 wins on duplicates,
-// matching the engine's resource-resolution precedence.
-func indexMaps(pk3Files []string, basePath string) (map[string]bspLocation, []string) {
+// .bsp entries and the matching .aas (bot navigation) files. Returns the bsp
+// index keyed by lowercased map basename, the alphabetically sorted list of
+// names, and a set of names whose .aas was found in any pk3. Last-loaded pk3
+// wins on bsp duplicates, matching the engine's resource-resolution precedence;
+// .aas presence is a union across all pk3s because companion bot packs commonly
+// ship .aas separately from the .bsp.
+func indexMaps(pk3Files []string, basePath string) (map[string]bspLocation, []string, map[string]bool) {
 	index := make(map[string]bspLocation)
+	aasMaps := make(map[string]bool)
 	for _, pk3 := range pk3Files {
 		display := pk3DisplayPath(pk3, basePath)
 		r, err := zip.OpenReader(pk3)
@@ -269,11 +284,15 @@ func indexMaps(pk3Files []string, basePath string) (map[string]bspLocation, []st
 			continue
 		}
 		for _, f := range r.File {
-			if !strings.HasSuffix(strings.ToLower(f.Name), ".bsp") {
-				continue
+			lower := strings.ToLower(f.Name)
+			switch {
+			case strings.HasSuffix(lower, ".bsp"):
+				name := strings.ToLower(strings.TrimSuffix(filepath.Base(f.Name), filepath.Ext(f.Name)))
+				index[name] = bspLocation{pk3Path: pk3, pk3Display: display, bspName: f.Name}
+			case strings.HasSuffix(lower, ".aas"):
+				name := strings.ToLower(strings.TrimSuffix(filepath.Base(f.Name), filepath.Ext(f.Name)))
+				aasMaps[name] = true
 			}
-			name := strings.ToLower(strings.TrimSuffix(filepath.Base(f.Name), filepath.Ext(f.Name)))
-			index[name] = bspLocation{pk3Path: pk3, pk3Display: display, bspName: f.Name}
 		}
 		r.Close()
 	}
@@ -282,13 +301,14 @@ func indexMaps(pk3Files []string, basePath string) (map[string]bspLocation, []st
 		names = append(names, n)
 	}
 	sort.Strings(names)
-	return index, names
+	return index, names, aasMaps
 }
 
 // streamFromIndex iterates the sorted name list, parses each map's entities,
 // and calls visit. Maintains a 1-entry pk3 cache so adjacent maps in the same
-// pk3 (common — e.g. all q3wcp* live in q3wpak1.pk3) skip re-opening.
-func streamFromIndex(index map[string]bspLocation, names []string, visit func(mapRow)) int {
+// pk3 (common — e.g. all q3wcp* live in q3wpak1.pk3) skip re-opening. aasMaps
+// supplies the bot-support flag for each row.
+func streamFromIndex(index map[string]bspLocation, names []string, aasMaps map[string]bool, visit func(mapRow)) int {
 	var (
 		cachePath  string
 		cacheR     *zip.ReadCloser
@@ -333,7 +353,7 @@ func streamFromIndex(index map[string]bspLocation, names []string, visit func(ma
 			continue
 		}
 		scanned++
-		visit(mapRow{Name: name, Pk3: loc.pk3Display, Ents: ents})
+		visit(mapRow{Name: name, Pk3: loc.pk3Display, Ents: ents, HasBots: aasMaps[name]})
 	}
 	return scanned
 }
@@ -475,6 +495,7 @@ func defaultMapsCols() []col {
 		{"HLD", 5, false, true},
 		{"WPN", 5, false, true},
 		{"CPMA", 6, false, true},
+		{"BOTS", 6, false, true},
 	}
 }
 
@@ -507,7 +528,7 @@ func streamMapsTable(pk3Files []string, basePath string, f mapFilter) {
 		fmt.Fprintln(os.Stdout)
 	}
 
-	index, names := indexMaps(pk3Files, basePath)
+	index, names, aasMaps := indexMaps(pk3Files, basePath)
 	cols := defaultMapsCols()
 	cols[0].width = longestName(names) + 2 // +2 for inner padding
 
@@ -517,8 +538,8 @@ func streamMapsTable(pk3Files []string, basePath string, f mapFilter) {
 	fmt.Fprintln(out, borderLine(cols, "├", "┼", "┤"))
 
 	matched := 0
-	scanned := streamFromIndex(index, names, func(r mapRow) {
-		if !f.keep(r.Ents) {
+	scanned := streamFromIndex(index, names, aasMaps, func(r mapRow) {
+		if !f.keep(r) {
 			return
 		}
 		matched++
@@ -536,9 +557,9 @@ func streamMapsTable(pk3Files []string, basePath string, f mapFilter) {
 
 // streamMapNames emits just bare map names alphabetically as they're parsed.
 func streamMapNames(pk3Files []string, basePath string, f mapFilter) {
-	index, names := indexMaps(pk3Files, basePath)
-	streamFromIndex(index, names, func(r mapRow) {
-		if !f.keep(r.Ents) {
+	index, names, aasMaps := indexMaps(pk3Files, basePath)
+	streamFromIndex(index, names, aasMaps, func(r mapRow) {
+		if !f.keep(r) {
 			return
 		}
 		fmt.Println(r.Name)
@@ -585,6 +606,7 @@ func dataRow(cols []col, r mapRow) string {
 		padEmoji(e.HasTAHoldable, cols[11].width),
 		padEmoji(e.HasTAWeapon, cols[12].width),
 		padEmoji(e.HasCPMAArmor, cols[13].width),
+		padEmoji(r.HasBots, cols[14].width),
 	}
 	return "│" + strings.Join(cells, "│") + "│"
 }
@@ -652,4 +674,5 @@ func printColumnKey(w io.Writer) {
 	fmt.Fprintln(w, "  HLD    has at least one Team Arena holdable (kamikaze/invulnerability)")
 	fmt.Fprintln(w, "  WPN    has at least one Team Arena weapon (nailgun/chaingun/proximity launcher)")
 	fmt.Fprintln(w, "  CPMA   has CPMA green armor (item_armor_jacket)")
+	fmt.Fprintln(w, "  BOTS   has matching .aas bot navigation file (in any pk3)")
 }
