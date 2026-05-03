@@ -1,5 +1,6 @@
-import { ReactNode, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
+import { ColoredText } from '../ColoredText'
 
 export interface UserOption {
   id: number
@@ -99,12 +100,12 @@ export function UserPicker({
                 }}
               >
                 <span className="user-picker-username">
-                  {highlight(u.username, debounced)}
+                  {u.username}
                   {u.is_admin && <span className="user-picker-badge">admin</span>}
                 </span>
                 {u.player_name && (
                   <span className="user-picker-player">
-                    player: {highlight(u.player_name, debounced)}
+                    (<ColoredText text={u.player_name} />)
                   </span>
                 )}
                 {disabled && <span className="user-picker-note">current owner</span>}
@@ -116,9 +117,15 @@ export function UserPicker({
       {selected && (
         <div className="selected-player">
           <span>
-            Selected: {selected.username}
+            {selected.username}
             {selected.is_admin && ' (admin)'}
-            {selected.player_name && ` · player: ${selected.player_name}`}
+            {selected.player_name && (
+              <>
+                {' ('}
+                <ColoredText text={selected.player_name} />
+                {')'}
+              </>
+            )}
           </span>
           <button type="button" onClick={clear}>
             Clear
@@ -129,25 +136,3 @@ export function UserPicker({
   )
 }
 
-// highlight wraps every case-insensitive occurrence of `q` in `s` with <mark>
-// so the admin can see at a glance which field (username vs. player name) the
-// query matched on.
-function highlight(s: string, q: string): ReactNode {
-  if (!q) return s
-  const needle = q.toLowerCase()
-  const lower = s.toLowerCase()
-  const out: ReactNode[] = []
-  let i = 0
-  let key = 0
-  while (i < s.length) {
-    const idx = lower.indexOf(needle, i)
-    if (idx < 0) {
-      out.push(s.slice(i))
-      break
-    }
-    if (idx > i) out.push(s.slice(i, idx))
-    out.push(<mark key={key++}>{s.slice(idx, idx + needle.length)}</mark>)
-    i = idx + needle.length
-  }
-  return out
-}
