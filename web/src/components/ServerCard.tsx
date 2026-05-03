@@ -130,7 +130,11 @@ function getDisplayTime(server: ServerStatus, timeLimitMinutes: number | null): 
 
 // Hook to interpolate game time between server updates
 // timeLimitMinutes is used to clamp interpolated time so we don't falsely flag overtime
-function useInterpolatedTime(server: ServerStatus, timeLimitMinutes: number | null): { gameTimeMs: number; warmupRemaining: number | undefined } {
+// `live` gates the local 1-second tick: when the server is offline or its
+// collector is stale the poller keeps re-broadcasting the same snapshot
+// every poll cycle, so ticking would just produce a saw-tooth (count up
+// 1s per second, snap back when the next stale broadcast lands).
+function useInterpolatedTime(server: ServerStatus, timeLimitMinutes: number | null, live: boolean): { gameTimeMs: number; warmupRemaining: number | undefined } {
   // Track the snapshot we're interpolating from alongside the offset, so when
   // a new snapshot arrives we can reset offset during render — see
   // https://react.dev/reference/react/useState#storing-information-from-previous-renders.
@@ -142,6 +146,7 @@ function useInterpolatedTime(server: ServerStatus, timeLimitMinutes: number | nu
 
   // Increment/decrement timer every second based on match state
   useEffect(() => {
+    if (!live) return
     // Only tick for active, overtime, or warmup states
     if (server.match_state !== 'active' && server.match_state !== 'overtime' && server.match_state !== 'warmup') {
       return
@@ -152,7 +157,7 @@ function useInterpolatedTime(server: ServerStatus, timeLimitMinutes: number | nu
     }, 1000)
 
     return () => clearInterval(interval)
-  }, [server.match_state, server.last_updated])
+  }, [server.match_state, server.last_updated, live])
 
   // Use a stable offset only after the reset has landed — for the one render
   // where we still hold the previous snapshot's offset, treat it as zero.
@@ -255,8 +260,16 @@ export function ServerCard({ server, newPlayers, isSelected, onSelect, onPlayerC
   const scoreLimit = getScoreLimit(server.game_type, server.server_vars)
   const timeLimit = getTimeLimit(server.server_vars)
 
+  // A card is "degraded" when its data is no longer trustworthy: the
+  // UDP poll has been failing (offline) or the collector heartbeat has
+  // aged out (stale). We freeze the local clock and dim the card so
+  // the timer doesn't saw-tooth and the staleness reads visually.
+  // `liveness` is undefined on first render (before /api/servers
+  // returns) — treat that as live so we don't briefly dim healthy cards.
+  const isDegraded = liveness === 'offline' || liveness === 'stale' || server.online === false
+
   // Use interpolated time for smooth updates between server reports
-  const { gameTimeMs, warmupRemaining } = useInterpolatedTime(server, timeLimit)
+  const { gameTimeMs, warmupRemaining } = useInterpolatedTime(server, timeLimit, !isDegraded)
   const interpolatedServer = { ...server, game_time_ms: gameTimeMs, warmup_remaining: warmupRemaining }
   const displayTime = getDisplayTime(interpolatedServer, timeLimit)
   // Determine state class and label for top-right badge.
@@ -292,7 +305,7 @@ export function ServerCard({ server, newPlayers, isSelected, onSelect, onPlayerC
 
   return (
     <div
-      className={`server-card ${isSelected ? 'selected' : ''} ${onSelect ? 'selectable' : ''}`}
+      className={`server-card ${isSelected ? 'selected' : ''} ${onSelect ? 'selectable' : ''} ${isDegraded ? 'degraded' : ''}`}
       style={levelshotUrl ? { '--levelshot': `url(${levelshotUrl})` } as React.CSSProperties : undefined}
       onClick={onSelect}
       role={onSelect ? 'button' : undefined}

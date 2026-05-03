@@ -2652,6 +2652,13 @@ h2 {
   box-shadow: 0 0 10px rgba(33, 150, 243, 0.3);
 }
 
+/* Degraded = liveness offline/stale. Freeze the timer, dim the data,
+   leave the state badge at full strength so the chip still reads. */
+.server-card.degraded > *:not(.server-state-badge) {
+  opacity: 0.55;
+  filter: grayscale(0.5);
+}
+
 /* RCON Sidebar */
 .rcon-sidebar {
   position: fixed;
