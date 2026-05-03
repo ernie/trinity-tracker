@@ -304,6 +304,12 @@ func parseFlagStatus(s string) *domain.FlagStatus {
 		if err1 != nil || err2 != nil {
 			return nil
 		}
+		// Engine leaves the carrier slot pointing at the last carrier
+		// across at-base (0) and dropped (4) — normalize to -1 so the UI
+		// can't pin a stale carry indicator on that player.
+		if status != 2 && status != 3 {
+			carrier = -1
+		}
 		return &domain.FlagStatus{
 			Mode:           "1fctf",
 			Neutral:        status,

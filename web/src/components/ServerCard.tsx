@@ -32,7 +32,7 @@ function isCTF(gameType: string): boolean {
 function flagCarriedBy(fs: FlagStatus | undefined, clientNum: number): 'red' | 'blue' | 'neutral' | undefined {
   if (!fs) return undefined
   if (fs.mode === '1fctf') {
-    return fs.neutral_carrier !== undefined && fs.neutral_carrier === clientNum ? 'neutral' : undefined
+    return fs.neutral_carrier !== undefined && fs.neutral_carrier === clientNum && fs.neutral_carrier >= 0 ? 'neutral' : undefined
   }
   if (fs.red_carrier === clientNum && fs.red_carrier >= 0) return 'red'
   if (fs.blue_carrier === clientNum && fs.blue_carrier >= 0) return 'blue'
