@@ -456,6 +456,20 @@ func cmdServe(args []string) {
 	}
 	log.Printf("Server manager started, polling every %v", cfg.Server.PollInterval)
 
+	// Re-bootstrap presence whenever the collector's NATS connection
+	// reconnects. The embedded NATS server lives in the hub process,
+	// so a reconnect almost always means the hub just restarted with
+	// an empty in-memory presence map — without this, player avatars
+	// stay missing on remote-collector server cards until the next
+	// organic player_join. Idempotent on the hub side, so a transient
+	// network blip just republishes the same snapshot.
+	if collectorNC != nil && hasCollector {
+		collectorNC.SetReconnectHandler(func(*nats.Conn) {
+			log.Printf("Collector NATS reconnected; re-bootstrapping presence")
+			manager.BootstrapAll()
+		})
+	}
+
 	// Start the heartbeat registrar after the manager so the initial
 	// publish reflects the actual roster.
 	if hasCollector {

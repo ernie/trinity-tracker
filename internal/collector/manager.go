@@ -260,6 +260,27 @@ func (m *ServerManager) bootstrapServerPresence(serverID int64) {
 	log.Printf("collector: presence bootstrap server=%d published=%d skipped=%d", serverID, len(pending), skipped)
 }
 
+// BootstrapAll republishes presence snapshots for every tracked
+// server. Called after a NATS reconnect — when our connection drops
+// and re-establishes, the hub on the other side has almost certainly
+// just restarted (its embedded NATS goes down with it), and its
+// in-memory presence map is empty. Re-bootstrapping rebuilds it
+// without waiting for the next organic player_join.
+//
+// IDs are snapshotted under the lock then iterated unlocked, because
+// bootstrapServerPresence acquires m.mu.RLock itself.
+func (m *ServerManager) BootstrapAll() {
+	m.mu.RLock()
+	ids := make([]int64, 0, len(m.servers))
+	for id := range m.servers {
+		ids = append(ids, id)
+	}
+	m.mu.RUnlock()
+	for _, id := range ids {
+		m.bootstrapServerPresence(id)
+	}
+}
+
 // Stop stops all polling and log watching
 func (m *ServerManager) Stop() {
 	log.Println("ServerManager: stopping...")
