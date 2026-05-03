@@ -2,7 +2,10 @@ package hub
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"net"
+	"net/netip"
 	"sort"
 	"strings"
 	"sync"
@@ -29,6 +32,18 @@ type IdentityResolver interface {
 	ResolveIdentity(ctx context.Context, guid string) (playerID int64, verified, admin, ok bool)
 }
 
+// SourceConns reports the IPs of every NATS connection currently
+// authenticated as userPubKey, ordered most-recently-active first.
+// Empty slice means no live collector. Used by the poller to bypass
+// DNS for is_remote=1 rows — the kernel-recorded remote address
+// updates the moment a collector reconnects from a new public IP, so
+// dynamic-DNS hosts don't sit offline for the DNS TTL. Index 0 is the
+// freshest session, which matters during reconnect overlap when a
+// stale connection briefly coexists with the new one.
+type SourceConns interface {
+	ConnectedClientIPs(userPubKey string) []netip.Addr
+}
+
 // RemotePoller polls every pollable server and caches the latest ServerStatus,
 // enriching each PlayerStatus via the presence tracker and identity resolver.
 type RemotePoller struct {
@@ -37,6 +52,7 @@ type RemotePoller struct {
 	interval time.Duration
 	presence *Presence
 	identity IdentityResolver
+	conns    SourceConns
 
 	mu       sync.RWMutex
 	statuses map[int64]*domain.ServerStatus
@@ -53,8 +69,11 @@ type RemotePoller struct {
 }
 
 // NewRemotePoller constructs a poller. interval <= 0 falls back to 10s.
-// presence and identity are both optional.
-func NewRemotePoller(store *storage.Store, q StatusQuerier, interval time.Duration, presence *Presence, identity IdentityResolver) *RemotePoller {
+// presence, identity, and conns are all optional. When conns is nil, the
+// poller falls back to using r.Address verbatim (which goes through the
+// OS resolver for hostnames — fine for tests; production should pass
+// the embedded NATS server).
+func NewRemotePoller(store *storage.Store, q StatusQuerier, interval time.Duration, presence *Presence, identity IdentityResolver, conns SourceConns) *RemotePoller {
 	if interval <= 0 {
 		interval = 10 * time.Second
 	}
@@ -64,11 +83,37 @@ func NewRemotePoller(store *storage.Store, q StatusQuerier, interval time.Durati
 		interval:         interval,
 		presence:         presence,
 		identity:         identity,
+		conns:            conns,
 		statuses:         make(map[int64]*domain.ServerStatus),
 		warnedNonTrinity: make(map[int64]string),
 		stopCh:           make(chan struct{}),
 		doneCh:           make(chan struct{}),
 	}
+}
+
+// pollTarget returns the address the poller should UDP-query for r.
+// Local rows poll r.Address verbatim. Remote rows substitute the live
+// NATS-connection IP for the host portion (port stays from r.Address);
+// when more than one connection is open (reconnect overlap), the
+// freshest is picked — that's ips[0] per the SourceConns contract.
+// Returns "" when a remote row has no minted creds or no connected
+// collector — the poll then falls into the standard offline path.
+func (p *RemotePoller) pollTarget(r storage.RemoteServer) string {
+	if !r.IsRemote || p.conns == nil {
+		return r.Address
+	}
+	if r.UserPubKey == "" {
+		return ""
+	}
+	ips := p.conns.ConnectedClientIPs(r.UserPubKey)
+	if len(ips) == 0 {
+		return ""
+	}
+	_, portStr, err := net.SplitHostPort(r.Address)
+	if err != nil {
+		return ""
+	}
+	return net.JoinHostPort(ips[0].String(), portStr)
 }
 
 // SetSink attaches a sink that receives a server_update event after
@@ -139,7 +184,13 @@ func (p *RemotePoller) pollAll(ctx context.Context) {
 		return
 	}
 	for _, r := range servers {
-		status, err := p.querier.QueryStatus(r.Address)
+		var status *domain.ServerStatus
+		var err error
+		if target := p.pollTarget(r); target != "" {
+			status, err = p.querier.QueryStatus(target)
+		} else {
+			err = fmt.Errorf("no live collector connection for source %q", r.Source)
+		}
 		now := time.Now().UTC()
 		if err != nil || status == nil {
 			p.mu.Lock()

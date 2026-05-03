@@ -38,7 +38,7 @@ func TestTwoProcessMatchLifecycle(t *testing.T) {
 			Retention:   config.Duration(24 * time.Hour),
 		},
 	}
-	ns, err := natsbus.Start(cfg, hubDataDir)
+	ns, err := natsbus.Start(cfg, hubDataDir, newMemPubKeyStore())
 	if err != nil {
 		t.Fatalf("natsbus.Start: %v", err)
 	}
@@ -98,7 +98,7 @@ func TestTwoProcessMatchLifecycle(t *testing.T) {
 		t.Fatalf("CreateSource: %v", err)
 	}
 	writer.MarkSourceApproved(source)
-	if _, err := ns.Auth().MintUserCreds(source); err != nil {
+	if _, err := ns.Auth().MintUserCreds(context.Background(), source); err != nil {
 		t.Fatalf("MintUserCreds: %v", err)
 	}
 	credsPath := ns.Auth().CredsPath(source)

@@ -323,7 +323,7 @@ func applyTrackerDefaults(cfg *Config) {
 				d.ChallengeTimeout = Duration(2 * time.Second)
 			}
 			if d.GateRefresh == 0 {
-				d.GateRefresh = Duration(30 * time.Second)
+				d.GateRefresh = Duration(10 * time.Second)
 			}
 			if d.MaxServers == 0 {
 				d.MaxServers = 4096

@@ -44,7 +44,7 @@ func TestLoopbackEventRoundTrip(t *testing.T) {
 			Retention:   config.Duration(24 * time.Hour),
 		},
 	}
-	ns, err := natsbus.Start(trackerCfg, t.TempDir())
+	ns, err := natsbus.Start(trackerCfg, t.TempDir(), nil)
 	if err != nil {
 		t.Fatalf("natsbus.Start: %v", err)
 	}

@@ -26,6 +26,7 @@ func startTestServer(t *testing.T, store gateStore) (*Server, netip.AddrPort, co
 		GateRefresh:      100 * time.Millisecond,
 		MaxServers:       16,
 		Store:            store,
+		Conns:            fakeGateConns{},
 	})
 	if err != nil {
 		t.Fatalf("New: %v", err)

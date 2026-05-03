@@ -31,6 +31,7 @@ type Config struct {
 	MaxServers       int
 
 	Store gateStore
+	Conns gateConns
 
 	// Debug enables per-packet logging at info level. Useful during
 	// rollout; off in production.
@@ -75,10 +76,13 @@ func New(cfg Config) (*Server, error) {
 	if cfg.Store == nil {
 		return nil, errors.New("directory: Store is required")
 	}
+	if cfg.Conns == nil {
+		return nil, errors.New("directory: Conns is required")
+	}
 	return &Server{
 		cfg:        cfg,
 		debug:      cfg.Debug,
-		gate:       newGate(cfg.Store, cfg.GateRefresh),
+		gate:       newGate(cfg.Store, cfg.Conns, cfg.GateRefresh),
 		challenges: newChallengeTracker(cfg.ChallengeTimeout, cfg.MaxServers*2, nil),
 		registry:   newRegistry(cfg.HeartbeatExpiry, cfg.MaxServers, nil),
 		ratelimit:  newRateLimiter(10, 1.0/3.0, nil),

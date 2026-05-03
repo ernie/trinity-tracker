@@ -32,7 +32,7 @@ func startTestServer(t *testing.T) *Server {
 			Retention:   config.Duration(10 * 24 * time.Hour),
 		},
 	}
-	s, err := Start(cfg, t.TempDir())
+	s, err := Start(cfg, t.TempDir(), nil)
 	if err != nil {
 		t.Fatalf("Start: %v", err)
 	}
@@ -103,10 +103,10 @@ func TestStreamsDeclared(t *testing.T) {
 }
 
 func TestStartRequiresHub(t *testing.T) {
-	if _, err := Start(nil, t.TempDir()); err == nil {
+	if _, err := Start(nil, t.TempDir(), nil); err == nil {
 		t.Error("expected error for nil tracker")
 	}
-	if _, err := Start(&config.TrackerConfig{}, t.TempDir()); err == nil {
+	if _, err := Start(&config.TrackerConfig{}, t.TempDir(), nil); err == nil {
 		t.Error("expected error when hub sub-config missing")
 	}
 }
@@ -119,13 +119,13 @@ func TestStartIsIdempotentForReboot(t *testing.T) {
 		Hub:  &config.HubConfig{DedupWindow: config.Duration(time.Minute), Retention: config.Duration(time.Hour)},
 	}
 
-	s1, err := Start(cfg, storeParent)
+	s1, err := Start(cfg, storeParent, nil)
 	if err != nil {
 		t.Fatalf("first Start: %v", err)
 	}
 	s1.Stop()
 
-	s2, err := Start(cfg, storeParent)
+	s2, err := Start(cfg, storeParent, nil)
 	if err != nil {
 		t.Fatalf("second Start (reusing store): %v", err)
 	}

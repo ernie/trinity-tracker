@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
+	"net/netip"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -36,8 +37,10 @@ type Server struct {
 }
 
 // Start boots the embedded server and declares the TRINITY streams.
-// JetStream state is persisted under <storeDirParent>/nats.
-func Start(cfg *config.TrackerConfig, storeDirParent string) (*Server, error) {
+// JetStream state is persisted under <storeDirParent>/nats. store is
+// used by AuthStore to persist per-source user pubkeys; pass nil only
+// in tests that don't exercise mint/revoke.
+func Start(cfg *config.TrackerConfig, storeDirParent string, store PubKeyStore) (*Server, error) {
 	if cfg == nil || cfg.Hub == nil {
 		return nil, fmt.Errorf("natsbus.Start: hub config required")
 	}
@@ -52,7 +55,7 @@ func Start(cfg *config.TrackerConfig, storeDirParent string) (*Server, error) {
 		return nil, fmt.Errorf("natsbus: creating JetStream store dir %s: %w", storeDir, err)
 	}
 
-	auth, err := LoadOrCreateAuthStore(storeDirParent)
+	auth, err := LoadOrCreateAuthStore(storeDirParent, store)
 	if err != nil {
 		return nil, err
 	}
@@ -137,6 +140,59 @@ func (s *Server) StoreDir() string { return s.storeDir }
 // Auth returns the store of operator/account/user NKey material. Used
 // by the admin flow to mint and rotate per-source credentials.
 func (s *Server) Auth() *AuthStore { return s.auth }
+
+// ConnectedClientIPs returns the public IPs of every open NATS
+// connection currently authenticated as userPubKey, ordered most-
+// recently-active first. Used by the Q3 directory gate and the hub's
+// UDP poller to find a live collector's IP without DNS — kernel-
+// recorded, so IP rotations on dynamic-DNS hosts are picked up the
+// moment the collector reconnects.
+//
+// JWT-authenticated NATS clients identify in Connz as their user NKey
+// pubkey, not their JWT Name claim — that's why this takes a pubkey
+// rather than a source ID. Callers (the gate, the poller) get the
+// pubkey from sources.user_pubkey via storage queries that already
+// JOIN sources.
+//
+// Ordering matters during a reconnect overlap: the old session can
+// linger for keepalive timeout while the new one is already
+// authenticated. Callers that pick a single IP (the poller) want the
+// newest; the gate admits all of them and is order-independent. We
+// sort by ByLast so the freshest connection is index 0.
+//
+// Returns nil when userPubKey is empty (source not yet minted) or
+// when no matching connection is currently open. v4-mapped v6
+// addresses are unmapped so callers can compare against UDP source
+// addresses directly.
+func (s *Server) ConnectedClientIPs(userPubKey string) []netip.Addr {
+	if s == nil || s.ns == nil || userPubKey == "" {
+		return nil
+	}
+	cz, err := s.ns.Connz(&server.ConnzOptions{
+		Username: true,
+		User:     userPubKey,
+		State:    server.ConnOpen,
+		Sort:     server.ByLast,
+	})
+	if err != nil || cz == nil {
+		return nil
+	}
+	out := make([]netip.Addr, 0, len(cz.Conns))
+	seen := make(map[netip.Addr]struct{}, len(cz.Conns))
+	for _, c := range cz.Conns {
+		ip, err := netip.ParseAddr(c.IP)
+		if err != nil {
+			continue
+		}
+		ip = ip.Unmap()
+		if _, dup := seen[ip]; dup {
+			continue
+		}
+		seen[ip] = struct{}{}
+		out = append(out, ip)
+	}
+	return out
+}
 
 // ConnectInternal opens an in-process NATS client authenticated as the
 // hub-internal user (full pub/sub under TRINITY). Extra nats options

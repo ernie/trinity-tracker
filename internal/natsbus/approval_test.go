@@ -39,7 +39,7 @@ func TestProvisionedSourcePublishesStraightThrough(t *testing.T) {
 		NATS: config.NATSConfig{URL: fmt.Sprintf("nats://127.0.0.1:%d", port)},
 		Hub:  &config.HubConfig{DedupWindow: config.Duration(time.Minute), Retention: config.Duration(time.Hour)},
 	}
-	ns, err := natsbus.Start(cfg, t.TempDir())
+	ns, err := natsbus.Start(cfg, t.TempDir(), nil)
 	if err != nil {
 		t.Fatalf("start: %v", err)
 	}

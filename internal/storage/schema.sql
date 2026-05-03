@@ -13,12 +13,13 @@ CREATE TABLE IF NOT EXISTS servers (
     last_match_ended_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     -- Distributed-tracking fields. source is the admin-chosen collector
-    -- identifier (FK-ish to sources.source); is_remote=0 for rows owned
-    -- by the hub's own local collector. Identity is (source, key):
-    -- renaming or rerouting (address change) doesn't fork history.
+    -- identifier (FK-ish to sources.source). Whether the source is
+    -- remote lives on the sources row; readers JOIN sources for
+    -- sources.is_remote rather than duplicating it here. Identity is
+    -- (source, key): renaming or rerouting (address change) doesn't
+    -- fork history.
     source TEXT NOT NULL CHECK(source <> ''),
     local_id INTEGER,
-    is_remote INTEGER NOT NULL DEFAULT 0,
     last_heartbeat_at TIMESTAMP,
     demo_base_url TEXT,
     source_version TEXT,
@@ -227,6 +228,15 @@ CREATE TABLE IF NOT EXISTS sources (
     version           TEXT NOT NULL DEFAULT '',
     last_heartbeat_at TIMESTAMP,
     is_remote         INTEGER NOT NULL DEFAULT 1,
+    -- NATS user NKey public key for this source's authenticated
+    -- collector connection. Written by AuthStore.MintUserCreds, read
+    -- by the directory gate and the hub poller (joined into their
+    -- pollable-server queries) to identify which live NATS connection
+    -- belongs to this source. Empty until the operator approves and
+    -- creds are minted. The user pubkey is what nats-server reports
+    -- as AuthorizedUser for JWT-authenticated clients, so it's the
+    -- right key for ConnzOptions.User filtering.
+    user_pubkey       TEXT NOT NULL DEFAULT '',
     -- 1 while the source's collector is allowed to publish. Mirrors
     -- status='active'; the ingest gate (SourceRegistry) keys off this.
     active            INTEGER NOT NULL DEFAULT 1,

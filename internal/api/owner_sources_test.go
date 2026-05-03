@@ -38,7 +38,7 @@ func newFakeUserProv(t *testing.T) *fakeUserProv {
 	}
 }
 
-func (f *fakeUserProv) MintUserCreds(source string) ([]byte, error) {
+func (f *fakeUserProv) MintUserCreds(_ context.Context, source string) ([]byte, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.mintCalls++
@@ -50,7 +50,7 @@ func (f *fakeUserProv) MintUserCreds(source string) ([]byte, error) {
 	return blob, nil
 }
 
-func (f *fakeUserProv) RevokeSource(source string) error {
+func (f *fakeUserProv) RevokeSource(_ context.Context, source string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.revokeCalls++
@@ -298,7 +298,7 @@ func TestHandleDownloadMyCreds_OnlyOwnerActive(t *testing.T) {
 
 	// Approve + mint, now download succeeds.
 	must(t, tr.store.ApproveSource(context.Background(), "alice-q3"))
-	if _, err := tr.userProv.MintUserCreds("alice-q3"); err != nil {
+	if _, err := tr.userProv.MintUserCreds(context.Background(), "alice-q3"); err != nil {
 		t.Fatal(err)
 	}
 	w := tr.do("GET", "/api/sources/mine/alice-q3/creds", "", tok)

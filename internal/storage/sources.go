@@ -291,12 +291,17 @@ func (s *Store) ResolveServerIDForSource(ctx context.Context, source string, loc
 }
 
 // RemoteServer is a lightweight view of a servers row, used by the
-// hub's poller to iterate pollable targets.
+// hub's poller to iterate pollable targets. UserPubKey is the
+// authenticated NATS user pubkey for this server's source, joined
+// from sources.user_pubkey at query time — empty until the source's
+// creds have been minted.
 type RemoteServer struct {
-	ID      int64
-	Source  string
-	Key     string
-	Address string
+	ID         int64
+	Source     string
+	Key        string
+	Address    string
+	IsRemote   bool
+	UserPubKey string
 }
 
 // ListPollableServers returns every servers row the hub poller should
@@ -307,11 +312,16 @@ type RemoteServer struct {
 // the handshake are skipped — neither should show up in live status.
 // Ordered by id.
 func (s *Store) ListPollableServers(ctx context.Context) ([]RemoteServer, error) {
+	// is_remote and user_pubkey are joined from sources. Sources is
+	// the single source of truth for both — the directory gate and
+	// the poller use user_pubkey to identify which live NATS
+	// connection belongs to this source (no DNS, no filesystem).
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, source, key, address
-		FROM servers
-		WHERE active = 1 AND handshake_required = 1 AND address <> ''
-		ORDER BY id
+		SELECT s.id, s.source, s.key, s.address, src.is_remote, src.user_pubkey
+		FROM servers s
+		JOIN sources src ON src.source = s.source
+		WHERE s.active = 1 AND s.handshake_required = 1 AND s.address <> ''
+		ORDER BY s.id
 	`)
 	if err != nil {
 		return nil, fmt.Errorf("storage: ListPollableServers: %w", err)
@@ -320,7 +330,7 @@ func (s *Store) ListPollableServers(ctx context.Context) ([]RemoteServer, error)
 	var out []RemoteServer
 	for rows.Next() {
 		var r RemoteServer
-		if err := rows.Scan(&r.ID, &r.Source, &r.Key, &r.Address); err != nil {
+		if err := rows.Scan(&r.ID, &r.Source, &r.Key, &r.Address, &r.IsRemote, &r.UserPubKey); err != nil {
 			return nil, err
 		}
 		out = append(out, r)
@@ -334,11 +344,13 @@ func (s *Store) ListPollableServers(ctx context.Context) ([]RemoteServer, error)
 // so handshake_required (which is what ListPollableServers gates on) is
 // intentionally not part of the filter here.
 func (s *Store) ListDirectoryGateEntries(ctx context.Context) ([]RemoteServer, error) {
+	// is_remote and user_pubkey come from sources (see ListPollableServers note).
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, source, key, address
-		FROM servers
-		WHERE active = 1 AND address <> ''
-		ORDER BY id
+		SELECT s.id, s.source, s.key, s.address, src.is_remote, src.user_pubkey
+		FROM servers s
+		JOIN sources src ON src.source = s.source
+		WHERE s.active = 1 AND s.address <> ''
+		ORDER BY s.id
 	`)
 	if err != nil {
 		return nil, fmt.Errorf("storage: ListDirectoryGateEntries: %w", err)
@@ -347,7 +359,7 @@ func (s *Store) ListDirectoryGateEntries(ctx context.Context) ([]RemoteServer, e
 	var out []RemoteServer
 	for rows.Next() {
 		var r RemoteServer
-		if err := rows.Scan(&r.ID, &r.Source, &r.Key, &r.Address); err != nil {
+		if err := rows.Scan(&r.ID, &r.Source, &r.Key, &r.Address, &r.IsRemote, &r.UserPubKey); err != nil {
 			return nil, err
 		}
 		out = append(out, r)
@@ -355,14 +367,15 @@ func (s *Store) ListDirectoryGateEntries(ctx context.Context) ([]RemoteServer, e
 	return out, rows.Err()
 }
 
-// ListRemoteServers returns all servers rows where is_remote=1.
+// ListRemoteServers returns every servers row whose source is remote.
 // Ordered by id.
 func (s *Store) ListRemoteServers(ctx context.Context) ([]RemoteServer, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, source, key, address
-		FROM servers
-		WHERE is_remote = 1 AND address <> ''
-		ORDER BY id
+		SELECT s.id, s.source, s.key, s.address
+		FROM servers s
+		JOIN sources src ON src.source = s.source
+		WHERE src.is_remote = 1 AND s.address <> ''
+		ORDER BY s.id
 	`)
 	if err != nil {
 		return nil, fmt.Errorf("storage: ListRemoteServers: %w", err)
@@ -374,9 +387,47 @@ func (s *Store) ListRemoteServers(ctx context.Context) ([]RemoteServer, error) {
 		if err := rows.Scan(&r.ID, &r.Source, &r.Key, &r.Address); err != nil {
 			return nil, err
 		}
+		r.IsRemote = true
 		out = append(out, r)
 	}
 	return out, rows.Err()
+}
+
+// GetSourceUserPubKey returns the NATS user pubkey persisted for source,
+// or "" when none has been minted yet (or when the source row doesn't
+// exist). Backs natsbus.AuthStore's mint/revoke flow without exposing
+// any DB internals.
+func (s *Store) GetSourceUserPubKey(ctx context.Context, source string) (string, error) {
+	var pub string
+	err := s.db.QueryRowContext(ctx,
+		`SELECT user_pubkey FROM sources WHERE source = ?`, source,
+	).Scan(&pub)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("storage: GetSourceUserPubKey: %w", err)
+	}
+	return pub, nil
+}
+
+// SetSourceUserPubKey writes the NATS user pubkey for source. Used by
+// AuthStore.MintUserCreds to persist the freshly-minted user identity.
+// Errors if source has no row in sources (mint should only happen for
+// pre-registered sources).
+func (s *Store) SetSourceUserPubKey(ctx context.Context, source, pubkey string) error {
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE sources SET user_pubkey = ? WHERE source = ?`,
+		pubkey, source,
+	)
+	if err != nil {
+		return fmt.Errorf("storage: SetSourceUserPubKey: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return fmt.Errorf("storage: SetSourceUserPubKey: source %q not found", source)
+	}
+	return nil
 }
 
 // ApprovedSource groups the per-source metadata the admin UI needs:
@@ -526,12 +577,14 @@ func (s *Store) TransferSourceOwner(ctx context.Context, source string, newOwner
 }
 
 // UpsertRemoteServers creates or refreshes servers rows for every
-// entry in the registration roster, stamping them is_remote=1 and
-// attaching source/local_id. Called from the registration handler on
-// each heartbeat — rosters are the collector's source of truth for
-// the server list. demo_base_url comes straight from the heartbeat
-// payload; TouchSourceHeartbeat already wrote it to sources earlier
-// in the same handler, so this keeps the two rows in lockstep.
+// entry in the registration roster, attaching source/local_id. Called
+// from the registration handler on each heartbeat — rosters are the
+// collector's source of truth for the server list. The "is the source
+// remote" bit lives on the sources row (set by CreateSource); readers
+// JOIN sources rather than duplicating it here. demo_base_url comes
+// straight from the heartbeat payload; TouchSourceHeartbeat already
+// wrote it to sources earlier in the same handler, so this keeps the
+// two rows in lockstep.
 func (s *Store) UpsertRemoteServers(ctx context.Context, reg domain.Registration) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -554,8 +607,8 @@ func (s *Store) UpsertRemoteServers(ctx context.Context, reg domain.Registration
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
 			if _, err := tx.ExecContext(ctx, `
-				INSERT INTO servers (key, address, source, local_id, is_remote, active, last_heartbeat_at, demo_base_url, source_version, admin_delegation_enabled)
-				VALUES (?, ?, ?, ?, 1, 1, CURRENT_TIMESTAMP, ?, ?, ?)
+				INSERT INTO servers (key, address, source, local_id, active, last_heartbeat_at, demo_base_url, source_version, admin_delegation_enabled)
+				VALUES (?, ?, ?, ?, 1, CURRENT_TIMESTAMP, ?, ?, ?)
 			`, rs.Key, rs.Address, reg.Source, rs.LocalID, reg.DemoBaseURL, reg.Version, delegate); err != nil {
 				return fmt.Errorf("storage: insert remote server: %w", err)
 			}

@@ -1,6 +1,7 @@
 package natsbus
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,8 +16,13 @@ import (
 //   auth/{operator,operator_sign,sys,trinity,trinity_sign}.seed
 //   auth/{operator,sys,trinity}.jwt (trinity.jwt rewritten on revoke)
 //   auth/hub_internal.creds   in-process hub client creds
-//   creds/<source>.creds      collector user creds
-//   creds/<source>.pub        cached user pubkey for rotation/revocation
+//   creds/<source>.creds      collector user creds (transport artifact)
+//
+// User pubkeys live in sources.user_pubkey, accessed via the
+// PubKeyStore interface. Was previously creds/<source>.pub on disk;
+// moved to the DB to consolidate per-source state on the source row
+// and to decouple the directory/poller from this package's on-disk
+// layout.
 
 const (
 	authSubdir  = "auth"
@@ -24,31 +30,43 @@ const (
 	userPrefix  = "trinity"
 )
 
+// PubKeyStore is the slice of *storage.Store that AuthStore depends on
+// for persisting per-source NATS user pubkeys. Defined here so the
+// natsbus package owns its own dependency contract; *storage.Store
+// satisfies it.
+type PubKeyStore interface {
+	GetSourceUserPubKey(ctx context.Context, source string) (string, error)
+	SetSourceUserPubKey(ctx context.Context, source, pubkey string) error
+}
+
 // AuthStore owns the NKey/JWT material for the embedded NATS server
 // and mints/revokes per-source user credentials.
 type AuthStore struct {
-	dir string
+	dir   string
+	store PubKeyStore
 
-	mu           sync.Mutex
-	opKP         nkeys.KeyPair
-	opSignKP     nkeys.KeyPair
-	sysKP        nkeys.KeyPair
-	trinityKP    nkeys.KeyPair
-	trSignKP     nkeys.KeyPair
-	opJWT        string
-	sysJWT       string
-	trinityJWT   string
-	opClaims     *jwt.OperatorClaims
-	resolver     *server.MemAccResolver
-	runningSrv   *server.Server
+	mu            sync.Mutex
+	opKP          nkeys.KeyPair
+	opSignKP      nkeys.KeyPair
+	sysKP         nkeys.KeyPair
+	trinityKP     nkeys.KeyPair
+	trSignKP      nkeys.KeyPair
+	opJWT         string
+	sysJWT        string
+	trinityJWT    string
+	opClaims      *jwt.OperatorClaims
+	resolver      *server.MemAccResolver
+	runningSrv    *server.Server
 	internalCreds []byte
 }
 
 // LoadOrCreateAuthStore initializes auth material under <hubDataDir>/auth/
 // and prepares an account resolver with SYS + TRINITY JWTs. First run
-// generates everything; subsequent runs load from disk.
-func LoadOrCreateAuthStore(hubDataDir string) (*AuthStore, error) {
-	s := &AuthStore{dir: hubDataDir}
+// generates everything; subsequent runs load from disk. store is used
+// by Mint/Revoke to persist per-source user pubkeys; pass nil only in
+// tests that don't exercise those paths.
+func LoadOrCreateAuthStore(hubDataDir string, store PubKeyStore) (*AuthStore, error) {
+	s := &AuthStore{dir: hubDataDir, store: store}
 	authDir := filepath.Join(hubDataDir, authSubdir)
 	if err := os.MkdirAll(authDir, 0o700); err != nil {
 		return nil, fmt.Errorf("natsbus.auth: create %s: %w", authDir, err)
@@ -137,16 +155,20 @@ func (s *AuthStore) CredsPath(source string) string {
 }
 
 // MintUserCreds issues a per-source user JWT with subject-scoped
-// publish permissions and persists the .creds file. Revokes the prior
-// user pubkey if one was cached. Returns the creds file contents.
-func (s *AuthStore) MintUserCreds(source string) ([]byte, error) {
+// publish permissions and persists the .creds file. Records the new
+// user pubkey on the sources row; revokes the prior pubkey if one was
+// recorded. Returns the creds file contents (the operator copies the
+// .creds file to the collector machine).
+func (s *AuthStore) MintUserCreds(ctx context.Context, source string) ([]byte, error) {
+	if s.store == nil {
+		return nil, fmt.Errorf("natsbus.auth: MintUserCreds requires a PubKeyStore")
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	pubPath := filepath.Join(s.dir, credsSubdir, source+".pub")
-	var oldPub string
-	if b, err := os.ReadFile(pubPath); err == nil {
-		oldPub = string(b)
+	oldPub, err := s.store.GetSourceUserPubKey(ctx, source)
+	if err != nil {
+		return nil, err
 	}
 
 	userKP, err := nkeys.CreateUser()
@@ -173,7 +195,7 @@ func (s *AuthStore) MintUserCreds(source string) ([]byte, error) {
 	if err := writeFile(s.CredsPath(source), creds, 0o600); err != nil {
 		return nil, err
 	}
-	if err := writeFile(pubPath, []byte(userPub), 0o600); err != nil {
+	if err := s.store.SetSourceUserPubKey(ctx, source, userPub); err != nil {
 		return nil, err
 	}
 
@@ -189,19 +211,22 @@ func (s *AuthStore) MintUserCreds(source string) ([]byte, error) {
 	return creds, nil
 }
 
-// RevokeSource revokes the current user for source. No-op if none.
-func (s *AuthStore) RevokeSource(source string) error {
+// RevokeSource revokes the current user for source. No-op if no
+// pubkey was recorded for it.
+func (s *AuthStore) RevokeSource(ctx context.Context, source string) error {
+	if s.store == nil {
+		return fmt.Errorf("natsbus.auth: RevokeSource requires a PubKeyStore")
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	pubPath := filepath.Join(s.dir, credsSubdir, source+".pub")
-	b, err := os.ReadFile(pubPath)
+	pub, err := s.store.GetSourceUserPubKey(ctx, source)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
 		return err
 	}
-	return s.revokeLocked(string(b))
+	if pub == "" {
+		return nil
+	}
+	return s.revokeLocked(pub)
 }
 
 func (s *AuthStore) revokeLocked(userPub string) error {

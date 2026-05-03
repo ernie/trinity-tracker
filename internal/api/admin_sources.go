@@ -123,7 +123,7 @@ func (r *Router) handleCreateSource(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "create source: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if _, err := r.userProv.MintUserCreds(body.Source); err != nil {
+	if _, err := r.userProv.MintUserCreds(req.Context(), body.Source); err != nil {
 		// Creds minting failed — roll back by deactivating so the
 		// admin can retry without hitting a "source already exists"
 		// (CreateSource is strict; reactivation is a separate path).
@@ -269,7 +269,7 @@ func (r *Router) handleRotateSourceCreds(w http.ResponseWriter, req *http.Reques
 		http.Error(w, "unknown source", http.StatusNotFound)
 		return
 	}
-	creds, err := r.userProv.MintUserCreds(source)
+	creds, err := r.userProv.MintUserCreds(req.Context(), source)
 	if err != nil {
 		http.Error(w, "mint creds: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -304,7 +304,7 @@ func (r *Router) handleDeactivateSource(w http.ResponseWriter, req *http.Request
 	}
 	warning := ""
 	if r.userProv != nil {
-		if err := r.userProv.RevokeSource(source); err != nil {
+		if err := r.userProv.RevokeSource(req.Context(), source); err != nil {
 			warning = "source deactivated but creds revocation failed: " + err.Error()
 			log.Printf("admin deactivate: revoke creds for %q failed: %v", source, err)
 		}
@@ -410,7 +410,7 @@ func (r *Router) handleApproveSource(w http.ResponseWriter, req *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	if _, err := r.userProv.MintUserCreds(source); err != nil {
+	if _, err := r.userProv.MintUserCreds(req.Context(), source); err != nil {
 		writeError(w, http.StatusInternalServerError, "mint creds: "+err.Error())
 		return
 	}

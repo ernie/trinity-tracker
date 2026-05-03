@@ -1,8 +1,10 @@
 package natsbus_test
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -11,6 +13,30 @@ import (
 	"github.com/ernie/trinity-tracker/internal/config"
 	"github.com/ernie/trinity-tracker/internal/natsbus"
 )
+
+// memPubKeyStore is a minimal in-memory natsbus.PubKeyStore for tests.
+// Real production storage rejects SetSourceUserPubKey on unknown
+// sources; this fake accepts any key, which is all the auth/integration
+// flows here need.
+type memPubKeyStore struct {
+	mu   sync.Mutex
+	keys map[string]string
+}
+
+func newMemPubKeyStore() *memPubKeyStore { return &memPubKeyStore{keys: map[string]string{}} }
+
+func (m *memPubKeyStore) GetSourceUserPubKey(_ context.Context, source string) (string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.keys[source], nil
+}
+
+func (m *memPubKeyStore) SetSourceUserPubKey(_ context.Context, source, pubkey string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.keys[source] = pubkey
+	return nil
+}
 
 // startAuthRig boots a hub server with JWT auth enabled and returns
 // the server and a temp directory. The caller mints its own creds
@@ -26,7 +52,7 @@ func startAuthRig(t *testing.T) (*natsbus.Server, string) {
 			Retention:   config.Duration(time.Hour),
 		},
 	}
-	s, err := natsbus.Start(cfg, tmp)
+	s, err := natsbus.Start(cfg, tmp, newMemPubKeyStore())
 	if err != nil {
 		t.Fatalf("natsbus.Start: %v", err)
 	}
@@ -36,7 +62,7 @@ func startAuthRig(t *testing.T) (*natsbus.Server, string) {
 
 func TestAuthUserCanPublishOwnSubject(t *testing.T) {
 	s, _ := startAuthRig(t)
-	_, err := s.Auth().MintUserCreds("alpha")
+	_, err := s.Auth().MintUserCreds(context.Background(), "alpha")
 	if err != nil {
 		t.Fatalf("MintUserCreds: %v", err)
 	}
@@ -56,7 +82,7 @@ func TestAuthUserCanPublishOwnSubject(t *testing.T) {
 
 func TestAuthUserCannotPublishOtherSubject(t *testing.T) {
 	s, _ := startAuthRig(t)
-	if _, err := s.Auth().MintUserCreds("alpha"); err != nil {
+	if _, err := s.Auth().MintUserCreds(context.Background(), "alpha"); err != nil {
 		t.Fatalf("MintUserCreds alpha: %v", err)
 	}
 	credsPath := s.Auth().CredsPath("alpha")
@@ -106,10 +132,10 @@ func TestAuthUserCannotPublishOtherSubject(t *testing.T) {
 // inbox prefix.
 func TestAuthUserCannotSubscribeAcrossInboxScopes(t *testing.T) {
 	s, _ := startAuthRig(t)
-	if _, err := s.Auth().MintUserCreds("alpha"); err != nil {
+	if _, err := s.Auth().MintUserCreds(context.Background(), "alpha"); err != nil {
 		t.Fatalf("mint alpha: %v", err)
 	}
-	if _, err := s.Auth().MintUserCreds("beta"); err != nil {
+	if _, err := s.Auth().MintUserCreds(context.Background(), "beta"); err != nil {
 		t.Fatalf("mint beta: %v", err)
 	}
 
@@ -148,7 +174,7 @@ func TestAuthUserCannotSubscribeAcrossInboxScopes(t *testing.T) {
 
 func TestAuthRotationRevokesOldCreds(t *testing.T) {
 	s, _ := startAuthRig(t)
-	if _, err := s.Auth().MintUserCreds("gamma"); err != nil {
+	if _, err := s.Auth().MintUserCreds(context.Background(), "gamma"); err != nil {
 		t.Fatalf("mint v1: %v", err)
 	}
 	credsPath := s.Auth().CredsPath("gamma")
@@ -166,7 +192,7 @@ func TestAuthRotationRevokesOldCreds(t *testing.T) {
 
 	// Rotate (mint again for the same source). The old user pubkey
 	// must end up in the TRINITY account's revocation list.
-	if _, err := s.Auth().MintUserCreds("gamma"); err != nil {
+	if _, err := s.Auth().MintUserCreds(context.Background(), "gamma"); err != nil {
 		t.Fatalf("mint v2 (rotation): %v", err)
 	}
 	newCreds, err := os.ReadFile(credsPath)

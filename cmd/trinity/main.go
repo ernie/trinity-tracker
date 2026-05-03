@@ -206,7 +206,7 @@ func cmdServe(args []string) {
 	if hasHub {
 		storeParent := filepath.Dir(cfg.Database.Path)
 		var err error
-		ns, err = natsbus.Start(cfg.Tracker, storeParent)
+		ns, err = natsbus.Start(cfg.Tracker, storeParent, store)
 		if err != nil {
 			log.Fatalf("Failed to start embedded NATS: %v", err)
 		}
@@ -390,7 +390,7 @@ func cmdServe(args []string) {
 
 	// Hub-side UDP poller: feeds live cards and /api/servers/{id}/status.
 	if hasHub {
-		remotePoller = hub.NewRemotePoller(store, collector.NewQ3Client(), cfg.Server.PollInterval, writer.Presence(), writer)
+		remotePoller = hub.NewRemotePoller(store, collector.NewQ3Client(), cfg.Server.PollInterval, writer.Presence(), writer, ns)
 		remotePoller.Start(ctx)
 		log.Printf("Hub polling every %v", cfg.Server.PollInterval)
 	}
@@ -407,6 +407,7 @@ func cmdServe(args []string) {
 			GateRefresh:      d.GateRefresh.D(),
 			MaxServers:       d.MaxServers,
 			Store:            store,
+			Conns:            ns,
 		})
 		if err != nil {
 			log.Fatalf("Q3 directory server init: %v", err)

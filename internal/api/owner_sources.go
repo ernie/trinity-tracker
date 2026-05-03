@@ -153,7 +153,7 @@ func (r *Router) handleRequestSource(w http.ResponseWriter, req *http.Request) {
 	// row is now 'active'. Re-mint creds and prime the ingest cache.
 	post, err := r.store.GetSourceByName(req.Context(), body.Name)
 	if err == nil && post.Status == "active" && post.OwnerUserID.Valid && post.OwnerUserID.Int64 == claims.UserID {
-		if _, mintErr := r.userProv.MintUserCreds(post.Source); mintErr != nil {
+		if _, mintErr := r.userProv.MintUserCreds(req.Context(), post.Source); mintErr != nil {
 			log.Printf("handleRequestSource: rejoin mint creds for %q: %v", post.Source, mintErr)
 		}
 		r.writer.MarkSourceApproved(post.Source)
@@ -210,7 +210,7 @@ func (r *Router) handleRotateMyCreds(w http.ResponseWriter, req *http.Request) {
 		writeError(w, http.StatusTooManyRequests, "rotation limit exceeded (5 per 24h)")
 		return
 	}
-	creds, err := r.userProv.MintUserCreds(src.Source)
+	creds, err := r.userProv.MintUserCreds(req.Context(), src.Source)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "mint: "+err.Error())
 		return
@@ -236,7 +236,7 @@ func (r *Router) handleLeaveMySource(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	if r.userProv != nil {
-		if err := r.userProv.RevokeSource(src.Source); err != nil {
+		if err := r.userProv.RevokeSource(req.Context(), src.Source); err != nil {
 			log.Printf("handleLeaveMySource: revoke creds for %q: %v", src.Source, err)
 		}
 	}
