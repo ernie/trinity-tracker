@@ -85,20 +85,20 @@ const (
 func InstallNginx(plan *Plan, mode NginxMode, publicURL, adminEmail, staticDir, quake3Dir string, skipCert, skipFirewall bool) error {
 	publicHost := HostFromURL(publicURL)
 	if plan.DryRun {
-		plan.say("would render %s nginx config for %s", mode, publicHost)
+		plan.Say("would render %s nginx config for %s", mode, publicHost)
 		if skipCert {
-			plan.say("would install nginx + reload (skip-cert: caller has staged /etc/letsencrypt/)")
+			plan.Say("would install nginx + reload (skip-cert: caller has staged /etc/letsencrypt/)")
 		} else {
-			plan.say("would install nginx + certbot and obtain a Let's Encrypt cert for %s", publicHost)
+			plan.Say("would install nginx + certbot and obtain a Let's Encrypt cert for %s", publicHost)
 		}
 		if skipFirewall {
-			plan.say("would skip ufw/firewalld port-open (--skip-firewall)")
+			plan.Say("would skip ufw/firewalld port-open (--skip-firewall)")
 		} else {
 			ports := "80/tcp, 443/tcp, 27960-28000/udp"
 			if mode == NginxModeHub {
 				ports = "80/tcp, 443/tcp, 4222/tcp, 27960-28000/udp"
 			}
-			plan.say("would open firewall ports %s (ufw/firewalld)", ports)
+			plan.Say("would open firewall ports %s (ufw/firewalld)", ports)
 		}
 		return nil
 	}
@@ -145,7 +145,7 @@ func InstallNginx(plan *Plan, mode NginxMode, publicURL, adminEmail, staticDir, 
 		args = append(args, "--skip-firewall")
 	}
 
-	plan.say("Bootstrapping nginx for %s (mode=%s skip-cert=%v skip-firewall=%v)", publicHost, mode, skipCert, skipFirewall)
+	plan.Say("Bootstrapping nginx for %s (mode=%s skip-cert=%v skip-firewall=%v)", publicHost, mode, skipCert, skipFirewall)
 	cmd := exec.Command("/bin/bash", args...)
 	cmd.Env = os.Environ()
 	cmd.Stdout = os.Stdout

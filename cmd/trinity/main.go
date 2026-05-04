@@ -57,6 +57,10 @@ func main() {
 	switch os.Args[1] {
 	case "init":
 		cmdInit(os.Args[2:])
+	case "update":
+		cmdUpdate(os.Args[2:])
+	case "_helper":
+		cmdHelper(os.Args[2:])
 	case "serve":
 		cmdServe(os.Args[2:])
 	case "server":
@@ -103,6 +107,7 @@ func printUsage() {
 	fmt.Println()
 	fmt.Println("Commands:")
 	fmt.Println("  init [--no-systemd] [--dry-run]     Interactive install wizard (collector-only by default)")
+	fmt.Println("  update [--check] [--dry-run]        Update tracker binary, web bundle, engine, and mod from GitHub releases")
 	fmt.Println("  serve                               Start the stats server")
 	fmt.Println("  server list                         Show configured game servers")
 	fmt.Println("  server add [<key>] [--gametype X] [--port N] [flags]")
@@ -400,14 +405,16 @@ func cmdServe(args []string) {
 	if hasHub && cfg.Tracker.Hub.Directory != nil && cfg.Tracker.Hub.Directory.Enabled {
 		d := cfg.Tracker.Hub.Directory
 		dirSrv, err := directory.New(directory.Config{
-			ListenAddr:       d.ListenAddr,
-			Port:             d.Port,
-			HeartbeatExpiry:  d.HeartbeatExpiry.D(),
-			ChallengeTimeout: d.ChallengeTimeout.D(),
-			GateRefresh:      d.GateRefresh.D(),
-			MaxServers:       d.MaxServers,
-			Store:            store,
-			Conns:            ns,
+			ListenAddr:         d.ListenAddr,
+			Port:               d.Port,
+			HeartbeatExpiry:    d.HeartbeatExpiry.D(),
+			ChallengeTimeout:   d.ChallengeTimeout.D(),
+			GateRefresh:        d.GateRefresh.D(),
+			MaxServers:         d.MaxServers,
+			Store:              store,
+			Conns:              ns,
+			RegistryStore:      store,
+			PersistedFreshness: d.PersistedFreshness.D(),
 		})
 		if err != nil {
 			log.Fatalf("Q3 directory server init: %v", err)

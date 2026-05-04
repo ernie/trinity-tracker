@@ -70,14 +70,35 @@ func Apply(a *Answers, opts ApplyOptions) error {
 	}
 
 	if a.RunsLocalServers() && a.InstallEngine {
-		plan.say("Downloading latest trinity-engine release for %s ...", runtimeArch())
-		if err := InstallEngine(plan, a.Quake3Dir, "/var/log/quake3", a.StaticDir); err != nil {
+		plan.Say("Downloading latest trinity-engine release for %s ...", runtimeArch())
+		engineTag, err := InstallEngine(plan, "", a.Quake3Dir, "/var/log/quake3", a.StaticDir, uid, gid)
+		if err != nil {
 			return err
 		}
+		// Belt-and-suspenders: extraction ran as the service user, but
+		// the wrapper dirs and symlinks created in this process are
+		// still root-owned. chownRecursive is idempotent on the bulk
+		// files and fixes those.
 		if err := chownRecursive(plan, a.Quake3Dir, uid, gid); err != nil {
 			return fmt.Errorf("chown %s: %w", a.Quake3Dir, err)
 		}
-		plan.say("Engine installed at %s", a.Quake3Dir)
+		plan.Say("Engine installed at %s (%s)", a.Quake3Dir, engineTag)
+
+		// If a newer mod release exists than what the engine bundles,
+		// overlay it. q3 isn't running yet on a fresh init so the
+		// rename-into-place is uncontested.
+		modTag, err := ResolveLatestTag(modRepo)
+		if err != nil {
+			plan.Say("Warning: could not check for newer mod release: %v", err)
+		} else {
+			bundled, _ := DetectModVersion(a.Quake3Dir, "baseq3")
+			if CompareVersions(bundled, modTag) == StateBehind {
+				plan.Say("Mod %s is newer than engine-bundled %q; overlaying ...", modTag, bundled)
+				if _, err := InstallMod(plan, modTag, a.Quake3Dir, uid, gid); err != nil {
+					return err
+				}
+			}
+		}
 	}
 
 	if opts.UseSystemd {
@@ -90,12 +111,12 @@ func Apply(a *Answers, opts ApplyOptions) error {
 		if err := plan.Systemctl("enable", "trinity.service"); err != nil {
 			return err
 		}
-		plan.say("Enabled: trinity.service")
+		plan.Say("Enabled: trinity.service")
 		if a.RunsLocalServers() {
 			if err := plan.Systemctl("enable", "quake3-servers.target"); err != nil {
 				return err
 			}
-			plan.say("Enabled: quake3-servers.target")
+			plan.Say("Enabled: quake3-servers.target")
 		}
 	}
 
@@ -104,7 +125,7 @@ func Apply(a *Answers, opts ApplyOptions) error {
 			return err
 		}
 	} else if a.SkipLogrotate {
-		plan.say("Skipping /etc/logrotate.d/quake3 (--skip-logrotate)")
+		plan.Say("Skipping /etc/logrotate.d/quake3 (--skip-logrotate)")
 	}
 
 	if a.RunsLocalServers() && len(a.Servers) > 0 {
@@ -114,7 +135,7 @@ func Apply(a *Answers, opts ApplyOptions) error {
 	}
 
 	if a.SkipNginx {
-		plan.say("Skipping nginx install (--skip-nginx); operator manages reverse proxy")
+		plan.Say("Skipping nginx install (--skip-nginx); operator manages reverse proxy")
 	} else if (a.Mode == ModeCollector || a.HasHubFields()) && a.PublicURL != "" {
 		mode := NginxModeCollector
 		if a.HasHubFields() {
@@ -200,7 +221,7 @@ func grantNATSTLSACLs(plan *Plan, host, serviceUser string) error {
 	// Apply to the existing files. In dry-run we can't glob (the dir
 	// may not exist), so emit a single intent line and skip the glob.
 	if plan.DryRun {
-		plan.say("would setfacl -m %s %s/*.pem", read, archiveDir)
+		plan.Say("would setfacl -m %s %s/*.pem", read, archiveDir)
 		return nil
 	}
 	matches, err := filepath.Glob(filepath.Join(archiveDir, "*.pem"))
@@ -222,19 +243,19 @@ func ensureDirs(plan *Plan, a *Answers, uid, gid int) error {
 	if err := plan.Chown("/etc/trinity", 0, gid); err != nil {
 		return err
 	}
-	plan.say("Directory: /etc/trinity")
+	plan.Say("Directory: /etc/trinity")
 
 	// /var/lib/trinity always (collector watermark + spillover, hub DB).
 	if err := plan.MkdirChown("/var/lib/trinity", 0755, uid, gid); err != nil {
 		return err
 	}
-	plan.say("Directory: /var/lib/trinity")
+	plan.Say("Directory: /var/lib/trinity")
 
 	if a.HasHubFields() && a.StaticDir != "" {
 		if err := plan.MkdirChown(a.StaticDir, 0755, uid, gid); err != nil {
 			return err
 		}
-		plan.say("Directory: %s", a.StaticDir)
+		plan.Say("Directory: %s", a.StaticDir)
 		// install.sh stages the prebuilt web frontend at a /tmp dir
 		// before exec'ing the wizard. If it's there, populate the live
 		// dir from it so a fresh hub install renders something on first
@@ -253,7 +274,7 @@ func ensureDirs(plan *Plan, a *Answers, uid, gid int) error {
 		if err := plan.MkdirChown("/var/log/quake3", 0755, uid, gid); err != nil {
 			return err
 		}
-		plan.say("Directory: /var/log/quake3")
+		plan.Say("Directory: /var/log/quake3")
 	}
 	return nil
 }
@@ -302,76 +323,27 @@ func CleanupStage() {
 // stageWebAssets copies the staged web frontend into the operator's
 // configured StaticDir. No-op (with a hint) if nothing was staged —
 // from-source installs that didn't go through install.sh need to
-// copy `web/dist/.` themselves.
+// copy `web/dist/.` themselves. The copy runs as the service user so
+// every file lands service-owned without a follow-up chown — same
+// pattern as `trinity update`'s web overlay.
 func stageWebAssets(plan *Plan, dest string, uid, gid int) error {
 	src := stagedWebDir()
 	if src == "" {
 		fmt.Fprintf(plan.Out, "  NOTE: no staged web assets; copy your `web/dist/.` to %s manually.\n", dest)
 		return nil
 	}
-	if plan.DryRun {
-		plan.say("would copy tree %s → %s (chown %d:%d)", src, dest, uid, gid)
-		return nil
-	}
-	if err := copyTree(src, dest, uid, gid); err != nil {
+	// install.sh's stage dir is /tmp/...XXX (mode 0755 — install.sh
+	// chmods it explicitly). Quake can traverse and read.
+	if err := plan.CopyTreeAs(uid, gid, src, dest); err != nil {
 		return fmt.Errorf("staging web assets from %s: %w", src, err)
 	}
 	fmt.Fprintf(plan.Out, "Web assets: copied %s → %s\n", src, dest)
 	return nil
 }
 
-// copyTree mirrors src into dst, chowning every entry to (uid, gid).
-// Existing files in dst are overwritten; nothing in dst is removed.
-// Designed for the web frontend overlay — the destination may already
-// hold pk3-extracted runtime assets (levelshots, demopk3s) that we
-// must not blow away.
-func copyTree(src, dst string, uid, gid int) error {
-	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		rel, err := filepath.Rel(src, path)
-		if err != nil {
-			return err
-		}
-		target := filepath.Join(dst, rel)
-		if info.IsDir() {
-			if err := os.MkdirAll(target, info.Mode().Perm()); err != nil {
-				return err
-			}
-			return os.Chown(target, uid, gid)
-		}
-		if info.Mode()&os.ModeSymlink != 0 {
-			link, err := os.Readlink(path)
-			if err != nil {
-				return err
-			}
-			_ = os.Remove(target)
-			if err := os.Symlink(link, target); err != nil {
-				return err
-			}
-			return os.Lchown(target, uid, gid)
-		}
-		in, err := os.Open(path)
-		if err != nil {
-			return err
-		}
-		defer in.Close()
-		out, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, info.Mode().Perm())
-		if err != nil {
-			return err
-		}
-		defer out.Close()
-		if _, err := io.Copy(out, in); err != nil {
-			return err
-		}
-		return os.Chown(target, uid, gid)
-	})
-}
-
 func chownRecursive(plan *Plan, root string, uid, gid int) error {
 	if plan.DryRun {
-		plan.say("would chown -R %d:%d %s", uid, gid, root)
+		plan.Say("would chown -R %d:%d %s", uid, gid, root)
 		return nil
 	}
 	return filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
@@ -403,7 +375,7 @@ func writeConfig(plan *Plan, cfg *config.Config, path string, gid int) error {
 	if err := plan.Chown(path, 0, gid); err != nil {
 		return err
 	}
-	plan.say("Wrote: %s", path)
+	plan.Say("Wrote: %s", path)
 	return nil
 }
 
@@ -419,7 +391,7 @@ func installCreds(plan *Plan, src string, gid int) error {
 	if err := plan.Chown(dest, 0, gid); err != nil {
 		return err
 	}
-	plan.say("Installed creds: %s", dest)
+	plan.Say("Installed creds: %s", dest)
 	return nil
 }
 
@@ -437,7 +409,7 @@ func installSystemdUnits(plan *Plan, a *Answers) error {
 		if err := plan.WriteFile(dest, data, 0644); err != nil {
 			return err
 		}
-		plan.say("Installed unit: %s", dest)
+		plan.Say("Installed unit: %s", dest)
 	}
 	return nil
 }
@@ -469,7 +441,7 @@ func installLogrotate(plan *Plan) error {
 	if err := plan.WriteFile(dest, []byte(content), 0644); err != nil {
 		return err
 	}
-	plan.say("Installed: %s", dest)
+	plan.Say("Installed: %s", dest)
 	return nil
 }
 
@@ -498,16 +470,13 @@ func installPerServerFiles(plan *Plan, a *Answers, uid, gid int) error {
 			return err
 		}
 		path := filepath.Join(a.Quake3Dir, "baseq3", "trinity.cfg")
-		if err := plan.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		if err := plan.MkdirChown(filepath.Dir(path), 0755, uid, gid); err != nil {
 			return err
 		}
-		if err := plan.WriteFile(path, []byte(trinityCfg), 0644); err != nil {
+		if err := plan.WriteFileAs(uid, gid, path, []byte(trinityCfg), 0644); err != nil {
 			return err
 		}
-		if err := plan.Chown(path, uid, gid); err != nil {
-			return err
-		}
-		plan.say("Installed: %s", path)
+		plan.Say("Installed: %s", path)
 
 		// trinity-bots.txt: curated bot list referenced by
 		// quake3-server@.service's `+set g_botsfile`. bot_minplayers
@@ -524,13 +493,10 @@ func installPerServerFiles(plan *Plan, a *Answers, uid, gid int) error {
 			if err := plan.MkdirChown(filepath.Dir(botsPath), 0755, uid, gid); err != nil {
 				return err
 			}
-			if err := plan.WriteFile(botsPath, botsFile, 0644); err != nil {
+			if err := plan.WriteFileAs(uid, gid, botsPath, botsFile, 0644); err != nil {
 				return err
 			}
-			if err := plan.Chown(botsPath, uid, gid); err != nil {
-				return err
-			}
-			plan.say("Installed: %s", botsPath)
+			plan.Say("Installed: %s", botsPath)
 		}
 
 		// autoexec.cfg only needs to live in baseq3 — q3's vfs looks
@@ -541,13 +507,10 @@ func installPerServerFiles(plan *Plan, a *Answers, uid, gid int) error {
 		autoexec := filepath.Join(a.Quake3Dir, "baseq3", "autoexec.cfg")
 		if _, err := os.Stat(autoexec); os.IsNotExist(err) {
 			body := "// Generated by trinity init.\nexec trinity.cfg\n"
-			if err := plan.WriteFile(autoexec, []byte(body), 0644); err != nil {
+			if err := plan.WriteFileAs(uid, gid, autoexec, []byte(body), 0644); err != nil {
 				return err
 			}
-			if err := plan.Chown(autoexec, uid, gid); err != nil {
-				return err
-			}
-			plan.say("Installed: %s", autoexec)
+			plan.Say("Installed: %s", autoexec)
 		} else {
 			fmt.Fprintf(plan.Out, "  NOTE: %s already exists. Add `exec trinity.cfg` to it manually.\n", autoexec)
 		}
@@ -586,20 +549,17 @@ func installPerServerFiles(plan *Plan, a *Answers, uid, gid int) error {
 		if err := plan.Chown(cfgPath, 0, gid); err != nil {
 			return err
 		}
-		plan.say("Wrote: %s", cfgPath)
+		plan.Say("Wrote: %s", cfgPath)
 
 		rotPath := filepath.Join(filepath.Dir(cfgPath), "rotation."+stem)
 		rotBody, err := RenderRotation(s.Gametype, s.UseMissionpack)
 		if err != nil {
 			return err
 		}
-		if err := plan.WriteFile(rotPath, rotBody, 0644); err != nil {
+		if err := plan.WriteFileAs(uid, gid, rotPath, rotBody, 0644); err != nil {
 			return err
 		}
-		if err := plan.Chown(rotPath, uid, gid); err != nil {
-			return err
-		}
-		plan.say("Wrote: %s", rotPath)
+		plan.Say("Wrote: %s", rotPath)
 	}
 
 	// Per-instance .env file (port, fs_game, +exec the shared cfg) and
@@ -615,13 +575,13 @@ func installPerServerFiles(plan *Plan, a *Answers, uid, gid int) error {
 		if err := plan.WriteFile(envPath, []byte(fmt.Sprintf("SERVER_OPTS=%s\n", opts)), 0644); err != nil {
 			return err
 		}
-		plan.say("Wrote: %s", envPath)
+		plan.Say("Wrote: %s", envPath)
 
 		unit := "quake3-server@" + s.Key
 		if err := plan.Systemctl("enable", unit); err != nil {
 			fmt.Fprintf(plan.Out, "  WARN: systemctl enable %s failed: %v\n", unit, err)
 		} else if plan.UseSystemd {
-			plan.say("Enabled: %s", unit)
+			plan.Say("Enabled: %s", unit)
 		}
 	}
 	return nil

@@ -66,8 +66,8 @@ func TestUnzipInto_StripComponents(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := unzipInto(zipPath, dest, 1); err != nil {
-		t.Fatalf("unzipInto: %v", err)
+	if err := UnzipInto(zipPath, dest, 1); err != nil {
+		t.Fatalf("UnzipInto: %v", err)
 	}
 
 	// After strip-1, files should be at dest/<basename> directly,
