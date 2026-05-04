@@ -13,22 +13,14 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// getClientIP extracts the real client IP, checking proxy headers first
+// getClientIP extracts the real client IP. Trusts X-Real-IP because
+// our nginx config sets it from $remote_addr; X-Forwarded-For is
+// ignored since nginx neither strips nor rewrites it, leaving it
+// client-controllable and spoofable.
 func getClientIP(r *http.Request) string {
-	// Check X-Forwarded-For header (may contain multiple IPs, first is the client)
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		ips := strings.Split(xff, ",")
-		if len(ips) > 0 {
-			return strings.TrimSpace(ips[0])
-		}
-	}
-
-	// Check X-Real-IP header
 	if xri := r.Header.Get("X-Real-IP"); xri != "" {
 		return strings.TrimSpace(xri)
 	}
-
-	// Fall back to RemoteAddr (strip port if present)
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		return r.RemoteAddr

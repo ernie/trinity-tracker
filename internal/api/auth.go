@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -53,9 +52,7 @@ func (r *Router) handleLogin(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Successful login — reset rate limiter for this IP
-	if ip, _, err := net.SplitHostPort(req.RemoteAddr); err == nil && ip != "" {
-		r.loginLimiter.Reset(ip)
-	}
+	r.loginLimiter.Reset(getClientIP(req))
 
 	// Update last login timestamp
 	r.store.UpdateUserLastLogin(req.Context(), user.ID)

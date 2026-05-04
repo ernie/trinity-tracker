@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"net"
 	"net/http"
 
 	"github.com/ernie/trinity-tracker/internal/auth"
@@ -52,9 +51,7 @@ func (r *Router) handleGameLogin(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Successful login — reset rate limiter for this IP
-	if ip, _, err := net.SplitHostPort(req.RemoteAddr); err == nil && ip != "" {
-		r.loginLimiter.Reset(ip)
-	}
+	r.loginLimiter.Reset(getClientIP(req))
 
 	r.store.UpdateUserLastLogin(req.Context(), user.ID)
 

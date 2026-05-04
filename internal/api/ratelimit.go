@@ -1,7 +1,6 @@
 package api
 
 import (
-	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -85,11 +84,7 @@ func (rl *rateLimiter) cleanup() {
 // rateLimit wraps a handler with IP-based rate limiting.
 func (r *Router) rateLimit(rl *rateLimiter, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		ip, _, _ := net.SplitHostPort(req.RemoteAddr)
-		if ip == "" {
-			ip = req.RemoteAddr
-		}
-		if !rl.Allow(ip) {
+		if !rl.Allow(getClientIP(req)) {
 			writeError(w, http.StatusTooManyRequests, "too many requests, try again later")
 			return
 		}
