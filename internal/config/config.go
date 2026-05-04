@@ -129,6 +129,12 @@ type DirectoryConfig struct {
 	ChallengeTimeout Duration `yaml:"challenge_timeout,omitempty"`
 	GateRefresh      Duration `yaml:"gate_refresh,omitempty"`
 	MaxServers       int      `yaml:"max_servers,omitempty"`
+	// PersistedFreshness gates restoration of the registry on
+	// startup: if the persisted snapshot's newest validated_at is
+	// older than this, it's treated as a crash artifact and
+	// discarded. Tune up if your deploys take longer than the
+	// default 5 minutes.
+	PersistedFreshness Duration `yaml:"persisted_freshness,omitempty"`
 }
 
 // CollectorConfig configures the log-parser / publisher role.
@@ -327,6 +333,9 @@ func applyTrackerDefaults(cfg *Config) {
 			}
 			if d.MaxServers == 0 {
 				d.MaxServers = 4096
+			}
+			if d.PersistedFreshness == 0 {
+				d.PersistedFreshness = Duration(5 * time.Minute)
 			}
 		}
 	}

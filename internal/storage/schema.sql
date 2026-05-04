@@ -283,3 +283,21 @@ CREATE TABLE IF NOT EXISTS source_audit (
 );
 
 CREATE INDEX IF NOT EXISTS idx_source_audit_source ON source_audit(source, created_at);
+
+-- Persisted snapshot of the Q3 directory's in-memory validated registry.
+-- Written once at graceful shutdown and restored at startup if the
+-- snapshot is recent enough to be a routine restart (see
+-- tracker.hub.directory.persisted_freshness). server_id is advisory —
+-- the gate is the authority on membership, so no FK to servers(id).
+CREATE TABLE IF NOT EXISTS directory_registrations (
+    addr          TEXT PRIMARY KEY,
+    server_id     INTEGER NOT NULL,
+    protocol      INTEGER NOT NULL,
+    gamename      TEXT NOT NULL,
+    engine        TEXT NOT NULL,
+    clients       INTEGER NOT NULL,
+    max_clients   INTEGER NOT NULL,
+    gametype      INTEGER NOT NULL,
+    validated_at  INTEGER NOT NULL,
+    expires_at    INTEGER NOT NULL
+);

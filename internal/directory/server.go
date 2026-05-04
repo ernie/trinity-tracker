@@ -17,7 +17,18 @@ import (
 	"net/netip"
 	"sync"
 	"time"
+
+	"github.com/ernie/trinity-tracker/internal/storage"
 )
+
+// registryStore is the slice of *storage.Store the directory uses to
+// persist its validated registry across hub restarts. nil disables
+// persistence — useful in tests and for opt-out installs.
+type registryStore interface {
+	ListDirectoryRegistrations(ctx context.Context) ([]storage.DirectoryRegistration, error)
+	ReplaceDirectoryRegistrations(ctx context.Context, rows []storage.DirectoryRegistration) error
+	ClearDirectoryRegistrations(ctx context.Context) error
+}
 
 // Config bundles the runtime knobs. All durations are required to be
 // positive — the caller (config.DirectoryConfig + applyTrackerDefaults)
@@ -32,6 +43,18 @@ type Config struct {
 
 	Store gateStore
 	Conns gateConns
+
+	// RegistryStore is optional. When non-nil, the registry is
+	// persisted on graceful shutdown and restored on startup if the
+	// snapshot is fresher than PersistedFreshness. nil disables
+	// persistence entirely.
+	RegistryStore registryStore
+
+	// PersistedFreshness gates restoration: a snapshot whose newest
+	// validated_at is older than this is treated as untrustworthy
+	// (probably not a routine restart) and discarded. Required when
+	// RegistryStore is non-nil.
+	PersistedFreshness time.Duration
 
 	// Debug enables per-packet logging at info level. Useful during
 	// rollout; off in production.
@@ -52,7 +75,12 @@ type Server struct {
 
 	stopOnce sync.Once
 	stopCh   chan struct{}
-	wg       sync.WaitGroup
+	// started closes once Run has bound listeners, restored the
+	// persisted registry, and spawned its worker goroutines. Used by
+	// tests to wait for "fully up" without polling. Not part of the
+	// public surface — same-package tests reach in directly.
+	started chan struct{}
+	wg      sync.WaitGroup
 }
 
 // New validates cfg and constructs a Server. It does not bind sockets
@@ -79,6 +107,9 @@ func New(cfg Config) (*Server, error) {
 	if cfg.Conns == nil {
 		return nil, errors.New("directory: Conns is required")
 	}
+	if cfg.RegistryStore != nil && cfg.PersistedFreshness <= 0 {
+		return nil, errors.New("directory: PersistedFreshness must be positive when RegistryStore is set")
+	}
 	return &Server{
 		cfg:        cfg,
 		debug:      cfg.Debug,
@@ -88,6 +119,7 @@ func New(cfg Config) (*Server, error) {
 		ratelimit:  newRateLimiter(10, 1.0/3.0, nil),
 		metrics:    &metrics{},
 		stopCh:     make(chan struct{}),
+		started:    make(chan struct{}),
 	}, nil
 }
 
@@ -108,6 +140,14 @@ func (s *Server) Run(ctx context.Context) error {
 		s.conns = append(s.conns, c)
 		log.Printf("directory: listening on %s", c.LocalAddr())
 	}
+
+	// Refresh the gate synchronously before spawning the read loops
+	// so the first incoming heartbeat finds a populated admit list.
+	// gate.Run refreshes again on its first tick — a duplicated DB
+	// query on startup, cheap enough to tolerate for the simpler
+	// sequencing.
+	s.gate.refreshOnce(ctx)
+	s.restorePersisted(ctx)
 
 	gateCtx, gateCancel := context.WithCancel(ctx)
 	s.wg.Add(1)
@@ -131,6 +171,8 @@ func (s *Server) Run(ctx context.Context) error {
 		}(c)
 	}
 
+	close(s.started)
+
 	select {
 	case <-ctx.Done():
 	case <-s.stopCh:
@@ -140,6 +182,9 @@ func (s *Server) Run(ctx context.Context) error {
 	sweepCancel()
 	s.closeConns()
 	s.wg.Wait()
+	// Persist after all workers have stopped — the registry is now
+	// quiescent, so we capture a consistent snapshot.
+	s.persistOnStop()
 	return nil
 }
 
@@ -297,4 +342,60 @@ func (s *Server) dispatch(conn *net.UDPConn, srcAddr netip.AddrPort, pkt []byte)
 func sendOn(conn *net.UDPConn, dst netip.AddrPort, pkt []byte) error {
 	_, err := conn.WriteToUDPAddrPort(pkt, dst)
 	return err
+}
+
+// restorePersisted seeds the registry from the persisted snapshot,
+// gated by PersistedFreshness. A stale snapshot is dropped (table
+// cleared) so we never advertise servers from a hub that was down
+// long enough that they may no longer exist.
+//
+// No-op when RegistryStore is nil. Errors log and continue — a failed
+// restore is equivalent to a crash: the registry just stays empty
+// and refills as heartbeats arrive.
+func (s *Server) restorePersisted(ctx context.Context) {
+	if s.cfg.RegistryStore == nil {
+		return
+	}
+	rows, err := s.cfg.RegistryStore.ListDirectoryRegistrations(ctx)
+	if err != nil {
+		log.Printf("directory: list persisted registrations: %v", err)
+		return
+	}
+	keep, clearAll := decideRestore(rows, s.cfg.PersistedFreshness, time.Now())
+	if clearAll {
+		log.Printf("directory: persisted snapshot of %d entries is stale (>%s), discarding",
+			len(rows), s.cfg.PersistedFreshness)
+		if err := s.cfg.RegistryStore.ClearDirectoryRegistrations(ctx); err != nil {
+			log.Printf("directory: clear stale registrations: %v", err)
+		}
+		return
+	}
+	if len(keep) == 0 {
+		return
+	}
+	s.registry.Load(keep)
+	log.Printf("directory: restored %d/%d persisted registrations", len(keep), len(rows))
+}
+
+// persistOnStop writes the current registry to the persistence store.
+// Called once from Run after all workers have stopped, so the
+// registry is quiescent. Uses a fresh context with a short timeout
+// because the parent ctx has likely been cancelled by the time we
+// get here (that's typically what triggered shutdown). A 5s budget
+// is well below systemd's default TimeoutStopSec while leaving room
+// for SQLite contention.
+func (s *Server) persistOnStop() {
+	if s.cfg.RegistryStore == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	rows := s.registry.toPersisted()
+	if err := s.cfg.RegistryStore.ReplaceDirectoryRegistrations(ctx, rows); err != nil {
+		log.Printf("directory: persist registry on stop: %v", err)
+		return
+	}
+	if s.debug {
+		log.Printf("directory: persisted %d registrations on stop", len(rows))
+	}
 }

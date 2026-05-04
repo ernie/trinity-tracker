@@ -6,6 +6,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/ernie/trinity-tracker/internal/storage"
 )
 
 // regEntry is one validated server in the directory's in-memory list.
@@ -109,6 +111,107 @@ func (r *registry) Len() int {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return len(r.entries)
+}
+
+// Load replaces the registry's contents with the supplied entries.
+// Used at startup to seed from a persisted snapshot. The caller is
+// responsible for any freshness or membership filtering — see
+// decideRestore.
+func (r *registry) Load(entries []regEntry) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.entries = make(map[netip.AddrPort]*regEntry, len(entries))
+	for i := range entries {
+		e := entries[i]
+		r.entries[e.addr] = &e
+	}
+}
+
+// decideRestore filters a persisted snapshot for restoration.
+//
+// Top-level freshness gate: if the most recent validated_at across
+// rows is older than freshness, the whole snapshot is rejected
+// (clearAll=true) — the hub was down longer than we'd trust as a
+// routine restart, so we'd rather show an empty list than stale data.
+//
+// Per-row filter: rows whose own expires_at has already passed are
+// dropped.
+//
+// We intentionally do NOT gate-filter restored entries by current
+// membership. Remote collectors take seconds to detect a NATS
+// disconnect and reconnect after a hub restart, so the gate is
+// briefly empty for remote sources at restore time — filtering here
+// would silently drop every remote registration on every restart.
+// Worst case for skipping the check: an admin deprovisioned a
+// source within the freshness window, so we briefly advertise an
+// addr whose underlying row is gone. The entry will expire on its
+// own at the original expires_at (or sooner via sweep), exactly
+// matching the in-memory behavior during normal operation.
+func decideRestore(
+	rows []storage.DirectoryRegistration,
+	freshness time.Duration,
+	now time.Time,
+) (keep []regEntry, clearAll bool) {
+	if len(rows) == 0 {
+		return nil, false
+	}
+	var newest time.Time
+	for _, r := range rows {
+		if r.ValidatedAt.After(newest) {
+			newest = r.ValidatedAt
+		}
+	}
+	if now.Sub(newest) > freshness {
+		return nil, true
+	}
+	keep = make([]regEntry, 0, len(rows))
+	for _, r := range rows {
+		if !r.ExpiresAt.After(now) {
+			continue
+		}
+		addr, err := netip.ParseAddrPort(r.Addr)
+		if err != nil {
+			continue
+		}
+		keep = append(keep, regEntry{
+			addr:        addr,
+			protocol:    r.Protocol,
+			gamename:    r.Gamename,
+			engine:      r.Engine,
+			clients:     r.Clients,
+			maxClients:  r.MaxClients,
+			gametype:    r.Gametype,
+			validatedAt: r.ValidatedAt,
+			expiresAt:   r.ExpiresAt,
+			serverID:    r.ServerID,
+		})
+	}
+	return keep, false
+}
+
+// toPersisted converts the registry's current entries to the form
+// the storage layer accepts. Called once at graceful shutdown.
+func (r *registry) toPersisted() []storage.DirectoryRegistration {
+	snap := r.Snapshot()
+	if len(snap) == 0 {
+		return nil
+	}
+	out := make([]storage.DirectoryRegistration, 0, len(snap))
+	for _, e := range snap {
+		out = append(out, storage.DirectoryRegistration{
+			Addr:        e.addr.String(),
+			ServerID:    e.serverID,
+			Protocol:    e.protocol,
+			Gamename:    e.gamename,
+			Engine:      e.engine,
+			Clients:     e.clients,
+			MaxClients:  e.maxClients,
+			Gametype:    e.gametype,
+			ValidatedAt: e.validatedAt,
+			ExpiresAt:   e.expiresAt,
+		})
+	}
+	return out
 }
 
 // matchGamename compares an entry's gamename to the requested filter.
