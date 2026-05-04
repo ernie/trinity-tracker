@@ -281,9 +281,9 @@ func cmdUpdate(args []string) {
 	if !*yes && !*dryRun {
 		fmt.Fprintln(os.Stderr)
 		fmt.Fprintln(os.Stderr, "Each component below can be applied or skipped independently.")
-		fmt.Fprintln(os.Stderr, "Approving any component will stop and restart the affected service(s)")
-		fmt.Fprintln(os.Stderr, "(trinity.service, plus quake3-servers.target if engine/mod changes).")
-		fmt.Fprintln(os.Stderr, "Active players on a restarted q3 server will be disconnected.")
+		fmt.Fprintln(os.Stderr, "Approving tracker restarts trinity.service.")
+		fmt.Fprintln(os.Stderr, "Approving engine or mod restarts quake3-servers.target")
+		fmt.Fprintln(os.Stderr, "(active players on those servers will be disconnected).")
 		fmt.Fprintln(os.Stderr)
 	}
 	approve := map[string]bool{}
@@ -354,17 +354,22 @@ func cmdUpdate(args []string) {
 		return
 	}
 
-	// Apply phase. From here on, partial failure leaves services
-	// stopped; operator re-runs `trinity update` after fixing the
-	// underlying issue (each step is idempotent, so re-runs converge).
-	if !*noRestart {
-		if hasLocalServers {
-			plan.Say("Stopping quake3-servers.target ...")
-			if err := plan.Systemctl("stop", "quake3-servers.target"); err != nil {
-				fmt.Fprintf(os.Stderr, "Error stopping q3 servers: %v\n", err)
-				os.Exit(1)
-			}
+	// Apply phase. trinity.service runs the tracker binary; restart
+	// it iff the binary or web bundle (both gated on approve["tracker"])
+	// is changing. quake3-servers.target runs trinity.ded + the mod
+	// pk3s; restart it iff engine or mod is changing. From here on,
+	// partial failure leaves the affected services stopped; operator
+	// re-runs `trinity update` after fixing the underlying issue.
+	restartTrinity := !*noRestart && approve["tracker"]
+	restartQ3 := !*noRestart && hasLocalServers && (approve["engine"] || approve["mod"])
+	if restartQ3 {
+		plan.Say("Stopping quake3-servers.target ...")
+		if err := plan.Systemctl("stop", "quake3-servers.target"); err != nil {
+			fmt.Fprintf(os.Stderr, "Error stopping q3 servers: %v\n", err)
+			os.Exit(1)
 		}
+	}
+	if restartTrinity {
 		plan.Say("Stopping trinity.service ...")
 		if err := plan.Systemctl("stop", "trinity.service"); err != nil {
 			fmt.Fprintf(os.Stderr, "Error stopping trinity.service: %v\n", err)
@@ -416,18 +421,18 @@ func cmdUpdate(args []string) {
 		}
 	}
 
-	if !*noRestart {
+	if restartTrinity {
 		plan.Say("Starting trinity.service ...")
 		if err := plan.Systemctl("start", "trinity.service"); err != nil {
 			fmt.Fprintf(os.Stderr, "Error starting trinity.service: %v\n", err)
 			os.Exit(1)
 		}
-		if hasLocalServers {
-			plan.Say("Starting quake3-servers.target ...")
-			if err := plan.Systemctl("start", "quake3-servers.target"); err != nil {
-				fmt.Fprintf(os.Stderr, "Error starting q3 servers: %v\n", err)
-				os.Exit(1)
-			}
+	}
+	if restartQ3 {
+		plan.Say("Starting quake3-servers.target ...")
+		if err := plan.Systemctl("start", "quake3-servers.target"); err != nil {
+			fmt.Fprintf(os.Stderr, "Error starting q3 servers: %v\n", err)
+			os.Exit(1)
 		}
 	}
 
