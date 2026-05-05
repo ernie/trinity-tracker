@@ -1707,6 +1707,34 @@ h2 {
   margin: 0;
 }
 
+.discord-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 14px;
+  padding: 6px;
+  border: 1px solid rgba(88, 101, 242, 0.45);
+  border-radius: 999px;
+  color: #a8b1ff;
+  text-decoration: none;
+  line-height: 1;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.discord-link:hover,
+.discord-link:focus-visible {
+  background: #5865F2;
+  border-color: #5865F2;
+  color: #fff;
+  outline: none;
+}
+
+.discord-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
 .header-nav,
 .page-nav {
   display: flex;

@@ -1,3 +1,5 @@
+import { DISCORD_INVITE_URL } from "../../constants/discord";
+
 export function DocsServerAdmin() {
   return (
     <>
@@ -8,7 +10,7 @@ export function DocsServerAdmin() {
           server and publish match stats here. To get set up on{" "}
           <code>trinity.run</code>, ping <strong>NilClass</strong> in
           the{" "}
-          <a href="https://discord.gg/tuDB2YNc7h">Team Beef Discord</a>{" "}
+          <a href={DISCORD_INVITE_URL}>Trinity Discord</a>{" "}
           with a proposed source name, then follow{" "}
           <a
             href="https://github.com/ernie/trinity-tracker/blob/main/docs/collector-setup.md"

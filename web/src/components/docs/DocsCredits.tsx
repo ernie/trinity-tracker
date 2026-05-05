@@ -1,3 +1,5 @@
+import { DISCORD_INVITE_URL } from "../../constants/discord";
+
 export function DocsCredits() {
   return (
     <div className="about-section">
@@ -37,7 +39,7 @@ export function DocsCredits() {
       </ul>
       <p>
         If you'd like to connect, stop by the{" "}
-        <a href="https://discord.gg/tuDB2YNc7h">Team Beef Discord</a>.
+        <a href={DISCORD_INVITE_URL}>Trinity Discord</a>.
       </p>
     </div>
   );

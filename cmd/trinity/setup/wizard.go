@@ -236,8 +236,8 @@ func confirmCollectorPrereqs(p Prompter, out io.Writer) error {
 	fmt.Fprintln(out, "If your hub has a public web UI, log in there and click \"Add Servers\" — an admin")
 	fmt.Fprintln(out, "will approve your request and the drawer that appears gives you the source ID")
 	fmt.Fprintln(out, "and a .creds download. Otherwise (or if your hub admin prefers it), ask them")
-	fmt.Fprintln(out, "directly — for trinity.run, the Team Beef Discord works")
-	fmt.Fprintln(out, "(https://discord.gg/tuDB2YNc7h).")
+	fmt.Fprintln(out, "directly — for trinity.run, the Trinity Discord works")
+	fmt.Fprintln(out, "(https://discord.gg/uJ5EPAXKfs).")
 	fmt.Fprintln(out)
 	ok, err := p.YesNo("Do you have these in hand now?", false)
 	if err != nil {

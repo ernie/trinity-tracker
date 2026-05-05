@@ -3,15 +3,17 @@ import { AppLogo } from "./AppLogo";
 import { PageNav } from "./PageNav";
 import { LoginForm } from "./LoginForm";
 import { MySourceButton } from "./MySourceButton";
+import { DiscordButton } from "./DiscordButton";
 import { useAuth } from "../hooks/useAuth";
 
 interface HeaderProps {
   title: string;
   className?: string;
   linkToHome?: boolean;
+  showDiscord?: boolean;
 }
 
-export function Header({ title, className, linkToHome }: HeaderProps) {
+export function Header({ title, className, linkToHome, showDiscord }: HeaderProps) {
   const { auth, login, logout } = useAuth();
 
   return (
@@ -19,6 +21,7 @@ export function Header({ title, className, linkToHome }: HeaderProps) {
       <h1>
         <AppLogo linkToHome={linkToHome} />
         {title}
+        {showDiscord && <DiscordButton />}
       </h1>
       <PageNav />
       <div className="auth-section">

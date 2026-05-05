@@ -83,7 +83,7 @@ file scoped to it. The hub UI handles both:
 
 If your hub doesn't have a public web UI (or the admin prefers
 out-of-band onboarding), ask them directly. For `trinity.run` the
-[Team Beef Discord](https://discord.gg/tuDB2YNc7h) works.
+[Trinity Discord](https://discord.gg/uJ5EPAXKfs) works.
 
 ---
 

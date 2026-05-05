@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useGitHubReleases } from "../../hooks/useGitHubReleases";
+import { DISCORD_INVITE_URL } from "../../constants/discord";
 
 const DOWNLOAD_DESCRIPTIONS: Record<string, string> = {
   trinity: "Custom Quake 3 mod with Trinity features",
@@ -43,7 +44,7 @@ export function DocsGettingStarted() {
           , copy your <code>baseq3</code> and <code>missionpack</code>{" "}
           <code>.pk3</code> files into the matching folders in your Trinity
           install — most public servers require the full game assets. Stop by
-          the <a href="https://discord.gg/tuDB2YNc7h">Team Beef Discord</a>{" "}
+          the <a href={DISCORD_INVITE_URL}>Trinity Discord</a>{" "}
           if you have questions or want to connect.
         </p>
         <p>

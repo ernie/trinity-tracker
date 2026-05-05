@@ -730,7 +730,7 @@ function App() {
     >
       <ConnectionStatus isConnected={isConnected} />
 
-      <Header title="Trinity" className="app-header" linkToHome={false} />
+      <Header title="Trinity" className="app-header" linkToHome={false} showDiscord />
 
       <aside className={`left-sidebar ${sidebarCollapsed ? "collapsed" : ""}`}>
         <div className="sidebar-header">
