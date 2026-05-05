@@ -170,30 +170,35 @@ export function MatchCard({ match, onPlayerClick, highlightPlayerId, showPermali
         </div>
       </div>
 
-      {isTeam && match.red_score != null && match.blue_score != null && (
-        <div className="team-scores">
-          <div className="team-scores-inner">
-            {match.red_score > match.blue_score && (
-              <span className="victory-badge left">
-                <MedalIcon type="victory" size="lg" showCount={false} />
-              </span>
-            )}
-            <div className="team-score red">
-              <span className="team-label">Red</span>
-              <span className="score-value">{formatNumber(match.red_score)}</span>
+      {isTeam && match.red_score != null && match.blue_score != null && (() => {
+        // No team "wins" if both teams ended at zero or negative — keeps the
+        // header in sync with the backend's victory rule for TDM bot-fest matches.
+        const hasWinner = Math.max(match.red_score, match.blue_score) > 0
+        return (
+          <div className="team-scores">
+            <div className="team-scores-inner">
+              {hasWinner && match.red_score > match.blue_score && (
+                <span className="victory-badge left">
+                  <MedalIcon type="victory" size="lg" showCount={false} />
+                </span>
+              )}
+              <div className="team-score red">
+                <span className="team-label">Red</span>
+                <span className="score-value">{formatNumber(match.red_score)}</span>
+              </div>
+              <div className="team-score blue">
+                <span className="team-label">Blue</span>
+                <span className="score-value">{formatNumber(match.blue_score)}</span>
+              </div>
+              {hasWinner && match.blue_score > match.red_score && (
+                <span className="victory-badge right">
+                  <MedalIcon type="victory" size="lg" showCount={false} />
+                </span>
+              )}
             </div>
-            <div className="team-score blue">
-              <span className="team-label">Blue</span>
-              <span className="score-value">{formatNumber(match.blue_score)}</span>
-            </div>
-            {match.blue_score > match.red_score && (
-              <span className="victory-badge right">
-                <MedalIcon type="victory" size="lg" showCount={false} />
-              </span>
-            )}
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {!isTeam && match.ended_at && players.length > 0 && (() => {
         const winners = players.filter(p => (p.victories ?? 0) > 0)

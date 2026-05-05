@@ -1649,16 +1649,29 @@ func isMatchWinner(client *clientState, state *serverState, maxFFAScore int, has
 	}
 
 	gameType := state.match.GameType
-	isTeamGame := gameType == "ctf" || gameType == "tdm" || gameType == "team" ||
-		gameType == "obelisk" || gameType == "harvester" || gameType == "1fctf"
+	isTeamGame := gameType == domain.GameTypeCTF || gameType == domain.GameTypeTDM ||
+		gameType == domain.GameType1FCTF || gameType == domain.GameTypeOverload ||
+		gameType == domain.GameTypeHarvester
 
 	if isTeamGame {
 		winningTeam := computeWinningTeam(state.pendingRedScore, state.pendingBlueScore)
-		return winningTeam > 0 && client.team == winningTeam
+		if winningTeam == 0 || client.team != winningTeam {
+			return false
+		}
+		// Require the winning team's score to be positive — matches where both
+		// teams went net-negative (e.g. TDM with bots falling off the map) don't
+		// earn anyone a victory.
+		winningScore := state.pendingRedScore
+		if winningTeam == 2 {
+			winningScore = state.pendingBlueScore
+		}
+		return winningScore != nil && *winningScore > 0
 	}
 
-	// FFA/Tournament: highest score wins
-	return hasFFAScores && client.score != nil && *client.score == maxFFAScore
+	// FFA/Tournament: highest score wins, but only if someone actually scored.
+	// Every connecting client is initialized to score=0, so a "no contest" match
+	// (e.g. instant rotation) leaves everyone tied at 0 — nobody wins.
+	return hasFFAScores && maxFFAScore > 0 && client.score != nil && *client.score == maxFFAScore
 }
 
 // emitEvent delivers to the local channel and, if livePub is set,
