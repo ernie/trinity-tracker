@@ -63,7 +63,7 @@ func TestApply_DryRun_Discord_EnabledInstallsAndEnablesTimer(t *testing.T) {
 		AdminEmail:        "ops@example.com",
 		DiscordEnabled:    true,
 		DiscordWebhookURL: "https://discord.com/api/webhooks/12345/abcDEF-_xyz",
-		DiscordSchedule:   "Sun 20:00",
+		DiscordSchedule:   "Mon 00:00",
 	}
 	if err := a.Validate(); err != nil {
 		t.Fatalf("Validate: %v", err)

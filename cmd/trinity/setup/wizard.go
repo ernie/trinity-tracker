@@ -600,7 +600,7 @@ func promptDiscord(p Prompter, a *Answers, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	sched, err := p.Line("Schedule (systemd OnCalendar= value)", "Sun 20:00")
+	sched, err := p.Line("Schedule (systemd OnCalendar= value)", "Mon 00:00")
 	if err != nil {
 		return err
 	}

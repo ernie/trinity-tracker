@@ -56,7 +56,7 @@ type Answers struct {
 	// trinity-digest.{service,timer} when DiscordEnabled is true.
 	DiscordEnabled    bool
 	DiscordWebhookURL string // full https://discord.com/api/webhooks/{id}/{token}
-	DiscordSchedule   string // systemd OnCalendar= value, e.g. "Sun 20:00"
+	DiscordSchedule   string // systemd OnCalendar= value, e.g. "Mon 00:00"
 
 	// Collector modes
 	InstallEngine bool   // download the latest trinity-engine release into Quake3Dir

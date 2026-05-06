@@ -25,7 +25,7 @@ func TestToConfig_HubMode_EmitsDiscordWhenEnabled(t *testing.T) {
 	a := validHubOnlyAnswers()
 	a.DiscordEnabled = true
 	a.DiscordWebhookURL = "https://discord.com/api/webhooks/12345/aBcDeF"
-	a.DiscordSchedule = "Sun 20:00"
+	a.DiscordSchedule = "Mon 00:00"
 
 	if err := a.Validate(); err != nil {
 		t.Fatalf("Validate: %v", err)
@@ -51,7 +51,7 @@ func TestToConfig_CollectorOnly_DropsDiscord(t *testing.T) {
 		PublicURL: "https://q3.example.com", AdminEmail: "ops@example.com", SourceID: "mygame", CredsFile: "/tmp/mygame.creds",
 		DiscordEnabled:    true, // shouldn't matter
 		DiscordWebhookURL: "https://discord.com/api/webhooks/12345/aBcDeF",
-		DiscordSchedule:   "Sun 20:00",
+		DiscordSchedule:   "Mon 00:00",
 		Servers: []ServerAnswers{
 			{Key: "ffa", Gametype: GametypeFFA, Address: "q3.example.com:27960", Port: 27960, RconPassword: "secret", LogPath: "/var/log/quake3/ffa.log"},
 		},
@@ -68,7 +68,7 @@ func TestAnswersValidate_DiscordRequiresWebhookAndSchedule(t *testing.T) {
 		mut  func(*Answers)
 		want string
 	}{
-		{"empty webhook", func(a *Answers) { a.DiscordEnabled = true; a.DiscordSchedule = "Sun 20:00" }, "webhook URL"},
+		{"empty webhook", func(a *Answers) { a.DiscordEnabled = true; a.DiscordSchedule = "Mon 00:00" }, "webhook URL"},
 		{"empty schedule", func(a *Answers) {
 			a.DiscordEnabled = true
 			a.DiscordWebhookURL = "https://discord.com/api/webhooks/1/x"

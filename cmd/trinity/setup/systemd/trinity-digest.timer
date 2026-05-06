@@ -3,7 +3,9 @@ Description=Trinity Discord digest, scheduled
 
 [Timer]
 # OnCalendar uses the value the install wizard collected. systemd
-# parses an enormous range of time specs; "Sun 20:00" is the default.
+# parses an enormous range of time specs; "Mon 00:00" (the moment
+# the weekend ends in UTC) is the default — closes out the weekly
+# window cleanly and rewards weekend pushes for top spots.
 # Persistent=true lets a missed run (host was down) fire on next boot.
 OnCalendar={{schedule}}
 Persistent=true
