@@ -114,6 +114,7 @@ func TestRunWizard_CombinedDefaults(t *testing.T) {
 			"ops@example.com",   // admin email
 			"",                  // local source id → "hub" (default)
 			"y",                 // expect remote collectors
+			"n",                 // skip Discord digest
 			"y",                 // install engine
 			"",                  // quake3 dir → default
 			"y",                 // add a server now
@@ -251,6 +252,46 @@ func TestRunWizard_CollectorOnly(t *testing.T) {
 	}
 	if err := a.Validate(); err != nil {
 		t.Errorf("answers should validate: %v", err)
+	}
+}
+
+// TestRunWizard_HubOnly_DiscordAccepted exercises the Discord prompt's
+// happy path: webhook URL is captured, schedule defaults to "Sun 20:00",
+// and ToConfig emits a discord block.
+func TestRunWizard_HubOnly_DiscordAccepted(t *testing.T) {
+	p := &scriptedPrompter{
+		t: t,
+		answers: []string{
+			"2",                 // mode → ModeHubOnly
+			"",                  // service user → quake
+			"",                  // database path → default
+			"",                  // static dir → default
+			"hub.example.com",   // public hostname
+			"y",                 // continue past DNS warning
+			"ops@example.com",   // admin email
+			"n",                 // expect remote collectors → no
+			"y",                 // enable Discord digest
+			"https://discord.com/api/webhooks/12345/abcDEF-_xyz",
+			"",                  // schedule → default "Sun 20:00"
+		},
+	}
+	var buf bytes.Buffer
+	a, err := RunWizard(p, &buf, WizardOptions{AllowHub: true})
+	if err != nil {
+		t.Fatalf("RunWizard: %v", err)
+	}
+	if !a.DiscordEnabled {
+		t.Fatal("DiscordEnabled should be true")
+	}
+	if !strings.HasPrefix(a.DiscordWebhookURL, "https://discord.com/api/webhooks/") {
+		t.Errorf("webhook URL not captured: %q", a.DiscordWebhookURL)
+	}
+	if a.DiscordSchedule != "Sun 20:00" {
+		t.Errorf("schedule default: got %q, want %q", a.DiscordSchedule, "Sun 20:00")
+	}
+	cfg := a.ToConfig()
+	if cfg.Discord == nil || cfg.Discord.WebhookURL == "" {
+		t.Errorf("ToConfig should emit cfg.Discord, got %+v", cfg.Discord)
 	}
 }
 
@@ -413,6 +454,7 @@ func TestRunWizard_HubOnly_NoServerPrompts(t *testing.T) {
 			"y",                 // continue past DNS warning
 			"ops@example.com",   // admin email
 			"n",                 // expect remote collectors → no
+			"n",                 // skip Discord digest
 		},
 	}
 	var buf bytes.Buffer

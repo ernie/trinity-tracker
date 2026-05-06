@@ -24,7 +24,6 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-	"text/tabwriter"
 	"time"
 
 	"github.com/ernie/trinity-tracker/cmd/trinity/setup"
@@ -33,6 +32,7 @@ import (
 	"github.com/ernie/trinity-tracker/internal/auth"
 	"github.com/ernie/trinity-tracker/internal/collector"
 	"github.com/ernie/trinity-tracker/internal/config"
+	"github.com/ernie/trinity-tracker/internal/domain"
 	"github.com/ernie/trinity-tracker/internal/hub"
 	"github.com/ernie/trinity-tracker/internal/directory"
 	"github.com/ernie/trinity-tracker/internal/natsbus"
@@ -73,6 +73,8 @@ func main() {
 		cmdMatches(os.Args[2:])
 	case "leaderboard":
 		cmdLeaderboard(os.Args[2:])
+	case "discord-digest":
+		cmdDiscordDigest(os.Args[2:])
 	case "user":
 		cmdUser(os.Args[2:])
 	case "levelshots":
@@ -117,6 +119,8 @@ func printUsage() {
 	fmt.Println("  players [--humans]                  Show current players across all servers")
 	fmt.Println("  matches [--recent N]                Show recent matches (default: 20)")
 	fmt.Println("  leaderboard [--top N]               Show top players (default: 20)")
+	fmt.Println("  discord-digest [--period P] [--dry-run]")
+	fmt.Println("                                      Post a leaderboard digest to a Discord webhook")
 	fmt.Println("  user add [--admin] [--player-id N] <username>")
 	fmt.Println("                                      Add a user (prompts for password)")
 	fmt.Println("  user remove <username>              Remove a user")
@@ -666,12 +670,19 @@ func cmdStatus(args []string) {
 	fs := flag.NewFlagSet("status", flag.ExitOnError)
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
 	url := fs.String("url", "", "base URL of the trinity server (overrides config)")
+	colorMode := addColorFlag(fs)
 	fs.Parse(args)
+	applyColorMode(*colorMode)
 
 	failures := 0
-	pass := func(label, detail string) { fmt.Printf("  ✓ %-12s %s\n", label, detail) }
+	// %-12s pads the label to 12 chars, but ANSI escapes count as
+	// bytes there too — pad first, then color, so the visible
+	// alignment stays right.
+	pass := func(label, detail string) {
+		fmt.Printf("  %s %s %s\n", green("✓"), bold(fmt.Sprintf("%-12s", label)), detail)
+	}
 	fail := func(label, detail string) {
-		fmt.Printf("  ✗ %-12s %s\n", label, detail)
+		fmt.Printf("  %s %s %s\n", red("✗"), bold(fmt.Sprintf("%-12s", label)), detail)
 		failures++
 	}
 
@@ -749,9 +760,9 @@ func cmdStatus(args []string) {
 
 	fmt.Println()
 	if failures > 0 {
-		fmt.Printf("%d check(s) failed.\n", failures)
+		fmt.Printf("%s\n", red(fmt.Sprintf("%d check(s) failed.", failures)))
 	} else {
-		fmt.Println("All checks passed.")
+		fmt.Println(green("All checks passed."))
 	}
 
 	if isHub && httpReachable {
@@ -765,7 +776,7 @@ func cmdStatus(args []string) {
 }
 
 // printLiveServerTable hits the local trinity HTTP API for the
-// per-server in-game state and renders a tabwriter table. Best-effort
+// per-server in-game state and renders an aligned table. Best-effort
 // — failures here don't affect the health-check exit code.
 func printLiveServerTable(configPath, urlOverride string) {
 	loadCLIConfigFromFlags(configPath, urlOverride)
@@ -776,9 +787,13 @@ func printLiveServerTable(configPath, urlOverride string) {
 		return
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "SERVER\tMAP\tPLAYERS\tHUMANS\tSTATUS")
-	fmt.Fprintln(w, "------\t---\t-------\t------\t------")
+	// Per-row collection — renderTable is column-major, so we
+	// accumulate cells per column then render once.
+	nameCol := column{header: "SERVER"}
+	mapCol := column{header: "MAP"}
+	playersCol := column{header: "PLAYERS", align: alignRight}
+	humansCol := column{header: "HUMANS", align: alignRight}
+	statusCol := column{header: "STATUS"}
 	for _, srv := range servers {
 		idF, _ := srv["id"].(float64)
 		id := int64(idF)
@@ -789,7 +804,11 @@ func printLiveServerTable(configPath, urlOverride string) {
 
 		var status map[string]interface{}
 		if err := getJSON(fmt.Sprintf("/api/servers/%d/status", id), &status); err != nil {
-			fmt.Fprintf(w, "%s\t-\t-\t-\tOFFLINE\n", name)
+			nameCol.cells = append(nameCol.cells, name)
+			mapCol.cells = append(mapCol.cells, dim("-"))
+			playersCol.cells = append(playersCol.cells, dim("-"))
+			humansCol.cells = append(humansCol.cells, dim("-"))
+			statusCol.cells = append(statusCol.cells, red("OFFLINE"))
 			continue
 		}
 
@@ -803,14 +822,18 @@ func printLiveServerTable(configPath, urlOverride string) {
 		}
 		humans, _ := status["human_count"].(float64)
 
-		statusStr := "ONLINE"
+		statusStr := green("ONLINE")
 		if online, ok := status["online"].(bool); ok && !online {
-			statusStr = "OFFLINE"
+			statusStr = red("OFFLINE")
 		}
 
-		fmt.Fprintf(w, "%s\t%s\t%d\t%d\t%s\n", name, mapName, players, int(humans), statusStr)
+		nameCol.cells = append(nameCol.cells, name)
+		mapCol.cells = append(mapCol.cells, mapName)
+		playersCol.cells = append(playersCol.cells, fmt.Sprintf("%d", players))
+		humansCol.cells = append(humansCol.cells, fmt.Sprintf("%d", int(humans)))
+		statusCol.cells = append(statusCol.cells, statusStr)
 	}
-	w.Flush()
+	renderTable(os.Stdout, []column{nameCol, mapCol, playersCol, humansCol, statusCol})
 }
 
 // jsonString safely pulls a string field from a decoded JSON map.
@@ -845,7 +868,9 @@ func cmdPlayers(args []string) {
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
 	url := fs.String("url", "", "base URL of the trinity server")
 	humansOnly := fs.Bool("humans", false, "show only human players")
+	colorMode := addColorFlag(fs)
 	fs.Parse(args)
+	applyColorMode(*colorMode)
 
 	loadCLIConfigFromFlags(*configPath, *url)
 
@@ -856,9 +881,11 @@ func cmdPlayers(args []string) {
 		os.Exit(1)
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "SERVER\tPLAYER\tSCORE\tPING\tTYPE")
-	fmt.Fprintln(w, "------\t------\t-----\t----\t----")
+	serverCol := column{header: "SERVER"}
+	playerCol := column{header: "PLAYER"}
+	scoreCol := column{header: "SCORE", align: alignRight}
+	pingCol := column{header: "PING", align: alignRight}
+	typeCol := column{header: "TYPE"}
 
 	for _, srv := range servers {
 		id := int64(srv["id"].(float64))
@@ -892,15 +919,33 @@ func cmdPlayers(args []string) {
 				playerType = "Bot"
 			}
 
+			coloredName, _ := pm["name"].(string)
 			cleanName := pm["clean_name"].(string)
 			score := int(pm["score"].(float64))
 			ping := int(pm["ping"].(float64))
 
-			fmt.Fprintf(w, "%s\t%s\t%d\t%d\t%s\n", name, cleanName, score, ping, playerType)
+			// Bot rows render dim so the human/bot distinction is
+			// visible at a glance even before scanning the TYPE col.
+			nameCell := displayName(coloredName, cleanName)
+			scoreCell := fmt.Sprintf("%d", score)
+			pingCell := fmt.Sprintf("%d", ping)
+			typeCell := playerType
+			if isBot {
+				nameCell = dim(cleanName) // q3ToANSI on a bot name + dim would conflict; pick clean+dim
+				scoreCell = dim(scoreCell)
+				pingCell = dim(pingCell)
+				typeCell = dim(typeCell)
+			}
+
+			serverCol.cells = append(serverCol.cells, name)
+			playerCol.cells = append(playerCol.cells, nameCell)
+			scoreCol.cells = append(scoreCol.cells, scoreCell)
+			pingCol.cells = append(pingCol.cells, pingCell)
+			typeCol.cells = append(typeCol.cells, typeCell)
 		}
 	}
 
-	w.Flush()
+	renderTable(os.Stdout, []column{serverCol, playerCol, scoreCol, pingCol, typeCol})
 }
 
 func cmdMatches(args []string) {
@@ -908,7 +953,9 @@ func cmdMatches(args []string) {
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
 	url := fs.String("url", "", "base URL of the trinity server")
 	limit := fs.Int("recent", 20, "number of recent matches to show")
+	colorMode := addColorFlag(fs)
 	fs.Parse(args)
+	applyColorMode(*colorMode)
 
 	loadCLIConfigFromFlags(*configPath, *url)
 
@@ -918,33 +965,41 @@ func cmdMatches(args []string) {
 		os.Exit(1)
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "ID\tMAP\tSTARTED\tENDED\tEXIT REASON")
-	fmt.Fprintln(w, "--\t---\t-------\t-----\t-----------")
+	idCol := column{header: "ID", align: alignRight}
+	mapCol := column{header: "MAP"}
+	startedCol := column{header: "STARTED"}
+	endedCol := column{header: "ENDED"}
+	exitCol := column{header: "EXIT REASON"}
 
 	for _, match := range matches {
 		id := int64(match["id"].(float64))
 		mapName := match["map_name"].(string)
 
-		started := "-"
+		started := dim("-")
 		if s, ok := match["started_at"].(string); ok {
 			started = formatTime(s)
 		}
 
-		ended := "In Progress"
+		// "In Progress" is a state worth flagging green so it pops
+		// against the timestamps above and below it.
+		ended := green("In Progress")
 		if e, ok := match["ended_at"].(string); ok && e != "" {
 			ended = formatTime(e)
 		}
 
-		exitReason := "-"
+		exitReason := dim("-")
 		if r, ok := match["exit_reason"].(string); ok && r != "" {
-			exitReason = r
+			exitReason = faint(r)
 		}
 
-		fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\n", id, mapName, started, ended, exitReason)
+		idCol.cells = append(idCol.cells, fmt.Sprintf("%d", id))
+		mapCol.cells = append(mapCol.cells, mapName)
+		startedCol.cells = append(startedCol.cells, started)
+		endedCol.cells = append(endedCol.cells, ended)
+		exitCol.cells = append(exitCol.cells, exitReason)
 	}
 
-	w.Flush()
+	renderTable(os.Stdout, []column{idCol, mapCol, startedCol, endedCol, exitCol})
 }
 
 func cmdLeaderboard(args []string) {
@@ -952,39 +1007,151 @@ func cmdLeaderboard(args []string) {
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
 	url := fs.String("url", "", "base URL of the trinity server")
 	limit := fs.Int("top", 20, "number of top players to show")
+	category := fs.String("category", "frags",
+		"category: frags, deaths, kd_ratio, matches, victories, captures, flag_returns, assists, defends, impressives, excellents, humiliations")
+	period := fs.String("period", "all", "time window: day|week|month|year|all")
+	colorMode := addColorFlag(fs)
 	fs.Parse(args)
+	applyColorMode(*colorMode)
+
+	spec, ok := digestCategoryRegistry[*category]
+	if !ok {
+		fmt.Fprintf(os.Stderr, "Error: unknown category %q\n", *category)
+		os.Exit(1)
+	}
 
 	loadCLIConfigFromFlags(*configPath, *url)
 
-	var response map[string]interface{}
-	if err := getJSON(fmt.Sprintf("/api/stats/leaderboard?limit=%d", *limit), &response); err != nil {
+	var resp domain.LeaderboardResponse
+	apiURL := fmt.Sprintf("/api/stats/leaderboard?category=%s&period=%s&limit=%d",
+		*category, *period, *limit)
+	if err := getJSON(apiURL, &resp); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 
-	entries, ok := response["entries"].([]interface{})
-	if !ok {
-		fmt.Fprintf(os.Stderr, "Error: unexpected response format\n")
+	// Layout matches the Discord embed: badges + colored name in
+	// the player cell, the chosen category as the headline value,
+	// matches as context. playerVerificationBadge / playerPlatformBadge
+	// emit ANSI escapes that work in both terminals (renderTable
+	// strips them when computing column widths) and Discord.
+	rankCol := column{header: "RANK", align: alignRight}
+	playerCol := column{header: "PLAYER"}
+	valueCol := column{header: spec.CLILabel, align: alignRight}
+	matchesCol := column{header: "MATCHES", align: alignRight}
+
+	for i, e := range resp.Entries {
+		rank := fmt.Sprintf("%d", i+1)
+		if i < 3 {
+			// Top-3 bold so they pop above the rest.
+			rank = bold(rank)
+		}
+
+		name := stripVRPrefix(e.Player.Name)
+		clean := stripVRPrefix(e.Player.CleanName)
+		playerCell := fmt.Sprintf("%s %s %s",
+			playerVerificationBadge(e.Player.IsVerified, e.Player.IsAdmin),
+			playerPlatformBadge(e.Player.IsVR),
+			displayName(name, clean),
+		)
+
+		rankCol.cells = append(rankCol.cells, rank)
+		playerCol.cells = append(playerCol.cells, playerCell)
+		valueCol.cells = append(valueCol.cells, spec.Format(e))
+		matchesCol.cells = append(matchesCol.cells, fmt.Sprintf("%d", e.CompletedMatches))
+	}
+
+	renderTable(os.Stdout, []column{rankCol, playerCol, valueCol, matchesCol})
+}
+
+// cmdDiscordDigest posts a weekly leaderboard digest to a Discord
+// webhook. Designed to be invoked from cron or a systemd timer; the
+// hub does not need to know anything about Discord.
+//
+// One HTTP GET per category (against /api/stats/leaderboard), then
+// one POST to the webhook. asOf is pinned at startup so the footer's
+// snapshot link reproduces the exact rankings the embed shows.
+func cmdDiscordDigest(args []string) {
+	fs := flag.NewFlagSet("discord-digest", flag.ExitOnError)
+	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
+	url := fs.String("url", "", "base URL of the trinity server")
+	period := fs.String("period", "week", "time window: day|week|month|year|all")
+	topN := fs.Int("top", 5, "top entries per category (max 25)")
+	webhookOverride := fs.String("webhook", "", "override discord.webhook_url (e.g. for staging)")
+	dryRun := fs.Bool("dry-run", false, "print embed JSON to stdout, do not POST")
+	fs.Parse(args)
+
+	if *topN < 1 || *topN > 25 {
+		fmt.Fprintf(os.Stderr, "Error: --top must be between 1 and 25\n")
 		os.Exit(1)
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "RANK\tPLAYER\tFRAGS\tDEATHS\tK/D\tMATCHES")
-	fmt.Fprintln(w, "----\t------\t-----\t------\t---\t-------")
+	cfg := loadCLIConfigFromFlags(*configPath, *url)
 
-	for i, entry := range entries {
-		stat := entry.(map[string]interface{})
-		player := stat["player"].(map[string]interface{})
-		name := player["clean_name"].(string)
-		frags := int64(stat["total_frags"].(float64))
-		deaths := int64(stat["total_deaths"].(float64))
-		kd := stat["kd_ratio"].(float64)
-		matches := int64(stat["total_matches"].(float64))
-
-		fmt.Fprintf(w, "%d\t%s\t%d\t%d\t%.2f\t%d\n", i+1, name, frags, deaths, kd, matches)
+	webhookURL := *webhookOverride
+	if webhookURL == "" {
+		if cfg == nil || cfg.Discord == nil || cfg.Discord.WebhookURL == "" {
+			fmt.Fprintln(os.Stderr, "Error: discord.webhook_url not set in config (or pass --webhook)")
+			os.Exit(1)
+		}
+		webhookURL = cfg.Discord.WebhookURL
 	}
 
-	w.Flush()
+	categories := defaultDigestCategories
+	if cfg != nil && cfg.Discord != nil && len(cfg.Discord.DigestCategories) > 0 {
+		categories = cfg.Discord.DigestCategories
+	}
+
+	// Pin asOf once so every per-category fetch sees the same anchor
+	// and the footer URL matches the embed contents exactly.
+	asOf := time.Now().UTC().Truncate(time.Second)
+	asOfStr := asOf.Format(time.RFC3339)
+
+	results := make(map[string]*domain.LeaderboardResponse, len(categories))
+	for _, cat := range categories {
+		var resp domain.LeaderboardResponse
+		path := fmt.Sprintf("/api/stats/leaderboard?category=%s&period=%s&limit=%d&as_of=%s",
+			cat, *period, *topN, asOfStr)
+		if err := getJSON(path, &resp); err != nil {
+			fmt.Fprintf(os.Stderr, "Error fetching %s: %v\n", cat, err)
+			os.Exit(1)
+		}
+		results[cat] = &resp
+	}
+
+	// Footer URL is what users click in Discord — it must point at
+	// the public-facing host, not the loopback API endpoint we used
+	// for the per-category fetches above. tracker.collector.public_url
+	// is where the wizard stashes the operator's chosen public URL.
+	// Falls back to baseURL on hub-only installs (which don't write a
+	// Collector block) or unconfigured ones.
+	publicURL := strings.TrimSuffix(baseURL, "/")
+	if cfg != nil && cfg.Tracker != nil && cfg.Tracker.Collector != nil && cfg.Tracker.Collector.PublicURL != "" {
+		publicURL = strings.TrimSuffix(cfg.Tracker.Collector.PublicURL, "/")
+	}
+	footerURL := fmt.Sprintf("%s/leaderboard?period=%s&as_of=%s", publicURL, *period, asOfStr)
+	// staticDir lets renderDigestEmbed do a filesystem-based 404
+	// check on portrait URLs; an empty string skips the check.
+	staticDir := ""
+	if cfg != nil {
+		staticDir = cfg.Server.StaticDir
+	}
+	embed := renderDigestEmbed(results, categories, *topN, footerURL, publicURL, staticDir, time.Now())
+
+	if *dryRun {
+		// Pretty-print so operators can eyeball the payload.
+		out, _ := json.MarshalIndent(discordWebhookPayload{Embeds: []discordEmbed{embed}}, "", "  ")
+		fmt.Println(string(out))
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := postWebhook(ctx, webhookURL, embed); err != nil {
+		fmt.Fprintf(os.Stderr, "Error posting to Discord: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Posted digest (%d categories, period=%s, as_of=%s)\n", len(categories), *period, asOfStr)
 }
 
 // cmdUser dispatches `trinity user <subcommand>`. Each subcommand
@@ -1127,7 +1294,9 @@ func cmdUserList(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("user list", flag.ExitOnError)
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
 	url := fs.String("url", "", "base URL of the trinity server")
+	colorMode := addColorFlag(fs)
 	fs.Parse(args)
+	applyColorMode(*colorMode)
 
 	store := openStoreForCLI(*configPath, *url)
 	defer store.Close()
@@ -1138,34 +1307,45 @@ func cmdUserList(ctx context.Context, args []string) error {
 	}
 
 	if len(users) == 0 {
-		fmt.Println("No users configured")
+		fmt.Println(dim("No users configured"))
 		return nil
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "USERNAME\tROLE\tPLAYER_ID\tPWD_CHANGE\tLAST_LOGIN")
-	fmt.Fprintln(w, "--------\t----\t---------\t----------\t----------")
+	usernameCol := column{header: "USERNAME"}
+	roleCol := column{header: "ROLE"}
+	playerIDCol := column{header: "PLAYER_ID", align: alignRight}
+	pwdChangeCol := column{header: "PWD_CHANGE"}
+	lastLoginCol := column{header: "LAST_LOGIN"}
 
 	for _, user := range users {
 		role := "user"
 		if user.IsAdmin {
-			role = "admin"
+			// admin is the row-distinguishing flag; cyan keeps it
+			// scannable without screaming.
+			role = cyan("admin")
 		}
-		playerID := "-"
+		playerID := dim("-")
 		if user.PlayerID != nil {
 			playerID = fmt.Sprintf("%d", *user.PlayerID)
 		}
 		pwdChange := "no"
 		if user.PasswordChangeRequired {
-			pwdChange = "yes"
+			// A pending password change is an action item — yellow
+			// flags it without claiming an actual error.
+			pwdChange = yellow("yes")
 		}
-		lastLogin := "never"
+		lastLogin := dim("never")
 		if user.LastLogin != nil {
 			lastLogin = user.LastLogin.Format("2006-01-02 15:04")
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", user.Username, role, playerID, pwdChange, lastLogin)
+		usernameCol.cells = append(usernameCol.cells, user.Username)
+		roleCol.cells = append(roleCol.cells, role)
+		playerIDCol.cells = append(playerIDCol.cells, playerID)
+		pwdChangeCol.cells = append(pwdChangeCol.cells, pwdChange)
+		lastLoginCol.cells = append(lastLoginCol.cells, lastLogin)
 	}
-	return w.Flush()
+	renderTable(os.Stdout, []column{usernameCol, roleCol, playerIDCol, pwdChangeCol, lastLoginCol})
+	return nil
 }
 
 func cmdUserReset(ctx context.Context, args []string) error {
@@ -2300,7 +2480,9 @@ func cmdServer(args []string) {
 func cmdServerList(args []string) {
 	fs := flag.NewFlagSet("server list", flag.ExitOnError)
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
+	colorMode := addColorFlag(fs)
 	fs.Parse(args)
+	applyColorMode(*colorMode)
 
 	cfg, err := config.Load(*configPath)
 	if err != nil {
@@ -2309,19 +2491,18 @@ func cmdServerList(args []string) {
 	}
 
 	if len(cfg.Q3Servers) == 0 {
-		fmt.Println("No servers configured")
+		fmt.Println(dim("No servers configured"))
 		return
 	}
 
 	useSd := useSystemd(cfg)
 	configDir := filepath.Dir(*configPath)
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	if useSd {
-		fmt.Fprintln(w, "NAME\tPORT\tGAME\tSERVICE\tSTATUS")
-	} else {
-		fmt.Fprintln(w, "NAME\tPORT\tGAME")
-	}
+	nameCol := column{header: "NAME"}
+	portCol := column{header: "PORT", align: alignRight}
+	gameCol := column{header: "GAME"}
+	serviceCol := column{header: "SERVICE"}
+	statusCol := column{header: "STATUS"}
 
 	for _, srv := range cfg.Q3Servers {
 		// Extract port from address
@@ -2341,15 +2522,33 @@ func cmdServerList(args []string) {
 			}
 		}
 
+		nameCol.cells = append(nameCol.cells, srv.Key)
+		portCol.cells = append(portCol.cells, port)
+		gameCol.cells = append(gameCol.cells, game)
+
 		if useSd {
 			unit := "quake3-server@" + serverName
 			status := systemctlIsActive(unit)
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", srv.Key, port, game, unit, status)
-		} else {
-			fmt.Fprintf(w, "%s\t%s\t%s\n", srv.Key, port, game)
+			// Color the status by what systemctl says — green for
+			// active, red for failed/inactive, dim otherwise.
+			coloredStatus := status
+			switch strings.TrimSpace(status) {
+			case "active":
+				coloredStatus = green(status)
+			case "failed", "inactive":
+				coloredStatus = red(status)
+			default:
+				coloredStatus = dim(status)
+			}
+			serviceCol.cells = append(serviceCol.cells, unit)
+			statusCol.cells = append(statusCol.cells, coloredStatus)
 		}
 	}
-	w.Flush()
+	if useSd {
+		renderTable(os.Stdout, []column{nameCol, portCol, gameCol, serviceCol, statusCol})
+	} else {
+		renderTable(os.Stdout, []column{nameCol, portCol, gameCol})
+	}
 }
 
 // nextAvailablePort finds the lowest unused port >= 27960 based on existing config entries and env files

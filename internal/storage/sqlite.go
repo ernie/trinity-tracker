@@ -1109,9 +1109,11 @@ func boolToInt(b bool) int {
 
 // --- Stats methods ---
 
-// GetLeaderboard returns top players ranked by the specified category and time period
-func (s *Store) GetLeaderboard(ctx context.Context, category, period string, limit int, gameType string) (*domain.LeaderboardResponse, error) {
-	start, end := getTimePeriodBounds(period)
+// GetLeaderboard returns top players ranked by the specified category and time period.
+// asOf pins the period's upper bound for reproducible snapshots; pass
+// time.Time{} for "live" (now-anchored) results.
+func (s *Store) GetLeaderboard(ctx context.Context, category, period string, limit int, gameType string, asOf time.Time) (*domain.LeaderboardResponse, error) {
+	start, end := getTimePeriodBounds(period, asOf)
 
 	// Determine ORDER BY clause based on category
 	var orderBy string
@@ -1314,22 +1316,27 @@ func (s *Store) GetLeaderboard(ctx context.Context, category, period string, lim
 	return response, nil
 }
 
-// getTimePeriodBounds returns start and end times for a given period (rolling windows)
-func getTimePeriodBounds(period string) (start, end time.Time) {
-	now := time.Now()
-	end = now
+// getTimePeriodBounds returns start and end times for a given period
+// (rolling windows). asOf overrides "now" — pass time.Time{} to use the
+// wall clock. Letting callers pin the anchor makes leaderboard URLs
+// reproducible long after the digest fires.
+func getTimePeriodBounds(period string, asOf time.Time) (start, end time.Time) {
+	if asOf.IsZero() {
+		asOf = time.Now()
+	}
+	end = asOf
 	switch period {
 	case "day":
-		start = now.Add(-24 * time.Hour)
+		start = asOf.Add(-24 * time.Hour)
 	case "week":
-		start = now.Add(-7 * 24 * time.Hour)
+		start = asOf.Add(-7 * 24 * time.Hour)
 	case "month":
-		start = now.Add(-30 * 24 * time.Hour)
+		start = asOf.Add(-30 * 24 * time.Hour)
 	case "year":
-		start = now.Add(-365 * 24 * time.Hour)
+		start = asOf.Add(-365 * 24 * time.Hour)
 	default: // "all"
 		start = time.Time{}
-		end = now.Add(100 * 365 * 24 * time.Hour)
+		end = asOf.Add(100 * 365 * 24 * time.Hour)
 	}
 	return
 }
@@ -1347,7 +1354,7 @@ func (s *Store) getPlayerStats(ctx context.Context, playerID int64, period strin
 		return nil, err
 	}
 
-	start, end := getTimePeriodBounds(period)
+	start, end := getTimePeriodBounds(period, time.Time{})
 
 	// Query aggregated stats across all GUIDs
 	var stats domain.AggregatedStats

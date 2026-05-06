@@ -9,9 +9,15 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 )
+
+// discordWebhookRE matches Discord's webhook URL shape. Same regex as
+// internal/config/validateDiscord — the duplication is the price of
+// keeping setup out of config's import graph.
+var discordWebhookRE = regexp.MustCompile(`^https://discord\.com/api/webhooks/\d+/[A-Za-z0-9_-]+$`)
 
 // WizardOptions controls non-prompt-collected behavior of RunWizard:
 // whether hub modes are unlocked, and which expert-mode skips are
@@ -91,6 +97,9 @@ func RunWizard(p Prompter, out io.Writer, opts WizardOptions) (*Answers, error) 
 			return nil, err
 		}
 		if err := promptHubPublic(p, a, out); err != nil {
+			return nil, err
+		}
+		if err := promptDiscord(p, a, out); err != nil {
 			return nil, err
 		}
 	}
@@ -565,6 +574,50 @@ func publicIP() string {
 		}
 	}
 	return ""
+}
+
+// promptDiscord asks whether to enable the weekly Discord leaderboard
+// digest. Declining short-circuits — no fields are populated, no
+// systemd units installed. Accepting collects a webhook URL and a
+// systemd OnCalendar= schedule (default Sunday 20:00 local time).
+func promptDiscord(p Prompter, a *Answers, out io.Writer) error {
+	fmt.Fprintln(out)
+	fmt.Fprintln(out, "Optional: a weekly Discord leaderboard digest can post to a")
+	fmt.Fprintln(out, "channel via webhook. Skip this if you don't have a server,")
+	fmt.Fprintln(out, "or you can configure it later by editing /etc/trinity/config.yml")
+	fmt.Fprintln(out, "and `systemctl enable --now trinity-digest.timer`.")
+
+	enable, err := p.YesNo("Enable weekly Discord digest?", false)
+	if err != nil {
+		return err
+	}
+	if !enable {
+		return nil
+	}
+	url, err := promptValidated(p, out,
+		"Discord webhook URL (https://discord.com/api/webhooks/{id}/{token})",
+		"", validateDiscordWebhookURL)
+	if err != nil {
+		return err
+	}
+	sched, err := p.Line("Schedule (systemd OnCalendar= value)", "Sun 20:00")
+	if err != nil {
+		return err
+	}
+	a.DiscordEnabled = true
+	a.DiscordWebhookURL = url
+	a.DiscordSchedule = sched
+	return nil
+}
+
+// validateDiscordWebhookURL mirrors the regex in
+// internal/config/validateDiscord. Catching shape errors here means
+// the operator isn't surprised at the *next* config.Load round-trip.
+func validateDiscordWebhookURL(s string) error {
+	if !discordWebhookRE.MatchString(s) {
+		return fmt.Errorf("not a Discord webhook URL (expected https://discord.com/api/webhooks/{id}/{token})")
+	}
+	return nil
 }
 
 // validateAdminEmail rejects obviously-bad addresses so the wizard

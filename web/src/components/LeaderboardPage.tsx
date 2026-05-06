@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { ColoredText } from "./ColoredText";
 import { PlayerPortrait } from "./PlayerPortrait";
 import { PlayerBadge } from "./PlayerBadge";
@@ -116,6 +116,15 @@ function getCategoriesForGameType(
   }
 }
 
+// formatSnapshotTime renders an as_of timestamp for the snapshot
+// banner. Falls back to the raw string if it doesn't parse — the API
+// already 400s on garbage so this is just defensive.
+function formatSnapshotTime(asOf: string): string {
+  const d = new Date(asOf);
+  if (isNaN(d.getTime())) return asOf;
+  return d.toISOString().replace("T", " ").replace(/:\d{2}\.\d+Z$/, " UTC");
+}
+
 export function LeaderboardPage() {
   const [gameType, setGameType] = useState<GameTypeFilter>("all");
   const [category, setCategory] = useState<LeaderboardCategory>("matches");
@@ -123,6 +132,14 @@ export function LeaderboardPage() {
   const [data, setData] = useState<LeaderboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // ?as_of=<RFC3339> pins the leaderboard's upper bound for snapshot
+  // links (e.g. the Discord digest's footer URL). When present we pass
+  // it through to the API and show a banner so visitors know they're
+  // looking at history. The period and category selectors stay
+  // functional — flipping them keeps the same anchor.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const asOf = searchParams.get("as_of") ?? "";
 
   const availableCategories = getCategoriesForGameType(gameType);
 
@@ -136,8 +153,9 @@ export function LeaderboardPage() {
     setError(null);
 
     const gameTypeParam = gameType !== "all" ? `&game_type=${gameType}` : "";
+    const asOfParam = asOf ? `&as_of=${encodeURIComponent(asOf)}` : "";
     fetch(
-      `/api/stats/leaderboard?category=${effectiveCategory}&period=${period}&limit=50${gameTypeParam}`,
+      `/api/stats/leaderboard?category=${effectiveCategory}&period=${period}&limit=50${gameTypeParam}${asOfParam}`,
     )
       .then((res) => {
         if (!res.ok) throw new Error("Failed to load leaderboard");
@@ -146,11 +164,26 @@ export function LeaderboardPage() {
       .then((data) => setData(data))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [effectiveCategory, period, gameType]);
+  }, [effectiveCategory, period, gameType, asOf]);
+
+  function exitSnapshot() {
+    const next = new URLSearchParams(searchParams);
+    next.delete("as_of");
+    setSearchParams(next);
+  }
 
   return (
     <div className="leaderboard-page">
       <Header title="Leaderboard" className="leaderboard-header" />
+
+      {asOf && (
+        <div className="leaderboard-snapshot-banner">
+          <span>📸 Snapshot · {formatSnapshotTime(asOf)}</span>
+          <button type="button" className="leaderboard-snapshot-exit" onClick={exitSnapshot}>
+            ← back to live
+          </button>
+        </div>
+      )}
 
       <div className="filter-row">
         <div className="game-type-selector">

@@ -52,6 +52,12 @@ type Answers struct {
 	JWTSecret    string // auth.jwt_secret — generated once at install time
 	// and persisted in /etc/trinity/config.yml. Empty for collector-only.
 
+	// Hub modes (optional Discord weekly digest). Apply installs
+	// trinity-digest.{service,timer} when DiscordEnabled is true.
+	DiscordEnabled    bool
+	DiscordWebhookURL string // full https://discord.com/api/webhooks/{id}/{token}
+	DiscordSchedule   string // systemd OnCalendar= value, e.g. "Sun 20:00"
+
 	// Collector modes
 	InstallEngine bool   // download the latest trinity-engine release into Quake3Dir
 	Quake3Dir     string // server.quake3_dir
@@ -171,6 +177,14 @@ func (a *Answers) Validate() error {
 		if a.AdminEmail == "" && !a.SkipCert && !a.SkipNginx {
 			return fmt.Errorf("admin email is required for hub mode (Let's Encrypt renewal notices)")
 		}
+		if a.DiscordEnabled {
+			if a.DiscordWebhookURL == "" {
+				return fmt.Errorf("discord webhook URL is required when discord digest is enabled")
+			}
+			if a.DiscordSchedule == "" {
+				return fmt.Errorf("discord schedule is required when discord digest is enabled")
+			}
+		}
 	}
 	if a.Mode == ModeCombined && a.SourceID == "" {
 		return fmt.Errorf("source ID is required for combined mode (the local collector half publishes events under this name)")
@@ -255,6 +269,12 @@ func (a *Answers) ToConfig() *config.Config {
 		// TokenDuration is left zero on purpose; config.Load applies
 		// the 24h default on round-trip.
 		cfg.Auth = &config.AuthConfig{JWTSecret: a.JWTSecret}
+		if a.DiscordEnabled {
+			// DigestCategories left empty so the discord-digest
+			// subcommand uses defaults; operators can edit the
+			// config later to prune or reorder.
+			cfg.Discord = &config.DiscordConfig{WebhookURL: a.DiscordWebhookURL}
+		}
 	}
 	// static_dir is also useful for collectors: trinity levelshots and
 	// trinity demobake write into {static_dir}/assets and {static_dir}/pk3s,

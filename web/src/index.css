@@ -4225,6 +4225,35 @@ h2 {
   margin-right: auto;
 }
 
+/* Snapshot banner: shown when ?as_of=... pins a historical anchor.
+   Mirrors how the digest's footer URL works — clicking the link
+   reproduces what was posted to Discord. */
+.leaderboard-snapshot-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 8px 12px;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 0.95em;
+}
+
+.leaderboard-snapshot-exit {
+  background: transparent;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 0;
+  margin-left: auto;
+  font: inherit;
+}
+
+.leaderboard-snapshot-exit:hover {
+  text-decoration: underline;
+}
+
 /* Game type filter */
 .filter-row {
   margin-bottom: 15px;

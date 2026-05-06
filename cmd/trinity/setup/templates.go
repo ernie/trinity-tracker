@@ -278,15 +278,25 @@ func HostFromURL(s string) string {
 // units names are without the "systemd/" prefix, e.g.
 // "trinity.service".
 func SystemdUnit(name, serviceUser string) ([]byte, error) {
+	return SystemdUnitTemplated(name, serviceUser, nil)
+}
+
+// SystemdUnitTemplated is SystemdUnit plus arbitrary {{key}} → value
+// substitutions. Used by trinity-digest.timer to inject the operator's
+// chosen OnCalendar= schedule.
+func SystemdUnitTemplated(name, serviceUser string, subs map[string]string) ([]byte, error) {
 	raw, err := systemdUnits.ReadFile("systemd/" + name)
 	if err != nil {
 		return nil, fmt.Errorf("reading embedded systemd/%s: %w", name, err)
 	}
-	if serviceUser == "" || serviceUser == "quake" {
-		return raw, nil
+	out := string(raw)
+	if serviceUser != "" && serviceUser != "quake" {
+		out = strings.ReplaceAll(out, "User=quake", "User="+serviceUser)
+		out = strings.ReplaceAll(out, "Group=quake", "Group="+serviceUser)
 	}
-	out := strings.ReplaceAll(string(raw), "User=quake", "User="+serviceUser)
-	out = strings.ReplaceAll(out, "Group=quake", "Group="+serviceUser)
+	for k, v := range subs {
+		out = strings.ReplaceAll(out, "{{"+k+"}}", v)
+	}
 	return []byte(out), nil
 }
 

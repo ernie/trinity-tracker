@@ -1,0 +1,24 @@
+[Unit]
+Description=Trinity Discord weekly leaderboard digest
+# Run only after the hub is up — the digest hits the local HTTP API.
+# Requires=trinity.service makes a stopped hub a hard skip rather than
+# an error storm; a maintenance Sunday won't post a misleading
+# "no activity" embed.
+After=trinity.service network-online.target
+Requires=trinity.service
+
+[Service]
+Type=oneshot
+User=quake
+Group=quake
+ExecStart=/usr/local/bin/trinity discord-digest --period week
+
+# Sandboxing. The digest reads /etc/trinity/config.yml and makes one
+# outbound HTTPS POST; no filesystem writes outside of stdout/stderr.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6

@@ -414,7 +414,20 @@ func (r *Router) handleGetLeaderboard(w http.ResponseWriter, req *http.Request) 
 		return
 	}
 
-	response, err := r.store.GetLeaderboard(req.Context(), category, period, limit, gameType)
+	// as_of pins the period's upper bound for reproducible snapshot
+	// links (e.g. the Discord digest's footer). Parse-only validation —
+	// nonsense values just return empty/weird leaderboards.
+	var asOf time.Time
+	if s := req.URL.Query().Get("as_of"); s != "" {
+		parsed, err := time.Parse(time.RFC3339, s)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid as_of: "+err.Error())
+			return
+		}
+		asOf = parsed
+	}
+
+	response, err := r.store.GetLeaderboard(req.Context(), category, period, limit, gameType, asOf)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

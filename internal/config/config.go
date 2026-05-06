@@ -33,6 +33,7 @@ type Config struct {
 	// sites must nil-check.
 	Database  *DatabaseConfig `yaml:"database,omitempty"`
 	Auth      *AuthConfig     `yaml:"auth,omitempty"`
+	Discord   *DiscordConfig  `yaml:"discord,omitempty"`
 	Q3Servers []Q3Server      `yaml:"q3_servers,omitempty"`
 	Tracker   *TrackerConfig  `yaml:"tracker,omitempty"`
 }
@@ -165,6 +166,52 @@ type AuthConfig struct {
 	TokenDuration time.Duration `yaml:"token_duration"`
 }
 
+// DiscordConfig is read by the `trinity discord-digest` subcommand
+// (invoked from cron / a systemd timer). Never read by `trinity serve`,
+// so an empty/missing block has no effect on hub startup.
+//
+// WebhookURL is the full https://discord.com/api/webhooks/{id}/{token}
+// URL — the URL itself is the credential. Stored alongside other
+// secret-bearing fields in /etc/trinity/config.yml (mode 0640).
+//
+// DigestCategories optionally overrides the 9 default leaderboard
+// categories shown in the embed. Order is preserved. Each entry must
+// be one of the categories accepted by /api/stats/leaderboard.
+type DiscordConfig struct {
+	WebhookURL       string   `yaml:"webhook_url"`
+	DigestCategories []string `yaml:"digest_categories,omitempty"`
+}
+
+// discordWebhookURLPattern matches Discord's webhook URL shape. We
+// don't try to verify the token is "real" — Discord will reject bad
+// ones at POST time — but a typo'd URL fails fast at config load.
+var discordWebhookURLPattern = regexp.MustCompile(`^https://discord\.com/api/webhooks/\d+/[A-Za-z0-9_-]+$`)
+
+// validDigestCategories mirrors internal/api.validCategories. Kept here
+// (and not imported) to keep config out of api's dependency graph.
+// If you add a category there, add it here too.
+var validDigestCategories = map[string]bool{
+	"frags": true, "deaths": true, "kd_ratio": true, "matches": true,
+	"captures": true, "flag_returns": true, "assists": true,
+	"impressives": true, "excellents": true, "humiliations": true,
+	"defends": true, "victories": true,
+}
+
+func validateDiscord(d *DiscordConfig) error {
+	if d == nil {
+		return nil
+	}
+	if d.WebhookURL != "" && !discordWebhookURLPattern.MatchString(d.WebhookURL) {
+		return fmt.Errorf("discord.webhook_url %q does not match Discord webhook shape (https://discord.com/api/webhooks/{id}/{token})", d.WebhookURL)
+	}
+	for i, cat := range d.DigestCategories {
+		if !validDigestCategories[cat] {
+			return fmt.Errorf("discord.digest_categories[%d] %q is not a valid leaderboard category", i, cat)
+		}
+	}
+	return nil
+}
+
 // ServerConfig holds HTTP server settings
 type ServerConfig struct {
 	ListenAddr   string        `yaml:"listen_addr"`
@@ -261,6 +308,10 @@ func Load(path string) (*Config, error) {
 		return nil, err
 	}
 
+	if err := validateDiscord(cfg.Discord); err != nil {
+		return nil, err
+	}
+
 	return &cfg, nil
 }
 
@@ -288,6 +339,9 @@ func validateNoPlaceholders(cfg *Config) error {
 		if strings.Contains(srv.RconPassword, placeholder) {
 			return fmt.Errorf("q3_servers[%d].rcon_password is still %q — edit your config.yml", i, srv.RconPassword)
 		}
+	}
+	if cfg.Discord != nil && strings.Contains(cfg.Discord.WebhookURL, placeholder) {
+		return fmt.Errorf("discord.webhook_url is still %q — edit your config.yml", cfg.Discord.WebhookURL)
 	}
 	return nil
 }

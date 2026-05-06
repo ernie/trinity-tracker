@@ -118,6 +118,15 @@ func Apply(a *Answers, opts ApplyOptions) error {
 			}
 			plan.Say("Enabled: quake3-servers.target")
 		}
+		if a.DiscordEnabled {
+			// Enable the timer (not the service) — the service is the
+			// one-shot the timer pulls in. `--now` lets the next-fire
+			// schedule recompute immediately rather than after reboot.
+			if err := plan.Systemctl("enable", "--now", "trinity-digest.timer"); err != nil {
+				return err
+			}
+			plan.Say("Enabled: trinity-digest.timer")
+		}
 	}
 
 	if a.RunsLocalServers() && !a.SkipLogrotate {
@@ -400,8 +409,24 @@ func installSystemdUnits(plan *Plan, a *Answers) error {
 	if a.RunsLocalServers() {
 		units = append(units, "quake3-server@.service", "quake3-servers.target")
 	}
+	if a.DiscordEnabled {
+		// Service is static; timer is templated with the operator's
+		// schedule. Both go through installOneSystemdUnit so the
+		// permission/path logic stays identical.
+		units = append(units, "trinity-digest.service", "trinity-digest.timer")
+	}
 	for _, name := range units {
-		data, err := SystemdUnit(name, a.ServiceUser)
+		var (
+			data []byte
+			err  error
+		)
+		if name == "trinity-digest.timer" {
+			data, err = SystemdUnitTemplated(name, a.ServiceUser, map[string]string{
+				"schedule": a.DiscordSchedule,
+			})
+		} else {
+			data, err = SystemdUnit(name, a.ServiceUser)
+		}
 		if err != nil {
 			return err
 		}
