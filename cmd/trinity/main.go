@@ -1088,6 +1088,18 @@ func cmdDiscordDigest(args []string) {
 
 	cfg := loadCLIConfigFromFlags(*configPath, *url)
 
+	// Default the API base to the public URL when one's configured.
+	// The loopback default from loadCLIConfigFromFlags only works
+	// when the digest binary runs on the hub host; preferring
+	// PublicURL means operators on a separate scheduling host get a
+	// working install with no extra flags. --url still wins, so
+	// anyone who wants to bypass nginx (e.g. on the hub host) can
+	// pass --url http://127.0.0.1:8080 explicitly. Footer URL stays
+	// public regardless — that's what users click in Discord.
+	if *url == "" && cfg != nil && cfg.Tracker != nil && cfg.Tracker.Collector != nil && cfg.Tracker.Collector.PublicURL != "" {
+		baseURL = strings.TrimSuffix(cfg.Tracker.Collector.PublicURL, "/")
+	}
+
 	webhookURL := *webhookOverride
 	if webhookURL == "" {
 		if cfg == nil || cfg.Discord == nil || cfg.Discord.WebhookURL == "" {
