@@ -9433,3 +9433,72 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   letter-spacing: 0.15em; color: var(--text-dim); text-transform: uppercase;
   display: flex; gap: 8px;
 }
+
+/* ── Player rows ────────────────────────────────────────── */
+.player-rows {
+  display: grid;
+  font-family: 'Barlow', sans-serif;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+.player-row {
+  display: grid;
+  gap: 6px;
+  align-items: center;
+  padding: 5px 4px;
+  border-bottom: 1px dashed rgba(255, 248, 240, 0.05);
+}
+.player-row.live { grid-template-columns: 1fr 36px 36px; }
+.player-row.finished { grid-template-columns: 1fr 32px 32px 36px; }
+.player-row:last-child { border-bottom: none; }
+.player-row.header {
+  font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--text-dim);
+  border-bottom-style: solid; border-bottom-color: rgba(255, 248, 240, 0.08);
+  padding-bottom: 6px; margin-bottom: 2px;
+}
+.player-row .pname-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+}
+.player-row .pname-cell .team-dot {
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-right: 8px;
+}
+.player-row .pname-cell .team-dot.red { background: var(--red); }
+.player-row .pname-cell .team-dot.blue { background: #4a9fef; }
+.player-row .pname-cell .team-dot.spec { background: rgba(255, 248, 240, 0.2); }
+.player-row .pname-cell .name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.02em;
+  min-width: 0;
+}
+.player-row .pname-cell .name.bot { color: var(--text-dim); font-style: italic; }
+.player-row .pname-cell .row-awards {
+  display: flex;
+  gap: 3px;
+  flex-shrink: 0;
+  padding-left: 6px;
+  -webkit-mask-image: linear-gradient(to right, transparent 0, black 24px);
+          mask-image: linear-gradient(to right, transparent 0, black 24px);
+}
+.player-row .pname-cell .row-awards .medal {
+  font-size: 11px;
+  line-height: 1;
+}
+.player-row .stat {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--text);
+  font-size: 12px;
+}
+.player-row .stat.dim { color: var(--text-dim); }
