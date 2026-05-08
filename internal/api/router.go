@@ -161,6 +161,8 @@ func NewRouter(store *storage.Store, manager *collector.ServerManager, writer *h
 	r.mux.HandleFunc("GET /api/players/{id}/sessions", r.requireAdmin(r.handleGetPlayerSessions))
 	r.mux.HandleFunc("POST /api/admin/players/{id}/merge", r.requireAdmin(r.handleMergePlayers))
 	r.mux.HandleFunc("POST /api/admin/guids/{id}/split", r.requireAdmin(r.handleSplitGUID))
+	r.mux.HandleFunc("POST /api/admin/matches/{id}/feature", r.requireAdmin(r.handleFeatureMatch))
+	r.mux.HandleFunc("DELETE /api/admin/matches/{id}/feature", r.requireAdmin(r.handleFeatureMatch))
 
 	// Distributed-tracking source management. Sources are pre-provisioned:
 	// POST /api/admin/sources creates a new source + mints initial creds

@@ -611,3 +611,22 @@ func (r *Router) handleListAdminSessions(w http.ResponseWriter, req *http.Reques
 
 	writeJSON(w, http.StatusOK, sessions)
 }
+
+// handleFeatureMatch toggles a match's is_featured flag. POST sets it to 1,
+// DELETE clears it. Wired through requireAdmin so this handler trusts the
+// caller's admin status.
+func (r *Router) handleFeatureMatch(w http.ResponseWriter, req *http.Request) {
+	idStr := req.PathValue("id")
+	matchID, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "invalid match id", http.StatusBadRequest)
+		return
+	}
+
+	featured := req.Method == http.MethodPost
+	if err := r.store.SetMatchFeatured(req.Context(), matchID, featured); err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
