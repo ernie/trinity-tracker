@@ -1,10 +1,9 @@
 import type React from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveData } from '../../contexts/LiveDataContext'
-import { Header } from '../Header'
 import { plural, formatFragTime } from './format'
 
-export function HeroSection() {
+export function HeroSection({ sentinelRef }: { sentinelRef?: React.RefObject<HTMLDivElement | null> }) {
   const live = useLiveData()
   const humans = live.activeHumanPlayersCount
   const arenas = live.activeServersCount
@@ -59,8 +58,6 @@ export function HeroSection() {
         <img src="/assets/landing/wallpaper.png" alt="" fetchPriority="high" />
       </picture>
 
-      <Header title="Trinity" wordmark="tracker" transparent linkToHome={false} />
-
       <div className="landing-hero__main">
         <div className="landing-hero__kicker">
           <span className="landing-hero__rule" aria-hidden />
@@ -88,6 +85,13 @@ export function HeroSection() {
       </div>
 
       <div className="landing-hero__scroll-hint" aria-hidden>Scroll ↓</div>
+
+      <div
+        ref={sentinelRef}
+        className="landing-hero__sentinel"
+        aria-hidden
+        style={{ position: 'absolute', bottom: '20%', height: 1, width: 1, pointerEvents: 'none' }}
+      />
 
       <div className="landing-hero__wallpaper" tabIndex={0}>
         <span className="landing-hero__wallpaper-trigger">Like this background?</span>

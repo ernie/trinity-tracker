@@ -20,9 +20,12 @@ interface HeaderProps {
   // background or border. Task 26 toggles `app-header--solid` on scroll
   // past the hero to flip it back to its standard look.
   transparent?: boolean;
+  // Pairs with `transparent`: when both are true, the header renders solid
+  // (post-scroll). Used by LandingPage which observes a sentinel in the hero.
+  solid?: boolean;
 }
 
-export function Header({ title, className, linkToHome, wordmark, transparent }: HeaderProps) {
+export function Header({ title, className, linkToHome, wordmark, transparent, solid }: HeaderProps) {
   const { auth, login, logout } = useAuth();
   const { setCommandPaletteOpen } = useLiveData();
   // All Apple platforms (Mac, iPhone, iPad, iPod) use ⌘ for system
@@ -34,7 +37,7 @@ export function Header({ title, className, linkToHome, wordmark, transparent }: 
     /mac|iphone|ipad|ipod/i.test(navigator.platform);
 
   return (
-    <header className={`${className ?? ''}${transparent ? ' app-header--transparent' : ''}`}>
+    <header className={`${className ?? ''}${transparent ? ' app-header--transparent' : ''}${solid ? ' app-header--solid' : ''}`}>
       <div className="app-header__brand">
         <AppLogo linkToHome={linkToHome} />
         <h1>
