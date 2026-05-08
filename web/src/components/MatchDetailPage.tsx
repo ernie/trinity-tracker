@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Link, useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { MatchCard } from './MatchCard'
 import { Header } from './Header'
 import { Breadcrumbs } from './Breadcrumbs'
@@ -91,10 +91,6 @@ export function MatchDetailPage() {
       )}
 
       <div className="match-detail-content">
-        <div className="match-detail-nav">
-          <Link to="/matches" className="back-link">&larr; Back to Matches</Link>
-        </div>
-
         {loading ? (
           <div className="stats-loading">Loading match...</div>
         ) : error ? (

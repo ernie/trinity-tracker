@@ -4182,15 +4182,6 @@ h2 {
 }
 
 
-.back-link {
-  color: var(--red);
-  text-decoration: none;
-}
-
-.back-link:hover {
-  text-decoration: underline;
-}
-
 /* Two-column players layout. Left: persistent search rail. Right:
    either the active search results (as cards), the selected player's
    stats, or a friendly empty state. The rail stays sticky so the user
@@ -5664,20 +5655,6 @@ h2 {
 .match-detail-content {
   max-width: 800px;
   margin: 0 auto;
-}
-
-.match-detail-nav {
-  margin-bottom: 20px;
-}
-
-.back-link {
-  color: var(--accent);
-  text-decoration: none;
-  font-size: 0.95rem;
-}
-
-.back-link:hover {
-  text-decoration: underline;
 }
 
 .match-detail-card-container {
