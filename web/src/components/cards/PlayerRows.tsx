@@ -84,7 +84,10 @@ export function PlayerRows({ players, mode, onPlayerClick }: PlayerRowsProps) {
               <span className={`name ${p.isBot ? 'bot' : ''}`}><ColoredText text={p.name} /></span>
               {p.flagCarrier && (
                 <span className="row-carrier" aria-hidden>
-                  <FlagIcon team={p.flagCarrier} status="taken" size="sm" />
+                  {/* Static flag silhouette next to the name — the
+                      runner icon (status="taken") is reserved for
+                      score-cell indicators. */}
+                  <FlagIcon team={p.flagCarrier} status="base" size="sm" />
                 </span>
               )}
               {p.awards && p.awards.length > 0 && (

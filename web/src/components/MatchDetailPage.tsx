@@ -101,22 +101,24 @@ export function MatchDetailPage() {
           <div className="stats-error">{error}</div>
         ) : match ? (
           <>
-            {match.exit_reason && (
-              <p className="match-detail__exit">
-                Match ended: {formatExitReason(match.exit_reason)}
-              </p>
-            )}
-            {auth.isAdmin && (
-              <div className="match-feature-row">
-                <button
-                  type="button"
-                  className={`match-feature-toggle${match.is_featured ? ' is-featured' : ''}`}
-                  onClick={toggleFeatured}
-                  disabled={featurePending}
-                  title="Featured matches surface on the landing page's Watch-a-fight door"
-                >
-                  {match.is_featured ? '★ Featured' : '☆ Feature this demo'}
-                </button>
+            {(match.exit_reason || auth.isAdmin) && (
+              <div className="match-detail__meta">
+                {match.exit_reason ? (
+                  <p className="match-detail__exit">
+                    Match ended: {formatExitReason(match.exit_reason)}
+                  </p>
+                ) : <span />}
+                {auth.isAdmin && (
+                  <button
+                    type="button"
+                    className={`match-feature-toggle${match.is_featured ? ' is-featured' : ''}`}
+                    onClick={toggleFeatured}
+                    disabled={featurePending}
+                    title="Featured matches surface on the landing page's Watch-a-fight door"
+                  >
+                    {match.is_featured ? '★ Featured' : '☆ Feature this demo'}
+                  </button>
+                )}
               </div>
             )}
             <div className="match-detail-card-container">

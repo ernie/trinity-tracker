@@ -5685,10 +5685,15 @@ h2 {
   margin: 0 auto;
 }
 
-.match-feature-row {
+/* Exit reason on the left, admin Feature toggle on the right — aligned
+   to the card's 500px width below for visual continuity. */
+.match-detail__meta {
   display: flex;
-  justify-content: flex-end;
-  margin: 0 0 12px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: 500px;
+  margin: 0 auto 12px;
 }
 
 .match-feature-toggle {
@@ -9438,6 +9443,18 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   min-width: 36px;
 }
 .scoreboard__center-indicator { display: inline-flex; align-items: center; }
+/* 1FCTF neutral flag drifts toward whichever side currently carries
+   it. Translate is on the .flag-indicator wrapper so the icon and
+   any future siblings move together. */
+.scoreboard__center-indicator .flag-indicator {
+  transition: transform 0.45s ease-out;
+}
+.scoreboard__center-indicator .flag-indicator.flag-toward-red {
+  transform: translateX(-30px);
+}
+.scoreboard__center-indicator .flag-indicator.flag-toward-blue {
+  transform: translateX(30px);
+}
 .scoreboard__vs {
   font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: 0.3em;
   color: var(--text-dim); text-transform: uppercase;
@@ -9857,14 +9874,14 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 .demo-action.watch::before { content: '▶'; font-size: 9px; }
 .demo-action.download::before { content: '↓'; font-size: 11px; }
 
-/* Match detail page — exit reason note */
+/* Match detail page — exit reason note (lives in .match-detail__meta) */
 .match-detail__exit {
   font-family: 'Barlow', sans-serif;
   font-size: 12px;
   letter-spacing: 0.18em;
   color: var(--text-dim);
   text-transform: uppercase;
-  margin-bottom: 16px;
+  margin: 0;
 }
 
 /* Landing Active Now shelf — direction-aware levelshot fade.
