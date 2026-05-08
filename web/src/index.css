@@ -8564,9 +8564,20 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   box-shadow: none;
 }
 
-/* Stacked layout for narrow viewports — phone portrait, plus iPhone
-   12 mini / SE in landscape. Anything bigger (iPhone 14+ landscape
-   at ~844px and up) gets the inline brand · nav · pill row. */
+/* Tighter nav spacing for everything below true desktop. Landscape
+   iPhone (≥800) keeps the inline brand · nav · pill row but with the
+   compact 18px / 11px nav, so the row doesn't feel crammed. Stacked
+   layout below 800 inherits the same nav metrics. */
+@media (max-width: 1023px) {
+  .hero__nav {
+    gap: 18px;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+  }
+}
+
+/* Stacked layout for narrow viewports — phone portrait + iPhone
+   SE / 12 mini landscape. */
 @media (max-width: 800px) {
   .hero__header {
     grid-template-columns: 1fr auto;
@@ -8582,13 +8593,9 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
     justify-self: end;
   }
   .hero__nav {
-    display: flex;
     grid-column: 1 / -1;
     grid-row: 2;
     justify-content: center;
-    gap: 18px;
-    font-size: 11px;
-    letter-spacing: 0.18em;
     overflow-x: auto;
     scrollbar-width: none;
   }
