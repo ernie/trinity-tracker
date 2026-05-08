@@ -9517,3 +9517,19 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   text-transform: uppercase;
   margin-bottom: 16px;
 }
+
+/* Landing Active Now shelf — direction-aware levelshot fade.
+   Cards fade top→bottom (primary axis) plus a subtle right→left fade
+   so successive cards visually blur into one another as the viewer
+   scrolls horizontally. Layered masks in CSS:
+     mask = primary_axis ∩ secondary_axis */
+.landing-shelf-h__scroll .card::before {
+  -webkit-mask-image:
+    linear-gradient(to bottom, black 0%, transparent 100%),
+    linear-gradient(to right, black 70%, rgba(0,0,0,0.4) 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to bottom, black 0%, transparent 100%),
+    linear-gradient(to right, black 70%, rgba(0,0,0,0.4) 100%);
+  mask-composite: intersect;
+}
