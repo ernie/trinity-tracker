@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { Link } from 'react-router-dom'
 import type { MatchSummary, MatchPlayerSummary } from '../types'
@@ -10,6 +11,7 @@ import { SpectatorStrip } from './cards/SpectatorStrip'
 import { classifyScores, awardsFromCounts } from './cards/format'
 import { useMapMeta } from '../hooks/useMapMeta'
 import { useSources } from '../hooks/useSources'
+import { useAuth } from '../hooks/useAuth'
 
 export function formatDuration(startedAt: string, endedAt: string): string {
   const start = new Date(startedAt)
@@ -122,6 +124,37 @@ export function MatchCard({
   const { hasMultiple: hasMultipleSources } = useSources()
   const meta = useMapMeta(match.map_name)
   const location = useLocation()
+  const { auth } = useAuth()
+
+  // Optimistic featured state — admins can toggle from the card without
+  // navigating to the detail page. Resyncs to the prop when the match
+  // changes (new match, or parent refetch with updated value).
+  const [isFeatured, setIsFeatured] = useState(match.is_featured ?? false)
+  const [featurePending, setFeaturePending] = useState(false)
+  useEffect(() => {
+    setIsFeatured(match.is_featured ?? false)
+  }, [match.id, match.is_featured])
+
+  const canFeature = auth.isAdmin && !!match.demo_url
+  const toggleFeatured = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!auth.token || featurePending) return
+    const next = !isFeatured
+    setFeaturePending(true)
+    setIsFeatured(next)
+    try {
+      const res = await fetch(`/api/admin/matches/${match.id}/feature`, {
+        method: next ? 'POST' : 'DELETE',
+        headers: { Authorization: `Bearer ${auth.token}` },
+      })
+      if (!res.ok) setIsFeatured(!next)
+    } catch {
+      setIsFeatured(!next)
+    } finally {
+      setFeaturePending(false)
+    }
+  }
   const isTeam = isTeamGame(match.game_type)
   const isDuel = match.game_type === '1v1'
   const players = match.players ?? []
@@ -188,6 +221,19 @@ export function MatchCard({
           mode={formatGameType(match.game_type)}
         />
         <ModeIcons movement={match.movement} gameplay={match.gameplay} />
+        {canFeature && (
+          <button
+            type="button"
+            className={`card__feature-toggle${isFeatured ? ' is-featured' : ''}`}
+            onClick={toggleFeatured}
+            disabled={featurePending}
+            title={isFeatured ? 'Featured demo — click to unfeature' : 'Feature this demo'}
+            aria-label={isFeatured ? 'Featured demo' : 'Feature this demo'}
+            aria-pressed={isFeatured}
+          >
+            {isFeatured ? '★' : '☆'}
+          </button>
+        )}
         {match.ended_at && (
           <Link
             to={`/matches/${match.id}`}

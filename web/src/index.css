@@ -9977,7 +9977,37 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 }
 /* Right-side meta pins to the far right; chip + mode-icons stay grouped left. */
 .card__topbar > .card__state,
-.card__topbar > .card__time { margin-left: auto; }
+.card__topbar > .card__time,
+.card__topbar > .card__feature-toggle { margin-left: auto; }
+/* When the feature star is present, its auto-margin pushes it (and
+   the time chip after it) right; the time follows on a normal flex
+   gap, so they read as a paired right cluster. */
+.card__topbar > .card__feature-toggle + .card__time { margin-left: 0; }
+
+/* Admin-only: star to feature/unfeature a demo without navigating
+   into the match detail page. Sits just left of the timestamp. */
+.card__feature-toggle {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  transition: color 0.15s, transform 0.15s;
+}
+.card__feature-toggle:hover:not(:disabled),
+.card__feature-toggle:focus-visible:not(:disabled) {
+  color: gold;
+  outline: none;
+}
+.card__feature-toggle.is-featured { color: gold; }
+.card__feature-toggle:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
 /* Match card relative-time stacked over elapsed duration. Links to
    the match detail page (where admins can toggle Featured). */
 .card__time {
