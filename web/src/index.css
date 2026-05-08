@@ -8873,3 +8873,58 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   text-transform: uppercase;
   font-variant-numeric: tabular-nums;
 }
+
+/* ── Landing sections — shared chrome ──────────────────── */
+.landing-section {
+  position: relative;
+  padding: 96px 36px;
+  max-width: 1320px;
+  margin: 0 auto;
+}
+
+/* About — centered editorial prose with Cinzel ornament. */
+.landing-about {
+  max-width: 720px;
+  padding: 96px 36px 80px;
+  text-align: center;
+}
+.landing-about__ornament {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  margin-bottom: 48px;
+  font-family: 'Cinzel', serif;
+  font-size: 14px;
+  color: var(--ember-strong, #ff6e3c);
+  letter-spacing: 0.4em;
+  opacity: 0.7;
+}
+.landing-about__rule {
+  display: inline-block;
+  width: 80px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--ember-strong, #ff6e3c));
+}
+.landing-about__rule:last-child {
+  background: linear-gradient(90deg, var(--ember-strong, #ff6e3c), transparent);
+}
+.landing-about__prose {
+  font-family: 'Barlow', sans-serif;
+  text-align: left;
+}
+.landing-about__prose p {
+  font-size: 18px;
+  line-height: 1.7;
+  color: var(--text);
+  letter-spacing: 0.02em;
+}
+.landing-about__prose p + p { margin-top: 24px; }
+.landing-about__prose p:last-child {
+  color: var(--text-dim);
+  font-size: 16px;
+}
+
+@media (max-width: 720px) {
+  .landing-about { padding: 72px 20px 60px; }
+}
