@@ -8776,14 +8776,16 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 }
 
 @media (max-width: 720px) {
-  .landing-hero__main { padding: 40px 20px 80px; }
+  .landing-hero__main { padding: 40px 16px 80px; }
   .landing-hero__cta-row { flex-direction: column; gap: 16px; }
-  /* Headline used clamp(38px,…) — at 380px viewport that's still 38px
-     with 0.18em tracking, which overflows by ~250px on "WELCOME
-     BACK TO". Drop floor + tighten tracking so the line fits. */
+  /* "WELCOME BACK TO" is 15 chars with non-breaking spaces — it can't
+     wrap, so it has to fit on one line at every iPhone width. Bring
+     the clamp ceiling down to ~28 and drop the optical-centering
+     padding so the right edge isn't shoved into the wallpaper. */
   .landing-hero__headline {
-    font-size: clamp(28px, 9vw, 40px);
-    letter-spacing: 0.08em;
+    font-size: clamp(20px, 5.5vw, 28px);
+    letter-spacing: 0.05em;
+    padding-left: 0;
     margin-bottom: 12px;
   }
   .landing-hero__kicker {
