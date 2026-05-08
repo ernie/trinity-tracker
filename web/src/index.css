@@ -8783,7 +8783,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
      the clamp ceiling down to ~28 and drop the optical-centering
      padding so the right edge isn't shoved into the wallpaper. */
   .landing-hero__headline {
-    font-size: clamp(20px, 5.5vw, 28px);
+    font-size: clamp(22px, 7.5vw, 34px);
     letter-spacing: 0.05em;
     padding-left: 0;
     margin-bottom: 12px;
