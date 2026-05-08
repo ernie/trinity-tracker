@@ -222,13 +222,14 @@ export function MatchesPage() {
               onChange={(e) => setEndDate(e.target.value)}
             />
           </label>
-          <label className="include-bots-filter">
+          <label className="toggle-filter">
             <input
               type="checkbox"
               checked={includeBotOnly}
               onChange={(e) => setIncludeBotOnly(e.target.checked)}
             />
-            Include bot-only matches
+            <span className="toggle-filter__switch" aria-hidden />
+            <span className="toggle-filter__label">Include bot-only</span>
           </label>
           <SourceFilter value={source} onChange={setSource} />
           {hasActiveFilters && (
