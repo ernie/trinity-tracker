@@ -16,8 +16,13 @@ export function Chrome() {
   const { auth, changePassword } = useAuth()
   const { pathname } = useLocation()
 
-  // Landing has its own hero pill — hide the chrome cluster there.
-  const isLanding = pathname === '/'
+  // Hide the chrome pill on routes that own the full viewport: the
+  // landing hero (has its own pill), and the demo / live-play canvas
+  // pages (immersive playback shouldn't have HUD overlays).
+  const hidePill =
+    pathname === '/' ||
+    pathname === '/play' ||
+    /^\/matches\/\d+\/demo$/.test(pathname)
 
   // ⌘K / Ctrl+K opens the palette from anywhere.
   useHotkey({ key: 'k', meta: true }, useCallback(() => {
@@ -26,7 +31,7 @@ export function Chrome() {
 
   return (
     <>
-      {!isLanding && (
+      {!hidePill && (
         <div className="chrome-top-right" aria-hidden={false}>
           <StatusPill
             humansOnline={live.activeHumanPlayersCount}
