@@ -127,7 +127,10 @@ CREATE TABLE IF NOT EXISTS matches (
     gameplay TEXT,
     -- Flipped to 1 by FactDemoFinalized; the UI uses this to decide
     -- whether to render a "play demo" button for the match.
-    demo_available INTEGER NOT NULL DEFAULT 0
+    demo_available INTEGER NOT NULL DEFAULT 0,
+    -- Admin-set flag exposing this match in the featured demos pool
+    -- (landing page "Watch a fight" door, etc.). Default unset.
+    is_featured INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS idx_matches_server_id ON matches(server_id);
@@ -135,6 +138,7 @@ CREATE INDEX IF NOT EXISTS idx_matches_started_at ON matches(started_at);
 CREATE INDEX IF NOT EXISTS idx_matches_ended_at ON matches(ended_at);
 CREATE INDEX IF NOT EXISTS idx_matches_uuid ON matches(uuid);
 CREATE INDEX IF NOT EXISTS idx_matches_has_human_player ON matches(has_human_player);
+CREATE INDEX IF NOT EXISTS idx_matches_is_featured ON matches(is_featured) WHERE is_featured = 1;
 
 -- Player stats per match - linked to specific GUID that earned them
 -- client_id allows tracking duplicate bots (same name) in the same match
