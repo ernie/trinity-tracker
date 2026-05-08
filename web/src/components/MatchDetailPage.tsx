@@ -4,6 +4,7 @@ import { MatchCard } from './MatchCard'
 import { Header } from './Header'
 import { Breadcrumbs } from './Breadcrumbs'
 import { useAuth } from '../hooks/useAuth'
+import { formatExitReason } from './cards/format'
 import type { MatchSummary } from '../types'
 
 export function MatchDetailPage() {
@@ -100,6 +101,11 @@ export function MatchDetailPage() {
           <div className="stats-error">{error}</div>
         ) : match ? (
           <>
+            {match.exit_reason && (
+              <p className="match-detail__exit">
+                Match ended: {formatExitReason(match.exit_reason)}
+              </p>
+            )}
             {auth.isAdmin && (
               <div className="match-feature-row">
                 <button

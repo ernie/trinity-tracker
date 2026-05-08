@@ -9507,3 +9507,13 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 .demo-action:hover { color: var(--ember-light, #ffc78a); border-bottom-color: var(--ember-light, #ffc78a); }
 .demo-action.watch::before { content: '▶'; font-size: 9px; }
 .demo-action.download::before { content: '↓'; font-size: 11px; }
+
+/* Match detail page — exit reason note */
+.match-detail__exit {
+  font-family: 'Barlow', sans-serif;
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
