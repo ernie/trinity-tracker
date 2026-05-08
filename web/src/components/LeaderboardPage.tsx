@@ -218,7 +218,10 @@ export function LeaderboardPage() {
 
       <PeriodSelector period={period} onChange={setPeriod} />
 
-      <div className="leaderboard-content">
+      <div className={`leaderboard-content${
+        CORE_STATS_CATEGORIES.includes(effectiveCategory as (typeof CORE_STATS_CATEGORIES)[number])
+          ? '' : ' has-award-table'
+      }`}>
         {loading ? (
           <div className="stats-loading">Loading leaderboard...</div>
         ) : error ? (

@@ -5304,13 +5304,19 @@ h2 {
   color: #fff;
 }
 
-/* Leaderboard content */
+/* Leaderboard content — capped width so player names sit close to
+   their stats. Full-width table on a 1800px page leaves a yawning
+   gap between left and right columns; 720 / 560 reads tighter
+   without cramping any cell. */
 .leaderboard-content {
   background: var(--bg-card);
   border-radius: 8px;
   border: 1px solid #333;
   overflow: hidden;
+  max-width: 720px;
+  margin: 0 auto;
 }
+.leaderboard-content.has-award-table { max-width: 560px; }
 
 .leaderboard-empty {
   text-align: center;
@@ -8558,9 +8564,37 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   box-shadow: none;
 }
 
-@media (max-width: 720px) {
-  .hero__header { padding: 16px 20px 0; }
-  .hero__nav { display: none; }
+/* Mobile + landscape iPhone (≤900px catches landscape iPhone Pro at
+   932 still as desktop, but most others get the stacked layout).
+   Top row: brand on the left, pill pinned to the right. Second row:
+   nav links horizontal-scroll across the full width — the nav is no
+   longer hidden on portrait, and no longer squished on landscape. */
+@media (max-width: 900px) {
+  .hero__header {
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    column-gap: 12px;
+    row-gap: 14px;
+    padding: 16px 20px 0;
+  }
+  .hero__brand { grid-column: 1; grid-row: 1; }
+  .hero__pill {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+  }
+  .hero__nav {
+    display: flex;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-content: center;
+    gap: 18px;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .hero__nav::-webkit-scrollbar { display: none; }
   .hero__brand-logo { height: 44px; }
   .hero__brand-title { font-size: 22px; }
 }
@@ -8744,6 +8778,21 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 @media (max-width: 720px) {
   .landing-hero__main { padding: 40px 20px 80px; }
   .landing-hero__cta-row { flex-direction: column; gap: 16px; }
+  /* Headline used clamp(38px,…) — at 380px viewport that's still 38px
+     with 0.18em tracking, which overflows by ~250px on "WELCOME
+     BACK TO". Drop floor + tighten tracking so the line fits. */
+  .landing-hero__headline {
+    font-size: clamp(28px, 9vw, 40px);
+    letter-spacing: 0.08em;
+    margin-bottom: 12px;
+  }
+  .landing-hero__kicker {
+    letter-spacing: 0.3em;
+    font-size: 11px;
+    margin-bottom: 24px;
+    gap: 12px;
+  }
+  .landing-hero__rule { width: 32px; }
 }
 
 /* Slow Ken-Burns zoom on the wallpaper. Frozen for users who set
