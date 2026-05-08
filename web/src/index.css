@@ -9545,7 +9545,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 .player-rows {
   display: grid;
   font-family: 'Barlow', sans-serif;
-  font-size: 12px;
+  font-size: 13px;
   margin-bottom: 12px;
 }
 .player-row {
@@ -9602,7 +9602,8 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   letter-spacing: 0.02em;
   min-width: 0;
 }
-.player-row .pname-cell .name.bot { color: var(--text-dim); font-style: italic; }
+/* Bots: dim only — the BotBadge icon already identifies them. */
+.player-row .pname-cell .name.bot { color: var(--text-dim); }
 /* Awards extend from the right; left edge fades into the name area. */
 .player-row .pname-cell .row-awards {
   display: flex;
