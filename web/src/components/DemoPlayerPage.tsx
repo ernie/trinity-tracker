@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { flushSync } from 'react-dom'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, useLocation, useNavigate } from 'react-router-dom'
 import { ColoredText } from './ColoredText'
 import { PlayerPortrait } from './PlayerPortrait'
 import type { EngineModule } from '../types'
@@ -13,6 +13,17 @@ interface MatchData {
 
 export function DemoPlayerPage() {
   const { id } = useParams<{ id: string }>()
+  const location = useLocation()
+  const navigate = useNavigate()
+
+  // Demo viewer can be entered from /matches/:id (the canonical match detail
+  // page) or from the landing page's "Recent fights" list. The router state
+  // `from` tells us where to return; without it, fall back to the match detail.
+  const handleBack = useCallback(() => {
+    const from = (location.state as { from?: string } | null)?.from
+    navigate(from ?? `/matches/${id}`)
+  }, [location.state, navigate, id])
+
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const statusRef = useRef<HTMLDivElement>(null)
   const moduleRef = useRef<EngineModule | null>(null)
@@ -421,7 +432,9 @@ export function DemoPlayerPage() {
       <div className="demo-player-page">
         <div className="demo-player-error">
           <p>{error}</p>
-          <Link to={`/matches/${id}`}>Back to match</Link>
+          <button type="button" className="demo-back-link-text" onClick={handleBack}>
+            Back to match
+          </button>
         </div>
       </div>
     )
@@ -429,12 +442,12 @@ export function DemoPlayerPage() {
 
   return (
     <div className="demo-player-page">
-      <Link to={`/matches/${id}`} className="demo-back-link">
+      <button type="button" className="demo-back-link" onClick={handleBack}>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <polyline points="15,18 9,12 15,6" />
         </svg>
         Back
-      </Link>
+      </button>
       <canvas ref={canvasRef} id="canvas" tabIndex={0} className="demo-canvas" />
       <div ref={statusRef} className="demo-status">{loading ? 'Loading...' : ''}</div>
       {progress.total > 0 && (

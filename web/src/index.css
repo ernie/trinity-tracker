@@ -7298,11 +7298,28 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   border-radius: 4px;
   background: rgba(0, 0, 0, 0.5);
   transition: color 0.2s, background 0.2s;
+  border: none;
+  font: inherit;
+  cursor: pointer;
 }
 
 .demo-back-link:hover {
   color: #fff;
   background: rgba(0, 0, 0, 0.7);
+}
+
+.demo-back-link-text {
+  background: transparent;
+  border: none;
+  color: var(--accent);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
+
+.demo-back-link-text:hover {
+  color: #fff;
 }
 
 .demo-player-error {
