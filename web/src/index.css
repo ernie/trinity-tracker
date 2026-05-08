@@ -8564,12 +8564,17 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   box-shadow: none;
 }
 
-/* Tighter nav spacing for everything below true desktop. Landscape
-   iPhone (≥800) keeps the inline brand · nav · pill row but with the
-   compact 18px / 11px nav, so the row doesn't feel crammed. Stacked
-   layout below 800 inherits the same nav metrics. */
+/* Inline-but-narrow viewports (landscape phone, small tablet). Drop
+   the grid in favor of flex so the nav sits in the gap between
+   brand and pill via auto-margins — not at viewport center, where
+   the brand's wider footprint can shove it left into the wordmark. */
 @media (max-width: 1023px) {
+  .hero__header {
+    display: flex;
+    align-items: center;
+  }
   .hero__nav {
+    margin: 0 auto;
     gap: 18px;
     font-size: 11px;
     letter-spacing: 0.18em;
@@ -8577,9 +8582,10 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 }
 
 /* Stacked layout for narrow viewports — phone portrait + iPhone
-   SE / 12 mini landscape. */
+   SE / 12 mini landscape. Re-enable grid for the two-row layout. */
 @media (max-width: 800px) {
   .hero__header {
+    display: grid;
     grid-template-columns: 1fr auto;
     grid-template-rows: auto auto;
     column-gap: 12px;
