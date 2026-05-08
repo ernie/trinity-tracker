@@ -97,17 +97,25 @@ export function Duelists({ left, right, state, live, onPlayerClick }: DuelistsPr
   const winnerSide = !live && state === 'left' ? 'left'
                     : !live && state === 'right' ? 'right' : null
 
-  let connector: React.ReactNode = 'vs'
-  if (!live && state === 'tie') connector = <span className="scoreboard__state tie">TIE</span>
-  if (!live && state === 'no_contest') connector = <span className="scoreboard__state nc">NO<br />CONTEST</span>
+  // Sized-up duelist columns leave no room for a stacked
+  // "NO\nCONTEST" between them. Surface tie/no_contest as a thin
+  // banner above the row instead; connector stays a clean "vs".
+  const banner = !live && (state === 'tie' || state === 'no_contest') ? (
+    <div className={`duelists-state ${state === 'tie' ? 'tie' : 'nc'}`}>
+      {state === 'tie' ? 'TIE' : 'NO CONTEST'}
+    </div>
+  ) : null
 
   return (
-    <div className="duelists">
-      <DuelistAwards awards={left.awards} side="left" />
-      <Duelist data={left} side="left" winnerSide={winnerSide} onClick={onPlayerClick} />
-      <span className="scoreboard__vs">{connector}</span>
-      <Duelist data={right} side="right" winnerSide={winnerSide} onClick={onPlayerClick} />
-      <DuelistAwards awards={right.awards} side="right" />
-    </div>
+    <>
+      {banner}
+      <div className="duelists">
+        <DuelistAwards awards={left.awards} side="left" />
+        <Duelist data={left} side="left" winnerSide={winnerSide} onClick={onPlayerClick} />
+        <span className="scoreboard__vs">vs</span>
+        <Duelist data={right} side="right" winnerSide={winnerSide} onClick={onPlayerClick} />
+        <DuelistAwards awards={right.awards} side="right" />
+      </div>
+    </>
   )
 }

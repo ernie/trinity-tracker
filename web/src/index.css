@@ -5663,7 +5663,7 @@ h2 {
 }
 
 /* Exit reason on the left, admin Feature toggle on the right — aligned
-   to the card's 500px width below for visual continuity. */
+   to the card's width below. */
 .match-detail__meta {
   display: flex;
   align-items: center;
@@ -9446,6 +9446,21 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   color: var(--text-dim);
 }
 
+/* Tie / no-contest banner above the duelists row — replaces the
+   inline scoreboard__state label that no longer fits between the
+   sized-up duelist columns. */
+.duelists-state {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.4em;
+  text-align: center;
+  text-transform: uppercase;
+  margin: 6px 0 -2px;
+}
+.duelists-state.tie { color: var(--ember-light, #ffc78a); }
+.duelists-state.nc { color: var(--text-dim); }
+
 /* 1v1 cards have only two players, so the body has more vertical and
    horizontal room than FFA/team. Sized up: bigger portraits + score
    numerals, more breathing room around the awards strip. */
@@ -9712,6 +9727,12 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   pointer-events: none;
 }
 .card > * { position: relative; z-index: 1; }
+/* Topbar and header rise above body siblings so their hover popups
+   (ModeIcons panel, levelshot preview) paint over the duelists /
+   player rows below. Source order alone wouldn't do it since every
+   .card > * shares z-index:1. */
+.card > .card__topbar { z-index: 3; }
+.card > .card__header { z-index: 2; }
 .card__topbar {
   display: flex;
   align-items: center;
