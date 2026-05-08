@@ -512,12 +512,15 @@ h2 {
   width: auto;
 }
 
-/* Top-right chrome cluster: StatusPill + ConnectionStatus, anchored
-   to the viewport so they're visible on every route. */
+/* Top-right chrome cluster: StatusPill, anchored to the viewport so
+   it's visible on every non-landing route. Aligned to the same
+   top/right offsets the hero pill uses on the landing page (22px /
+   36px) so the indicator doesn't appear to jump when navigating
+   between landing and other routes. */
 .chrome-top-right {
   position: fixed;
-  top: var(--space-3);
-  right: var(--space-3);
+  top: 22px;
+  right: 36px;
   z-index: 100;
   display: inline-flex;
   align-items: center;
@@ -1859,8 +1862,14 @@ h2 {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  padding-bottom: var(--space-3);
-  margin-bottom: var(--space-5);
+  /* Pull out of the .app container's 20px padding and re-pad to match
+     .hero__header (22px top, 36px sides). That way the Trinity logo
+     and h1 land at the same viewport coordinates whether the visitor
+     came from the landing hero or directly to /servers, /matches,
+     etc. The bottom padding/margin keep the hairline rule + spacing
+     from the page content below. */
+  margin: -20px -20px var(--space-5);
+  padding: 22px 36px var(--space-3);
 }
 
 /* Warm editorial hairline at every page header's bottom edge. */
@@ -1953,6 +1962,23 @@ h2 {
      title + absolute search trigger at bottom-right) → rule → nav row.
      The right-side reservation just shrinks since phone widths can't
      afford 180px. */
+  .app-header,
+  .players-header,
+  .matches-header,
+  .match-detail-header,
+  .leaderboard-header,
+  .about-header,
+  .account-header,
+  .claim-header,
+  .admin-header {
+    /* Match the hero header's mobile padding (16px 20px 0) so the
+       brand row stays at the same viewport coords on phone widths. */
+    padding: 16px 20px var(--space-3);
+  }
+  .chrome-top-right {
+    top: 16px;
+    right: 20px;
+  }
   .app-header__brand {
     padding-right: 110px;
   }
@@ -2220,14 +2246,14 @@ h2 {
   animation: landing-hero-pulse 1.6s ease-in-out infinite;
 }
 
-/* Quiet (connected, no humans): dim text + dot, but keep the dot
-   pulsing so the page still reads as "live, just nobody on". */
+/* Quiet (connected, no humans): mirror .hero__pill.quiet — gray dot
+   with no glow. Pulse animation keeps running so the indicator still
+   reads as "live, just nobody playing", not as "frozen". */
 .status-pill.quiet { color: var(--text-dim); }
 .status-pill.quiet .status-pill__dot {
-  /* Keep the pulse; just dial down brightness. */
-  background: var(--ember-strong, #ff6e3c);
-  box-shadow: 0 0 6px rgba(255, 110, 60, 0.4);
-  opacity: 0.6;
+  background: var(--text-dim);
+  box-shadow: none;
+  opacity: 1;
 }
 
 /* Disconnected: hub feed lost. No glow, no pulse, fully gray — this
