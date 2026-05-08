@@ -5304,73 +5304,150 @@ h2 {
   color: #fff;
 }
 
-/* Leaderboard content — capped width so player names sit close to
-   their stats. Full-width table on a 1800px page leaves a yawning
-   gap between left and right columns; 720 / 560 reads tighter
-   without cramping any cell. */
+/* Leaderboard content — wrapper with no chrome of its own. Cards
+   inside provide the visual rhythm. */
 .leaderboard-content {
-  background: var(--bg-card);
-  border-radius: 8px;
-  border: 1px solid #333;
-  overflow: hidden;
-  max-width: 720px;
-  margin: 0 auto;
+  /* No background or border — cards stand on their own. */
 }
-.leaderboard-content.has-award-table { max-width: 560px; }
 
 .leaderboard-empty {
   text-align: center;
   padding: 40px;
   color: var(--text-dim);
+  background: var(--bg-card);
+  border: 1px solid #333;
+  border-radius: 8px;
 }
 
-/* Leaderboard table */
-.leaderboard-table {
-  width: 100%;
-  border-collapse: collapse;
+/* Card grid — auto-fills the available width with 220px cards.
+   Mobile collapses to a single column; widescreen packs 6+ across.
+   Same visual language as .landing-player-card on the landing page,
+   sized for full-page density. */
+.leaderboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
 }
-
-.leaderboard-table th,
-.leaderboard-table td {
-  padding: 12px 15px;
-  text-align: left;
-  border-bottom: 1px solid #333;
-}
-
-.leaderboard-table th {
-  background: rgba(0, 0, 0, 0.2);
-  color: var(--text-dim);
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.leaderboard-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.leaderboard-table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.leaderboard-table .rank-col {
-  width: 50px;
-  text-align: center;
-  color: var(--text-dim);
-}
-
-.leaderboard-table .player-col a {
-  color: var(--text);
+.leaderboard-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 22px 16px 18px;
+  background: rgba(20, 16, 14, 0.55);
+  border: 1px solid #2a2622;
+  border-radius: 8px;
   text-decoration: none;
+  color: inherit;
+  transition: border-color 0.25s ease, transform 0.25s ease;
 }
-
-.leaderboard-table .player-col a:hover {
-  text-decoration: underline;
+.leaderboard-card:hover {
+  border-color: rgba(255, 110, 60, 0.5);
+  transform: translateY(-2px);
 }
-
-.leaderboard-table .stat-col {
-  width: 80px;
+.leaderboard-card.top {
+  border-color: rgba(255, 110, 60, 0.35);
+  background: linear-gradient(180deg, rgba(255, 110, 60, 0.08), rgba(20, 16, 14, 0.55) 60%);
+}
+.leaderboard-card__rank {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.2em;
   color: var(--text-dim);
+}
+.leaderboard-card__rank.top { color: #ffc78a; }
+.leaderboard-card__avatar {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2a1f1a 0%, #0a0808 100%);
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 110, 60, 0.18);
+  margin-top: 8px;
+  flex-shrink: 0;
+  overflow: visible;
+}
+.leaderboard-card.top .leaderboard-card__avatar {
+  border-color: var(--ember-strong, #ff6e3c);
+  box-shadow: 0 0 14px rgba(255, 110, 60, 0.25);
+}
+/* Override portrait-lg (48px) so it fills the 64px wrap. */
+.leaderboard-card__avatar .player-portrait {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+}
+.leaderboard-card__avatar .player-portrait img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.leaderboard-card__avatar .player-badge {
+  position: absolute;
+  right: -4px;
+  bottom: -2px;
+  z-index: 2;
+}
+.leaderboard-card__name {
+  font-family: 'Barlow', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  margin-top: 4px;
+}
+.leaderboard-card__stat-label {
+  font-family: 'Barlow', sans-serif;
+  font-weight: 500;
+  font-size: 10px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+.leaderboard-card__stat {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 28px;
+  color: var(--accent);
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.leaderboard-card.top .leaderboard-card__stat { color: #ffc78a; }
+/* Secondary row — non-sorted core stats compressed into a single
+   line so the card carries the full picture without dominating. */
+.leaderboard-card__secondary {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+  font-family: 'Barlow', sans-serif;
+  font-size: 11px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.leaderboard-card__secondary i {
+  font-style: normal;
+  font-weight: 500;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(208, 200, 184, 0.5);
+  margin-right: 3px;
 }
 
 .leaderboard-table .sorted-col {
@@ -5378,21 +5455,10 @@ h2 {
   color: var(--accent);
 }
 
-/* Top 3 styling */
-.leaderboard-table tr.top-1 .rank-col {
-  color: gold;
-  font-weight: bold;
-}
-
-.leaderboard-table tr.top-2 .rank-col {
-  color: silver;
-  font-weight: bold;
-}
-
-.leaderboard-table tr.top-3 .rank-col {
-  color: #cd7f32;
-  font-weight: bold;
-}
+/* Gold / silver / bronze rank tint for top 3 cards. */
+.leaderboard-card.top-1 .leaderboard-card__rank { color: gold; }
+.leaderboard-card.top-2 .leaderboard-card__rank { color: silver; }
+.leaderboard-card.top-3 .leaderboard-card__rank { color: #cd7f32; }
 
 @media (max-width: 768px) {
   .category-selector {
@@ -5402,10 +5468,6 @@ h2 {
   .category-btn {
     font-size: 0.8rem;
     padding: 6px 12px;
-  }
-
-  .leaderboard-table .stat-col:not(.sorted-col) {
-    display: none;
   }
 }
 

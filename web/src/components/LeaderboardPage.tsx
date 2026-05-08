@@ -218,16 +218,13 @@ export function LeaderboardPage() {
 
       <PeriodSelector period={period} onChange={setPeriod} />
 
-      <div className={`leaderboard-content${
-        CORE_STATS_CATEGORIES.includes(effectiveCategory as (typeof CORE_STATS_CATEGORIES)[number])
-          ? '' : ' has-award-table'
-      }`}>
+      <div className="leaderboard-content">
         {loading ? (
           <div className="stats-loading">Loading leaderboard...</div>
         ) : error ? (
           <div className="stats-error">{error}</div>
         ) : data && data.entries && data.entries.length > 0 ? (
-          <LeaderboardTable
+          <LeaderboardGrid
             entries={data.entries}
             category={effectiveCategory}
           />
@@ -242,7 +239,7 @@ export function LeaderboardPage() {
   );
 }
 
-interface LeaderboardTableProps {
+interface LeaderboardGridProps {
   entries: LeaderboardEntry[];
   category: LeaderboardCategory;
 }
@@ -254,118 +251,80 @@ const CORE_STATS_CATEGORIES = [
   "deaths",
 ] as const;
 
-function LeaderboardTable({
-  entries,
-  category,
-}: LeaderboardTableProps) {
+// Renders the sorted-by stat as the card's headline number. For
+// kd_ratio shows two decimals, everything else passes through
+// formatNumber.
+function getPrimary(entry: LeaderboardEntry, category: LeaderboardCategory): string {
+  switch (category) {
+    case "matches": return formatNumber(entry.completed_matches);
+    case "kd_ratio": return entry.kd_ratio.toFixed(2);
+    case "frags": return formatNumber(entry.total_frags);
+    case "deaths": return formatNumber(entry.total_deaths);
+    case "victories": return formatNumber(entry.victories);
+    case "excellents": return formatNumber(entry.excellents);
+    case "impressives": return formatNumber(entry.impressives);
+    case "humiliations": return formatNumber(entry.humiliations);
+    case "captures": return formatNumber(entry.captures);
+    case "flag_returns": return formatNumber(entry.flag_returns);
+    case "assists": return formatNumber(entry.assists);
+    case "defends": return formatNumber(entry.defends);
+    default: return "";
+  }
+}
+
+function LeaderboardGrid({ entries, category }: LeaderboardGridProps) {
   const isCoreStats = CORE_STATS_CATEGORIES.includes(
     category as (typeof CORE_STATS_CATEGORIES)[number],
   );
 
-  const getAwardValue = (entry: LeaderboardEntry): string => {
-    switch (category) {
-      case "captures":
-        return formatNumber(entry.captures);
-      case "flag_returns":
-        return formatNumber(entry.flag_returns);
-      case "assists":
-        return formatNumber(entry.assists);
-      case "impressives":
-        return formatNumber(entry.impressives);
-      case "excellents":
-        return formatNumber(entry.excellents);
-      case "humiliations":
-        return formatNumber(entry.humiliations);
-      case "defends":
-        return formatNumber(entry.defends);
-      case "victories":
-        return formatNumber(entry.victories);
-      default:
-        return "";
-    }
-  };
-
-  const colClass = (col: string) =>
-    `stat-col ${category === col ? "sorted-col" : ""}`;
-
-  if (isCoreStats) {
-    return (
-      <table className="leaderboard-table">
-        <thead>
-          <tr>
-            <th className="rank-col">#</th>
-            <th className="player-col">Player</th>
-            <th className={colClass("matches")}>Matches</th>
-            <th className={colClass("kd_ratio")}>K/D</th>
-            <th className={colClass("frags")}>Frags</th>
-            <th className={colClass("deaths")}>Deaths</th>
-          </tr>
-        </thead>
-        <tbody>
-          {entries.map((entry, index) => (
-            <tr
-              key={entry.player.id}
-              className={index < 3 ? `top-${index + 1}` : ""}
-            >
-              <td className="rank-col">{index + 1}</td>
-              <td className="player-col">
-                <span className="player-name">
-                  <PlayerPortrait model={entry.player.model} size="sm" />
-                  <PlayerBadge isVerified={entry.player.is_verified} isAdmin={entry.player.is_admin} isVR={entry.player.is_vr} />
-                  <Link to={`/players/${entry.player.id}`}>
-                    <ColoredText text={entry.player.is_vr ? stripVRPrefix(entry.player.name) : entry.player.name} />
-                  </Link>
-                </span>
-              </td>
-              <td className={colClass("matches")} title={
-                entry.uncompleted_matches > 0
-                  ? `${formatNumber(entry.completed_matches)} completed, ${formatNumber(entry.uncompleted_matches)} incomplete`
-                  : undefined
-              }>
-                {formatNumber(entry.completed_matches)}
-              </td>
-              <td className={colClass("kd_ratio")}>
-                {entry.kd_ratio.toFixed(2)}
-              </td>
-              <td className={colClass("frags")}>{formatNumber(entry.total_frags)}</td>
-              <td className={colClass("deaths")}>{formatNumber(entry.total_deaths)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    );
-  }
-
-  // Award categories - single value column
   return (
-    <table className="leaderboard-table">
-      <thead>
-        <tr>
-          <th className="rank-col">#</th>
-          <th className="player-col">Player</th>
-          <th className="stat-col sorted-col">{CATEGORY_LABELS[category]}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {entries.map((entry, index) => (
-          <tr
+    <div className="leaderboard-grid">
+      {entries.map((entry, index) => {
+        const isTop = index < 3;
+        const cleanInitial = (entry.player.clean_name || entry.player.name || "").replace(/\^./g, "").charAt(0).toLowerCase() || "?";
+        return (
+          <Link
             key={entry.player.id}
-            className={index < 3 ? `top-${index + 1}` : ""}
+            to={`/players/${entry.player.id}`}
+            className={`leaderboard-card${isTop ? " top" : ""}${isTop ? ` top-${index + 1}` : ""}`}
           >
-            <td className="rank-col">{index + 1}</td>
-            <td className="player-col">
-              <span className="player-name">
-                <PlayerPortrait model={entry.player.model} size="sm" />
-                <PlayerBadge isVerified={entry.player.is_verified} isAdmin={entry.player.is_admin} isVR={entry.player.is_vr} />
-                <Link to={`/players/${entry.player.id}`}>
-                  <ColoredText text={entry.player.is_vr ? stripVRPrefix(entry.player.name) : entry.player.name} />
-                </Link>
-              </span>
-            </td>
-            <td className="stat-col sorted-col">{getAwardValue(entry)}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+            <span className={`leaderboard-card__rank${isTop ? " top" : ""}`}>#{index + 1}</span>
+            <span className="leaderboard-card__avatar">
+              <PlayerPortrait model={entry.player.model} size="lg" fallback={cleanInitial} />
+              <PlayerBadge
+                isVerified={entry.player.is_verified}
+                isAdmin={entry.player.is_admin}
+                isVR={entry.player.is_vr}
+                size="sm"
+              />
+            </span>
+            <span className="leaderboard-card__name">
+              <ColoredText text={entry.player.is_vr ? stripVRPrefix(entry.player.name) : entry.player.name} />
+            </span>
+            <span className="leaderboard-card__stat-label">{CATEGORY_LABELS[category]}</span>
+            <span className="leaderboard-card__stat">{getPrimary(entry, category)}</span>
+            {isCoreStats && (
+              // Show the other three core stats as a compact secondary row
+              // so each card carries the full stat picture, not just the
+              // sorted column.
+              <div className="leaderboard-card__secondary">
+                {category !== "matches" && (
+                  <span title={
+                    entry.uncompleted_matches > 0
+                      ? `${formatNumber(entry.completed_matches)} completed, ${formatNumber(entry.uncompleted_matches)} incomplete`
+                      : undefined
+                  }>
+                    <i>M</i>{formatNumber(entry.completed_matches)}
+                  </span>
+                )}
+                {category !== "kd_ratio" && <span><i>K/D</i>{entry.kd_ratio.toFixed(2)}</span>}
+                {category !== "frags" && <span><i>F</i>{formatNumber(entry.total_frags)}</span>}
+                {category !== "deaths" && <span><i>D</i>{formatNumber(entry.total_deaths)}</span>}
+              </div>
+            )}
+          </Link>
+        );
+      })}
+    </div>
   );
 }
