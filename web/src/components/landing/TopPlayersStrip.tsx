@@ -10,7 +10,7 @@ export function TopPlayersStrip() {
 
   useEffect(() => {
     let cancelled = false
-    fetch('/api/stats/leaderboard?category=victories&period=week&limit=8')
+    fetch('/api/stats/leaderboard?category=victories&period=week&limit=10')
       .then((r) => (r.ok ? r.json() : { entries: [] }))
       .catch(() => ({ entries: [] }))
       .then((data: LeaderboardResponse | { entries: LeaderboardEntry[] }) => {

@@ -5305,9 +5305,10 @@ h2 {
 }
 
 /* Leaderboard content — wrapper with no chrome of its own. Cards
-   inside provide the visual rhythm. */
+   inside provide the visual rhythm. Margin pushes the grid away from
+   the period selector's hairline above. */
 .leaderboard-content {
-  /* No background or border — cards stand on their own. */
+  margin-top: 24px;
 }
 
 .leaderboard-empty {
@@ -5346,21 +5347,31 @@ h2 {
   border-color: rgba(255, 110, 60, 0.5);
   transform: translateY(-2px);
 }
-.leaderboard-card.top {
-  border-color: rgba(255, 110, 60, 0.35);
-  background: linear-gradient(180deg, rgba(255, 110, 60, 0.08), rgba(20, 16, 14, 0.55) 60%);
+/* Top 3 — each rank gets its own metal tint on the border, portrait
+   ring, rank numeral, and headline stat. */
+.leaderboard-card.top-1 {
+  border-color: rgba(255, 215, 0, 0.55);
+  background: linear-gradient(180deg, rgba(255, 215, 0, 0.10), rgba(20, 16, 14, 0.55) 60%);
+}
+.leaderboard-card.top-2 {
+  border-color: rgba(192, 192, 192, 0.5);
+  background: linear-gradient(180deg, rgba(192, 192, 192, 0.07), rgba(20, 16, 14, 0.55) 60%);
+}
+.leaderboard-card.top-3 {
+  border-color: rgba(205, 127, 50, 0.55);
+  background: linear-gradient(180deg, rgba(205, 127, 50, 0.08), rgba(20, 16, 14, 0.55) 60%);
 }
 .leaderboard-card__rank {
   position: absolute;
   top: 10px;
-  left: 12px;
+  left: 14px;
   font-family: 'Cinzel', serif;
   font-weight: 700;
-  font-size: 11px;
-  letter-spacing: 0.2em;
+  font-size: 18px;
+  letter-spacing: 0.1em;
   color: var(--text-dim);
+  line-height: 1;
 }
-.leaderboard-card__rank.top { color: #ffc78a; }
 .leaderboard-card__avatar {
   position: relative;
   width: 64px;
@@ -5374,9 +5385,17 @@ h2 {
   flex-shrink: 0;
   overflow: visible;
 }
-.leaderboard-card.top .leaderboard-card__avatar {
-  border-color: var(--ember-strong, #ff6e3c);
-  box-shadow: 0 0 14px rgba(255, 110, 60, 0.25);
+.leaderboard-card.top-1 .leaderboard-card__avatar {
+  border-color: gold;
+  box-shadow: 0 0 14px rgba(255, 215, 0, 0.4);
+}
+.leaderboard-card.top-2 .leaderboard-card__avatar {
+  border-color: silver;
+  box-shadow: 0 0 12px rgba(192, 192, 192, 0.35);
+}
+.leaderboard-card.top-3 .leaderboard-card__avatar {
+  border-color: #cd7f32;
+  box-shadow: 0 0 12px rgba(205, 127, 50, 0.35);
 }
 /* Override portrait-lg (48px) so it fills the 64px wrap. */
 .leaderboard-card__avatar .player-portrait {
@@ -5428,7 +5447,9 @@ h2 {
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
-.leaderboard-card.top .leaderboard-card__stat { color: #ffc78a; }
+.leaderboard-card.top-1 .leaderboard-card__stat { color: gold; }
+.leaderboard-card.top-2 .leaderboard-card__stat { color: silver; }
+.leaderboard-card.top-3 .leaderboard-card__stat { color: #cd7f32; }
 /* Secondary row — non-sorted core stats compressed into a single
    line so the card carries the full picture without dominating. */
 .leaderboard-card__secondary {

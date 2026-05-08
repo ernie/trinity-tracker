@@ -154,7 +154,7 @@ export function LeaderboardPage() {
     const gameTypeParam = gameType !== "all" ? `&game_type=${gameType}` : "";
     const asOfParam = asOf ? `&as_of=${encodeURIComponent(asOf)}` : "";
     fetch(
-      `/api/stats/leaderboard?category=${effectiveCategory}&period=${period}&limit=50${gameTypeParam}${asOfParam}`,
+      `/api/stats/leaderboard?category=${effectiveCategory}&period=${period}&limit=10${gameTypeParam}${asOfParam}`,
     )
       .then((res) => {
         if (!res.ok) throw new Error("Failed to load leaderboard");
