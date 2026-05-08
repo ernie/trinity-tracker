@@ -8498,6 +8498,13 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   box-shadow: 0 0 8px var(--ember-strong, #ff6e3c);
   animation: landing-hero-pulse 1.6s ease-in-out infinite;
 }
+/* Quiet state: dim the dot and drop its glow so the pill reads as "still on,
+   but nothing happening." The label text itself dims too, mirroring StatusPill. */
+.hero__pill.quiet { color: var(--text-dim); }
+.hero__pill.quiet .dot {
+  background: var(--text-dim);
+  box-shadow: none;
+}
 
 @media (max-width: 720px) {
   .hero__header { padding: 16px 20px 0; }

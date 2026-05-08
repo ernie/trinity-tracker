@@ -7,8 +7,14 @@ import { Link } from 'react-router-dom'
 import { useLiveData } from '../../contexts/LiveDataContext'
 
 export function HeroHeader() {
-  const { isConnected, activeHumanPlayersCount, activeServersCount } = useLiveData()
-  const showPill = isConnected && (activeHumanPlayersCount > 0 || activeServersCount > 0)
+  const { activeHumanPlayersCount, activeServersCount } = useLiveData()
+  const live = activeHumanPlayersCount > 0
+  // Mirrors the StatusPill convention: when nobody's playing, show "ALL QUIET"
+  // instead of "0 · 0 LIVE" or hiding the pill entirely. The pulsing dot stays
+  // visible either way as a sign that the page is connected to live data.
+  const label = live
+    ? `${activeHumanPlayersCount} · ${activeServersCount} LIVE`
+    : 'ALL QUIET'
 
   return (
     <header className="hero__header">
@@ -27,14 +33,10 @@ export function HeroHeader() {
         <Link to="/docs">Docs</Link>
       </nav>
 
-      {showPill ? (
-        <span className="hero__pill" aria-live="polite">
-          <span className="dot" aria-hidden />
-          {activeHumanPlayersCount} · {activeServersCount} LIVE
-        </span>
-      ) : (
-        <span aria-hidden /> /* preserve grid third column */
-      )}
+      <span className={`hero__pill ${live ? 'live' : 'quiet'}`} aria-live="polite">
+        <span className="dot" aria-hidden />
+        {label}
+      </span>
     </header>
   )
 }
