@@ -8772,3 +8772,104 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 @media (prefers-reduced-motion: reduce) {
   .landing-hero__scroll-hint { animation: none; transform: translateX(-50%); }
 }
+
+/* Wallpaper download trigger + hover popup, bottom-right of hero. */
+.landing-hero__wallpaper {
+  position: absolute;
+  bottom: 22px;
+  right: 28px;
+  z-index: 2;
+  font-family: 'Barlow', sans-serif;
+}
+.landing-hero__wallpaper-trigger {
+  display: inline-block;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  padding: 8px 0;
+  cursor: help;
+  border-bottom: 1px dotted rgba(255, 248, 240, 0.25);
+  transition: color 0.2s ease, border-bottom-color 0.2s ease;
+}
+.landing-hero__wallpaper:hover .landing-hero__wallpaper-trigger,
+.landing-hero__wallpaper:focus-within .landing-hero__wallpaper-trigger {
+  color: #ffc78a;
+  border-bottom-color: #ffc78a;
+}
+.landing-hero__wallpaper-popup {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  right: 0;
+  min-width: 260px;
+  background: rgba(18, 14, 12, 0.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 110, 60, 0.28);
+  padding: 14px 16px 12px;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(6px);
+  transition:
+    opacity 0.18s ease,
+    transform 0.22s ease,
+    visibility 0s linear 0.22s;
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.5),
+    0 0 24px rgba(255, 110, 60, 0.08);
+}
+.landing-hero__wallpaper:hover .landing-hero__wallpaper-popup,
+.landing-hero__wallpaper:focus-within .landing-hero__wallpaper-popup {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  transition:
+    opacity 0.18s ease,
+    transform 0.22s ease,
+    visibility 0s linear 0s;
+}
+.landing-hero__wallpaper-popup-label {
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: #ffc78a;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  position: relative;
+  border-bottom: 1px solid rgba(255, 248, 240, 0.08);
+}
+.landing-hero__wallpaper-popup-label::after {
+  content: '';
+  position: absolute;
+  bottom: -1px; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(to right, rgba(255, 110, 60, 0.5), transparent);
+}
+.landing-hero__wallpaper-link {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 7px 0;
+  color: var(--text);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  transition: color 0.15s ease;
+}
+.landing-hero__wallpaper-link + .landing-hero__wallpaper-link {
+  border-top: 1px dashed rgba(255, 248, 240, 0.06);
+}
+.landing-hero__wallpaper-link:hover { color: #ffc78a; }
+.landing-hero__wallpaper-link-meta {
+  font-family: 'Barlow', sans-serif;
+  font-weight: 400;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}

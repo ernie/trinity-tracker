@@ -88,6 +88,31 @@ export function HeroSection() {
       </div>
 
       <div className="landing-hero__scroll-hint" aria-hidden>Scroll ↓</div>
+
+      <div className="landing-hero__wallpaper" tabIndex={0}>
+        <span className="landing-hero__wallpaper-trigger">Like this background?</span>
+        <div className="landing-hero__wallpaper-popup" role="menu">
+          <div className="landing-hero__wallpaper-popup-label">Download wallpaper</div>
+          <a
+            className="landing-hero__wallpaper-link"
+            role="menuitem"
+            href="/assets/landing/wallpaper.png"
+            download="trinity-wallpaper-3440x1440.png"
+          >
+            <span>Ultrawide</span>
+            <span className="landing-hero__wallpaper-link-meta">3440 × 1440</span>
+          </a>
+          <a
+            className="landing-hero__wallpaper-link"
+            role="menuitem"
+            href="/assets/landing/wallpaper-qhd.png"
+            download="trinity-wallpaper-2560x1440.png"
+          >
+            <span>QHD</span>
+            <span className="landing-hero__wallpaper-link-meta">2560 × 1440</span>
+          </a>
+        </div>
+      </div>
     </section>
   )
 }
