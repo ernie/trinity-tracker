@@ -11,7 +11,6 @@ import {
   loadServerFilters,
   type ServerFilterState,
 } from "./components/ServerFilters";
-import { Header } from "./components/Header";
 
 function App() {
   const { auth } = useAuth();
@@ -41,7 +40,6 @@ function App() {
   if (loading) {
     return (
       <div className="app">
-        <Header title="Trinity" className="app-header" wordmark="tracker" />
         <div className="loading">Loading servers...</div>
       </div>
     );
@@ -54,8 +52,6 @@ function App() {
 
   return (
     <div className={`app ${showRcon && auth.isAuthenticated ? "with-right-sidebar" : ""}`}>
-      <Header title="Trinity" className="app-header" wordmark="tracker" />
-
       <div className="app-layout">
         <div className="main-content">
           <ServerFilters

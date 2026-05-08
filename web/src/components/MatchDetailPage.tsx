@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { MatchCard } from './MatchCard'
-import { Header } from './Header'
 import { Breadcrumbs } from './Breadcrumbs'
 import { useAuth } from '../hooks/useAuth'
 import { formatExitReason } from './cards/format'
@@ -73,8 +72,6 @@ export function MatchDetailPage() {
 
   return (
     <div className="match-detail-page">
-      <Header title="Match Details" className="match-detail-header" />
-
       {match && (
         <Breadcrumbs
           crumbs={[

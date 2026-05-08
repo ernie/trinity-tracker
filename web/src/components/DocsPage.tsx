@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, Outlet } from "react-router-dom";
-import { Header } from "./Header";
 import { DocsTocRail, type DocSection } from "./docs/DocsTocRail";
 import { DocsOnThisPage } from "./docs/DocsOnThisPage";
 import { DocsPrevNext } from "./docs/DocsPrevNext";
@@ -51,8 +50,6 @@ export function DocsPage() {
 
   return (
     <div className="about-page docs-page-v2">
-      <Header title="Docs" className="about-header" />
-
       <div className="docs-layout">
         <aside className="docs-layout__left">
           <DocsTocRail />

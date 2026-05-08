@@ -5,7 +5,6 @@ import { PlayerPortrait } from "./PlayerPortrait";
 import { PlayerBadge } from "./PlayerBadge";
 import { FlagIcon } from "./FlagIcon";
 import { MedalIcon } from "./MedalIcon";
-import { Header } from "./Header";
 import { PeriodSelector } from "./PeriodSelector";
 
 import { GAME_TYPES, type GameTypeFilter } from "../constants/labels";
@@ -174,8 +173,6 @@ export function LeaderboardPage() {
 
   return (
     <div className="leaderboard-page">
-      <Header title="Leaderboard" className="leaderboard-header" />
-
       {asOf && (
         <div className="leaderboard-snapshot-banner">
           <span>📸 Snapshot · {formatSnapshotTime(asOf)}</span>

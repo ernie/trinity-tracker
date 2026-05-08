@@ -19,6 +19,7 @@ import { LiveDataProvider } from './contexts/LiveDataContext'
 import { Chrome } from './components/Chrome'
 import { Footer } from './components/Footer'
 import { ScrollToTop } from './components/ScrollToTop'
+import { RouteHeader } from './components/RouteHeader'
 import './index.css'
 
 createRoot(document.getElementById('root')!).render(
@@ -29,6 +30,7 @@ createRoot(document.getElementById('root')!).render(
           <ScrollToTop />
           <Chrome />
           <div className="app-shell">
+            <RouteHeader />
             <main className="app-main">
               <Routes>
                 <Route path="/" element={<LandingPage />} />

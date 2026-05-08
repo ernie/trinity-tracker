@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { MatchCard, formatGameType } from './MatchCard'
-import { Header } from './Header'
 import { SourceFilter } from './SourceFilter'
 import { ModeFilterGroup } from './ServerFilters'
 import { MOVEMENT_MODES, GAMEPLAY_MODES } from './ServerCard'
@@ -164,8 +163,6 @@ export function MatchesPage() {
 
   return (
     <div className="matches-page">
-      <Header title="Matches" className="matches-header" />
-
       <div className="match-filters">
         <div className="game-type-selector">
           <button

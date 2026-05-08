@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Navigate, Outlet } from 'react-router-dom'
-import { Header } from '../Header'
 import { useAuth } from '../../hooks/useAuth'
 
 const ADMIN_TABS = [
@@ -39,7 +38,6 @@ export function AdminPage() {
   if (loading) {
     return (
       <div className="admin-page">
-        <Header title="Admin" className="admin-header" />
         <div className="admin-loading">Loading…</div>
       </div>
     )
@@ -51,8 +49,6 @@ export function AdminPage() {
 
   return (
     <div className="admin-page">
-      <Header title="Admin" className="admin-header" />
-
       {/* .admin-workspace owns the warm editorial hairline that marks
           entry into the admin surface. One use per page, kept restrained
           so the gradient stays meaningful. */}

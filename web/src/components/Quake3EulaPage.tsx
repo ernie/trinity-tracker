@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { Header } from "./Header";
 
 const PATCH_ZIP_URL = "/downloads/quake3-1.32-pk3s.zip";
 const SCROLL_TOLERANCE_PX = 4;
@@ -50,7 +49,6 @@ export function Quake3EulaPage() {
 
   return (
     <div className="about-page">
-      <Header title="Quake 3 EULA" className="about-header" />
       <div className="about-content">
         <div className="about-section">
           <h2>Quake 3 1.32 Patch Data</h2>

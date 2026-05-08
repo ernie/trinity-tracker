@@ -6,7 +6,6 @@ import { PlayerPortrait } from './PlayerPortrait'
 import { PlayerRecentMatches } from './PlayerRecentMatches'
 import { PlayerSessions } from './PlayerSessions'
 import { PlayerBadge } from './PlayerBadge'
-import { Header } from './Header'
 import { Breadcrumbs } from './Breadcrumbs'
 import { StatItem } from './StatItem'
 import { PeriodSelector } from './PeriodSelector'
@@ -127,8 +126,6 @@ export function PlayersPage() {
 
   return (
     <div className="players-page">
-      <Header title="Player Stats" className="players-header" />
-
       {id && stats?.player && (
         <Breadcrumbs
           crumbs={[

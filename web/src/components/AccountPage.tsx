@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { ColoredText } from './ColoredText'
 import { PlayerPortrait } from './PlayerPortrait'
 import { PlayerRecentMatches } from './PlayerRecentMatches'
-import { Header } from './Header'
 import { StatItem } from './StatItem'
 import { PeriodSelector } from './PeriodSelector'
 import { useAuth } from '../hooks/useAuth'
@@ -283,8 +282,6 @@ export function AccountPage() {
 
   return (
     <div className="account-page">
-      <Header title="My Account" className="account-header" />
-
       {loading && <div className="loading">Loading...</div>}
       {error && <div className="error-message">{error}</div>}
 

@@ -4,7 +4,6 @@ import { ColoredText } from './ColoredText'
 import { PlayerPortrait } from './PlayerPortrait'
 import { PlayerBadge } from './PlayerBadge'
 import { StatItem } from './StatItem'
-import { Header } from './Header'
 import { useAuth } from '../hooks/useAuth'
 import { formatDate, formatDuration } from '../utils/formatters'
 import type { PlayerProfile, AggregatedStats } from '../types'
@@ -218,8 +217,6 @@ export function ClaimPage() {
 
   return (
     <div className="claim-page">
-      <Header title="Claim Identity" className="claim-header" />
-
       <div className="claim-container">
         {step === 'code_entry' && (
           <section className="claim-section">
