@@ -28,6 +28,7 @@ export function LandingPage() {
     <div className="landing">
       <Header
         title="Trinity"
+        className="app-header"
         wordmark="tracker"
         transparent
         solid={solid}
