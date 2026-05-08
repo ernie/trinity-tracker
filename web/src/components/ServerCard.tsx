@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import type { ServerStatus, Player } from '../types'
 import { FlagIcon } from './FlagIcon'
-import { formatNumber } from '../utils'
 import { useSources } from '../hooks/useSources'
 import { formatGameType } from './MatchCard'
 import { useMapMeta } from '../hooks/useMapMeta'
@@ -337,66 +336,49 @@ export function ServerCard({ server, newPlayers: _newPlayers, isSelected, onSele
 
       <ModeIcons movement={server.server_vars?.g_movement} gameplay={server.server_vars?.g_gameplay} />
 
-      {showTeamScores && server.team_scores && (
-        <>
-          {isCTF(server.game_type) ? (
-            // CTF: keep existing flag-aware team score rendering
-            <div className="team-scores">
-              <span className="team-score red">
-                <span className="team-label">{server.server_vars?.g_redteam || 'Red'}</span>
-                <span className="score-row">
-                  <span className="score-value">{formatNumber(server.team_scores.red)}</span>
-                  {server.flag_status?.mode === 'ctf' && (() => {
-                    const indicator = getFlagIndicator(server.flag_status.red)
-                    return (
-                      <span className={`flag-indicator ${indicator.className}`}>
-                        <FlagIcon team="red" status={indicator.status} size="sm" title={`Red flag: ${indicator.title}`} />
-                      </span>
-                    )
-                  })()}
-                </span>
-              </span>
-              {server.flag_status?.mode === '1fctf' && (() => {
-                const indicator = getNeutralFlagIndicator(server.flag_status.neutral ?? 0)
-                return (
-                  <span className={`team-score team-flag-center ${indicator.drift}`}>
-                    <span className="team-label" aria-hidden="true">&nbsp;</span>
-                    <span className="score-row">
-                      <span className="score-value" aria-hidden="true">&nbsp;</span>
-                      <span className="flag-indicator">
-                        <FlagIcon team="neutral" status={indicator.status} size="sm" title={indicator.title} />
-                      </span>
-                    </span>
-                  </span>
-                )
-              })()}
-              <span className="team-score blue">
-                <span className="team-label">{server.server_vars?.g_blueteam || 'Blue'}</span>
-                <span className="score-row">
-                  <span className="score-value">{formatNumber(server.team_scores.blue)}</span>
-                  {server.flag_status?.mode === 'ctf' && (() => {
-                    const indicator = getFlagIndicator(server.flag_status.blue)
-                    return (
-                      <span className={`flag-indicator ${indicator.className}`}>
-                        <FlagIcon team="blue" status={indicator.status} size="sm" title={`Blue flag: ${indicator.title}`} />
-                      </span>
-                    )
-                  })()}
-                </span>
-              </span>
-            </div>
-          ) : (
-            // Non-CTF team modes: use Scoreboard primitive
-            <Scoreboard
-              redLabel={server.server_vars?.g_redteam ?? 'Red'}
-              redScore={server.team_scores.red}
-              blueLabel={server.server_vars?.g_blueteam ?? 'Blue'}
-              blueScore={server.team_scores.blue}
-              state={classifyScores(server.team_scores.red, server.team_scores.blue)}
-            />
-          )}
-        </>
-      )}
+      {showTeamScores && server.team_scores && (() => {
+        // CTF / 1FCTF inject flag indicators into Scoreboard slots; other
+        // team modes (TDM, OBL, HRV) render bare scoreboard. Either way
+        // we use the same primitive so styling stays consistent.
+        const flag = server.flag_status
+        const redInd = flag?.mode === 'ctf' ? (() => {
+          const i = getFlagIndicator(flag.red)
+          return (
+            <span className={`flag-indicator ${i.className}`}>
+              <FlagIcon team="red" status={i.status} size="sm" title={`Red flag: ${i.title}`} />
+            </span>
+          )
+        })() : undefined
+        const blueInd = flag?.mode === 'ctf' ? (() => {
+          const i = getFlagIndicator(flag.blue)
+          return (
+            <span className={`flag-indicator ${i.className}`}>
+              <FlagIcon team="blue" status={i.status} size="sm" title={`Blue flag: ${i.title}`} />
+            </span>
+          )
+        })() : undefined
+        const centerInd = flag?.mode === '1fctf' ? (() => {
+          const i = getNeutralFlagIndicator(flag.neutral ?? 0)
+          return (
+            <span className={`flag-indicator ${i.drift}`}>
+              <FlagIcon team="neutral" status={i.status} size="sm" title={i.title} />
+            </span>
+          )
+        })() : undefined
+        return (
+          <Scoreboard
+            redLabel={server.server_vars?.g_redteam ?? 'Red'}
+            redScore={server.team_scores.red}
+            blueLabel={server.server_vars?.g_blueteam ?? 'Blue'}
+            blueScore={server.team_scores.blue}
+            state={classifyScores(server.team_scores.red, server.team_scores.blue)}
+            live
+            redIndicator={redInd}
+            blueIndicator={blueInd}
+            centerIndicator={centerInd}
+          />
+        )
+      })()}
 
       {/* 1v1 duel: portraits + score side-by-side. Other modes use the player table. */}
       {server.game_type === '1v1' && activePlayers.length >= 2 ? (
@@ -404,6 +386,7 @@ export function ServerCard({ server, newPlayers: _newPlayers, isSelected, onSele
           left={duelistFromLivePlayer(activePlayers[0])}
           right={duelistFromLivePlayer(activePlayers[1])}
           state={classifyScores(activePlayers[0]?.score ?? 0, activePlayers[1]?.score ?? 0)}
+          live
         />
       ) : (
         // TODO(card-conformance): wire onPlayerClick through PlayerRows

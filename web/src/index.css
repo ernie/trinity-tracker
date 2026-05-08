@@ -9344,6 +9344,16 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 }
 .scoreboard__label.red { color: var(--red); }
 .scoreboard__label.blue { color: #4a9fef; }
+/* Score + optional flag indicator share a row inside each side. The
+   blue side reverses order so the flag sits between the team label and
+   the connector — visually mirroring red. */
+.scoreboard__score-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 1;
+}
+.scoreboard__indicator { display: inline-flex; align-items: center; }
 .scoreboard__score {
   font-family: 'Cinzel', serif; font-weight: 700; font-size: 32px;
   color: var(--accent); letter-spacing: 0.04em; line-height: 1;
@@ -9354,6 +9364,17 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   color: #facc15;
   text-shadow: 0 0 12px rgba(250, 204, 21, 0.35);
 }
+/* Center column stacks `vs` over an optional indicator (1FCTF
+   neutral-flag drift). The indicator's existing flag-toward-red /
+   flag-toward-blue translate animation is preserved. */
+.scoreboard__center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 36px;
+}
+.scoreboard__center-indicator { display: inline-flex; align-items: center; }
 .scoreboard__vs {
   font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: 0.3em;
   color: var(--text-dim); text-transform: uppercase;
@@ -9641,7 +9662,6 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   overflow: hidden;
   word-break: break-word;
   hyphens: auto;
-  cursor: help;
 }
 /* Levelshot preview on map-name hover (resurrected from pre-redesign).
    Uses the --levelshot custom property the card sets on its root. */

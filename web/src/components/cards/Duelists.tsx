@@ -27,6 +27,8 @@ interface DuelistsProps {
   left: DuelistData
   right: DuelistData
   state: ScoreState
+  /** Live duels: no winner/loser styling, no TIE / NO CONTEST. Just `vs`. */
+  live?: boolean
 }
 
 function DuelistAwards({ awards, side }: { awards?: AwardEntry[]; side: 'left' | 'right' }) {
@@ -35,11 +37,9 @@ function DuelistAwards({ awards, side }: { awards?: AwardEntry[]; side: 'left' |
   }
   return (
     <div className={`duelist-awards ${side === 'right' ? 'right' : ''}`}>
-      {awards.flatMap((a) =>
-        Array.from({ length: a.count }, (_, i) => (
-          <MedalIcon key={`${a.type}-${i}`} type={a.type} size="sm" showCount={false} />
-        ))
-      )}
+      {awards.map((a) => (
+        <MedalIcon key={a.type} type={a.type} count={a.count} size="sm" />
+      ))}
     </div>
   )
 }
@@ -68,12 +68,15 @@ function Duelist({ data, side, winnerSide }: { data: DuelistData; side: 'left' |
   )
 }
 
-export function Duelists({ left, right, state }: DuelistsProps) {
-  const winnerSide = state === 'left' ? 'left' : state === 'right' ? 'right' : null
+export function Duelists({ left, right, state, live }: DuelistsProps) {
+  // Live duel: no winner/loser styling and the connector is always `vs`.
+  // The match isn't decided, so showing TIE / NO CONTEST is misleading.
+  const winnerSide = !live && state === 'left' ? 'left'
+                    : !live && state === 'right' ? 'right' : null
 
   let connector: React.ReactNode = 'vs'
-  if (state === 'tie') connector = <span className="scoreboard__state tie">TIE</span>
-  if (state === 'no_contest') connector = <span className="scoreboard__state nc">NO<br />CONTEST</span>
+  if (!live && state === 'tie') connector = <span className="scoreboard__state tie">TIE</span>
+  if (!live && state === 'no_contest') connector = <span className="scoreboard__state nc">NO<br />CONTEST</span>
 
   return (
     <div className="duelists">

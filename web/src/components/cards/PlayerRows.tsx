@@ -1,7 +1,8 @@
 // Player table for team / FFA cards. Live mode shows ping; finished
-// mode shows F + D + Score. Awards accumulate inline next to the name
-// with a left-edge mask-fade so older medals dissolve into the name
-// when the row gets crowded.
+// mode shows F + D + Score. Awards render as one icon per type with a
+// count badge when multiple were earned (e.g., "5x excellent" is one
+// medal icon with `5` superscripted). The mask-fade still trims the
+// left edge if the row gets crowded.
 import { ColoredText } from '../ColoredText'
 import { PlayerPortrait } from '../PlayerPortrait'
 import { PlayerBadge } from '../PlayerBadge'
@@ -58,11 +59,9 @@ export function PlayerRows({ players, mode }: { players: PlayerRowData[]; mode: 
               <span className={`name ${p.isBot ? 'bot' : ''}`}><ColoredText text={p.name} /></span>
               {p.awards && p.awards.length > 0 && (
                 <span className="row-awards">
-                  {p.awards.flatMap((a) =>
-                    Array.from({ length: a.count }, (_, j) => (
-                      <MedalIcon key={`${a.type}-${j}`} type={a.type} size="sm" showCount={false} />
-                    ))
-                  )}
+                  {p.awards.map((a) => (
+                    <MedalIcon key={a.type} type={a.type} count={a.count} size="sm" />
+                  ))}
                 </span>
               )}
             </span>
