@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ColoredText } from '../ColoredText'
+import { PlayerPortrait } from '../PlayerPortrait'
 import type { LeaderboardEntry, LeaderboardResponse } from '../../types'
 
 export function TopPlayersStrip() {
@@ -32,7 +33,7 @@ export function TopPlayersStrip() {
         <div className="landing-shelf-h__scroll landing-players-strip">
           {entries.map((p) => {
             const isTop = p.rank <= 3
-            const cleanInitial = (p.player.name || '').replace(/\^./g, '').charAt(0).toLowerCase() || '?'
+            const cleanInitial = (p.player.clean_name || p.player.name || '').replace(/\^./g, '').charAt(0).toLowerCase() || '?'
             return (
               <Link
                 key={p.player.id}
@@ -40,7 +41,9 @@ export function TopPlayersStrip() {
                 className={`landing-player-card ${isTop ? 'top' : ''}`}
               >
                 <span className={`landing-player-card__rank ${isTop ? 'top' : ''}`}>#{p.rank}</span>
-                <div className="landing-player-card__avatar">{cleanInitial}</div>
+                <span className="landing-player-card__avatar">
+                  <PlayerPortrait model={p.player.model} size="lg" fallback={cleanInitial} />
+                </span>
                 <span className="landing-player-card__name">
                   <ColoredText text={p.player.name} />
                 </span>

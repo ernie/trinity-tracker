@@ -29,3 +29,40 @@ export function classifyScores(left: number, right: number): ScoreState {
   if (left === right) return 'tie'
   return left > right ? 'left' : 'right'
 }
+
+export type MedalType = 'impressive' | 'excellent' | 'humiliation' | 'capture' | 'assist' | 'defend' | 'victory'
+
+export interface AwardEntry {
+  type: MedalType
+  count: number
+}
+
+export interface PlayerAwardCounts {
+  impressives?: number
+  excellents?: number
+  humiliations?: number
+  captures?: number
+  assists?: number
+  defends?: number
+  victories?: number
+}
+
+/**
+ * Maps a player's medal-count fields to a stable display order. Returned in
+ * the order they should render on the card (most prestigious first, with
+ * objective medals trailing). Zero/absent counts are filtered out.
+ */
+export function awardsFromCounts(p: PlayerAwardCounts): AwardEntry[] {
+  const order: Array<[MedalType, number | undefined]> = [
+    ['excellent', p.excellents],
+    ['impressive', p.impressives],
+    ['humiliation', p.humiliations],
+    ['victory', p.victories],
+    ['capture', p.captures],
+    ['defend', p.defends],
+    ['assist', p.assists],
+  ]
+  return order
+    .filter((entry): entry is [MedalType, number] => typeof entry[1] === 'number' && entry[1] > 0)
+    .map(([type, count]) => ({ type, count }))
+}

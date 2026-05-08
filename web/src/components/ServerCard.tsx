@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react'
 import type { ServerStatus, Player } from '../types'
 import { FlagIcon } from './FlagIcon'
-import { formatNumber, serverDisplay } from '../utils'
+import { formatNumber } from '../utils'
 import { useSources } from '../hooks/useSources'
 import { formatGameType } from './MatchCard'
 import { useMapMeta } from '../hooks/useMapMeta'
 import { RichChip } from './cards/RichChip'
 import { Scoreboard } from './cards/Scoreboard'
 import { Duelists, type DuelistData } from './cards/Duelists'
-import { classifyScores } from './cards/format'
+import { classifyScores, awardsFromCounts } from './cards/format'
 import { PlayerRows } from './cards/PlayerRows'
 import { SpectatorStrip } from './cards/SpectatorStrip'
 
@@ -314,7 +314,7 @@ export function ServerCard({ server, newPlayers: _newPlayers, isSelected, onSele
       <div className="card__topbar">
         <RichChip
           source={hasMultipleSources ? server.source : undefined}
-          server={serverDisplay(server.source, server.key, { hasMultipleSources })}
+          server={server.key}
           mode={formatGameType(server.game_type)}
         />
         <span className={`card__state ${stateBadge.className}`}>{stateBadge.label}</span>
@@ -410,10 +410,17 @@ export function ServerCard({ server, newPlayers: _newPlayers, isSelected, onSele
         <PlayerRows
           players={activePlayers.map(p => ({
             name: p.name,
+            cleanName: p.clean_name,
+            model: p.model,
             team: p.team as 1 | 2 | undefined,
             isBot: p.is_bot,
+            skill: p.skill,
+            isVR: p.is_vr,
+            isVerified: p.is_verified,
+            isAdmin: p.is_admin,
             score: p.score,
             ping: p.ping,
+            awards: awardsFromCounts(p),
           }))}
           mode="live"
         />
@@ -431,13 +438,19 @@ export function ServerCard({ server, newPlayers: _newPlayers, isSelected, onSele
 // signal that matters during the match — analogous to F/D for a finished one).
 function duelistFromLivePlayer(p: Player | undefined): DuelistData {
   if (!p) {
-    return { name: '—', portraitChar: '?', score: 0 }
+    return { name: '—', score: 0 }
   }
-  const initial = (p.clean_name || p.name || '?').replace(/\^./g, '').charAt(0).toLowerCase() || '?'
   return {
     name: p.name,
-    portraitChar: initial,
+    cleanName: p.clean_name,
+    model: p.model,
+    isBot: p.is_bot,
+    skill: p.skill,
+    isVR: p.is_vr,
+    isVerified: p.is_verified,
+    isAdmin: p.is_admin,
     score: p.score ?? 0,
     sub: <span>{p.ping ?? 0} ping</span>,
+    awards: awardsFromCounts(p),
   }
 }

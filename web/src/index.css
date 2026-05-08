@@ -9161,6 +9161,20 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   color: var(--text);
   margin-top: 6px;
   flex-shrink: 0;
+  overflow: hidden;
+}
+/* PlayerPortrait inside the avatar fills the circle. The component
+   itself supplies size lg (48x48 img), so we override to 100%. */
+.landing-player-card__avatar .player-portrait {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+}
+.landing-player-card__avatar .player-portrait img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
 }
 .landing-player-card.top .landing-player-card__avatar {
   border-color: var(--ember-strong, #ff6e3c);
@@ -9367,29 +9381,47 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   height: 100%; padding-top: 4px;
 }
 .duelist-awards.right { justify-content: flex-start; }
-.duelist-awards .medal {
-  display: inline-block;
-  width: 16px; height: 16px;
-  line-height: 1;
-  font-size: 12px;
-  text-align: center;
-}
-/* Production: use <MedalIcon> component palette. Stub-mockup placeholders below. */
+.duelist-awards .medal-icon { margin: 0; }
+.duelist-awards .medal-icon-sm img { width: 16px; height: 16px; }
+/* Stub-only color hooks (kept for legacy mockups; production uses MedalIcon imgs) */
 .medal-excellent { color: #facc15; }
 .medal-impressive { color: rgba(255, 248, 240, 0.7); }
 .medal-humiliation { color: var(--red); }
 .medal-gauntlet { color: var(--ember-strong, #ff6e3c); }
 
 .duelist { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-.duelist__portrait {
+.duelist__portrait-wrap {
+  position: relative;
   width: 44px; height: 44px;
   border-radius: 50%;
   background: linear-gradient(135deg, #2a1f1a, #0a0808);
   display: grid; place-items: center;
-  font-family: 'Cinzel', serif; font-weight: 700; font-size: 16px; color: var(--text);
   border: 1px solid rgba(255, 248, 240, 0.1);
+  overflow: visible; /* allow PlayerBadge to overflow */
 }
-.duelist__portrait.winner {
+/* Inner PlayerPortrait fills the circle; size lg (48x48) is overridden
+   to wrap dimension. Badge is the second child and sits bottom-right. */
+.duelist__portrait-wrap .player-portrait {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+}
+.duelist__portrait-wrap .player-portrait img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.duelist__portrait-wrap .player-badge,
+.duelist__portrait-wrap .bot-badge {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  z-index: 2;
+}
+.duelist__portrait-wrap.winner {
   border-color: #facc15;
   box-shadow: 0 0 10px rgba(250, 204, 21, 0.3);
 }
@@ -9436,6 +9468,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   position: relative;
   display: flex;
   align-items: center;
+  gap: 6px;
   min-width: 0;
   overflow: hidden;
 }
@@ -9444,7 +9477,17 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   width: 6px; height: 6px;
   border-radius: 50%;
   flex-shrink: 0;
-  margin-right: 8px;
+}
+.player-row .pname-cell .player-row__portrait {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+.player-row .pname-cell .player-row__portrait .player-portrait {
+  margin: 0;
+}
+.player-row .pname-cell .player-badge,
+.player-row .pname-cell .bot-badge {
+  flex-shrink: 0;
 }
 .player-row .pname-cell .team-dot.red { background: var(--red); }
 .player-row .pname-cell .team-dot.blue { background: #4a9fef; }
@@ -9460,15 +9503,19 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 .player-row .pname-cell .name.bot { color: var(--text-dim); font-style: italic; }
 .player-row .pname-cell .row-awards {
   display: flex;
-  gap: 3px;
+  gap: 2px;
   flex-shrink: 0;
   padding-left: 6px;
+  margin-left: auto;
   -webkit-mask-image: linear-gradient(to right, transparent 0, black 24px);
           mask-image: linear-gradient(to right, transparent 0, black 24px);
 }
-.player-row .pname-cell .row-awards .medal {
-  font-size: 11px;
-  line-height: 1;
+.player-row .pname-cell .row-awards .medal-icon {
+  margin: 0;
+}
+.player-row .pname-cell .row-awards .medal-icon-sm img {
+  width: 14px;
+  height: 14px;
 }
 .player-row .stat {
   font-variant-numeric: tabular-nums;
@@ -9580,7 +9627,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   padding-bottom: 12px;
   border-bottom: 1px solid #2a2622;
 }
-.card__map { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.card__map { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; position: relative; }
 .card__map-short {
   font-family: 'Barlow', sans-serif; font-weight: 500; font-size: 10px;
   letter-spacing: 0.22em; color: var(--text-dim); text-transform: uppercase;
@@ -9594,6 +9641,34 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   overflow: hidden;
   word-break: break-word;
   hyphens: auto;
+  cursor: help;
+}
+/* Levelshot preview on map-name hover (resurrected from pre-redesign).
+   Uses the --levelshot custom property the card sets on its root. */
+.card__map-long::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 8px;
+  width: 220px;
+  height: 165px;
+  background-image: var(--levelshot);
+  background-size: cover;
+  background-position: center;
+  background-color: var(--bg);
+  border: 1px solid #444;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s, visibility 0.15s;
+  pointer-events: none;
+  z-index: 100;
+}
+.card__map-long:hover::after {
+  opacity: 1;
+  visibility: visible;
 }
 .card__limits {
   font-family: 'Barlow', sans-serif; font-size: 11px; color: var(--text-dim);

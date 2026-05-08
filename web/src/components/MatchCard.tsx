@@ -7,10 +7,9 @@ import { Scoreboard } from './cards/Scoreboard'
 import { Duelists, type DuelistData } from './cards/Duelists'
 import { PlayerRows } from './cards/PlayerRows'
 import { SpectatorStrip } from './cards/SpectatorStrip'
-import { classifyScores } from './cards/format'
+import { classifyScores, awardsFromCounts } from './cards/format'
 import { useMapMeta } from '../hooks/useMapMeta'
 import { useSources } from '../hooks/useSources'
-import { serverDisplay } from '../utils'
 
 export function formatDuration(startedAt: string, endedAt: string): string {
   const start = new Date(startedAt)
@@ -72,19 +71,25 @@ function demoFilename(match: MatchSummary): string {
   return `${date}_${time}_${match.map_name}.tvd`
 }
 
-// Builds DuelistData from a finished-match player. Awards aren't mapped yet —
-// MatchPlayerSummary's per-medal counters (impressives/excellents/etc.) need a
-// rule to decide which to surface for a 1v1 in particular.
+// Builds DuelistData from a finished-match player. Surfaces medals from the
+// player's per-match counters (excellents/impressives/etc.) so 1v1s show the
+// "earned" awards next to each portrait.
 function duelistFromMatchPlayer(p: MatchPlayerSummary | undefined): DuelistData {
   if (!p) {
-    return { name: '—', portraitChar: '?', score: 0 }
+    return { name: '—', score: 0 }
   }
-  const initial = (p.clean_name || p.name || '?').replace(/\^./g, '').charAt(0).toLowerCase() || '?'
   return {
     name: p.name,
-    portraitChar: initial,
+    cleanName: p.clean_name,
+    model: p.model,
+    isBot: p.is_bot,
+    skill: p.skill,
+    isVR: p.is_vr,
+    isVerified: p.is_verified,
+    isAdmin: p.is_admin,
     score: p.frags ?? 0,
     sub: <span>{p.frags ?? 0} F · {p.deaths ?? 0} D</span>,
+    awards: awardsFromCounts(p),
   }
 }
 
@@ -134,14 +139,20 @@ export function MatchCard({
     </span>
   ) : null
 
-  // TODO(card-conformance): map per-player award counts to row awards
   const rowData = activeTeams.map((p) => ({
     name: p.name,
+    cleanName: p.clean_name,
+    model: p.model,
     team: p.team as 1 | 2 | 3 | undefined,
     isBot: p.is_bot,
+    skill: p.skill,
+    isVR: p.is_vr,
+    isVerified: p.is_verified,
+    isAdmin: p.is_admin,
     frags: p.frags,
     deaths: p.deaths,
     score: p.score,
+    awards: awardsFromCounts(p),
   }))
 
   return (
@@ -156,7 +167,7 @@ export function MatchCard({
       <div className="card__topbar">
         <RichChip
           source={hasMultipleSources ? match.source : undefined}
-          server={serverDisplay(match.source, match.server_key, { hasMultipleSources })}
+          server={match.server_key}
           mode={formatGameType(match.game_type)}
         />
         {match.ended_at && (

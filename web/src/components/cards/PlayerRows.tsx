@@ -3,25 +3,33 @@
 // with a left-edge mask-fade so older medals dissolve into the name
 // when the row gets crowded.
 import { ColoredText } from '../ColoredText'
+import { PlayerPortrait } from '../PlayerPortrait'
+import { PlayerBadge } from '../PlayerBadge'
+import { BotBadge } from '../BotBadge'
+import { MedalIcon } from '../MedalIcon'
+import type { AwardEntry } from './format'
 
 export interface PlayerRowData {
   name: string
+  cleanName?: string
+  /** Q3 model id used by PlayerPortrait. */
+  model?: string
   team?: 1 | 2 | 3 | undefined  // 1=red, 2=blue, 3=spec, undef=free
   isBot?: boolean
-  /** "score" for live; undefined for finished (use F instead) */
+  /** Bot skill 1–5; drives BotBadge color. Ignored for humans. */
+  skill?: number
+  isVR?: boolean
+  isVerified?: boolean
+  isAdmin?: boolean
+  /** "score" for live; undefined for finished (use frags instead) */
   score?: number
   frags?: number
   deaths?: number
   ping?: number
-  awards?: string[]
+  awards?: AwardEntry[]
 }
 
 type Mode = 'live' | 'finished'
-
-function MedalIconStub({ kind }: { kind: string }) {
-  // Mockup placeholder — production callers can replace with <MedalIcon>.
-  return <span className={`medal medal-${kind}`}>★</span>
-}
 
 export function PlayerRows({ players, mode }: { players: PlayerRowData[]; mode: Mode }) {
   return (
@@ -33,25 +41,40 @@ export function PlayerRows({ players, mode }: { players: PlayerRowData[]; mode: 
         {mode === 'finished' && <span style={{ textAlign: 'right' }}>Score</span>}
         {mode === 'live' && <span style={{ textAlign: 'right' }}>Ping</span>}
       </div>
-      {players.map((p, i) => (
-        <div key={i} className={`player-row ${mode}`}>
-          <span className="pname-cell">
-            <span className={`team-dot ${teamClass(p.team)}`} aria-hidden />
-            <span className={`name ${p.isBot ? 'bot' : ''}`}><ColoredText text={p.name} /></span>
-            {p.awards && p.awards.length > 0 && (
-              <span className="row-awards">
-                {p.awards.map((m, j) => <MedalIconStub key={j} kind={m} />)}
+      {players.map((p, i) => {
+        const portraitFallback = (p.cleanName || p.name || '?').replace(/\^./g, '').charAt(0).toLowerCase() || '?'
+        return (
+          <div key={i} className={`player-row ${mode}`}>
+            <span className="pname-cell">
+              <span className={`team-dot ${teamClass(p.team)}`} aria-hidden />
+              <span className="player-row__portrait">
+                <PlayerPortrait model={p.model} size="sm" fallback={portraitFallback} />
               </span>
-            )}
-          </span>
-          <span className="stat">
-            {mode === 'live' ? p.score ?? 0 : p.frags ?? 0}
-          </span>
-          {mode === 'finished' && <span className="stat dim">{p.deaths ?? 0}</span>}
-          {mode === 'finished' && <span className="stat">{p.score ?? p.frags ?? 0}</span>}
-          {mode === 'live' && <span className="stat dim">{p.ping ?? 0}</span>}
-        </div>
-      ))}
+              {p.isBot ? (
+                <BotBadge isBot skill={p.skill ?? 1} size="sm" />
+              ) : (
+                <PlayerBadge isVerified={p.isVerified} isAdmin={p.isAdmin} isVR={p.isVR} size="sm" />
+              )}
+              <span className={`name ${p.isBot ? 'bot' : ''}`}><ColoredText text={p.name} /></span>
+              {p.awards && p.awards.length > 0 && (
+                <span className="row-awards">
+                  {p.awards.flatMap((a) =>
+                    Array.from({ length: a.count }, (_, j) => (
+                      <MedalIcon key={`${a.type}-${j}`} type={a.type} size="sm" showCount={false} />
+                    ))
+                  )}
+                </span>
+              )}
+            </span>
+            <span className="stat">
+              {mode === 'live' ? p.score ?? 0 : p.frags ?? 0}
+            </span>
+            {mode === 'finished' && <span className="stat dim">{p.deaths ?? 0}</span>}
+            {mode === 'finished' && <span className="stat">{p.score ?? p.frags ?? 0}</span>}
+            {mode === 'live' && <span className="stat dim">{p.ping ?? 0}</span>}
+          </div>
+        )
+      })}
     </div>
   )
 }
