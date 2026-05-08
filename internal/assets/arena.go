@@ -1,9 +1,11 @@
 package assets
 
 import (
+	"archive/zip"
 	"bufio"
 	"fmt"
 	"io"
+	"path"
 	"strconv"
 	"strings"
 )
@@ -85,4 +87,54 @@ func splitKeyValue(line string) (key, value string) {
 		}
 	}
 	return key, rest
+}
+
+// ExtractArenas walks every pk3 in the given list, parses every scripts/*.arena
+// and scripts/arenas.txt file it finds, and returns a map keyed by lowercase
+// map id. Later pk3s override earlier ones — matches how the engine itself
+// resolves overlapping defs.
+func ExtractArenas(pk3s []string) (map[string]ArenaMeta, error) {
+	out := make(map[string]ArenaMeta)
+	for _, pk3Path := range pk3s {
+		r, err := zip.OpenReader(pk3Path)
+		if err != nil {
+			return nil, fmt.Errorf("open %s: %w", pk3Path, err)
+		}
+		for _, f := range r.File {
+			lower := strings.ToLower(f.Name)
+			if !isArenaFile(lower) {
+				continue
+			}
+			rc, err := f.Open()
+			if err != nil {
+				r.Close()
+				return nil, fmt.Errorf("open %s in %s: %w", f.Name, pk3Path, err)
+			}
+			entries, parseErr := ParseArenaText(rc)
+			rc.Close()
+			if parseErr != nil {
+				r.Close()
+				return nil, fmt.Errorf("parse %s in %s: %w", f.Name, pk3Path, parseErr)
+			}
+			for _, e := range entries {
+				if e.Map == "" {
+					continue
+				}
+				out[e.Map] = e
+			}
+		}
+		r.Close()
+	}
+	return out, nil
+}
+
+// isArenaFile returns true for paths under scripts/ that end in .arena
+// (per-map files) or are exactly scripts/arenas.txt / scripts/missionpack.arena
+// (the bundled master files).
+func isArenaFile(p string) bool {
+	dir, name := path.Split(p)
+	if dir != "scripts/" {
+		return false
+	}
+	return strings.HasSuffix(name, ".arena") || name == "arenas.txt"
 }
