@@ -16,9 +16,13 @@ interface HeaderProps {
   // home page (title="Trinity") to disambiguate the tracker site from
   // the Trinity game/community itself.
   wordmark?: string;
+  // When true, the header sits over the LandingPage hero with no solid
+  // background or border. Task 26 toggles `app-header--solid` on scroll
+  // past the hero to flip it back to its standard look.
+  transparent?: boolean;
 }
 
-export function Header({ title, className, linkToHome, wordmark }: HeaderProps) {
+export function Header({ title, className, linkToHome, wordmark, transparent }: HeaderProps) {
   const { auth, login, logout } = useAuth();
   const { setCommandPaletteOpen } = useLiveData();
   // All Apple platforms (Mac, iPhone, iPad, iPod) use ⌘ for system
@@ -30,7 +34,7 @@ export function Header({ title, className, linkToHome, wordmark }: HeaderProps) 
     /mac|iphone|ipad|ipod/i.test(navigator.platform);
 
   return (
-    <header className={className}>
+    <header className={`${className ?? ''}${transparent ? ' app-header--transparent' : ''}`}>
       <div className="app-header__brand">
         <AppLogo linkToHome={linkToHome} />
         <h1>

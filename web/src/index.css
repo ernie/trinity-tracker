@@ -2272,6 +2272,32 @@ h2 {
           drop-shadow(0 0 4px rgba(255, 110, 60, 0.7));
 }
 
+/* Transparent header overlay used over the landing-page hero. The header
+   sits above the wallpaper without its solid background; type and chrome
+   pick up text-shadow for readability. The .app-header--solid class is
+   toggled on by JS once the user has scrolled past the hero (see Task 26). */
+.app-header--transparent {
+  background: transparent;
+  border-bottom-color: transparent;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+}
+.app-header--transparent h1,
+.app-header--transparent .app-wordmark,
+.app-header--transparent .pagenav a,
+.app-header--transparent .pagenav button {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+.app-header--transparent.app-header--solid {
+  background: var(--bg);
+  border-bottom-color: var(--rule-strong);
+  position: sticky;
+  text-shadow: none;
+}
+
 /* Live-state pill in the brand row. Pulses when humans are on, sits
    quiet otherwise. Toggles the activity drawer. */
 .status-pill {
