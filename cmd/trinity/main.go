@@ -87,6 +87,8 @@ func main() {
 		cmdSkills(os.Args[2:])
 	case "flags":
 		cmdFlags(os.Args[2:])
+	case "arenas":
+		cmdArenas(os.Args[2:])
 	case "assets":
 		cmdAssets(os.Args[2:])
 	case "demobake":
@@ -132,6 +134,7 @@ func printUsage() {
 	fmt.Println("  medals [path]                       Extract medal icons from pk3 file(s)")
 	fmt.Println("  skills [path]                       Extract skill icons from pk3 file(s)")
 	fmt.Println("  flags [path]                        Extract CTF flag-status icons from pk3 file(s)")
+	fmt.Println("  arenas [path]                       Extract map longnames into maps.json")
 	fmt.Println("  assets [path]                       Extract all assets (portraits, medals, skills, flags, levelshots)")
 	fmt.Println("  demobake [path]                     Build baseline pk3, map pk3s, and manifest for web demo playback")
 	fmt.Println("  maps [--mode <mode>] [path]         Scan pk3s and report which game modes each map supports")
@@ -1618,6 +1621,63 @@ func formatTime(isoTime string) string {
 		return time
 	}
 	return isoTime
+}
+
+// cmdArenas extracts map metadata (longnames, types, fraglimits) from arena
+// files inside pk3 archives and writes a single JSON file the frontend can
+// fetch. Modeled on cmdLevelshots — same input/output shape; same flag set.
+func cmdArenas(args []string) {
+	fs := flag.NewFlagSet("arenas", flag.ExitOnError)
+	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
+	fs.Parse(args)
+
+	cfg := loadCLIConfigFromFlags(*configPath, "")
+	if cfg == nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to load config\n")
+		os.Exit(1)
+	}
+
+	if cfg.Server.StaticDir == "" {
+		fmt.Fprintf(os.Stderr, "Error: static_dir not configured in config file\n")
+		os.Exit(1)
+	}
+
+	remaining := fs.Args()
+	inputPath := cfg.Server.Quake3Dir
+	if len(remaining) > 0 {
+		inputPath = remaining[0]
+	}
+
+	outputDir := filepath.Join(cfg.Server.StaticDir, "assets")
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to create output directory %s: %v\n", outputDir, err)
+		os.Exit(1)
+	}
+
+	pk3Files := collectPk3FilesOrdered(inputPath)
+	if len(pk3Files) == 0 {
+		fmt.Fprintf(os.Stderr, "Error: no pk3 files found in %s\n", inputPath)
+		os.Exit(1)
+	}
+
+	maps, err := assets.ExtractArenas(pk3Files)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: extract arenas: %v\n", err)
+		os.Exit(1)
+	}
+
+	outPath := filepath.Join(outputDir, "maps.json")
+	out, err := json.MarshalIndent(maps, "", "  ")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: marshal maps.json: %v\n", err)
+		os.Exit(1)
+	}
+	if err := os.WriteFile(outPath, out, 0644); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: write %s: %v\n", outPath, err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Maps: %d entries written to %s\n", len(maps), outPath)
 }
 
 // cmdPortraits extracts player portrait icons from pk3 files
