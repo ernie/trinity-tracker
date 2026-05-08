@@ -122,5 +122,7 @@ function teamClass(t?: number) {
   if (t === 1) return 'red'
   if (t === 2) return 'blue'
   if (t === 3) return 'spec'
-  return ''
+  // Free / undefined team — covers FFA, where the player has no team
+  // affiliation but was actively in the match. Distinct from .dropped.
+  return 'free'
 }
