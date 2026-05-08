@@ -3,7 +3,6 @@ import { useAuth } from "./hooks/useAuth";
 import { useLiveData } from "./contexts/LiveDataContext";
 import {
   ServerCard,
-  RecentMatches,
   RconSidebar,
   ServerFilters,
 } from "./components";
@@ -87,8 +86,6 @@ function App() {
               <div className="loading">No servers available</div>
             )}
           </div>
-
-          <RecentMatches onPlayerClick={showPlayer} />
         </div>
       </div>
 
