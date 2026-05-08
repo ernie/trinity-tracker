@@ -162,25 +162,28 @@ export function PlayersPage() {
                   >
                     <span className="player-card__avatar">
                       <PlayerPortrait model={player.model} size="lg" />
+                      {player.is_bot ? (
+                        <BotBadge isBot skill={5} size="sm" />
+                      ) : (
+                        <PlayerBadge
+                          isVerified={player.is_verified}
+                          isAdmin={player.is_admin}
+                          isVR={player.is_vr}
+                          size="sm"
+                        />
+                      )}
                     </span>
-                    <div className="player-card__body">
-                      <span className="player-card__name">
-                        {player.is_bot && <BotBadge isBot skill={5} />}
-                        {!player.is_bot && (
-                          <PlayerBadge
-                            isVerified={player.is_verified}
-                            isAdmin={player.is_admin}
-                            isVR={player.is_vr}
-                          />
-                        )}
-                        <ColoredText text={displayName} />
-                      </span>
+                    <span className="player-card__name">
+                      <ColoredText text={displayName} />
+                    </span>
+                    <span className="player-card__meta">
+                      Last seen {formatDate(player.last_seen)}
+                    </span>
+                    {player.total_playtime_seconds > 0 && (
                       <span className="player-card__meta">
-                        Last seen {formatDate(player.last_seen)}
-                        {player.total_playtime_seconds > 0 &&
-                          ` · ${formatDuration(player.total_playtime_seconds)} played`}
+                        {formatDuration(player.total_playtime_seconds)} played
                       </span>
-                    </div>
+                    )}
                   </button>
                 )
               })}
@@ -290,18 +293,17 @@ export function PlayersPage() {
                   >
                     <span className="player-card__avatar">
                       <PlayerPortrait model={p.model} size="lg" />
+                      <PlayerBadge
+                        isVerified={p.isVerified}
+                        isAdmin={p.isAdmin}
+                        isVR={p.isVR}
+                        size="sm"
+                      />
                     </span>
-                    <div className="player-card__body">
-                      <span className="player-card__name">
-                        <PlayerBadge
-                          isVerified={p.isVerified}
-                          isAdmin={p.isAdmin}
-                          isVR={p.isVR}
-                        />
-                        <ColoredText text={p.isVR ? stripVRPrefix(p.name) : p.name} />
-                      </span>
-                      <span className="player-card__meta">{p.serverName}</span>
-                    </div>
+                    <span className="player-card__name">
+                      <ColoredText text={p.isVR ? stripVRPrefix(p.name) : p.name} />
+                    </span>
+                    <span className="player-card__meta">{p.serverName}</span>
                   </button>
                 ))}
               </div>
