@@ -63,6 +63,19 @@ function isSpectator(player: MatchPlayerSummary): boolean {
   return player.team === 3 && player.frags === 0 && player.deaths === 0
 }
 
+// Sort active players. Team modes group by team (red, blue, others)
+// then by score within. Non-team keeps API order (already score desc).
+function sortMatchPlayers(players: MatchPlayerSummary[], isTeam: boolean): MatchPlayerSummary[] {
+  if (!isTeam) return players
+  const teamOrder = (t?: number) => (t === 1 ? 0 : t === 2 ? 1 : 2)
+  const score = (p: MatchPlayerSummary) => p.score ?? p.frags ?? 0
+  return [...players].sort((a, b) => {
+    const td = teamOrder(a.team) - teamOrder(b.team)
+    if (td !== 0) return td
+    return score(b) - score(a)
+  })
+}
+
 function demoFilename(match: MatchSummary): string {
   const d = new Date(match.started_at)
   const pad = (n: number) => String(n).padStart(2, '0')
@@ -112,7 +125,10 @@ export function MatchCard({
   const isTeam = isTeamGame(match.game_type)
   const isDuel = match.game_type === '1v1'
   const players = match.players ?? []
-  const activeTeams = players.filter((p) => !isSpectator(p))
+  const activeTeams = sortMatchPlayers(
+    players.filter((p) => !isSpectator(p)),
+    isTeam,
+  )
   const spectators = players.filter(isSpectator).map((p) => ({ name: p.name }))
 
   const redScore = match.red_score ?? 0
@@ -153,6 +169,7 @@ export function MatchCard({
     score: p.score,
     awards: awardsFromCounts(p),
     playerId: p.player_id,
+    completed: p.completed,
   }))
 
   return (

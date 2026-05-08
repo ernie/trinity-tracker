@@ -31,6 +31,9 @@ export interface PlayerRowData {
   playerId?: number
   /** Active CTF / 1FCTF flag this player is carrying, if any. */
   flagCarrier?: 'red' | 'blue' | 'neutral'
+  /** Finished matches: false ⇒ dropped before the match ended,
+   *  rendered with a gray team-dot regardless of team. */
+  completed?: boolean
 }
 
 type Mode = 'live' | 'finished'
@@ -72,7 +75,11 @@ export function PlayerRows({ players, mode, onPlayerClick }: PlayerRowsProps) {
             } : undefined}
           >
             <span className="pname-cell">
-              <span className={`team-dot ${teamClass(p.team)}`} aria-hidden />
+              <span
+                className={`team-dot ${p.completed === false ? 'dropped' : teamClass(p.team)}`}
+                aria-hidden
+                title={p.completed === false ? "Didn't finish the match" : undefined}
+              />
               <span className="player-row__portrait">
                 <PlayerPortrait model={p.model} size="sm" fallback={portraitFallback} />
               </span>

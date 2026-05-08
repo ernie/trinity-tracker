@@ -9592,6 +9592,10 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 .player-row .pname-cell .team-dot.red { background: var(--red); }
 .player-row .pname-cell .team-dot.blue { background: #4a9fef; }
 .player-row .pname-cell .team-dot.spec { background: rgba(255, 248, 240, 0.2); }
+/* "Dropped before the match ended" — gray dot regardless of team. */
+.player-row .pname-cell .team-dot.dropped {
+  background: rgba(255, 248, 240, 0.35);
+}
 .player-row .pname-cell .name {
   /* Natural width + shrink-with-ellipsis. Don't grow — that would
      push the flag carrier away from the name. */
