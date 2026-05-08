@@ -9618,7 +9618,12 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 .player-row .pname-cell .team-dot.blue { background: #4a9fef; }
 .player-row .pname-cell .team-dot.spec { background: rgba(255, 248, 240, 0.2); }
 .player-row .pname-cell .name {
-  flex: 1;
+  /* flex:0 1 auto (default) — display at natural width, shrink with
+     ellipsis when crowded, but don't *grow* to fill the row. flex:1
+     would force the name to consume all leftover space, which pushed
+     the flag-carrier marker to the far right of the card instead of
+     sitting directly to the right of the name. */
+  flex: 0 1 auto;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -9626,21 +9631,22 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   min-width: 0;
 }
 .player-row .pname-cell .name.bot { color: var(--text-dim); font-style: italic; }
-/* Awards pin to the far right of the row. With count badges (one icon
-   per medal type, count overlaid) crowding is rare, so we drop the
-   old left-edge fade that ate into legibility. A right-edge mask lets
-   the row trail off when we overflow rather than shoving the name
-   into ellipsis. */
+/* Awards pin to the far right of the row. The name + flag-carrier
+   group sits to the left, taking only its natural width. As the
+   awards block grows leftward (more medals earned) it extends FROM
+   the right edge — the left edge of the strip fades into the
+   carrier/name area so older medals dissolve gracefully instead of
+   slamming up against the name. */
 .player-row .pname-cell .row-awards {
   display: flex;
   gap: 4px;
   flex-shrink: 1;
   min-width: 0;
-  padding-left: 6px;
+  padding-left: 16px;
   margin-left: auto;
   overflow: hidden;
-  -webkit-mask-image: linear-gradient(to left, transparent 0, black 16px);
-          mask-image: linear-gradient(to left, transparent 0, black 16px);
+  -webkit-mask-image: linear-gradient(to right, transparent 0, black 16px);
+          mask-image: linear-gradient(to right, transparent 0, black 16px);
 }
 .player-row .pname-cell .row-awards .medal-icon {
   margin: 0;
