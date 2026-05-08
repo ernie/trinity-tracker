@@ -164,7 +164,7 @@ export function MatchesPage() {
 
   return (
     <div className="matches-page">
-      <Header title="Match Browser" className="matches-header" />
+      <Header title="Matches" className="matches-header" />
 
       <div className="match-filters">
         <div className="game-type-selector">

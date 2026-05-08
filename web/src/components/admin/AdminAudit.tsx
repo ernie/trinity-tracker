@@ -1,7 +1,15 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { formatDateTime } from '../../utils/formatters'
-import { timeAgo } from '../../utils/sourceHealth'
+import {
+  AdminAuditFilters,
+  EMPTY_ADMIN_AUDIT_FILTERS,
+  loadAdminAuditFilters,
+  resolveAuditSince,
+  SYSTEM_ACTOR_SENTINEL,
+  type AdminAuditFilterState,
+  adminAuditFiltersActive,
+} from './AdminAuditFilters'
 
 interface AuditEntry {
   id: number
@@ -22,27 +30,23 @@ export function AdminAudit() {
   const [rows, setRows] = useState<AuditEntry[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [filters, setFilters] = useState<AdminAuditFilterState>(loadAdminAuditFilters)
 
-  const [sourceFilter, setSourceFilter] = useState('')
-  const [actorFilter, setActorFilter] = useState('')
-  const [actionFilter, setActionFilter] = useState('')
-  const [sinceFilter, setSinceFilter] = useState('')
-
+  // Source/Action use the hidden-set model and filter client-side;
+  // Actor is single-select and pushes to the backend so we get accurate
+  // results across all rows (not just the most recent fetched page).
+  // The system sentinel can't go to the backend (no NULL representation
+  // in the ?actor= param), so it falls back to client-side filtering.
   const url = useMemo(() => {
     const params = new URLSearchParams()
     params.set('limit', String(DEFAULT_LIMIT))
-    if (sourceFilter) params.set('source', sourceFilter)
-    if (actorFilter) params.set('actor', actorFilter)
-    if (actionFilter) params.set('action', actionFilter)
-    if (sinceFilter) {
-      // <input type="datetime-local"> gives "YYYY-MM-DDTHH:mm" without
-      // a timezone; the backend wants RFC3339, so we anchor it to the
-      // browser's local zone and convert to UTC.
-      const d = new Date(sinceFilter)
-      if (!isNaN(d.getTime())) params.set('since', d.toISOString())
+    const since = resolveAuditSince(filters)
+    if (since) params.set('since', since)
+    if (filters.actor !== null && filters.actor !== SYSTEM_ACTOR_SENTINEL) {
+      params.set('actor', filters.actor)
     }
     return `/api/admin/audit?${params.toString()}`
-  }, [sourceFilter, actorFilter, actionFilter, sinceFilter])
+  }, [filters])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -70,79 +74,78 @@ export function AdminAudit() {
     load()
   }, [load])
 
-  const distinctSources = useMemo(
+  const knownSources = useMemo(
     () => Array.from(new Set(rows.map((r) => r.source))).sort(),
     [rows],
   )
-  const distinctActors = useMemo(
-    () => Array.from(new Set(rows.map((r) => r.actor_username).filter(Boolean) as string[])).sort(),
-    [rows],
-  )
-  const distinctActions = useMemo(
+  const knownActors = useMemo(() => {
+    // Treat null/undefined actor as the 'system' sentinel so it can be
+    // toggled like any other actor switch.
+    const set = new Set<string>()
+    for (const r of rows) set.add(r.actor_username || SYSTEM_ACTOR_SENTINEL)
+    return Array.from(set).sort()
+  }, [rows])
+  const knownActions = useMemo(
     () => Array.from(new Set(rows.map((r) => r.action))).sort(),
     [rows],
   )
 
-  const clearFilters = () => {
-    setSourceFilter('')
-    setActorFilter('')
-    setActionFilter('')
-    setSinceFilter('')
-  }
+  const visibleRows = useMemo(() => {
+    return rows.filter((r) => {
+      if (filters.hiddenSources.includes(r.source)) return false
+      if (filters.actor === SYSTEM_ACTOR_SENTINEL && r.actor_username) return false
+      if (filters.hiddenActions.includes(r.action)) return false
+      // Custom-range upper bound is enforced client-side; the backend
+      // only takes `since`.
+      if (filters.datePreset === 'custom' && filters.customUntil) {
+        const until = new Date(filters.customUntil)
+        if (!isNaN(until.getTime()) && new Date(r.created_at) > until) return false
+      }
+      return true
+    })
+  }, [rows, filters])
+
+  const hasActive = adminAuditFiltersActive(filters)
 
   return (
     <div className="admin-audit">
       <div className="admin-section-header">
-        <h2>Audit Log</h2>
+        <h2>
+          Audit log
+          <span className="admin-section-header__count"> ({visibleRows.length})</span>
+        </h2>
+        <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+          {hasActive && (
+            <button
+              type="button"
+              className="admin-btn"
+              onClick={() => setFilters(EMPTY_ADMIN_AUDIT_FILTERS)}
+            >
+              Clear filters
+            </button>
+          )}
+          <button
+            type="button"
+            className="admin-btn"
+            onClick={load}
+            disabled={loading}
+          >
+            {loading ? 'Loading…' : 'Refresh'}
+          </button>
+        </div>
       </div>
 
-      <div className="admin-audit-filters">
-        <label>
-          Source
-          <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)}>
-            <option value="">All</option>
-            {distinctSources.map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Actor
-          <select value={actorFilter} onChange={(e) => setActorFilter(e.target.value)}>
-            <option value="">All</option>
-            {distinctActors.map((a) => (
-              <option key={a} value={a}>{a}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Action
-          <select value={actionFilter} onChange={(e) => setActionFilter(e.target.value)}>
-            <option value="">All</option>
-            {distinctActions.map((a) => (
-              <option key={a} value={a}>{a}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Since
-          <input
-            type="datetime-local"
-            value={sinceFilter}
-            onChange={(e) => setSinceFilter(e.target.value)}
-          />
-        </label>
-        <button type="button" onClick={clearFilters} className="admin-audit-clear">
-          Clear
-        </button>
-        <button type="button" onClick={load} disabled={loading} className="admin-audit-refresh">
-          {loading ? 'Loading…' : 'Refresh'}
-        </button>
-      </div>
+      <AdminAuditFilters
+        state={filters}
+        onChange={setFilters}
+        knownSources={knownSources}
+        knownActors={knownActors}
+        knownActions={knownActions}
+      />
 
       {error && <div className="admin-audit-error">{error}</div>}
 
-      <table className="admin-audit-table">
+      <table className="admin-data-table admin-audit-table">
         <thead>
           <tr>
             <th>When</th>
@@ -153,18 +156,18 @@ export function AdminAudit() {
           </tr>
         </thead>
         <tbody>
-          {rows.length === 0 && !loading && (
+          {visibleRows.length === 0 && !loading && (
             <tr>
               <td colSpan={5} className="admin-audit-empty">No audit rows match.</td>
             </tr>
           )}
-          {rows.map((r) => (
+          {visibleRows.map((r) => (
             <tr key={r.id}>
-              <td title={formatDateTime(r.created_at)}>{timeAgo(r.created_at)}</td>
-              <td>{r.source}</td>
-              <td>{r.actor_username || <span className="admin-audit-system">system</span>}</td>
-              <td><span className={`admin-audit-action admin-audit-action-${r.action}`}>{r.action}</span></td>
-              <td>{r.detail || ''}</td>
+              <td data-label="When">{formatDateTime(r.created_at)}</td>
+              <td data-label="Source">{r.source}</td>
+              <td data-label="Actor">{r.actor_username || <span className="admin-audit-system">system</span>}</td>
+              <td data-label="Action"><span className={`admin-audit-action admin-audit-action-${r.action}`}>{r.action}</span></td>
+              <td data-label="Detail">{r.detail || ''}</td>
             </tr>
           ))}
         </tbody>

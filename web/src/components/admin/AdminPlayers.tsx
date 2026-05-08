@@ -2,8 +2,12 @@ import { useState, useCallback, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
+import { BotBadge } from '../BotBadge'
 import { ColoredText } from '../ColoredText'
-import { formatDate } from '../../utils/formatters'
+import { PlayerBadge } from '../PlayerBadge'
+import { PlayerPortrait } from '../PlayerPortrait'
+import { formatDate, formatDuration } from '../../utils/formatters'
+import { stripVRPrefix } from '../../utils'
 import type { PlayerProfile, PlayerGUID } from '../../types'
 
 export function AdminPlayers() {
@@ -151,98 +155,141 @@ export function AdminPlayers() {
     }
   }
 
+  // Right-pane priority mirrors PlayersPage: a fresh search hides the
+  // selected detail panel so admins can pivot to a different player
+  // without losing context.
+  const showResults = searchResults.length > 0
+
   return (
     <div className="admin-players">
       <div className="admin-section-header">
-        <h2>Player Administration</h2>
+        <h2>Player administration</h2>
       </div>
 
-      <div className="admin-players-search">
-        <input
-          type="text"
-          placeholder="Search players by name or GUID…"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-      </div>
+      <input
+        type="text"
+        className="admin-input"
+        placeholder="Search players by name or GUID…"
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+      />
 
-      {searchResults.length > 0 && (
-        <div className="search-results">
-          {searchResults.map((p) => (
-            <div key={p.id} className="search-result-item" onClick={() => selectPlayer(p)}>
-              <ColoredText text={p.name} />
-              <span className="player-last-seen">Last seen: {formatDate(p.last_seen)}</span>
-            </div>
-          ))}
+      {showResults && (
+        <div className="player-cards-grid" style={{ marginTop: 'var(--space-3)' }}>
+          {searchResults.map((p) => {
+            const displayName = p.is_vr ? stripVRPrefix(p.name) : p.name
+            return (
+              <button
+                key={p.id}
+                type="button"
+                className="player-card"
+                onClick={() => selectPlayer(p)}
+              >
+                <PlayerPortrait model={p.model} size="lg" />
+                <div className="player-card__body">
+                  <span className="player-card__name">
+                    {p.is_bot && <BotBadge isBot skill={5} />}
+                    {!p.is_bot && (
+                      <PlayerBadge
+                        isVerified={p.is_verified}
+                        isAdmin={p.is_admin}
+                        isVR={p.is_vr}
+                      />
+                    )}
+                    <ColoredText text={displayName} />
+                  </span>
+                  <span className="player-card__meta">
+                    Last seen {formatDate(p.last_seen)}
+                    {p.total_playtime_seconds > 0 &&
+                      ` · ${formatDuration(p.total_playtime_seconds)} played`}
+                  </span>
+                </div>
+              </button>
+            )
+          })}
         </div>
       )}
 
-      {error && <div className="error-message">{error}</div>}
+      {error && <div className="error-message" style={{ marginTop: 'var(--space-3)' }}>{error}</div>}
 
-      {selected && (
+      {!showResults && selected && (
         <div className="admin-player-detail">
           <h3>
+            <PlayerPortrait model={selected.model} size="lg" />
             <Link to={`/players/${selected.id}`}>
-              <ColoredText text={selected.name} />
+              <ColoredText text={selected.is_vr ? stripVRPrefix(selected.name) : selected.name} />
             </Link>
           </h3>
 
-          <div className="admin-subsection">
-            <h4>Linked GUIDs ({guids.length})</h4>
-            {loadingGuids ? (
-              <div className="admin-loading">Loading GUIDs…</div>
-            ) : (
-              <div className="guids-list">
-                {guids.map((guid) => (
-                  <div key={guid.id} className="guid-item">
-                    <div className="guid-info">
-                      <ColoredText text={guid.name} />
-                      <span className="guid-hash">{guid.guid}</span>
-                      <span className="guid-dates">
-                        {formatDate(guid.first_seen)} – {formatDate(guid.last_seen)}
-                      </span>
+          <details className="filter-section" open>
+            <summary className="filter-section__header">
+              <span className="filter-section__caret" aria-hidden="true">▸</span>
+              <span className="filter-section__title">
+                Linked GUIDs
+                <span className="admin-section-header__count"> ({guids.length})</span>
+              </span>
+            </summary>
+            <div className="filter-section__body">
+              {loadingGuids ? (
+                <div className="admin-loading">Loading GUIDs…</div>
+              ) : (
+                <div className="guids-list">
+                  {guids.map((guid) => (
+                    <div key={guid.id} className="guid-item">
+                      <div className="guid-info">
+                        <ColoredText text={guid.name} />
+                        <span className="guid-hash">{guid.guid}</span>
+                        <span className="guid-dates">
+                          {formatDate(guid.first_seen)} – {formatDate(guid.last_seen)}
+                        </span>
+                      </div>
+                      {guids.length > 1 && (
+                        <button
+                          className="admin-btn-danger"
+                          onClick={() => handleSplit(guid.id)}
+                          disabled={splitting === guid.id}
+                        >
+                          {splitting === guid.id ? 'Splitting…' : 'Split'}
+                        </button>
+                      )}
                     </div>
-                    {guids.length > 1 && (
-                      <button
-                        className="split-btn"
-                        onClick={() => handleSplit(guid.id)}
-                        disabled={splitting === guid.id}
-                      >
-                        {splitting === guid.id ? 'Splitting…' : 'Split'}
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="admin-subsection">
-            <h4>Merge Another Player Into This One</h4>
-            <div className="merge-search-input">
-              <input
-                type="text"
-                placeholder="Search players by name or GUID…"
-                value={mergeQuery}
-                onChange={(e) => setMergeQuery(e.target.value)}
-              />
+                  ))}
+                </div>
+              )}
             </div>
-            {mergeResults.length > 0 && (
-              <div className="merge-results">
-                {mergeResults.map((p) => (
-                  <div key={p.id} className="merge-result-item">
-                    <div className="merge-player-info">
-                      <ColoredText text={p.name} />
-                      <span className="merge-player-date">Last seen: {formatDate(p.last_seen)}</span>
-                    </div>
-                    <button className="merge-btn" onClick={() => handleMerge(p.id)} disabled={merging}>
-                      {merging ? 'Merging…' : 'Merge'}
-                    </button>
-                  </div>
-                ))}
+          </details>
+
+          <details className="filter-section" open>
+            <summary className="filter-section__header">
+              <span className="filter-section__caret" aria-hidden="true">▸</span>
+              <span className="filter-section__title">Merge another player into this one</span>
+            </summary>
+            <div className="filter-section__body">
+              <div className="merge-search-input">
+                <input
+                  type="text"
+                  placeholder="Search players by name or GUID…"
+                  value={mergeQuery}
+                  onChange={(e) => setMergeQuery(e.target.value)}
+                />
               </div>
-            )}
-          </div>
+              {mergeResults.length > 0 && (
+                <div className="merge-results">
+                  {mergeResults.map((p) => (
+                    <div key={p.id} className="merge-result-item">
+                      <div className="merge-player-info">
+                        <ColoredText text={p.name} />
+                        <span className="merge-player-date">Last seen: {formatDate(p.last_seen)}</span>
+                      </div>
+                      <button className="admin-btn-danger" onClick={() => handleMerge(p.id)} disabled={merging}>
+                        {merging ? 'Merging…' : 'Merge'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </details>
         </div>
       )}
     </div>

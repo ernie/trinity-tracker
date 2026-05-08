@@ -2328,6 +2328,11 @@ func (s *Store) GetPlayerSessions(ctx context.Context, playerID int64, limit int
 type SessionFilter struct {
 	ServerID *int64
 	PlayerID *int64
+	// Inclusive joined_at lower / upper bound. Either may be nil.
+	// Filters on joined_at because that's the indexed column the admin
+	// listing already orders by; left_at can be NULL for active sessions.
+	Since *time.Time
+	Until *time.Time
 }
 
 // GetRecentSessions returns a paginated list of recent sessions across all players,
@@ -2357,6 +2362,14 @@ func (s *Store) GetRecentSessions(ctx context.Context, filter SessionFilter, lim
 	if filter.PlayerID != nil {
 		query += ` AND pg.player_id = ?`
 		args = append(args, *filter.PlayerID)
+	}
+	if filter.Since != nil {
+		query += ` AND s.joined_at >= ?`
+		args = append(args, *filter.Since)
+	}
+	if filter.Until != nil {
+		query += ` AND s.joined_at <= ?`
+		args = append(args, *filter.Until)
 	}
 	if beforeID != nil {
 		query += ` AND s.id < ?`

@@ -53,26 +53,33 @@ export function AdminPage() {
     <div className="admin-page">
       <Header title="Admin" className="admin-header" />
 
-      <div className="admin-layout">
-        <nav className="admin-sidebar">
-          {ADMIN_TABS.map((tab) => (
-            <NavLink
-              key={tab.path}
-              to={`/admin/${tab.path}`}
-              className={({ isActive }) =>
-                `admin-sidebar-link ${isActive ? 'active' : ''}`
-              }
-            >
-              {tab.label}
-              {tab.path === 'sources' && pendingCount > 0 && (
-                <span className="admin-nav-badge"> ({pendingCount} pending)</span>
-              )}
-            </NavLink>
-          ))}
-        </nav>
+      {/* .admin-workspace owns the warm editorial hairline that marks
+          entry into the admin surface. One use per page, kept restrained
+          so the gradient stays meaningful. */}
+      <div className="admin-workspace">
+        <div className="admin-layout">
+          <nav className="admin-sidebar">
+            {ADMIN_TABS.map((tab) => (
+              <NavLink
+                key={tab.path}
+                to={`/admin/${tab.path}`}
+                className={({ isActive }) =>
+                  `admin-sidebar-link ${isActive ? 'active' : ''}`
+                }
+              >
+                <span>{tab.label}</span>
+                {tab.path === 'sources' && pendingCount > 0 && (
+                  <span className="admin-sidebar-link__badge" title={`${pendingCount} pending requests`}>
+                    {pendingCount}
+                  </span>
+                )}
+              </NavLink>
+            ))}
+          </nav>
 
-        <div className="admin-content">
-          <Outlet />
+          <div className="admin-content">
+            <Outlet />
+          </div>
         </div>
       </div>
     </div>

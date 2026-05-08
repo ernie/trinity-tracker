@@ -3,7 +3,14 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { ColoredText } from '../ColoredText'
 import { formatDate, formatDuration } from '../../utils/formatters'
-import type { AdminSession, Server, PlayerProfile } from '../../types'
+import type { AdminSession, Server } from '../../types'
+import {
+  AdminSessionsFilters,
+  EMPTY_ADMIN_SESSIONS_FILTERS,
+  loadAdminSessionsFilters,
+  resolveDateRange,
+  type AdminSessionsFilterState,
+} from './AdminSessionsFilters'
 
 const PAGE_SIZE = 50
 
@@ -12,18 +19,16 @@ export function AdminSessions() {
   const token = auth.token!
 
   const [servers, setServers] = useState<Server[]>([])
-  const [serverFilter, setServerFilter] = useState<number | null>(null)
-  const [playerFilter, setPlayerFilter] = useState<{ id: number; label: string } | null>(null)
-
-  const [playerSearch, setPlayerSearch] = useState('')
-  const [playerResults, setPlayerResults] = useState<PlayerProfile[]>([])
+  // Hydrate from localStorage on first render so admins keep their
+  // server / player / date scope between visits.
+  const [filters, setFilters] = useState<AdminSessionsFilterState>(loadAdminSessionsFilters)
 
   const [sessions, setSessions] = useState<AdminSession[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [hasMore, setHasMore] = useState(false)
 
-  // Load server list for the dropdown
+  // Load server list for the filter section's switches.
   useEffect(() => {
     fetch('/api/servers', { headers: { Authorization: `Bearer ${token}` } })
       .then((res) => (res.ok ? res.json() : []))
@@ -35,13 +40,39 @@ export function AdminSessions() {
     (beforeID?: number) => {
       const params = new URLSearchParams()
       params.set('limit', String(PAGE_SIZE))
-      if (serverFilter) params.set('server_id', String(serverFilter))
-      if (playerFilter) params.set('player_id', String(playerFilter.id))
+      // Server filter: backend takes a single server_id. The structured
+      // panel uses a "hidden" set, so we infer the visible set as the
+      // complement. When exactly one server remains visible, use it as
+      // the backend filter; otherwise fall back to client-side filtering
+      // of the returned page (rare path — admins typically pick zero or
+      // one server, hiding the rest).
+      const visible = servers.filter((s) => !filters.hiddenServers.includes(s.id))
+      if (servers.length > 0 && visible.length === 1) {
+        params.set('server_id', String(visible[0].id))
+      }
+      if (filters.playerId !== null) {
+        params.set('player_id', String(filters.playerId))
+      }
+      const range = resolveDateRange(filters)
+      if (range.since) params.set('since', range.since)
+      if (range.until) params.set('until', range.until)
       if (beforeID) params.set('before', String(beforeID))
       return `/api/admin/sessions?${params.toString()}`
     },
-    [serverFilter, playerFilter],
+    [servers, filters],
   )
+
+  // Client-side cleanup of the returned page when the visible-server
+  // set has multiple values (we can't push that to the single-value
+  // backend filter). Acts as a defensive layer; the backend has done
+  // the heavy lifting already.
+  const visibleServerSet = (() => {
+    if (filters.hiddenServers.length === 0) return null
+    const visible = servers
+      .filter((s) => !filters.hiddenServers.includes(s.id))
+      .map((s) => s.id)
+    return new Set(visible)
+  })()
 
   const loadFirstPage = useCallback(async () => {
     setLoading(true)
@@ -85,90 +116,49 @@ export function AdminSessions() {
     }
   }, [buildUrl, token, sessions, loading])
 
-  // Refresh whenever filters change
+  // Reload from page 1 whenever filters change.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadFirstPage()
   }, [loadFirstPage])
 
-  const handlePlayerSearch = async (q: string) => {
-    setPlayerSearch(q)
-    if (q.length < 2) {
-      setPlayerResults([])
-      return
-    }
-    try {
-      const res = await fetch(`/api/players?search=${encodeURIComponent(q)}&limit=10`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (res.ok) setPlayerResults((await res.json()) || [])
-    } catch {
-      // ignore
-    }
-  }
+  const visibleSessions = visibleServerSet
+    ? sessions.filter((s) => visibleServerSet.has(s.server_id))
+    : sessions
 
-  const selectPlayerFilter = (p: PlayerProfile) => {
-    setPlayerFilter({ id: p.id, label: p.clean_name })
-    setPlayerSearch('')
-    setPlayerResults([])
-  }
+  const hasActive =
+    filters.hiddenServers.length > 0 ||
+    filters.playerId !== null ||
+    filters.datePreset !== ''
 
   return (
     <div className="admin-sessions">
       <div className="admin-section-header">
-        <h2>Player Sessions</h2>
-      </div>
-
-      <div className="admin-filters">
-        <div className="admin-filter">
-          <label>Server</label>
-          <select
-            value={serverFilter ?? ''}
-            onChange={(e) => setServerFilter(e.target.value ? Number(e.target.value) : null)}
+        <h2>
+          Player sessions
+          <span className="admin-section-header__count"> ({visibleSessions.length}{hasMore ? '+' : ''})</span>
+        </h2>
+        {hasActive && (
+          <button
+            type="button"
+            className="admin-btn"
+            onClick={() => setFilters(EMPTY_ADMIN_SESSIONS_FILTERS)}
           >
-            <option value="">All servers</option>
-            {servers.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.source} / {s.key}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="admin-filter">
-          <label>Player</label>
-          {playerFilter ? (
-            <div className="selected-player">
-              {playerFilter.label}
-              <button type="button" onClick={() => setPlayerFilter(null)}>
-                Clear
-              </button>
-            </div>
-          ) : (
-            <div className="player-typeahead">
-              <input
-                type="text"
-                placeholder="Search players…"
-                value={playerSearch}
-                onChange={(e) => handlePlayerSearch(e.target.value)}
-              />
-              {playerResults.length > 0 && (
-                <ul className="player-results">
-                  {playerResults.map((p) => (
-                    <li key={p.id} onClick={() => selectPlayerFilter(p)}>
-                      {p.clean_name}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
-        </div>
+            Clear filters
+          </button>
+        )}
       </div>
+
+      <AdminSessionsFilters
+        servers={servers}
+        state={filters}
+        onChange={setFilters}
+        token={token}
+      />
 
       {error && <div className="error-message">{error}</div>}
 
-      <table className="sessions-table">
+      <table className="admin-data-table sessions-table">
         <thead>
           <tr>
             <th>Player</th>
@@ -181,24 +171,24 @@ export function AdminSessions() {
           </tr>
         </thead>
         <tbody>
-          {sessions.map((s) => (
+          {visibleSessions.map((s) => (
             <tr key={s.id}>
-              <td>
+              <td data-label="Player">
                 <Link to={`/players/${s.player_id}`}>
                   <ColoredText text={s.player_name} />
                 </Link>
               </td>
-              <td>{s.server_source} / {s.server_key}</td>
-              <td>{formatDate(s.joined_at)}</td>
-              <td>{s.left_at ? formatDate(s.left_at) : <em>active</em>}</td>
-              <td>{s.duration_seconds ? formatDuration(s.duration_seconds) : '—'}</td>
-              <td>{s.ip_address || '—'}</td>
-              <td>
+              <td data-label="Server">{s.server_source} / {s.server_key}</td>
+              <td data-label="Joined">{formatDate(s.joined_at)}</td>
+              <td data-label="Left">{s.left_at ? formatDate(s.left_at) : <em>active</em>}</td>
+              <td data-label="Duration">{s.duration_seconds ? formatDuration(s.duration_seconds) : '—'}</td>
+              <td data-label="IP" className="ip-address">{s.ip_address || '—'}</td>
+              <td data-label="Client">
                 {s.client_engine ? `${s.client_engine}${s.client_version ? ` ${s.client_version}` : ''}` : '—'}
               </td>
             </tr>
           ))}
-          {sessions.length === 0 && !loading && (
+          {visibleSessions.length === 0 && !loading && (
             <tr>
               <td colSpan={7} className="admin-empty">
                 No sessions found.
@@ -210,7 +200,7 @@ export function AdminSessions() {
 
       <div className="admin-pagination">
         {loading && <span>Loading…</span>}
-        {!loading && hasMore && <button onClick={loadMore}>Load more</button>}
+        {!loading && hasMore && <button type="button" className="admin-btn" onClick={loadMore}>Load more</button>}
       </div>
     </div>
   )

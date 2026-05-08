@@ -1987,10 +1987,31 @@ h2 {
 .account-header,
 .claim-header,
 .admin-header {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  padding-bottom: var(--space-3);
   margin-bottom: var(--space-5);
+}
+
+/* Warm editorial hairline at every page header's bottom edge. */
+.app-header::after,
+.players-header::after,
+.matches-header::after,
+.match-detail-header::after,
+.leaderboard-header::after,
+.about-header::after,
+.account-header::after,
+.claim-header::after,
+.admin-header::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: var(--rule-gradient-h);
 }
 
 .app-header__brand {
@@ -2406,181 +2427,249 @@ h2 {
 }
 
 /* Auth section */
-.auth-section {
+/* ── Header action cluster ────────────────────────────────────────────
+   The auth-section / user-info / login-collapsed rows are the page's
+   only persistent action surface. They share one ghost vocabulary so
+   the row reads as a set rather than a miscellany of bordered chips:
+   transparent background, hairline border, warm-cream hover.
+   Semantic tints (pending/active/danger) overlay subtly without
+   turning the whole button into a slab. */
+.auth-section,
+.login-collapsed,
+.user-info {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-2);
 }
 
-.login-collapsed {
-  display: flex;
+/* Shared ghost button shape for every nav-cluster action. Composes
+   with semantic modifiers (.my-source-btn-pending, etc.) below. */
+.claim-link,
+.login-toggle,
+.logout-btn,
+.username-link,
+.my-source-btn {
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-}
-
-.claim-link {
-  display: inline-block;
-  padding: 5px 14px;
-  background: #3a3530;
-  color: var(--accent);
-  text-decoration: none;
-  font-size: 0.85rem;
-  border-radius: 4px;
-  transition: background 0.15s;
-}
-
-.claim-link:hover {
-  background: #4a4540;
-  color: var(--accent);
-}
-
-.login-toggle {
-  background: var(--red);
-  border: 1px solid var(--red);
-  color: #fff;
-  padding: 5px 12px;
-  border-radius: 4px;
+  justify-content: center;
+  padding: var(--space-1) var(--space-3);
+  background: transparent;
+  border: 1px solid rgba(208, 200, 184, 0.25);
+  color: var(--text-dim);
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  font-family: inherit;
-  font-size: 0.85rem;
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  line-height: 1.4;
+  text-decoration: none;
+  text-align: center;
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.claim-link:hover,
+.login-toggle:hover,
+.username-link:hover,
+.my-source-btn:hover {
+  border-color: var(--accent-dim);
+  color: var(--accent);
+  background: rgba(255, 248, 240, 0.04);
+}
+
+/* Logout is destructive — keep the ghost shape but warm the border to
+   a subtle red on hover so the affordance is felt without shouting. */
+.logout-btn:hover {
+  border-color: rgba(233, 69, 96, 0.6);
+  color: rgb(240, 130, 145);
+  background: rgba(233, 69, 96, 0.06);
+}
+
+/* Login (collapsed) — "Login" is the primary entry-point CTA when not
+   authenticated, so promote it from ghost to warm-primary affordance. */
+.login-toggle {
+  border-color: rgba(255, 110, 60, 0.5);
+  color: rgb(255, 145, 95);
 }
 
 .login-toggle:hover {
-  background: #c73550;
-  border-color: #c73550;
-  color: #fff;
+  border-color: rgba(255, 110, 60, 0.7);
+  color: rgb(255, 165, 120);
+  background: rgba(255, 110, 60, 0.1);
 }
 
+/* ── Login form (expanded inline) ───────────────────────────────────── */
 .login-form {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 
 .login-form input {
-  padding: 5px 10px;
+  padding: var(--space-1) var(--space-3);
   background: var(--bg);
-  border: 1px solid #333;
+  border: var(--rule-strong);
   color: var(--text);
-  border-radius: 4px;
-  font-family: inherit;
+  border-radius: var(--radius-sm);
+  font-family: 'Barlow', sans-serif;
   font-size: 0.85rem;
-  width: 120px;
+  width: 140px;
+  transition: border-color 0.15s;
 }
 
 .login-form input:focus {
   outline: none;
-  border-color: var(--red);
+  border-color: var(--accent-dim);
 }
 
 .login-form button {
-  padding: 5px 12px;
-  border: none;
-  border-radius: 4px;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  font-family: inherit;
-  font-size: 0.85rem;
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
   text-align: center;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
 .login-form button[type="submit"] {
-  background: var(--red);
-  color: #fff;
+  background: rgba(255, 110, 60, 0.15);
+  border: 1px solid rgba(255, 110, 60, 0.5);
+  color: rgb(255, 145, 95);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.login-form button[type="submit"]:hover:not(:disabled) {
+  background: rgba(255, 110, 60, 0.25);
+  border-color: rgba(255, 110, 60, 0.7);
+  color: rgb(255, 165, 120);
 }
 
 .login-form button[type="submit"]:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
 .login-form .cancel-btn {
   background: transparent;
-  border: 1px solid var(--text-dim);
+  border: 1px solid rgba(208, 200, 184, 0.25);
   color: var(--text-dim);
 }
 
+.login-form .cancel-btn:hover {
+  border-color: var(--accent-dim);
+  color: var(--accent);
+}
+
 .login-error {
-  color: var(--red);
-  font-size: 0.8rem;
+  color: rgb(240, 130, 145);
+  font-size: 0.78rem;
+  font-family: 'Barlow', sans-serif;
 }
 
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
+/* Legacy: the green inline "username" span isn't rendered today
+   (replaced by .username-link), kept for any external link still
+   referencing it. */
 .username {
   color: var(--green);
   font-size: 0.9rem;
 }
 
-.logout-btn {
-  background: transparent;
-  border: 1px solid var(--red);
-  color: var(--red);
-  padding: 6px 10px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 0.8rem;
-  line-height: 1;
-  text-align: center;
-}
-
-.logout-btn:hover {
-  background: var(--red);
-  color: #fff;
-}
-
+/* Default ghost-style admin button. Used everywhere except destructive
+   actions and the few primary-CTA spots (Create User, Create Source,
+   Approve), which adopt .admin-btn-primary / .admin-btn-danger below. */
 .admin-btn,
 .change-pwd-btn {
   background: transparent;
-  border: 1px solid var(--text-dim);
+  border: 1px solid rgba(208, 200, 184, 0.25);
   color: var(--text-dim);
-  padding: 6px 10px;
-  border-radius: 4px;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  font-family: inherit;
-  font-size: 0.8rem;
-  line-height: 1;
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  line-height: 1.4;
   text-decoration: none;
   text-align: center;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
 
 .admin-btn:hover,
 .change-pwd-btn:hover {
-  border-color: var(--text);
-  color: var(--text);
-}
-
-.my-source-btn {
-  background: transparent;
-  border: 1px solid var(--text-dim);
-  color: var(--text-dim);
-  padding: 6px 10px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 0.8rem;
-  line-height: 1;
-  text-align: center;
-}
-
-.my-source-btn:hover {
-  border-color: var(--text);
-  color: var(--text);
-}
-
-.my-source-btn-pending {
   border-color: var(--accent-dim);
   color: var(--accent);
+  background: rgba(255, 248, 240, 0.04);
+}
+
+.admin-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Warm-cream filled button for the page-level CTA (Create User, Create
+   Source, Approve, Save Filters). Used sparingly — at most one per
+   action cluster — so its visual weight stays meaningful. */
+.admin-btn-primary {
+  background: rgba(255, 110, 60, 0.15);
+  border: 1px solid rgba(255, 110, 60, 0.5);
+  color: rgb(255, 145, 95);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: center;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.admin-btn-primary:hover:not(:disabled) {
+  background: rgba(255, 110, 60, 0.25);
+  border-color: rgba(255, 110, 60, 0.7);
+  color: rgb(255, 165, 120);
+}
+
+.admin-btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* My Servers / Add Servers / Request Pending — base shape comes from
+   the shared nav-cluster ghost rule above. The pending and active
+   variants overlay subtle semantic tints: warm-orange for "needs
+   admin attention" (pending), green for "you have provisioned
+   sources" (active). Both stay ghost-style so the row's visual
+   rhythm is preserved. */
+.my-source-btn-pending {
+  border-color: rgba(255, 110, 60, 0.5);
+  color: rgb(255, 145, 95);
+}
+
+.my-source-btn-pending:hover {
+  border-color: rgba(255, 110, 60, 0.7);
+  color: rgb(255, 165, 120);
+  background: rgba(255, 110, 60, 0.08);
 }
 
 .my-source-btn-active {
-  border-color: var(--green);
-  color: var(--green);
+  border-color: rgba(80, 200, 120, 0.4);
+  color: rgb(140, 220, 160);
+}
+
+.my-source-btn-active:hover {
+  border-color: rgba(80, 200, 120, 0.65);
+  color: rgb(180, 235, 195);
+  background: rgba(80, 200, 120, 0.06);
 }
 
 /* My Servers drawer (owner self-service) */
@@ -3183,38 +3272,65 @@ h2 {
 }
 
 /* Admin pending requests */
+/* Pending requests panel — the page's "demands attention" surface. The
+   warm-orange hairline along the top echoes the same gesture used at
+   drawer/modal headers, footer top, and docs prev/next, telegraphing
+   "this is the celebratory beat on the page." Only renders when there
+   actually ARE pending requests, so the gradient stays meaningful. */
 .admin-pending-requests {
-  margin-bottom: 24px;
-  padding: 16px;
+  position: relative;
+  margin-bottom: var(--space-5);
+  padding: var(--space-4);
   background: var(--bg-card);
-  border-left: 3px solid var(--accent);
+  border: var(--rule-strong);
+  border-radius: var(--radius-md);
+}
+
+.admin-pending-requests::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: var(--space-4);
+  right: var(--space-4);
+  height: 1px;
+  background: var(--rule-gradient-h);
 }
 
 .admin-pending-requests h2 {
   margin-top: 0;
+  margin-bottom: var(--space-2);
 }
 
+/* Inline reject/rename form rendered in a pending-row's actions cell. */
 .admin-pending-inline-form {
   display: flex;
-  gap: 6px;
+  gap: var(--space-1);
   flex-wrap: wrap;
   align-items: center;
 }
 
 .admin-pending-inline-form input {
   min-width: 200px;
-  padding: 4px 8px;
+  padding: var(--space-1) var(--space-2);
   background: var(--bg);
-  border: 1px solid var(--accent-dim);
-  border-radius: 4px;
+  border: var(--rule-strong);
+  border-radius: var(--radius-sm);
   color: var(--text);
   font-family: inherit;
+  font-size: 0.85rem;
 }
 
+.admin-pending-inline-form input:focus {
+  outline: none;
+  border-color: var(--accent-dim);
+}
+
+/* Legacy nav-badge selector — the sidebar now uses .admin-sidebar-link__badge.
+   This rule remains only for any external linkers that may still reference it. */
 .admin-nav-badge {
   color: var(--accent);
   font-size: 0.85em;
-  margin-left: 4px;
+  margin-left: var(--space-1);
 }
 
 /* Modal overlay and styles */
@@ -3343,12 +3459,18 @@ h2 {
 
 .modal .form-group input:focus,
 .modal .form-group textarea:focus,
-.admin-content .form-group input:focus,
-.admin-content .form-group textarea:focus,
 .drawer .form-group input:focus,
 .drawer .form-group textarea:focus {
   outline: none;
   border-color: var(--red);
+}
+
+/* Admin forms get the warm-cream focus instead of the legacy red,
+   matching the rest of the redesigned chrome. */
+.admin-content .form-group input:focus,
+.admin-content .form-group textarea:focus {
+  outline: none;
+  border-color: var(--accent-dim);
 }
 
 .modal .error-message,
@@ -3368,8 +3490,10 @@ h2 {
   margin-top: 20px;
 }
 
+/* Modal / drawer keep the legacy red submit-button styling; admin uses
+   .admin-btn-primary on the markup, which would otherwise lose the cascade
+   to a tag+attribute selector with higher specificity. */
 .modal button[type="submit"],
-.admin-content button[type="submit"],
 .drawer button[type="submit"] {
   background: var(--red);
   border: none;
@@ -3381,13 +3505,11 @@ h2 {
 }
 
 .modal button[type="submit"]:hover:not(:disabled),
-.admin-content button[type="submit"]:hover:not(:disabled),
 .drawer button[type="submit"]:hover:not(:disabled) {
   background: #c73550;
 }
 
 .modal button[type="submit"]:disabled,
-.admin-content button[type="submit"]:disabled,
 .drawer button[type="submit"]:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -3433,32 +3555,26 @@ h2 {
   background: #388e3c;
 }
 
-.create-user-form {
-  background: var(--bg);
-  padding: 15px;
-  border-radius: 4px;
-  margin-bottom: 20px;
-}
-
-.create-user-form button[type="submit"] {
-  margin-top: 10px;
-}
-
+/* Player typeahead results popover (used in user/session/player admin
+   forms). Sits below the search input as a small dropdown card. */
 .player-results {
   list-style: none;
   padding: 0;
-  margin: 5px 0 0 0;
-  background: var(--bg);
-  border: 1px solid var(--accent-dim);
-  border-radius: 4px;
-  max-height: 150px;
+  margin: var(--space-1) 0 0 0;
+  background: var(--bg-card);
+  border: var(--rule-strong);
+  border-radius: var(--radius-sm);
+  max-height: 220px;
   overflow-y: auto;
 }
 
 .player-results li {
-  padding: 8px 12px;
+  padding: var(--space-2) var(--space-3);
   cursor: pointer;
-  border-bottom: 1px solid var(--accent-dim);
+  border-bottom: var(--rule);
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.85rem;
+  transition: background 0.15s, color 0.15s;
 }
 
 .player-results li:last-child {
@@ -3466,199 +3582,138 @@ h2 {
 }
 
 .player-results li:hover {
-  background: var(--bg);
+  background: rgba(255, 110, 60, 0.06);
+  color: var(--accent);
 }
 
+/* Confirmed selection chip — replaces the green-callout styling with
+   a warm-orange tint matching the .admin-btn-primary palette. */
 .selected-player {
-  margin-top: 5px;
-  padding: 8px;
-  background: rgba(76, 175, 80, 0.1);
-  border: 1px solid var(--green);
-  border-radius: 4px;
+  margin-top: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  background: rgba(255, 110, 60, 0.08);
+  border: 1px solid rgba(255, 110, 60, 0.35);
+  border-radius: var(--radius-sm);
+  color: rgb(255, 165, 120);
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.85rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: var(--space-2);
 }
 
 .selected-player button {
   background: transparent;
-  border: 1px solid var(--text-dim);
+  border: 1px solid rgba(208, 200, 184, 0.25);
   color: var(--text-dim);
   padding: 2px 8px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.8rem;
-}
-
-.users-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.users-table th,
-.users-table td {
-  text-align: left;
-  padding: 10px;
-  border-bottom: 1px solid var(--accent-dim);
-}
-
-.users-table th {
-  color: var(--text-dim);
-  font-weight: 500;
-  font-size: 0.85rem;
-}
-
-.users-table td.actions {
-  white-space: nowrap;
-}
-
-.users-table td.actions button {
-  background: transparent;
-  border: 1px solid var(--red);
-  color: var(--red);
-  padding: 4px 8px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   font-family: inherit;
-  font-size: 0.8rem;
-  margin-right: 5px;
+  font-size: 0.78rem;
+  transition: border-color 0.15s, color 0.15s;
 }
 
-.users-table td.actions button:hover {
-  background: var(--red);
-  color: #fff;
+.selected-player button:hover {
+  border-color: var(--accent-dim);
+  color: var(--accent);
 }
 
-.users-table td.actions button.delete-btn {
-  border-color: var(--red);
-  color: var(--red);
+/* .users-table chrome now comes from .admin-data-table (the markup
+   carries both classes). Only the action-cluster cell needs special
+   treatment so multiple buttons sit comfortably side-by-side. */
+.users-table td.actions {
+  white-space: nowrap;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
 }
 
-.users-table td.actions button.delete-btn:hover {
-  background: var(--red);
-  color: #fff;
-}
-
+/* Inline reset-password form rendered in a user row's actions cell. */
 .reset-password-inline {
   display: flex;
-  gap: 5px;
+  gap: var(--space-1);
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .reset-password-inline input {
-  padding: 4px 8px;
+  padding: var(--space-1) var(--space-2);
   background: var(--bg);
-  border: 1px solid var(--accent-dim);
-  border-radius: 4px;
+  border: var(--rule-strong);
+  border-radius: var(--radius-sm);
   color: var(--text);
   font-family: inherit;
   font-size: 0.85rem;
-  width: 120px;
+  width: 140px;
 }
 
-.reset-password-inline button {
-  background: transparent;
-  border: 1px solid var(--green);
-  color: var(--green);
-  padding: 4px 8px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 0.8rem;
-}
-
-.reset-password-inline button:hover {
-  background: var(--green);
-  color: #fff;
-}
-
-.reset-password-inline button:last-child {
-  border-color: var(--text-dim);
-  color: var(--text-dim);
-}
-
-.reset-password-inline button:last-child:hover {
-  border-color: var(--text);
-  color: var(--text);
-  background: transparent;
+.reset-password-inline input:focus {
+  outline: none;
+  border-color: var(--accent-dim);
 }
 
 /* Edit player link inline */
 .player-link-display {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .edit-link-btn {
   background: transparent;
-  border: 1px solid var(--accent-dim);
+  border: 1px solid rgba(208, 200, 184, 0.25);
   color: var(--text-dim);
-  padding: 2px 6px;
-  border-radius: 3px;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  font-family: inherit;
-  font-size: 0.75rem;
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  transition: color 0.15s, border-color 0.15s;
 }
 
 .edit-link-btn:hover {
-  border-color: var(--red);
-  color: var(--red);
+  border-color: var(--accent-dim);
+  color: var(--accent);
 }
 
 .edit-player-inline {
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  min-width: 200px;
+  gap: var(--space-1);
+  min-width: 220px;
 }
 
 .edit-player-inline .player-results {
   margin-top: 0;
-  background: var(--bg-card);
 }
 
 .edit-player-inline input {
-  padding: 4px 8px;
+  padding: var(--space-1) var(--space-2);
   background: var(--bg);
-  border: 1px solid var(--accent-dim);
-  border-radius: 4px;
+  border: var(--rule-strong);
+  border-radius: var(--radius-sm);
   color: var(--text);
   font-family: inherit;
   font-size: 0.85rem;
 }
 
+.edit-player-inline input:focus {
+  outline: none;
+  border-color: var(--accent-dim);
+}
+
 .edit-player-inline .edit-actions {
   display: flex;
-  gap: 5px;
+  gap: var(--space-1);
 }
 
-.edit-player-inline .edit-actions button {
-  background: transparent;
-  border: 1px solid var(--green);
-  color: var(--green);
-  padding: 4px 8px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 0.8rem;
-}
-
-.edit-player-inline .edit-actions button:hover {
-  background: var(--green);
-  color: #fff;
-}
-
-.edit-player-inline .edit-actions button:last-child {
-  border-color: var(--text-dim);
-  color: var(--text-dim);
-}
-
-.edit-player-inline .edit-actions button:last-child:hover {
-  border-color: var(--text);
-  color: var(--text);
-  background: transparent;
-}
+/* Per-action button styling (Save / Cancel / etc.) inside the inline
+   edit-player form is provided by .admin-btn / .admin-btn-primary on
+   the markup. The .edit-actions wrapper just lays them out. */
 
 /* Right sidebar layout */
 .app.with-right-sidebar {
@@ -4427,36 +4482,10 @@ h2 {
   cursor: not-allowed;
 }
 
-.search-results {
-  background: var(--bg-card);
-  border: 1px solid #333;
-  border-radius: 8px;
-  margin-bottom: 20px;
-  overflow: hidden;
-}
-
-.search-result-item {
-  padding: 12px 15px;
-  border-bottom: 1px solid #222;
-  cursor: pointer;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.search-result-item:last-child {
-  border-bottom: none;
-}
-
-.search-result-item:hover {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.player-name-with-badges {
-  display: flex;
-  align-items: center;
-}
-
+/* Legacy full-width search-result rows have been retired in favor of
+   the .player-cards-grid + .player-card pattern (see ~line 4279). The
+   .player-last-seen meta-text utility is still used by AdminPlayers'
+   merge-result list. */
 .player-last-seen {
   color: var(--text-dim);
   font-size: 0.85rem;
@@ -4496,65 +4525,60 @@ h2 {
   margin-bottom: 12px;
 }
 
+/* GUID list rendered inside the AdminPlayers detail panel and the
+   public PlayersPage 'Linked GUIDs' section. Each item is a small
+   row-card carrying name + hash + first/last seen + (admin only) split
+   action. */
 .guids-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-1);
 }
 
 .guid-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 12px;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
-  gap: 12px;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-card);
+  border: var(--rule);
+  border-radius: var(--radius-sm);
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.guid-item:hover {
+  border-color: rgba(255, 110, 60, 0.25);
+  background: rgba(255, 110, 60, 0.02);
 }
 
 .guid-info {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
   flex-wrap: wrap;
   min-width: 0;
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.85rem;
 }
 
 .guid-hash {
-  font-family: 'Consolas', 'Monaco', monospace;
-  font-size: 0.75rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.72rem;
   color: var(--text-dim);
-  background: rgba(0, 0, 0, 0.3);
-  padding: 2px 6px;
-  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  letter-spacing: 0.04em;
 }
 
 .guid-dates {
   font-size: 0.75rem;
   color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
 }
 
-.split-btn {
-  padding: 4px 10px;
-  background: transparent;
-  border: 1px solid var(--red);
-  color: var(--red);
-  border-radius: 4px;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 0.75rem;
-  white-space: nowrap;
-}
-
-.split-btn:hover:not(:disabled) {
-  background: var(--red);
-  color: #fff;
-}
-
-.split-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+/* .split-btn is now styled by .admin-btn-danger on the markup. */
 
 /* Player sessions section */
 .player-sessions-section {
@@ -4569,31 +4593,10 @@ h2 {
   margin-bottom: 12px;
 }
 
-.sessions-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.85rem;
-}
-
-.sessions-table th,
-.sessions-table td {
-  text-align: left;
-  padding: 8px 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.sessions-table th {
-  color: var(--text-dim);
-  font-weight: 500;
-  font-size: 0.8rem;
-}
-
-.sessions-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.05);
-}
-
+/* .sessions-table chrome now comes from .admin-data-table (markup
+   carries both). Only the IP-address cell needs the monospace tweak. */
 .sessions-table .ip-address {
-  font-family: 'Consolas', 'Monaco', monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   color: var(--text-dim);
 }
 
@@ -4631,160 +4634,71 @@ h2 {
   cursor: not-allowed;
 }
 
-/* Admin controls section */
-.admin-controls {
-  margin-top: 20px;
-  padding-top: 15px;
-  border-top: 1px solid #333;
-}
-
-.merge-toggle-btn {
-  padding: 8px 16px;
-  background: transparent;
-  border: 1px solid var(--red);
-  color: var(--red);
-  border-radius: 4px;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 0.85rem;
-}
-
-.merge-toggle-btn:hover {
-  background: var(--red);
-  color: #fff;
-}
-
-.merge-search-panel {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 6px;
-  padding: 15px;
-}
-
-.merge-search-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.merge-search-header h4 {
-  margin: 0;
-  font-size: 0.9rem;
-  color: var(--text);
-}
-
-.merge-search-header .close-btn {
-  padding: 4px 10px;
-  background: transparent;
-  border: 1px solid var(--text-dim);
-  color: var(--text-dim);
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.75rem;
-}
-
-.merge-search-header .close-btn:hover {
-  border-color: var(--text);
-  color: var(--text);
-}
-
+/* AdminPlayers merge UI. The search input uses .admin-input chrome and
+   each candidate is a small row-card mirroring the .guid-item rhythm.
+   Merge button itself is .admin-btn-danger on the markup. */
 .merge-search-input {
   display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
 }
 
 .merge-search-input input {
   flex: 1;
-  padding: 8px 12px;
+  padding: var(--space-2) var(--space-3);
   background: var(--bg);
-  border: 1px solid #333;
+  border: var(--rule-strong);
   color: var(--text);
-  border-radius: 4px;
-  font-family: inherit;
+  border-radius: var(--radius-sm);
+  font-family: 'Barlow', sans-serif;
   font-size: 0.85rem;
+  transition: border-color 0.15s;
 }
 
 .merge-search-input input:focus {
   outline: none;
-  border-color: var(--red);
-}
-
-.merge-search-input .close-btn {
-  background: transparent;
-  border: 1px solid var(--text-dim);
-  color: var(--text-dim);
-  padding: 8px 14px;
-  font-size: 0.85rem;
-  border-radius: 4px;
-}
-
-.merge-search-input .close-btn:hover {
-  border-color: var(--text);
-  color: var(--text);
-}
-
-.merge-search-input button:not(.close-btn) {
-  padding: 8px 14px;
-  background: var(--red);
-  border: none;
-  color: #fff;
-  border-radius: 4px;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 0.85rem;
-}
-
-.merge-search-input button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  border-color: var(--accent-dim);
 }
 
 .merge-results {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-1);
 }
 
 .merge-result-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 12px;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-card);
+  border: var(--rule);
+  border-radius: var(--radius-sm);
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.merge-result-item:hover {
+  border-color: rgba(255, 110, 60, 0.25);
+  background: rgba(255, 110, 60, 0.02);
 }
 
 .merge-player-info {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.85rem;
+  min-width: 0;
 }
 
 .merge-player-date {
   font-size: 0.75rem;
   color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
 }
 
-.merge-btn {
-  padding: 5px 12px;
-  background: var(--red);
-  border: none;
-  color: #fff;
-  border-radius: 4px;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 0.8rem;
-}
-
-.merge-btn:hover:not(:disabled) {
-  opacity: 0.9;
-}
-
-.merge-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+/* .merge-btn is now styled by .admin-btn-danger on the markup. */
 
 /* Modal footer with profile link */
 .modal-footer {
@@ -4845,24 +4759,40 @@ h2 {
   .account-matches    { order: 7; }
 }
 
+/* ── Account page section card ────────────────────────────────────────
+   Each section is a card carrying one functional concern (Profile,
+   Account info, Password, Game token, Link identity, etc.). Chrome
+   matches .admin-form-card so the account workspace and the admin
+   workspace share a vocabulary — the user feels they're in the same
+   product. The h2 picks up the Cinzel uppercase rhythm established
+   by .admin-section-header so cross-page section headings line up. */
 .account-section {
   background: var(--bg-card);
-  border-radius: 8px;
-  padding: 20px;
+  border: var(--rule-strong);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
 }
 
 .account-section h2 {
   color: var(--accent);
-  margin: 0 0 15px 0;
-  font-size: 1.1rem;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #333;
+  margin: 0 0 var(--space-3) 0;
+  padding-bottom: var(--space-3);
+  border-bottom: var(--rule);
+  font-family: 'Cinzel', serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
 }
 
 .account-section h3 {
-  color: var(--text);
-  margin: 15px 0 8px 0;
-  font-size: 0.95rem;
+  color: var(--accent);
+  margin: var(--space-4) 0 var(--space-2) 0;
+  font-family: 'Cinzel', serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
 }
 
 /* Player profile inline */
@@ -4901,25 +4831,30 @@ h2 {
 }
 
 .account-section .period-btn {
-  padding: 4px 10px;
+  padding: var(--space-1) var(--space-3);
   background: transparent;
-  border: 1px solid #444;
+  border: 1px solid rgba(208, 200, 184, 0.2);
   color: var(--text-dim);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  font-family: inherit;
-  font-size: 0.8rem;
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
 
 .account-section .period-btn:hover {
-  border-color: var(--text);
-  color: var(--text);
+  border-color: var(--accent-dim);
+  color: var(--accent);
+  background: rgba(255, 248, 240, 0.05);
 }
 
 .account-section .period-btn.active {
-  background: var(--red);
-  border-color: var(--red);
-  color: #fff;
+  background: rgba(255, 110, 60, 0.12);
+  border-color: rgba(255, 110, 60, 0.5);
+  color: rgb(255, 145, 95);
 }
 
 /* Stats grid in account page */
@@ -4973,49 +4908,72 @@ h2 {
 }
 
 .view-stats-btn {
-  padding: 8px 16px;
-  background: var(--red);
-  border: none;
-  color: #000;
-  border-radius: 6px;
+  display: inline-block;
+  padding: var(--space-2) var(--space-4);
+  background: rgba(255, 110, 60, 0.15);
+  border: 1px solid rgba(255, 110, 60, 0.5);
+  color: rgb(255, 145, 95);
+  border-radius: var(--radius-sm);
   text-decoration: none;
-  font-size: 0.9rem;
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.8rem;
   font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
 .view-stats-btn:hover {
-  opacity: 0.9;
+  background: rgba(255, 110, 60, 0.25);
+  border-color: rgba(255, 110, 60, 0.7);
+  color: rgb(255, 165, 120);
 }
 
-/* GUIDs list in account page */
+/* Account page GUID list — same shape as the AdminPlayers .guid-item
+   pattern for visual continuity, just without the split-action button.
+   The hash chip uses the established monospace + dark-fill treatment. */
 .account-section .guids-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-1);
 }
 
 .account-section .guid-item {
-  padding: 12px;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 6px;
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg);
+  border: var(--rule);
+  border-radius: var(--radius-sm);
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.account-section .guid-item:hover {
+  border-color: rgba(255, 110, 60, 0.25);
+  background: rgba(255, 110, 60, 0.02);
 }
 
 .account-section .guid-main {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 4px;
+  gap: var(--space-3);
+  margin-bottom: 2px;
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.85rem;
 }
 
 .account-section .guid-hash {
   color: var(--text-dim);
-  font-size: 0.8rem;
-  font-family: monospace;
+  font-size: 0.72rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  letter-spacing: 0.04em;
 }
 
 .account-section .guid-dates {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Link section */
@@ -5046,252 +5004,295 @@ h2 {
   color: var(--text);
 }
 
+/* Link-code display — when the user generates a code they expect a
+   visually distinctive ceremonial display. The warm-orange treatment
+   (instead of green) reads as "this is the magic word" and ties to
+   the rest of the redesign's color language. */
 .code-display {
-  background: rgba(0, 0, 0, 0.2);
-  padding: 20px;
-  border-radius: 6px;
+  background: var(--bg);
+  border: var(--rule-strong);
+  border-radius: var(--radius-md);
+  padding: var(--space-5);
   text-align: center;
 }
 
 .code-label {
   color: var(--text-dim);
-  font-size: 0.9rem;
-  margin-bottom: 8px;
+  font-family: 'Cinzel', serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  margin-bottom: var(--space-2);
 }
 
 .code-value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 2rem;
-  font-weight: bold;
-  color: var(--green);
-  letter-spacing: 4px;
-  margin-bottom: 8px;
-  font-family: monospace;
+  font-weight: 700;
+  color: rgb(255, 165, 120);
+  letter-spacing: 0.3em;
+  margin-bottom: var(--space-2);
 }
 
 .code-timer {
   color: var(--text-dim);
-  font-size: 0.9rem;
-  margin-bottom: 10px;
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.85rem;
+  margin-bottom: var(--space-2);
+  font-variant-numeric: tabular-nums;
 }
 
 .code-timer strong {
-  color: var(--text);
+  color: var(--accent);
+  font-weight: 600;
 }
 
 .code-instruction {
   color: var(--text-dim);
-  margin-bottom: 15px;
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.85rem;
+  margin-bottom: var(--space-3);
 }
 
 .code-instruction code {
-  background: rgba(0, 0, 0, 0.3);
-  padding: 4px 8px;
-  border-radius: 3px;
-  color: var(--text);
+  background: rgba(0, 0, 0, 0.4);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  color: var(--accent);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85em;
 }
 
+/* Primary CTA used by Link Code generation, claim linking, game-token
+   confirm. Same warm-cream chrome as .admin-btn-primary so primary
+   actions read consistently across admin and account workspaces. */
 .generate-btn {
-  padding: 10px 20px;
-  background: var(--red);
-  border: none;
-  color: #000;
-  border-radius: 6px;
+  padding: var(--space-2) var(--space-4);
+  background: rgba(255, 110, 60, 0.15);
+  border: 1px solid rgba(255, 110, 60, 0.5);
+  color: rgb(255, 145, 95);
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  font-family: inherit;
-  font-size: 0.95rem;
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.8rem;
   font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
-.generate-btn:hover {
-  opacity: 0.9;
+.generate-btn:hover:not(:disabled) {
+  background: rgba(255, 110, 60, 0.25);
+  border-color: rgba(255, 110, 60, 0.7);
+  color: rgb(255, 165, 120);
 }
 
 .generate-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
-/* Password section */
+/* ── Password change form ─────────────────────────────────────────── */
 .password-form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-3);
   max-width: 400px;
 }
 
 .password-form .form-group {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
 }
 
 .password-form label {
   color: var(--text-dim);
-  font-size: 0.9rem;
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .password-form input {
-  padding: 10px 12px;
+  padding: var(--space-2) var(--space-3);
   background: var(--bg);
-  border: 1px solid #333;
-  border-radius: 4px;
+  border: var(--rule-strong);
+  border-radius: var(--radius-sm);
   color: var(--text);
-  font-family: inherit;
-  font-size: 1rem;
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.9rem;
+  transition: border-color 0.15s;
 }
 
 .password-form input:focus {
   outline: none;
-  border-color: var(--red);
+  border-color: var(--accent-dim);
 }
 
 .password-form .form-actions {
   display: flex;
-  gap: 10px;
-  margin-top: 5px;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
 }
 
-.password-form button[type="submit"] {
-  padding: 10px 20px;
-  background: var(--red);
-  border: none;
-  color: #000;
-  border-radius: 6px;
+/* Submit / Change Password CTA — warm-primary affordance, same shape
+   as .admin-btn-primary / .generate-btn. */
+.password-form button[type="submit"],
+.change-password-btn {
+  padding: var(--space-2) var(--space-4);
+  background: rgba(255, 110, 60, 0.15);
+  border: 1px solid rgba(255, 110, 60, 0.5);
+  color: rgb(255, 145, 95);
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  font-family: inherit;
-  font-size: 0.95rem;
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.8rem;
   font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
-.password-form button[type="submit"]:disabled {
-  opacity: 0.5;
+.password-form button[type="submit"]:hover:not(:disabled),
+.change-password-btn:hover:not(:disabled) {
+  background: rgba(255, 110, 60, 0.25);
+  border-color: rgba(255, 110, 60, 0.7);
+  color: rgb(255, 165, 120);
+}
+
+.password-form button[type="submit"]:disabled,
+.change-password-btn:disabled {
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
 .password-form .cancel-btn {
-  padding: 10px 20px;
+  padding: var(--space-2) var(--space-4);
   background: transparent;
-  border: 1px solid var(--text-dim);
-  color: var(--text);
-  border-radius: 6px;
+  border: 1px solid rgba(208, 200, 184, 0.25);
+  color: var(--text-dim);
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  font-family: inherit;
-  font-size: 0.95rem;
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
 
 .password-form .cancel-btn:hover {
-  border-color: var(--text);
+  border-color: var(--accent-dim);
+  color: var(--accent);
+  background: rgba(255, 248, 240, 0.04);
 }
 
-.change-password-btn {
-  padding: 10px 20px;
-  background: transparent;
-  border: 1px solid var(--text-dim);
-  color: var(--text);
-  border-radius: 6px;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 0.95rem;
-}
-
-.change-password-btn:hover {
-  border-color: var(--text);
-}
-
-/* Game token section */
+/* ── Game token section ──────────────────────────────────────────────
+   Token is sensitive (treat like a password); display with neutral
+   text-dim rather than the previous "look at me" green so it doesn't
+   read as a status indicator. The Reveal/Copy/Rotate cluster sits
+   beside it as ghost buttons. */
 .game-token-display {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 .game-token-value {
-  font-family: monospace;
-  font-size: 0.85rem;
-  color: var(--green);
-  background: rgba(0, 0, 0, 0.3);
-  padding: 12px 15px;
-  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.82rem;
+  color: var(--text);
+  background: var(--bg);
+  border: var(--rule-strong);
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
   word-break: break-all;
-  line-height: 1.4;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
 }
 
 .game-token-actions {
   display: flex;
-  gap: 10px;
+  gap: var(--space-2);
   align-items: center;
   flex-wrap: wrap;
 }
 
+/* Reveal / Copy / Rotate buttons — ghost-style, override the warm
+   .generate-btn chrome since these are utility actions, not the
+   page-level primary CTA. */
 .game-token-actions .rotate-btn {
   background: transparent;
-  border: 1px solid var(--text-dim);
-  color: var(--text);
+  border: 1px solid rgba(208, 200, 184, 0.25);
+  color: var(--text-dim);
 }
 
-.game-token-actions .rotate-btn:hover {
-  border-color: var(--text);
+.game-token-actions .rotate-btn:hover:not(:disabled) {
+  border-color: var(--accent-dim);
+  color: var(--accent);
+  background: rgba(255, 248, 240, 0.04);
 }
 
+/* Inline confirmation that appears in place of the Rotate button. */
 .rotate-confirm {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: rgba(233, 69, 96, 0.06);
+  border: 1px solid rgba(233, 69, 96, 0.4);
+  border-radius: var(--radius-sm);
 }
 
 .rotate-confirm-actions {
   display: flex;
-  gap: 10px;
+  gap: var(--space-2);
 }
 
 .rotate-confirm-text {
-  color: var(--text-dim);
-  font-size: 0.9rem;
+  color: rgb(240, 130, 145);
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.85rem;
 }
 
 .rotate-confirm .cancel-btn {
-  padding: 10px 20px;
+  padding: var(--space-1) var(--space-3);
   background: transparent;
-  border: 1px solid var(--text-dim);
-  color: var(--text);
-  border-radius: 6px;
+  border: 1px solid rgba(208, 200, 184, 0.25);
+  color: var(--text-dim);
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  font-family: inherit;
-  font-size: 0.95rem;
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  transition: color 0.15s, border-color 0.15s;
 }
 
 .rotate-confirm .cancel-btn:hover {
-  border-color: var(--text);
+  border-color: var(--accent-dim);
+  color: var(--accent);
 }
 
+/* Success notice — green semantic kept (success is universal), but
+   the chrome is toned down to match the rest of the warm palette. */
 .success-message {
-  background: rgba(76, 175, 80, 0.2);
-  border: 1px solid var(--green);
-  color: var(--green);
-  padding: 10px 15px;
-  border-radius: 6px;
-  margin-bottom: 15px;
+  background: rgba(80, 200, 120, 0.08);
+  border: 1px solid rgba(80, 200, 120, 0.4);
+  color: rgb(140, 220, 160);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-3);
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.85rem;
 }
 
-/* Username link in header */
-.username-link {
-  background: transparent;
-  border: 1px solid var(--text-dim);
-  color: var(--text-dim);
-  padding: 6px 10px;
-  border-radius: 4px;
-  text-decoration: none;
-  font-family: inherit;
-  font-size: 0.8rem;
-  line-height: 1;
-  display: inline-block;
-  text-align: center;
-}
-
-.username-link:hover {
-  border-color: var(--text);
-  color: var(--text);
-}
+/* .username-link chrome is provided by the shared nav-cluster rule
+   (see ~line 2410). The selector remains as an anchor for any future
+   per-state tinting. */
 
 /* Leaderboard page */
 .leaderboard-page {
@@ -5852,72 +5853,113 @@ h2 {
 }
 
 /* Admin page */
+/* ── Admin shell ──────────────────────────────────────────────────────
+   The page-level Header (.admin-header) participates in the shared
+   two-tier console pattern (brand row → rule → page-nav row); the
+   admin-specific chrome below it is a sticky-rail workspace. The warm
+   editorial hairline (--rule-gradient-h) appears once, between the
+   header and the workspace, marking entry into "admin mode." Same
+   gesture as drawer/modal/footer headers. */
 .admin-page {
   padding: 20px;
   max-width: 1800px;
   margin: 0 auto;
 }
 
+.admin-workspace {
+  position: relative;
+}
+
+/* Tightens header→content gap so navbar sits 12px from both rules. */
+.admin-page .admin-header {
+  margin-bottom: var(--space-3);
+}
 
 .admin-layout {
   display: grid;
-  grid-template-columns: 200px 1fr;
-  gap: 24px;
+  grid-template-columns: 180px 1fr;
+  gap: var(--space-6);
   align-items: start;
 }
 
+/* Flat sticky rail mirroring the docs left tab list — no chromed box.
+   The right edge carries the rule, link labels sit flush to it, and
+   the active link grows a 2px warm-orange marker that overlaps the
+   rule, identical visual gesture to the docs page. */
 .admin-sidebar {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  background: var(--bg-card);
-  border-radius: 8px;
-  padding: 12px;
   position: sticky;
-  top: 20px;
+  top: var(--space-3);
+  border-right: var(--rule);
+  padding-right: var(--space-3);
 }
 
 .admin-sidebar-link {
-  display: block;
-  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
   color: var(--text-dim);
   text-decoration: none;
-  border-radius: 6px;
-  font-size: 0.95rem;
-  font-weight: 500;
-  transition: background 0.15s, color 0.15s;
+  font-family: 'Cinzel', serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  border-right: 2px solid transparent;
+  margin-right: -1px; /* overlap the parent's right rule */
+  transition: color 0.15s, border-color 0.15s;
 }
 
 .admin-sidebar-link:hover {
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.04);
+  color: var(--accent-dim);
 }
 
 .admin-sidebar-link.active {
   color: var(--accent);
-  background: rgba(255, 255, 255, 0.06);
+  border-right-color: rgb(255, 130, 80);
+}
+
+.admin-sidebar-link__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: rgb(255, 130, 80);
+  background: rgba(255, 110, 60, 0.12);
+  border: 1px solid rgba(255, 110, 60, 0.4);
+  border-radius: var(--radius-pill);
+  font-variant-numeric: tabular-nums;
 }
 
 .admin-content {
-  background: var(--bg-card);
-  border-radius: 8px;
-  padding: 20px 24px;
-  min-height: 400px;
   min-width: 0; /* let flex/grid children shrink instead of overflowing */
 }
 
 @media (max-width: 768px) {
   .admin-layout {
     grid-template-columns: 1fr;
-    gap: 12px;
+    gap: var(--space-3);
   }
 
+  /* Mobile: rail flattens into a horizontal scroll strip with a bottom
+     rule, and the active marker rotates to a bottom-edge indicator. */
   .admin-sidebar {
     flex-direction: row;
     overflow-x: auto;
     position: static;
-    padding: 8px;
-    gap: 4px;
+    padding: 0;
+    gap: var(--space-1);
+    border-right: none;
+    border-bottom: var(--rule);
     scrollbar-width: none;
   }
 
@@ -5928,50 +5970,61 @@ h2 {
   .admin-sidebar-link {
     flex: 0 0 auto;
     white-space: nowrap;
-    padding: 8px 14px;
-    font-size: 0.9rem;
+    padding: var(--space-2) var(--space-3);
+    border-right: none;
+    border-bottom: 2px solid transparent;
+    margin-right: 0;
+    margin-bottom: -1px;
   }
 
-  .admin-content {
-    padding: 16px;
+  .admin-sidebar-link.active {
+    border-right-color: transparent;
+    border-bottom-color: rgb(255, 130, 80);
   }
 }
 
+/* ── Section headers within an admin page ────────────────────────────
+   Cinzel uppercase title sized one tier above the structured-filter
+   section title (0.72rem), giving the page hierarchy a clear top step.
+   The hairline below uses var(--rule), echoing the page-nav rule. */
 .admin-section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
-  border-bottom: 1px solid #2a2a2a;
-  padding-bottom: 12px;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: var(--rule);
 }
 
 .admin-section-header h2 {
   margin: 0;
   color: var(--accent);
-  font-size: 1.3rem;
+  font-family: 'Cinzel', serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
 }
 
-.admin-section-header > button {
-  background: var(--green);
-  border: none;
-  color: #fff;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 0.9rem;
-}
-
-.admin-section-header > button:hover {
-  background: #388e3c;
+.admin-section-header__count {
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  text-transform: none;
+  margin-left: var(--space-2);
+  font-variant-numeric: tabular-nums;
 }
 
 .admin-loading,
 .admin-empty {
-  padding: 24px;
+  padding: var(--space-5);
   text-align: center;
   color: var(--text-dim);
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.85rem;
 }
 
 .admin-muted {
@@ -5979,108 +6032,384 @@ h2 {
   font-style: italic;
 }
 
-.admin-filters {
-  display: flex;
-  gap: 16px;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-  align-items: flex-end;
+/* ── Unified data-table treatment ────────────────────────────────────
+   Replaces the four legacy table styles (.users-table, .sessions-table,
+   .admin-table, .admin-audit-table) which each redefined borders /
+   colors / padding inconsistently. One look-and-feel; the legacy class
+   names remain on the markup so any external selectors keep working. */
+.admin-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
 }
 
-.admin-filter {
+.admin-data-table th,
+.admin-data-table td {
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  vertical-align: top;
+}
+
+.admin-data-table th {
+  font-family: 'Cinzel', serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  border-bottom: var(--rule-strong);
+  white-space: nowrap;
+}
+
+.admin-data-table td {
+  border-bottom: var(--rule);
+}
+
+.admin-data-table tbody tr {
+  transition: background 0.15s;
+}
+
+.admin-data-table tbody tr:hover {
+  /* Same warm tint as .player-card hover so the language is unified. */
+  background: rgba(255, 110, 60, 0.04);
+}
+
+.admin-data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.admin-data-table td code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85em;
+  color: var(--text-dim);
+}
+
+@media (max-width: 768px) {
+  /* Card-stack fallback for narrow viewports: hide the header row,
+     each <tr> becomes a card with data-label::before pseudos labeling
+     each cell. Components opt in by setting data-label="…" on each td. */
+  .admin-data-table {
+    display: block;
+  }
+  .admin-data-table thead {
+    display: none;
+  }
+  .admin-data-table tbody,
+  .admin-data-table tr {
+    display: block;
+  }
+  .admin-data-table tr {
+    border: var(--rule-strong);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    margin-bottom: var(--space-2);
+    background: var(--bg-card);
+  }
+  .admin-data-table tbody tr:hover {
+    background: var(--bg-card);
+  }
+  .admin-data-table td {
+    display: block;
+    padding: var(--space-1) 0;
+    border-bottom: none;
+  }
+  .admin-data-table td + td {
+    border-top: var(--rule);
+    padding-top: var(--space-2);
+    margin-top: var(--space-1);
+  }
+  .admin-data-table td::before {
+    content: attr(data-label);
+    display: block;
+    font-family: 'Cinzel', serif;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: var(--space-1);
+  }
+  .admin-data-table td:not([data-label])::before {
+    display: none;
+  }
+}
+
+/* ── Filters panel wrapper ───────────────────────────────────────────
+   Container for one or more <FilterSection> elements (the structured
+   <details> recipe). Lifts admin filters into the same vocabulary as
+   the activity drawer + server toolbar. */
+.admin-filters-panel {
+  border: var(--rule);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+  background: rgba(208, 200, 184, 0.015);
+}
+
+/* Filter sections inside admin gain symmetric vertical padding so the
+   rule between sections sits at equal distance from each side's content.
+   The activity drawer keeps its top-only rhythm since its sections are
+   pure switch lists and don't need the extra breathing room. */
+.admin-filters-panel .filter-section {
+  padding-bottom: var(--space-3);
+}
+
+.admin-filters-panel .filter-section:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+
+.admin-filters-panel .filter-section:last-of-type {
+  padding-bottom: 0;
+}
+
+/* Static (non-collapsible) sections — for Player + Date range. Carry
+   the same top-rule + symmetric padding rhythm as .filter-section but
+   without the <details>/caret machinery, since neither has a meaningful
+   collapsed state. The --row variant lays two static sections side-by-
+   side with a vertical rule between them, mirroring the horizontal
+   rules between stacked sections. */
+.admin-filters-panel .static-section {
+  border-top: var(--rule);
+  padding: var(--space-3) 0;
+}
+
+.admin-filters-panel .static-section:last-of-type {
+  padding-bottom: 0;
+}
+
+.admin-filters-panel .static-section--row {
+  display: flex;
+  gap: var(--space-5);
+  align-items: stretch;
+}
+
+.admin-filters-panel .static-section--row > .static-section {
+  /* Children are bare static-sections nested inside .static-section--row;
+     they pick up the row's border-top, so suppress their own. */
+  border-top: none;
+  padding: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-filters-panel .static-section--row > .static-section + .static-section {
+  border-left: var(--rule);
+  padding-left: var(--space-5);
+}
+
+.static-section__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) 0 var(--space-2);
+  font-size: 0.72rem;
+}
+
+.static-section__title {
+  flex: 1;
+  font-family: 'Cinzel', serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.static-section__body {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  min-width: 200px;
+  gap: var(--space-2);
+  padding-left: var(--space-3);
 }
 
-.admin-filter label {
-  font-size: 0.8rem;
+/* ── Pagination & date-preset chips ──────────────────────────────────
+   Pagination footer for tables; preset chips are used in the date-range
+   filter section (Sessions/Audit). */
+.admin-pagination {
+  margin-top: var(--space-4);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-3);
   color: var(--text-dim);
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.85rem;
+}
+
+.admin-preset-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.admin-preset-chip {
+  background: transparent;
+  border: 1px solid rgba(208, 200, 184, 0.18);
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
 
-.admin-filter select,
-.admin-filter input {
-  background: #1a1a1a;
-  border: 1px solid #333;
-  color: var(--text);
-  padding: 8px 10px;
-  border-radius: 4px;
-  font-size: 0.9rem;
+.admin-preset-chip:hover {
+  color: var(--accent);
+  border-color: var(--accent-dim);
+  background: rgba(255, 248, 240, 0.05);
 }
 
+.admin-preset-chip.active {
+  color: rgb(255, 130, 80);
+  border-color: rgba(255, 110, 60, 0.5);
+  background: rgba(255, 110, 60, 0.08);
+}
+
+/* "From"/"To" datetime pair shown when the Custom preset is active. */
+.admin-custom-date-range {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.admin-custom-date-range__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  flex: 1;
+  min-width: 180px;
+}
+
+/* ── Inline forms (typeahead, custom date range) ─────────────────────
+   Used inside filter sections for player-typeahead and custom date
+   inputs. Match the chrome of the structured filters around them. */
 .player-typeahead {
   position: relative;
 }
 
-.sessions-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
+/* Inside filter panels the typeahead dropdown overlays content below
+   instead of pushing the panel taller — keeps the panel a stable height
+   regardless of how many matches the search returns. */
+.admin-filters-panel .player-typeahead .player-results {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  left: 0;
+  right: 0;
+  margin-top: 0;
+  z-index: 10;
 }
 
-.sessions-table th,
-.sessions-table td {
-  padding: 8px 10px;
-  text-align: left;
-  border-bottom: 1px solid #2a2a2a;
+/* Cap the typeahead so the input sits as a normal-width search field
+   rather than spanning the entire filter panel. Both the input and its
+   results-popover ul inherit this max-width via 100% width below. */
+.admin-filters-panel .player-typeahead {
+  max-width: 360px;
 }
 
-.sessions-table th {
-  color: var(--text-dim);
-  font-weight: 600;
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.sessions-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.admin-pagination {
-  margin-top: 16px;
-  text-align: center;
-  color: var(--text-dim);
-}
-
-.admin-players-search {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 16px;
-}
-
-.admin-players-search input {
-  flex: 1;
-  background: #1a1a1a;
-  border: 1px solid #333;
+/* Shared chrome for admin form/filter inputs. width: auto lets each
+   container choose its own footprint — the typeahead caps at 360px,
+   the custom-date fields fill their constrained label parent. */
+.admin-input,
+.admin-filters-panel input[type="text"],
+.admin-filters-panel input[type="datetime-local"],
+.admin-filters-panel select {
+  background: var(--bg);
+  border: var(--rule-strong);
+  border-radius: var(--radius-sm);
   color: var(--text);
-  padding: 8px 12px;
-  border-radius: 4px;
+  padding: var(--space-2) var(--space-3);
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.85rem;
+  transition: border-color 0.15s;
 }
 
-.admin-players-search button {
-  background: var(--green);
-  border: none;
-  color: #fff;
-  padding: 8px 16px;
-  border-radius: 4px;
+.admin-input {
+  width: 100%;
+}
+
+.admin-filters-panel .player-typeahead input,
+.admin-custom-date-range__field input {
+  width: 100%;
+}
+
+.admin-input:focus,
+.admin-filters-panel input:focus,
+.admin-filters-panel select:focus {
+  outline: none;
+  border-color: var(--accent-dim);
+}
+
+/* ── Form card ───────────────────────────────────────────────────────
+   New chrome for create-user / create-source / similar admin forms.
+   Replaces the old gray-box .create-user-form treatment. Pairs with a
+   <details> wrapper so the form slides in below the section header. */
+.admin-form-card {
+  background: var(--bg-card);
+  border: var(--rule-strong);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.admin-form-toggle {
+  list-style: none;
   cursor: pointer;
-  font-family: inherit;
-  font-size: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-3);
+  background: transparent;
+  border: 1px solid rgba(208, 200, 184, 0.25);
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  user-select: none;
+  transition: color 0.15s, border-color 0.15s;
 }
 
-.admin-players-search button:hover:not(:disabled) {
-  background: #388e3c;
+.admin-form-toggle::-webkit-details-marker {
+  display: none;
 }
 
-.admin-players-search button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.admin-form-toggle:hover {
+  color: var(--accent);
+  border-color: var(--accent-dim);
 }
 
+.admin-form-toggle__caret {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1em;
+  height: 1em;
+  font-size: 1.1em;
+  line-height: 1;
+  color: rgba(255, 110, 60, 0.7);
+  transition: transform 0.15s;
+}
+
+details[open] > .admin-form-toggle .admin-form-toggle__caret {
+  transform: rotate(90deg);
+}
+
+/* ── Player-link button (used in users table to open PlayerStatsModal) */
 .player-link-display .player-name-link {
   background: none;
   border: none;
@@ -6093,28 +6422,59 @@ h2 {
 
 .player-link-display .player-name-link:hover {
   text-decoration: underline;
+  color: var(--accent);
 }
 
+/* ── Selected-player detail panel (AdminPlayers) ─────────────────────
+   Sits below the .player-cards-grid search results when a target is
+   chosen. Reuses .filter-section vocabulary for sub-section headers
+   (▸ caret + Cinzel uppercase title) so the visual rhyme holds across
+   admin pages. */
 .admin-player-detail {
-  margin-top: 20px;
-  padding-top: 20px;
-  border-top: 1px solid #2a2a2a;
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: var(--rule);
 }
 
 .admin-player-detail h3 {
-  margin: 0 0 16px 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-4) 0;
+  color: var(--accent);
+  font-family: 'Cinzel', serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.admin-player-detail h3 a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px dashed transparent;
+  transition: border-color 0.15s;
+}
+
+.admin-player-detail h3 a:hover {
+  border-bottom-color: var(--accent-dim);
 }
 
 .admin-subsection {
-  margin-bottom: 24px;
+  margin-bottom: var(--space-4);
 }
 
 .admin-subsection h4 {
-  color: var(--text-dim);
-  margin: 0 0 12px 0;
-  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3) 0;
+  color: var(--accent);
+  font-family: 'Cinzel', serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
 
 /* About page */
@@ -6625,6 +6985,36 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
    "minor end-of-page note" rather than a section header. */
 .about-section .docs-h2 {
   border-bottom: 1px solid rgba(208, 200, 184, 0.08);
+}
+
+/* Docs sections flow as continuous article content; .docs-h2 carries
+   section identity, so strip the boxy bg-card chrome here. */
+.docs-page-v2 .about-section {
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+}
+
+.docs-page-v2 .about-section + .about-section {
+  margin-top: var(--space-6);
+}
+
+.docs-page-v2 .docs-disclaimer {
+  margin-top: var(--space-6);
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+
+.docs-page-v2 .docs-disclaimer h2 {
+  font-family: 'Cinzel', serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin: 0 0 var(--space-2) 0;
+  padding: 0;
+  border: none;
 }
 
 /* ── Prev / next at bottom of each docs subpage ─ */
@@ -7464,33 +7854,39 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 }
 
 .claim-code-field {
-  font-size: 1.2rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 1.1rem;
+  font-weight: 600;
   letter-spacing: 0.3em;
   text-align: center;
   width: 140px;
-  padding: 6px 12px;
+  padding: var(--space-2) var(--space-3);
   background: var(--bg);
-  border: 1px solid #333;
-  border-radius: 4px;
-  color: var(--text);
-  font-family: monospace;
+  border: var(--rule-strong);
+  border-radius: var(--radius-sm);
+  color: var(--accent);
+  transition: border-color 0.15s;
 }
 
 .claim-code-field:focus {
   outline: none;
-  border-color: var(--red);
+  border-color: rgba(255, 110, 60, 0.5);
 }
 
 .link-explanation-text {
   color: var(--text-dim);
-  font-size: 0.9rem;
-  margin: 0;
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  margin: 0 0 var(--space-2) 0;
 }
 
 .link-explanation-text code {
-  background: rgba(255, 255, 255, 0.08);
-  padding: 1px 5px;
-  border-radius: 3px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85em;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
   color: var(--accent);
 }
 
@@ -7499,15 +7895,16 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 }
 
 .link-method + .link-method {
-  margin-top: 12px;
-  padding-top: 16px;
-  border-top: 1px solid #333;
+  margin-top: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: var(--rule);
 }
 
+/* link-method h3 is rendered inside .account-section so it inherits
+   the section's Cinzel-uppercase h3 vocabulary; this rule trims the
+   margins to fit the link-method's tighter rhythm. */
 .link-method h3 {
-  color: var(--text);
-  font-size: 0.95rem;
-  margin: 0 0 6px 0;
+  margin: 0 0 var(--space-2) 0;
 }
 
 .link-method .generate-btn {
@@ -7578,108 +7975,121 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   margin: 0 0 20px 0;
 }
 
-/* Admin > Sources */
+/* Admin > Sources
+   Section spacing and heading style. Tables here use .admin-data-table
+   for chrome; .admin-server-list is a small inline list inside the
+   Servers cell. */
 .admin-sources section {
-  margin-bottom: 32px;
+  margin-bottom: var(--space-6);
 }
 
 .admin-sources h2 {
-  font-size: 1.1rem;
-  margin: 0 0 12px 0;
-}
-
-.admin-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-}
-
-.admin-table th,
-.admin-table td {
-  text-align: left;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border);
-  vertical-align: top;
-}
-
-.admin-table th {
-  color: var(--text-dim);
-  font-weight: 600;
-  font-size: 0.8rem;
+  margin: 0 0 var(--space-3) 0;
+  color: var(--accent);
+  font-family: 'Cinzel', serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.admin-table td code {
-  font-size: 0.85em;
-  color: var(--text-dim);
 }
 
 .admin-server-list {
   list-style: none;
   padding: 0;
   margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.85rem;
 }
 
 .admin-server-list li {
   margin: 0;
-  padding: 2px 0;
+  padding: 0;
 }
 
+/* Destructive button vocabulary. Same shape as .admin-btn but with
+   warning-red border that fills on hover. Subtler than the old slab. */
 .admin-btn-danger {
-  background: #7d2b2b;
-  color: #fff;
-  margin-left: 6px;
+  background: transparent;
+  border: 1px solid rgba(233, 69, 96, 0.5);
+  color: rgb(233, 100, 120);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  line-height: 1.4;
+  text-align: center;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
-.admin-btn-danger:hover {
-  background: #9e3b3b;
+.admin-btn-danger:hover:not(:disabled) {
+  background: rgba(233, 69, 96, 0.15);
+  border-color: var(--red);
+  color: rgb(255, 130, 145);
 }
 
+.admin-btn-danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Health badges (collector heartbeat freshness). Subdued tints carrying
+   their semantic color rather than blocky filled slabs — matches the
+   admin-audit-action chip vocabulary so admin pages read consistently. */
 .health-badge {
   display: inline-block;
   padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 0.8rem;
+  border-radius: var(--radius-sm);
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.7rem;
   font-weight: 600;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  border: 1px solid;
 }
 
 .health-green {
-  background: #2e7d32;
-  color: #fff;
+  background: rgba(80, 200, 120, 0.12);
+  border-color: rgba(80, 200, 120, 0.4);
+  color: rgb(140, 220, 160);
 }
 
 .health-stale {
-  background: #c98a00;
-  color: #000;
+  background: rgba(230, 180, 80, 0.12);
+  border-color: rgba(230, 180, 80, 0.4);
+  color: rgb(240, 200, 120);
 }
 
 .health-gone {
-  background: #7d2b2b;
-  color: #fff;
+  background: rgba(233, 69, 96, 0.12);
+  border-color: rgba(233, 69, 96, 0.4);
+  color: rgb(240, 130, 145);
 }
 
 .health-unknown {
-  background: var(--border);
+  background: rgba(208, 200, 184, 0.06);
+  border-color: rgba(208, 200, 184, 0.2);
   color: var(--text-dim);
 }
 
+/* Inline success notice (matches .error-message shape). */
 .notice-message {
-  background: #2e7d32;
-  color: #fff;
-  padding: 8px 12px;
-  border-radius: 4px;
-  margin-bottom: 12px;
+  background: rgba(80, 200, 120, 0.08);
+  border: 1px solid rgba(80, 200, 120, 0.4);
+  color: rgb(140, 220, 160);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-3);
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.85rem;
 }
 
 .admin-sources-create {
   max-width: 640px;
-  padding: 18px 20px;
-  background: var(--card-bg, rgba(255, 255, 255, 0.03));
-  border: 1px solid var(--border);
-  border-radius: 6px;
 }
 
 .admin-sources-create h2 {
@@ -7830,85 +8240,36 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   cursor: not-allowed;
 }
 
+/* Compact size override — used inside table-row action clusters where
+   space is tight. Composes with .admin-btn / .admin-btn-danger. */
 .admin-btn-small {
-  padding: 4px 10px;
-  font-size: 0.8rem;
+  padding: 2px 8px;
+  font-size: 0.72rem;
 }
 
+/* Ghost variant — same look as default .admin-btn but slightly more
+   subdued border so it reads as "subordinate to the primary action"
+   when paired alongside Save/Cancel pairs. */
 .admin-btn-ghost {
   background: transparent;
-  border: 1px solid #444;
+  border-color: rgba(208, 200, 184, 0.15);
   color: var(--text-dim);
 }
 
 .admin-btn-ghost:hover {
-  border-color: var(--text);
-  color: var(--text);
+  border-color: var(--accent-dim);
+  color: var(--accent);
 }
 
 @media (max-width: 768px) {
-  .admin-sources-create {
-    padding: 14px;
-  }
-
-  .admin-table {
-    display: block;
-  }
-
-  .admin-table thead {
-    /* Header row would be meaningless once rows stack vertically. */
-    display: none;
-  }
-
-  .admin-table tbody,
-  .admin-table tr {
-    display: block;
-  }
-
-  .admin-table tr {
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 10px 12px;
-    margin-bottom: 10px;
-    background: var(--card-bg, rgba(255, 255, 255, 0.02));
-  }
-
-  .admin-table td {
-    display: block;
-    padding: 6px 0;
-    border-bottom: none;
-  }
-
-  .admin-table td + td {
-    border-top: 1px solid var(--border);
-    padding-top: 8px;
-    margin-top: 2px;
-  }
-
-  .admin-table td::before {
-    content: attr(data-label);
-    display: block;
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--text-dim);
-    font-weight: 600;
-    margin-bottom: 3px;
-  }
-
+  /* Mobile fallback for .admin-table (the table-stack with data-label
+     pseudos) is now provided by .admin-data-table. The wrapper-only
+     rules below stay for the actions cluster. */
   .admin-sources-actions {
     white-space: normal;
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
-  }
-
-  .admin-sources-actions .admin-btn {
-    margin: 0;
-  }
-
-  .admin-sources-actions .admin-btn-danger {
-    margin-left: 0;
+    gap: var(--space-1);
   }
 }
 
@@ -7970,127 +8331,69 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   vertical-align: middle;
 }
 
-/* Admin Audit page */
-.admin-audit-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  align-items: flex-end;
-  margin: 0.5rem 0 1rem 0;
-  padding: 0.75rem;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--border);
-  border-radius: 0.4rem;
-}
-.admin-audit-filters label {
-  display: flex;
-  flex-direction: column;
-  font-size: 0.75rem;
-  color: var(--text-dim);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 600;
-  gap: 0.25rem;
-}
-.admin-audit-filters select,
-.admin-audit-filters input {
-  font: inherit;
-  padding: 0.35rem 0.5rem;
-  background: var(--bg);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 0.25rem;
-  text-transform: none;
-  letter-spacing: 0;
-  font-weight: 400;
-  font-size: 0.85rem;
-  min-width: 10rem;
-}
-.admin-audit-clear,
-.admin-audit-refresh {
-  padding: 0.4rem 0.85rem;
-  background: var(--bg);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 0.25rem;
-  cursor: pointer;
-  font: inherit;
-  font-size: 0.85rem;
-}
-.admin-audit-clear:hover,
-.admin-audit-refresh:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.05);
-}
-.admin-audit-refresh:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
+/* Admin Audit page
+   The legacy form-grid filter row has been replaced by .admin-filters-panel
+   wrapping structured <details> sections. Table chrome is .admin-data-table.
+   Only the inline error banner and the semantic action chips remain
+   audit-specific. */
 .admin-audit-error {
-  padding: 0.6rem 0.85rem;
-  margin: 0.5rem 0;
-  border-radius: 0.3rem;
-  background: rgba(255, 80, 80, 0.1);
-  border: 1px solid var(--red);
-  color: var(--red);
+  padding: var(--space-2) var(--space-3);
+  margin: var(--space-2) 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  background: rgba(233, 69, 96, 0.08);
+  border: 1px solid rgba(233, 69, 96, 0.4);
+  color: rgb(240, 130, 145);
+  font-family: 'Barlow', sans-serif;
   font-size: 0.85rem;
 }
-.admin-audit-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.85rem;
-}
-.admin-audit-table th,
-.admin-audit-table td {
-  text-align: left;
-  padding: 0.5rem 0.75rem;
-  border-bottom: 1px solid var(--border);
-  vertical-align: top;
-}
-.admin-audit-table th {
-  color: var(--text-dim);
-  font-weight: 600;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
+
 .admin-audit-empty {
   text-align: center;
   color: var(--text-dim);
-  padding: 1.5rem !important;
+  padding: var(--space-5) !important;
   font-style: italic;
 }
+
 .admin-audit-system {
   color: var(--text-dim);
   font-style: italic;
   font-size: 0.85em;
 }
+
+/* Action chip (approved/rejected/rotated/etc.) — semantic palette mirrors
+   the health-badge vocabulary so the two read as one family. */
 .admin-audit-action {
   display: inline-block;
+  font-family: 'Barlow', sans-serif;
   font-size: 0.7rem;
   font-weight: 600;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 0.15rem 0.5rem;
-  border-radius: 0.2rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  background: rgba(208, 200, 184, 0.06);
+  border: 1px solid rgba(208, 200, 184, 0.2);
+  color: var(--text-dim);
 }
+
 .admin-audit-action-approved,
 .admin-audit-action-reactivated {
   background: rgba(80, 200, 120, 0.12);
-  border-color: rgba(80, 200, 120, 0.3);
+  border-color: rgba(80, 200, 120, 0.4);
   color: rgb(140, 220, 160);
 }
+
 .admin-audit-action-rejected,
 .admin-audit-action-revoked {
-  background: rgba(255, 100, 100, 0.12);
-  border-color: rgba(255, 100, 100, 0.3);
-  color: rgb(255, 160, 160);
+  background: rgba(233, 69, 96, 0.12);
+  border-color: rgba(233, 69, 96, 0.4);
+  color: rgb(240, 130, 145);
 }
+
 .admin-audit-action-rotated,
 .admin-audit-action-downloaded {
   background: rgba(120, 160, 220, 0.12);
-  border-color: rgba(120, 160, 220, 0.3);
+  border-color: rgba(120, 160, 220, 0.4);
   color: rgb(160, 190, 230);
 }
 

@@ -227,16 +227,23 @@ export function AdminUsers() {
   return (
     <div className="admin-users">
       <div className="admin-section-header">
-        <h2>Users</h2>
-        <button onClick={() => setShowCreateForm(!showCreateForm)}>
-          {showCreateForm ? 'Cancel' : 'Create User'}
-        </button>
+        <h2>Users<span className="admin-section-header__count"> ({users.length})</span></h2>
       </div>
 
       {error && <div className="error-message">{error}</div>}
 
-      {showCreateForm && (
-        <form className="create-user-form" onSubmit={handleCreateUser}>
+      {/* Create-user form lives behind a <details> toggle so the table stays
+          the page's primary surface; the warm-orange caret on the summary
+          rotates 90° when open, mirroring the structured-filter recipe. */}
+      <details
+        open={showCreateForm}
+        onToggle={(e) => setShowCreateForm((e.target as HTMLDetailsElement).open)}
+      >
+        <summary className="admin-form-toggle">
+          <span className="admin-form-toggle__caret" aria-hidden="true">▸</span>
+          {showCreateForm ? 'Cancel' : 'Create user'}
+        </summary>
+        <form className="admin-form-card" onSubmit={handleCreateUser}>
           <div className="form-group">
             <label>Username</label>
             <input
@@ -292,7 +299,7 @@ export function AdminUsers() {
             )}
             {createPlayerId && (
               <div className="selected-player">
-                Selected: Player #{createPlayerId}
+                <span>Selected: Player #{createPlayerId}</span>
                 <button
                   type="button"
                   onClick={() => {
@@ -305,11 +312,11 @@ export function AdminUsers() {
               </div>
             )}
           </div>
-          <button type="submit">Create User</button>
+          <button type="submit" className="admin-btn-primary">Create user</button>
         </form>
-      )}
+      </details>
 
-      <table className="users-table">
+      <table className="admin-data-table users-table">
         <thead>
           <tr>
             <th>Username</th>
@@ -323,9 +330,9 @@ export function AdminUsers() {
         <tbody>
           {users.map((user) => (
             <tr key={user.id}>
-              <td>{user.username}</td>
-              <td>{user.is_admin ? 'Admin' : 'User'}</td>
-              <td>
+              <td data-label="Username">{user.username}</td>
+              <td data-label="Role">{user.is_admin ? 'Admin' : 'User'}</td>
+              <td data-label="Player">
                 {editingUserId === user.id ? (
                   <div className="edit-player-inline">
                     <input
@@ -352,7 +359,7 @@ export function AdminUsers() {
                     )}
                     {editPlayerId && (
                       <div className="selected-player">
-                        Player #{editPlayerId}
+                        <span>Player #{editPlayerId}</span>
                         <button
                           type="button"
                           onClick={() => {
@@ -365,8 +372,8 @@ export function AdminUsers() {
                       </div>
                     )}
                     <div className="edit-actions">
-                      <button onClick={() => handleUpdatePlayerLink(user.id)}>Save</button>
-                      <button onClick={cancelEditing}>Cancel</button>
+                      <button className="admin-btn-primary" onClick={() => handleUpdatePlayerLink(user.id)}>Save</button>
+                      <button className="admin-btn" onClick={cancelEditing}>Cancel</button>
                     </div>
                   </div>
                 ) : (
@@ -382,7 +389,7 @@ export function AdminUsers() {
                         <ColoredText text={user.player_name} />
                       </button>
                     ) : (
-                      '—'
+                      <span className="admin-muted">—</span>
                     )}
                     <button className="edit-link-btn" onClick={() => startEditingUser(user)}>
                       Edit
@@ -390,9 +397,9 @@ export function AdminUsers() {
                   </span>
                 )}
               </td>
-              <td>{user.password_change_required ? 'Yes' : 'No'}</td>
-              <td>{user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Never'}</td>
-              <td className="actions">
+              <td data-label="Pwd Change">{user.password_change_required ? 'Yes' : 'No'}</td>
+              <td data-label="Last Login">{user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Never'}</td>
+              <td data-label="Actions" className="actions">
                 {resetPasswordUserId === user.id ? (
                   <div className="reset-password-inline">
                     <input
@@ -401,8 +408,9 @@ export function AdminUsers() {
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                     />
-                    <button onClick={() => handleResetPassword(user.id)}>Save</button>
+                    <button className="admin-btn-primary" onClick={() => handleResetPassword(user.id)}>Save</button>
                     <button
+                      className="admin-btn"
                       onClick={() => {
                         setResetPasswordUserId(null)
                         setNewPassword('')
@@ -413,10 +421,10 @@ export function AdminUsers() {
                   </div>
                 ) : (
                   <>
-                    <button onClick={() => setResetPasswordUserId(user.id)}>Reset Pwd</button>
+                    <button className="admin-btn" onClick={() => setResetPasswordUserId(user.id)}>Reset Pwd</button>
                     {user.username !== currentUsername && (
                       <button
-                        className="delete-btn"
+                        className="admin-btn-danger"
                         onClick={() => handleDeleteUser(user.username)}
                       >
                         Delete

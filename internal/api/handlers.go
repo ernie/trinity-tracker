@@ -587,6 +587,18 @@ func (r *Router) handleListAdminSessions(w http.ResponseWriter, req *http.Reques
 			filter.PlayerID = &id
 		}
 	}
+	// Optional RFC3339 date-range bounds on joined_at. Silently ignored
+	// when malformed so a stale localStorage value doesn't break the page.
+	if v := req.URL.Query().Get("since"); v != "" {
+		if t, err := time.Parse(time.RFC3339, v); err == nil {
+			filter.Since = &t
+		}
+	}
+	if v := req.URL.Query().Get("until"); v != "" {
+		if t, err := time.Parse(time.RFC3339, v); err == nil {
+			filter.Until = &t
+		}
+	}
 
 	limit := parseLimit(req, 50, 200)
 	beforeID := parseBeforeID(req)

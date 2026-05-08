@@ -76,32 +76,6 @@ export function AdminSources() {
     }
   }, [token])
 
-  // Pre-populate the create-form picker with the logged-in admin so
-  // the common self-service case is one click away. Only on first
-  // mount; subsequent picks are not overwritten.
-  useEffect(() => {
-    let cancelled = false
-    fetch('/api/account/profile', { headers: { Authorization: `Bearer ${token}` } })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((profile) => {
-        if (cancelled || !profile?.user) return
-        setSelectedOwner((prev) =>
-          prev ?? {
-            id: profile.user.id,
-            username: profile.user.username,
-            is_admin: profile.user.is_admin,
-            player_name: profile.player?.name ?? null,
-          },
-        )
-      })
-      .catch(() => {
-        /* non-fatal: picker just starts empty */
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [token])
-
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchAll()
@@ -331,7 +305,7 @@ export function AdminSources() {
             credentials and flips the row to active; reject stores the reason
             for the requester to see in their next request modal.
           </p>
-          <table className="admin-table">
+          <table className="admin-data-table admin-table">
             <thead>
               <tr>
                 <th>User</th>
@@ -356,7 +330,7 @@ export function AdminSources() {
         </section>
       )}
 
-      <section className="admin-sources-create">
+      <section className="admin-sources-create admin-form-card">
         <h2>Provision a new collector</h2>
         <p className="admin-help">
           Pick a short name — it becomes the NATS subject scope, and
@@ -398,7 +372,7 @@ export function AdminSources() {
             </p>
           </div>
           <div className="admin-sources-form-actions">
-            <button type="submit" className="admin-btn" disabled={creating || !formValid}>
+            <button type="submit" className="admin-btn-primary" disabled={creating || !formValid}>
               {creating ? 'Creating…' : 'Create source'}
             </button>
           </div>
@@ -406,11 +380,11 @@ export function AdminSources() {
       </section>
 
       <section>
-        <h2>Provisioned sources ({approved.length})</h2>
+        <h2>Provisioned sources<span className="admin-section-header__count"> ({approved.length})</span></h2>
         {approved.length === 0 ? (
           <p className="admin-empty">No sources yet.</p>
         ) : (
-          <table className="admin-table">
+          <table className="admin-data-table admin-table">
             <thead>
               <tr>
                 <th>Health</th>
@@ -650,7 +624,7 @@ function PendingRow({ req, onApprove, onReject, onRename }: PendingRowProps) {
         )}
         {mode === 'idle' && (
           <>
-            <button className="admin-btn" onClick={onApprove}>
+            <button className="admin-btn-primary" onClick={onApprove}>
               Approve
             </button>
             <button
@@ -663,7 +637,7 @@ function PendingRow({ req, onApprove, onReject, onRename }: PendingRowProps) {
               Rename
             </button>
             <button
-              className="admin-btn admin-btn-danger"
+              className="admin-btn-danger"
               onClick={() => setMode('rejecting')}
             >
               Reject
