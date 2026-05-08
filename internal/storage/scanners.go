@@ -72,6 +72,13 @@ func scanUser(s scanner) (*User, error) {
 	return &user, nil
 }
 
+// matchSummaryColumns is the SELECT column list paired with scanMatchSummaryRow.
+// Keep these two in sync — one line in the SELECT corresponds to one Scan target
+// in the row scanner.
+const matchSummaryColumns = `m.id, m.uuid, m.server_id, s.key, s.active, s.source, m.map_name, m.game_type,
+	m.started_at, m.ended_at, m.exit_reason,
+	m.red_score, m.blue_score, m.movement, m.gameplay, m.demo_available, m.is_featured`
+
 // scanMatchSummaryRow scans match summary fields from a row
 func scanMatchSummaryRow(s scanner) (*domain.MatchSummary, error) {
 	var m domain.MatchSummary

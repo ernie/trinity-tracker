@@ -1762,9 +1762,7 @@ func (s *Store) attachPlayersToMatches(ctx context.Context, matches []domain.Mat
 func (s *Store) GetRecentMatchSummaries(ctx context.Context, limit int) ([]domain.MatchSummary, error) {
 	// Get finished matches that have at least one player
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT DISTINCT
-			m.id, m.uuid, m.server_id, s.key, s.active, s.source, m.map_name, m.game_type, m.started_at, m.ended_at, m.exit_reason,
-			m.red_score, m.blue_score, m.movement, m.gameplay, m.demo_available, m.is_featured
+		SELECT DISTINCT `+matchSummaryColumns+`
 		FROM matches m
 		JOIN servers s ON m.server_id = s.id
 		JOIN match_player_stats mps ON m.id = mps.match_id
@@ -1797,9 +1795,7 @@ func (s *Store) GetRecentMatchSummaries(ctx context.Context, limit int) ([]domai
 // GetPlayerRecentMatches returns recent finished matches that a specific player participated in
 func (s *Store) GetPlayerRecentMatches(ctx context.Context, playerID int64, limit int, beforeID *int64) ([]domain.MatchSummary, error) {
 	query := `
-		SELECT DISTINCT
-			m.id, m.uuid, m.server_id, s.key, s.active, s.source, m.map_name, m.game_type, m.started_at, m.ended_at, m.exit_reason,
-			m.red_score, m.blue_score, m.movement, m.gameplay, m.demo_available, m.is_featured
+		SELECT DISTINCT `+matchSummaryColumns+`
 		FROM matches m
 		JOIN servers s ON m.server_id = s.id
 		JOIN match_player_stats mps ON m.id = mps.match_id
@@ -2135,8 +2131,7 @@ func (s *Store) ClaimLink(ctx context.Context, codeID, claimPlayerID, userID int
 // GetMatchSummaryByID returns a single match by ID with all player stats
 func (s *Store) GetMatchSummaryByID(ctx context.Context, matchID int64) (*domain.MatchSummary, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT m.id, m.uuid, m.server_id, s.key, s.active, s.source, m.map_name, m.game_type, m.started_at, m.ended_at, m.exit_reason,
-		       m.red_score, m.blue_score, m.movement, m.gameplay, m.demo_available, m.is_featured
+		SELECT `+matchSummaryColumns+`
 		FROM matches m
 		JOIN servers s ON m.server_id = s.id
 		WHERE m.id = ?
@@ -2198,9 +2193,7 @@ func (s *Store) GetFilteredMatchSummaries(ctx context.Context, filter MatchFilte
 	}
 
 	query := `
-		SELECT DISTINCT
-			m.id, m.uuid, m.server_id, s.key, s.active, s.source, m.map_name, m.game_type, m.started_at, m.ended_at, m.exit_reason,
-			m.red_score, m.blue_score, m.movement, m.gameplay, m.demo_available, m.is_featured
+		SELECT DISTINCT `+matchSummaryColumns+`
 		FROM matches m
 		JOIN servers s ON m.server_id = s.id
 		JOIN match_player_stats mps ON m.id = mps.match_id
