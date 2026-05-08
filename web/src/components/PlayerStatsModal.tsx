@@ -53,7 +53,7 @@ export function PlayerStatsModal({ playerName, playerId, onClose }: PlayerStatsM
           ) : error ? (
             <div className="stats-error">{error}</div>
           ) : stats ? (
-            <StatsDisplay stats={stats} />
+            <StatsDisplay stats={stats} onClose={onClose} />
           ) : null}
         </div>
       </div>
@@ -61,7 +61,7 @@ export function PlayerStatsModal({ playerName, playerId, onClose }: PlayerStatsM
   )
 }
 
-function StatsDisplay({ stats }: { stats: PlayerStatsResponse }) {
+function StatsDisplay({ stats, onClose }: { stats: PlayerStatsResponse; onClose: () => void }) {
   return (
     <>
       <div className="player-meta-top">
@@ -109,7 +109,11 @@ function StatsDisplay({ stats }: { stats: PlayerStatsResponse }) {
       })()}
 
       <div className="modal-footer">
-        <Link to={`/players/${stats.player.id}`} className="view-profile-link">
+        <Link
+          to={`/players/${stats.player.id}`}
+          className="view-profile-link"
+          onClick={onClose}
+        >
           View full profile
         </Link>
       </div>
