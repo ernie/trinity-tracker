@@ -172,10 +172,15 @@ export function MatchCard({
         />
         <ModeIcons movement={match.movement} gameplay={match.gameplay} />
         {match.ended_at && (
-          <span className="card__time" title={new Date(match.ended_at).toLocaleString()}>
+          <Link
+            to={`/matches/${match.id}`}
+            state={{ from: location.pathname }}
+            className="card__time"
+            title={`${new Date(match.ended_at).toLocaleString()} — open match details`}
+          >
             {formatTimeAgo(match.ended_at)}
             <span className="duration">{formatDuration(match.started_at, match.ended_at)}</span>
-          </span>
+          </Link>
         )}
       </div>
 

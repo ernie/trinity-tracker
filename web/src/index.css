@@ -9452,31 +9452,35 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   color: var(--text-dim);
 }
 
+/* 1v1 cards have only two players, so the body has more vertical and
+   horizontal room than FFA/team. Sized up: bigger portraits + score
+   numerals, more breathing room around the awards strip. */
 .duelists {
   display: grid;
-  grid-template-columns: 56px 1fr auto 1fr 56px;
+  grid-template-columns: 64px 1fr auto 1fr 64px;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 14px;
+  gap: 14px;
+  margin-bottom: 18px;
+  padding: 8px 0 4px;
 }
 .duelist-awards {
-  display: flex; flex-wrap: wrap; gap: 4px;
+  display: flex; flex-wrap: wrap; gap: 5px;
   justify-content: flex-end; align-items: flex-start; align-content: flex-start;
-  height: 100%; padding-top: 4px;
+  height: 100%; padding-top: 8px;
 }
 .duelist-awards.right { justify-content: flex-start; }
 .duelist-awards .medal-icon { margin: 0; }
-.duelist-awards .medal-icon-sm img { width: 16px; height: 16px; }
+.duelist-awards .medal-icon-sm img { width: 18px; height: 18px; }
 /* Legacy stub-mockup color hooks — production uses MedalIcon imgs. */
 .medal-excellent { color: #facc15; }
 .medal-impressive { color: rgba(255, 248, 240, 0.7); }
 .medal-humiliation { color: var(--red); }
 .medal-gauntlet { color: var(--ember-strong, #ff6e3c); }
 
-.duelist { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.duelist { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .duelist__portrait-wrap {
   position: relative;
-  width: 44px; height: 44px;
+  width: 88px; height: 88px;
   border-radius: 50%;
   background: linear-gradient(135deg, #2a1f1a, #0a0808);
   display: grid; place-items: center;
@@ -9500,27 +9504,31 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 .duelist__portrait-wrap .player-badge,
 .duelist__portrait-wrap .bot-badge {
   position: absolute;
-  right: -3px;
-  bottom: -3px;
+  right: 0;
+  bottom: 0;
   z-index: 2;
 }
 .duelist__portrait-wrap.winner {
   border-color: #facc15;
-  box-shadow: 0 0 10px rgba(250, 204, 21, 0.3);
+  box-shadow: 0 0 14px rgba(250, 204, 21, 0.35);
 }
 .duelist__name {
-  font-family: 'Barlow', sans-serif; font-weight: 700; font-size: 12px;
+  font-family: 'Barlow', sans-serif; font-weight: 700; font-size: 15px;
   color: var(--text); letter-spacing: 0.04em;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .duelist__name.dim { color: var(--text-dim); }
 .duelist__score {
-  font-family: 'Cinzel', serif; font-weight: 700; font-size: 28px;
+  font-family: 'Cinzel', serif; font-weight: 700; font-size: 38px;
   color: var(--accent); line-height: 1; letter-spacing: 0.04em; font-variant-numeric: tabular-nums;
 }
 .duelist__score.loser { color: var(--text-dim); }
 .duelist__sub {
-  font-family: 'Barlow', sans-serif; font-size: 10px;
-  letter-spacing: 0.15em; color: var(--text-dim); text-transform: uppercase;
+  font-family: 'Barlow', sans-serif; font-size: 11px;
+  letter-spacing: 0.16em; color: var(--text-dim); text-transform: uppercase;
   display: flex; gap: 8px;
 }
 
@@ -9719,7 +9727,8 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 /* Right-side meta pins to the far right; chip + mode-icons stay grouped left. */
 .card__topbar > .card__state,
 .card__topbar > .card__time { margin-left: auto; }
-/* Match card relative-time stacked over elapsed duration. */
+/* Match card relative-time stacked over elapsed duration. Links to
+   the match detail page (where admins can toggle Featured). */
 .card__time {
   display: inline-flex;
   flex-direction: column;
@@ -9733,7 +9742,16 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   white-space: nowrap;
   flex-shrink: 0;
   line-height: 1.1;
+  text-decoration: none;
+  transition: color 0.15s ease;
 }
+.card__time:hover,
+.card__time:focus-visible {
+  color: var(--accent);
+  outline: none;
+}
+.card__time:hover .duration,
+.card__time:focus-visible .duration { color: var(--accent); }
 .card__time .duration {
   font-family: 'Cinzel', serif;
   font-size: 12px;
@@ -9741,6 +9759,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   text-transform: none;
   color: var(--text);
   font-variant-numeric: tabular-nums;
+  transition: color 0.15s ease;
 }
 .card__topbar .mode-icons { margin: 0; }
 .card__state {
