@@ -1,7 +1,6 @@
 package assets
 
 import (
-	"archive/zip"
 	"bufio"
 	"fmt"
 	"io"
@@ -96,25 +95,18 @@ func splitKeyValue(line string) (key, value string) {
 func ExtractArenas(pk3s []string) (map[string]ArenaMeta, error) {
 	out := make(map[string]ArenaMeta)
 	for _, pk3Path := range pk3s {
-		r, err := zip.OpenReader(pk3Path)
-		if err != nil {
-			return nil, fmt.Errorf("open %s: %w", pk3Path, err)
-		}
-		for _, f := range r.File {
-			lower := strings.ToLower(f.Name)
-			if !isArenaFile(lower) {
-				continue
+		if err := IteratePk3(pk3Path, func(name string, open func() (io.ReadCloser, error)) error {
+			if !isArenaFile(strings.ToLower(name)) {
+				return nil
 			}
-			rc, err := f.Open()
+			rc, err := open()
 			if err != nil {
-				r.Close()
-				return nil, fmt.Errorf("open %s in %s: %w", f.Name, pk3Path, err)
+				return fmt.Errorf("open %s in %s: %w", name, pk3Path, err)
 			}
-			entries, parseErr := ParseArenaText(rc)
-			rc.Close()
-			if parseErr != nil {
-				r.Close()
-				return nil, fmt.Errorf("parse %s in %s: %w", f.Name, pk3Path, parseErr)
+			defer rc.Close()
+			entries, err := ParseArenaText(rc)
+			if err != nil {
+				return fmt.Errorf("parse %s in %s: %w", name, pk3Path, err)
 			}
 			for _, e := range entries {
 				if e.Map == "" {
@@ -122,8 +114,10 @@ func ExtractArenas(pk3s []string) (map[string]ArenaMeta, error) {
 				}
 				out[e.Map] = e
 			}
+			return nil
+		}); err != nil {
+			return nil, err
 		}
-		r.Close()
 	}
 	return out, nil
 }
