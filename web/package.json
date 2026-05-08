@@ -4,7 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "build": "tsc -b && bun run build.ts",
+    "build:landing-images": "bun scripts/build-landing-images.ts",
+    "build": "bun run build:landing-images && tsc -b && bun run build.ts",
     "lint": "eslint ."
   },
   "dependencies": {
@@ -20,6 +21,7 @@
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "globals": "^16.5.0",
+    "sharp": "^0.34.5",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4"
   }
