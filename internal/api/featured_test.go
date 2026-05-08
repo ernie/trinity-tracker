@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -93,5 +94,50 @@ func TestAdminFeatureMatch_BadMatchID(t *testing.T) {
 	w := tr.do(http.MethodPost, "/api/admin/matches/not-a-number/feature", "", adminTok)
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400 for bad id; got %d", w.Code)
+	}
+}
+
+func TestGetFeaturedMatches_ReturnsIDsOnly(t *testing.T) {
+	tr := newTestRouter(t)
+	matchID := seedFeatureTestMatch(t, tr.store, true)
+	if err := tr.store.SetMatchFeatured(context.Background(), matchID, true); err != nil {
+		t.Fatal(err)
+	}
+
+	w := tr.do(http.MethodGet, "/api/matches/featured", "", "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200; got %d (%s)", w.Code, w.Body.String())
+	}
+
+	var resp struct {
+		Matches []int64 `json:"matches"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatal(err)
+	}
+	if len(resp.Matches) != 1 || resp.Matches[0] != matchID {
+		t.Fatalf("got %v", resp.Matches)
+	}
+}
+
+func TestGetFeaturedMatches_EmptyByDefault(t *testing.T) {
+	tr := newTestRouter(t)
+
+	w := tr.do(http.MethodGet, "/api/matches/featured", "", "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200; got %d", w.Code)
+	}
+
+	var resp struct {
+		Matches []int64 `json:"matches"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatal(err)
+	}
+	if resp.Matches == nil {
+		t.Fatalf("matches should be empty array, not nil — got null in JSON?")
+	}
+	if len(resp.Matches) != 0 {
+		t.Fatalf("expected empty list; got %v", resp.Matches)
 	}
 }

@@ -104,6 +104,7 @@ func NewRouter(store *storage.Store, manager *collector.ServerManager, writer *h
 
 	r.mux.HandleFunc("GET /api/matches", r.handleGetMatches)
 	r.mux.HandleFunc("GET /api/matches/{id}", r.handleGetMatch)
+	r.mux.HandleFunc("GET /api/matches/featured", r.handleGetFeaturedMatches)
 
 	r.mux.HandleFunc("GET /api/stats/leaderboard", r.handleGetLeaderboard)
 

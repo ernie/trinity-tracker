@@ -630,3 +630,26 @@ func (r *Router) handleFeatureMatch(w http.ResponseWriter, req *http.Request) {
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
+
+// handleGetFeaturedMatches returns the IDs of currently-featured matches with
+// available demos. Public endpoint; consumed by the landing-page "Watch a fight"
+// door which picks one at random on click.
+func (r *Router) handleGetFeaturedMatches(w http.ResponseWriter, req *http.Request) {
+	limit := 20
+	if v := req.URL.Query().Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 100 {
+			limit = n
+		}
+	}
+	ids, err := r.store.GetFeaturedMatches(req.Context(), limit)
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	if ids == nil {
+		ids = []int64{}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "public, max-age=30")
+	json.NewEncoder(w).Encode(map[string]any{"matches": ids})
+}
