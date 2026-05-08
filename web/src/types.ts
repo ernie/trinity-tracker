@@ -280,6 +280,7 @@ export interface MatchSummary {
   red_score?: number
   blue_score?: number
   demo_url?: string
+  is_featured?: boolean
   movement?: string
   gameplay?: string
 }

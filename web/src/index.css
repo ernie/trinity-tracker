@@ -5780,6 +5780,38 @@ h2 {
   margin: 0 auto;
 }
 
+.match-feature-row {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 0 12px;
+}
+
+.match-feature-toggle {
+  font-family: 'Barlow', sans-serif;
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  background: transparent;
+  border: var(--rule-strong);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+.match-feature-toggle:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.match-feature-toggle.is-featured {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.match-feature-toggle:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+
 /* ========================================
    Match Card Enhancements
    ======================================== */

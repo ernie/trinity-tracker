@@ -93,6 +93,7 @@ type MatchSummary struct {
 	Source        string               `json:"source"`
 	MapName       string               `json:"map_name"`
 	DemoAvailable bool                 `json:"demo_available"`
+	IsFeatured    bool                 `json:"is_featured"`
 	GameType   string               `json:"game_type"`
 	StartedAt  time.Time            `json:"started_at"`
 	EndedAt    *time.Time           `json:"ended_at,omitempty"`
