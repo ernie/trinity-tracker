@@ -1,10 +1,11 @@
 import { DISCORD_INVITE_URL } from "../../constants/discord";
+import { DocsH2 } from "./DocsH2";
 
 export function DocsServerAdmin() {
   return (
     <>
       <div className="about-section">
-        <h2>Contributing stats to this hub</h2>
+        <DocsH2 id="contributing-stats">Contributing stats to this hub</DocsH2>
         <p>
           Server operators can run a Trinity collector alongside their q3
           server and publish match stats here. To get set up on{" "}
@@ -75,7 +76,7 @@ export function DocsServerAdmin() {
       </div>
 
       <div className="about-section">
-        <h2>Server CVars</h2>
+        <DocsH2 id="server-cvars">Server CVars</DocsH2>
         <p>
           These cvars are available for server admins running Trinity.
         </p>
@@ -138,7 +139,7 @@ export function DocsServerAdmin() {
       </div>
 
       <div className="about-section">
-        <h2>Trinity Handshake</h2>
+        <DocsH2 id="trinity-handshake">Trinity Handshake</DocsH2>
         <p>
           Set <code>g_trinityHandshake 1</code> to require Trinity clients
           on your server. Non-Trinity clients will be disconnected after

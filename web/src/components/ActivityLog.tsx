@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import type { ActivityItem, Player, ServerStatus } from '../types'
 import { BotBadge } from './BotBadge'
 import { ColoredText } from './ColoredText'
@@ -6,7 +6,12 @@ import { PlayerBadge } from './PlayerBadge'
 import { FlagIcon } from './FlagIcon'
 import { MedalIcon } from './MedalIcon'
 import { PlayerItem } from './PlayerItem'
-import { SourceFilter } from './SourceFilter'
+import {
+  ActivityFilters,
+  loadActivityFilters,
+  type ActivityFilterState,
+} from './ActivityFilters'
+import { classifyActivity } from '../constants/activityTaxonomy'
 import { useSources } from '../hooks/useSources'
 import { serverDisplay } from '../utils'
 
@@ -16,116 +21,58 @@ interface ActivityLogProps {
   onPlayerClick?: (playerName: string, cleanName: string, playerId?: number) => void
 }
 
-// Strip Q3 color codes to get plain text for tooltips
 function getPlainText(text: string): string {
   return text.replace(/\^[0-9]/g, '')
 }
 
-const STORAGE_KEY_SERVER_FILTER = 'q3a_activity_server_filter'
-const STORAGE_KEY_SOURCE_FILTER = 'q3a_activity_source_filter'
-const STORAGE_KEY_INCLUDE_BOTS = 'q3a_activity_include_bots'
-
 export function ActivityLog({ activities, servers, onPlayerClick }: ActivityLogProps) {
-  const { sources, hasMultiple: hasMultipleSources } = useSources()
-  const [serverFilter, setServerFilter] = useState<number | 'all'>(() => {
-    const stored = localStorage.getItem(STORAGE_KEY_SERVER_FILTER)
-    if (stored === null || stored === 'all') return 'all'
-    const num = Number(stored)
-    return isNaN(num) ? 'all' : num
-  })
-  const [sourceFilter, setSourceFilter] = useState<string>(() => {
-    return localStorage.getItem(STORAGE_KEY_SOURCE_FILTER) ?? ''
-  })
-  const [includeBots, setIncludeBots] = useState(() => {
-    return localStorage.getItem(STORAGE_KEY_INCLUDE_BOTS) === 'true'
-  })
+  const { hasMultiple: hasMultipleSources } = useSources()
+  const [filters, setFilters] = useState<ActivityFilterState>(() => loadActivityFilters())
 
-  // Persist filter state to localStorage
+  // Drop legacy per-axis filter keys once on mount so the old prefs
+  // don't linger. Prior versions persisted three separate keys
+  // (server / source / include-bots); the new model collapses them
+  // into q3a_activity_filters.
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_SERVER_FILTER, String(serverFilter))
-  }, [serverFilter])
+    localStorage.removeItem('q3a_activity_server_filter')
+    localStorage.removeItem('q3a_activity_source_filter')
+    localStorage.removeItem('q3a_activity_include_bots')
+  }, [])
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_SOURCE_FILTER, sourceFilter)
-  }, [sourceFilter])
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_INCLUDE_BOTS, String(includeBots))
-  }, [includeBots])
-
-  // Sanitize persisted filters once we have data to validate against.
-  // A filter referencing a deleted/renamed server or source would
-  // silently hide every activity row otherwise — and the user has no
-  // signal as to why. Validate each axis once its own data has loaded;
-  // servers (WebSocket) and sources (/api/sources) arrive on independent
-  // timelines, so a combined gate could fire validation against an
-  // empty sources list and nuke a perfectly valid persisted filter.
-  const serverFilterValidated = useRef(false)
-  const sourceFilterValidated = useRef(false)
-  useEffect(() => {
-    if (!serverFilterValidated.current && servers.size > 0) {
-      if (typeof serverFilter === 'number' && !servers.has(serverFilter)) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setServerFilter('all')
-      }
-      serverFilterValidated.current = true
-    }
-    if (!sourceFilterValidated.current && sources.length > 0) {
-      if (sourceFilter !== '' && !sources.some((s) => s.source === sourceFilter)) {
-        setSourceFilter('')
-      }
-      sourceFilterValidated.current = true
-    }
-  }, [servers, sources, serverFilter, sourceFilter])
-
-  // Get servers for filter dropdown - only show servers with a real key
-  const availableServers = useMemo(() => {
-    return Array.from(servers.entries())
-      .filter(([, status]) => !!status.key)
-      .map(([id, status]) => [id, serverDisplay(status.source, status.key, { hasMultipleSources })] as [number, string])
-      .sort((a, b) => a[0] - b[0])
-  }, [servers, hasMultipleSources])
-
-  // Aggregate human players across all online servers
+  // Live human players grouped by server, for the "X playing" header.
   const humanPlayersWithServer = useMemo(() => {
     const players: Array<{ player: Player; serverName: string }> = []
-
     for (const [, status] of servers.entries()) {
-      if (!status.players || !status.online) continue
-      if (!status.key) continue
+      if (!status.players || !status.online || !status.key) continue
       const serverName = serverDisplay(status.source, status.key, { hasMultipleSources })
-
       for (const player of status.players) {
-        if (!player.is_bot && player.team !== 3) { // Exclude bots and spectators
+        if (!player.is_bot && player.team !== 3) {
           players.push({ player, serverName })
         }
       }
     }
-
     return players.sort((a, b) => b.player.score - a.player.score)
   }, [servers, hasMultipleSources])
 
-  // Filter activities
+  // Apply all filter axes in series. Bot filtering is orthogonal to the
+  // categorical filters (it's a player-attribute check). Match-start
+  // events have no player attribution and are never bot-filtered.
   const filteredActivities = useMemo(() => {
-    return activities.filter((activity) => {
-      // Server filter
-      if (serverFilter !== 'all' && activity.serverId !== serverFilter) {
-        return false
-      }
-      // Source filter — derive from the activity's server.
-      if (sourceFilter !== '') {
-        const status = activity.serverId ? servers.get(activity.serverId) : undefined
-        if (!status || status.source !== sourceFilter) {
-          return false
-        }
-      }
-      // Bot filter (always show match_start events)
-      if (!includeBots && activity.player?.isBot && activity.activityType !== 'match_start') {
-        return false
-      }
+    const hiddenSources = new Set(filters.hiddenSources)
+    const hiddenServers = new Set(filters.hiddenServers)
+    const hiddenEvents = new Set(filters.hiddenEvents)
+    const hiddenGameTypes = new Set(filters.hiddenGameTypes)
+    return activities.filter((a) => {
+      const status = a.serverId !== undefined ? servers.get(a.serverId) : undefined
+      if (status?.source && hiddenSources.has(status.source)) return false
+      if (a.serverId !== undefined && hiddenServers.has(a.serverId)) return false
+      if (status?.game_type && hiddenGameTypes.has(status.game_type.toLowerCase())) return false
+      const key = classifyActivity(a)
+      if (key && hiddenEvents.has(key)) return false
+      if (!filters.includeBots && a.player?.isBot && a.activityType !== 'match_start') return false
       return true
     })
-  }, [activities, serverFilter, sourceFilter, includeBots, servers])
+  }, [activities, filters, servers])
 
   return (
     <div className="activity-log">
@@ -147,27 +94,12 @@ export function ActivityLog({ activities, servers, onPlayerClick }: ActivityLogP
           </ul>
         </div>
       )}
-      <div className="activity-filters">
-        <select
-          value={serverFilter}
-          onChange={(e) => setServerFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-          className="server-filter"
-        >
-          <option value="all">All Servers</option>
-          {availableServers.map(([id, name]) => (
-            <option key={id} value={id}>{name}</option>
-          ))}
-        </select>
-        <SourceFilter value={sourceFilter} onChange={setSourceFilter} />
-        <label className="include-bots-toggle">
-          <input
-            type="checkbox"
-            checked={includeBots}
-            onChange={(e) => setIncludeBots(e.target.checked)}
-          />
-          Include bots
-        </label>
-      </div>
+
+      <details className="activity-filters-toggle">
+        <summary>Filters</summary>
+        <ActivityFilters state={filters} onChange={setFilters} servers={servers} />
+      </details>
+
       <div className="activity-list">
         {filteredActivities.map((activity) => (
           activity.activityType === 'match_start' && activity.mapName ? (
@@ -176,7 +108,10 @@ export function ActivityLog({ activities, servers, onPlayerClick }: ActivityLogP
               className="activity-item activity-map-change"
               style={{ backgroundImage: `url(/assets/levelshots/${activity.mapName.toLowerCase()}.jpg)` }}
             >
-              <span className="activity-map-name">{activity.mapName}</span>
+              <div className="activity-map-text">
+                <span className="activity-map-name">{activity.mapName}</span>
+                <span className="activity-map-time">{activity.timestamp.toLocaleTimeString()}</span>
+              </div>
               {activity.serverName && (
                 <span className="activity-map-server">{activity.serverName}</span>
               )}
@@ -200,7 +135,9 @@ export function ActivityLog({ activities, servers, onPlayerClick }: ActivityLogP
         ))}
         {filteredActivities.length === 0 && (
           <div className="activity-item">
-            <span className="activity-message info">Waiting for events...</span>
+            <span className="activity-message info">
+              {activities.length === 0 ? 'Waiting for events...' : 'No events match the current filters'}
+            </span>
           </div>
         )}
       </div>
@@ -216,28 +153,23 @@ interface ActivityMessageProps {
 function ActivityMessage({ activity, onPlayerClick }: ActivityMessageProps) {
   const message = activity.message
 
-  // If no player info or no click handler, just render the message
   if (!activity.player || !onPlayerClick) {
     return <ColoredText text={message} />
   }
 
-  // Find the player name in the message and make it clickable
   const { name: playerName, cleanName, playerId, isBot, skill } = activity.player
   const playerNameWithReset = playerName + '^7'
   const idx = message.indexOf(playerNameWithReset)
 
   if (idx === -1) {
-    // Fallback if we can't find the name
     return <ColoredText text={message} />
   }
 
   const before = message.slice(0, idx)
   let after = message.slice(idx + playerNameWithReset.length)
 
-  // Determine which icon to show based on activity type
   const icon = getActivityIcon(activity)
 
-  // Check if there's a victim (for humiliation awards)
   let victimElement: React.ReactNode = null
   let afterVictim = ''
   if (activity.victim) {
@@ -281,7 +213,6 @@ function ActivityMessage({ activity, onPlayerClick }: ActivityMessageProps) {
 function getActivityIcon(activity: ActivityItem): React.ReactNode {
   const { activityType, team, awardType } = activity
 
-  // Flag events. team=0 means the neutral 1FCTF flag; 1=Red, 2=Blue.
   if (activityType === 'flag_capture') {
     return <MedalIcon type="capture" showCount={false} />
   }
@@ -298,19 +229,13 @@ function getActivityIcon(activity: ActivityItem): React.ReactNode {
     return <FlagIcon team={flagTeam} status="dropped" size="sm" />
   }
 
-  // Award/medal events
   if (activityType === 'award' && awardType) {
     switch (awardType) {
-      case 'impressive':
-        return <MedalIcon type="impressive" showCount={false} />
-      case 'excellent':
-        return <MedalIcon type="excellent" showCount={false} />
-      case 'humiliation':
-        return <MedalIcon type="humiliation" showCount={false} />
-      case 'defend':
-        return <MedalIcon type="defend" showCount={false} />
-      case 'assist':
-        return <MedalIcon type="assist" showCount={false} />
+      case 'impressive': return <MedalIcon type="impressive" showCount={false} />
+      case 'excellent': return <MedalIcon type="excellent" showCount={false} />
+      case 'humiliation': return <MedalIcon type="humiliation" showCount={false} />
+      case 'defend': return <MedalIcon type="defend" showCount={false} />
+      case 'assist': return <MedalIcon type="assist" showCount={false} />
     }
   }
 

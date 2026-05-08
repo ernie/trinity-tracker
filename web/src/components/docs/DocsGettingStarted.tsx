@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useGitHubReleases } from "../../hooks/useGitHubReleases";
 import { DISCORD_INVITE_URL } from "../../constants/discord";
+import { DocsH2 } from "./DocsH2";
 
 const DOWNLOAD_DESCRIPTIONS: Record<string, string> = {
   trinity: "Custom Quake 3 mod with Trinity features",
@@ -33,7 +34,7 @@ export function DocsGettingStarted() {
   return (
     <>
       <div className="about-section">
-        <h2>Install Trinity</h2>
+        <DocsH2 id="install-trinity">Install Trinity</DocsH2>
         <p>
           Downloading these builds is the only way to enjoy all Trinity
           features. All engine downloads include the Trinity mod that was
@@ -100,7 +101,7 @@ export function DocsGettingStarted() {
       </div>
 
       <div className="about-section">
-        <h2>Your Account</h2>
+        <DocsH2 id="your-account">Your Account</DocsH2>
         <p>
           Type <code>!claim</code> in the in-game chat to create an account.
           You'll receive a code to set up your username and password. Once
@@ -119,7 +120,7 @@ export function DocsGettingStarted() {
       </div>
 
       <div className="about-section">
-        <h2>Automatic Updates</h2>
+        <DocsH2 id="automatic-updates">Automatic Updates</DocsH2>
         <p>
           Trinity checks for new releases on startup. When an update
           is available, an indicator appears on the main menu. From there you
@@ -149,7 +150,7 @@ export function DocsGettingStarted() {
       </div>
 
       <div className="about-section">
-        <h2>Configuration</h2>
+        <DocsH2 id="configuration">Configuration</DocsH2>
         <p>
           Trinity adds gameplay features beyond base Quake 3. Create an{" "}
           <code>autoexec.cfg</code> in your <code>baseq3</code> folder to

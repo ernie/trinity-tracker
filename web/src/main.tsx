@@ -15,42 +15,53 @@ import { AdminPlayers } from './components/admin/AdminPlayers'
 import { AdminSources } from './components/admin/AdminSources'
 import { AdminAudit } from './components/admin/AdminAudit'
 import { AuthProvider } from './hooks/useAuth'
+import { LiveDataProvider } from './contexts/LiveDataContext'
+import { Chrome } from './components/Chrome'
+import { Footer } from './components/Footer'
 import './index.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <AuthProvider>
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<App />} />
-          <Route path="/players" element={<PlayersPage />} />
-          <Route path="/players/:id" element={<PlayersPage />} />
-          <Route path="/matches" element={<MatchesPage />} />
-          <Route path="/matches/:id/demo" element={<DemoPlayerPage />} />
-          <Route path="/play" element={<PlayPage />} />
-          <Route path="/matches/:id" element={<MatchDetailPage />} />
-          <Route path="/leaderboard" element={<LeaderboardPage />} />
-          <Route path="/account" element={<AccountPage />} />
-          <Route path="/docs" element={<DocsPage />}>
-            <Route index element={<Navigate to="/docs/getting-started" replace />} />
-            <Route path="getting-started" element={<DocsGettingStarted />} />
-            <Route path="features" element={<DocsFeatures />} />
-            <Route path="server-admin" element={<DocsServerAdmin />} />
-            <Route path="credits" element={<DocsCredits />} />
-          </Route>
-          <Route path="/admin" element={<AdminPage />}>
-            <Route index element={<Navigate to="/admin/users" replace />} />
-            <Route path="users" element={<AdminUsers />} />
-            <Route path="sessions" element={<AdminSessions />} />
-            <Route path="players" element={<AdminPlayers />} />
-            <Route path="sources" element={<AdminSources />} />
-            <Route path="audit" element={<AdminAudit />} />
-          </Route>
-          <Route path="/about" element={<Navigate to="/docs" replace />} />
-          <Route path="/getting-started" element={<Navigate to="/docs/getting-started" replace />} />
-          <Route path="/claim" element={<ClaimPage />} />
-          <Route path="/quake3-eula" element={<Quake3EulaPage />} />
-        </Routes>
+        <LiveDataProvider>
+          <Chrome />
+          <div className="app-shell">
+            <main className="app-main">
+              <Routes>
+                <Route path="/" element={<App />} />
+                <Route path="/players" element={<PlayersPage />} />
+                <Route path="/players/:id" element={<PlayersPage />} />
+                <Route path="/matches" element={<MatchesPage />} />
+                <Route path="/matches/:id/demo" element={<DemoPlayerPage />} />
+                <Route path="/play" element={<PlayPage />} />
+                <Route path="/matches/:id" element={<MatchDetailPage />} />
+                <Route path="/leaderboard" element={<LeaderboardPage />} />
+                <Route path="/account" element={<AccountPage />} />
+                <Route path="/docs" element={<DocsPage />}>
+                  <Route index element={<Navigate to="/docs/getting-started" replace />} />
+                  <Route path="getting-started" element={<DocsGettingStarted />} />
+                  <Route path="features" element={<DocsFeatures />} />
+                  <Route path="server-admin" element={<DocsServerAdmin />} />
+                  <Route path="credits" element={<DocsCredits />} />
+                </Route>
+                <Route path="/admin" element={<AdminPage />}>
+                  <Route index element={<Navigate to="/admin/users" replace />} />
+                  <Route path="users" element={<AdminUsers />} />
+                  <Route path="sessions" element={<AdminSessions />} />
+                  <Route path="players" element={<AdminPlayers />} />
+                  <Route path="sources" element={<AdminSources />} />
+                  <Route path="audit" element={<AdminAudit />} />
+                </Route>
+                <Route path="/about" element={<Navigate to="/docs" replace />} />
+                <Route path="/getting-started" element={<Navigate to="/docs/getting-started" replace />} />
+                <Route path="/claim" element={<ClaimPage />} />
+                <Route path="/quake3-eula" element={<Quake3EulaPage />} />
+              </Routes>
+            </main>
+            <Footer />
+          </div>
+        </LiveDataProvider>
       </BrowserRouter>
     </AuthProvider>
   </StrictMode>,

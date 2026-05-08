@@ -534,6 +534,7 @@ func cmdServe(args []string) {
 	}
 
 	router := api.NewRouter(store, manager, writer, authService, cfg.Server.StaticDir, cfg.Server.Quake3Dir)
+	router.SetVersion(version)
 	if remotePoller != nil {
 		router.SetPoller(remotePoller)
 		remotePoller.SetSink(router)

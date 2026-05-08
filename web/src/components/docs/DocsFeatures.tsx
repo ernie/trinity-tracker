@@ -1,11 +1,12 @@
 import { Link } from "react-router-dom";
+import { DocsH2 } from "./DocsH2";
 import { MOVEMENT_MODES, GAMEPLAY_MODES } from "../ServerCard";
 
 export function DocsFeatures() {
   return (
     <>
       <div className="about-section">
-        <h2>Trinity Features</h2>
+        <DocsH2 id="trinity-features">Trinity Features</DocsH2>
         <div className="about-features">
           <details className="about-feature">
             <summary>
@@ -283,7 +284,7 @@ export function DocsFeatures() {
       </div>
 
       <div className="about-section">
-        <h2>Gameplay Modes</h2>
+        <DocsH2 id="gameplay-modes">Gameplay Modes</DocsH2>
         <p>
           Trinity servers can run alternative gameplay rules via
           the <code>g_gameplay</code> cvar. The active gameplay mode is shown
@@ -303,7 +304,7 @@ export function DocsFeatures() {
       </div>
 
       <div className="about-section">
-        <h2>Movement Modes</h2>
+        <DocsH2 id="movement-modes">Movement Modes</DocsH2>
         <p>
           Movement physics can be changed independently of gameplay rules via
           the <code>g_movement</code> cvar. This controls how air control,
@@ -323,7 +324,7 @@ export function DocsFeatures() {
       </div>
 
       <div className="about-section">
-        <h2>Authentication</h2>
+        <DocsH2 id="authentication">Authentication</DocsH2>
         <p>
           Logging in links your game identity with your Trinity account,
           so your stats are automatically associated no matter which device

@@ -50,7 +50,12 @@ export function usePlayerSessions(
           throw new Error('Failed to load sessions')
         }
 
-        const data: PlayerSession[] = await res.json()
+        // Go's json.Marshal serializes a nil slice as `null`, not `[]`,
+        // so the API can hand us null when a player has no sessions.
+        // Coerce to an empty array so downstream `.length` access can't
+        // throw and the caller sees the standard empty-state path.
+        const raw = await res.json()
+        const data: PlayerSession[] = Array.isArray(raw) ? raw : []
 
         if (beforeId) {
           setSessions((prev) => [...prev, ...data])

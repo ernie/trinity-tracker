@@ -57,6 +57,16 @@ type liveServer struct {
 
 // handleGetServers returns servers the hub has observed enforcing
 // g_trinityHandshake AND that are currently checking in. Servers go
+// handleGetVersion returns the running binary's git-describe version.
+// Public — surfaced to the footer on the frontend.
+func (r *Router) handleGetVersion(w http.ResponseWriter, req *http.Request) {
+	v := r.version
+	if v == "" {
+		v = "dev"
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"version": v})
+}
+
 // missing from this list when the collector source has stopped
 // heartbeating OR the q3 server has been UDP-unreachable for the
 // hide threshold — operators see them disappear instead of stuck on
@@ -552,6 +562,11 @@ func (r *Router) handleGetPlayerSessions(w http.ResponseWriter, req *http.Reques
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
+	}
+	// json.Marshal turns a nil slice into "null"; clients that expect
+	// an array would have to special-case it. Hand them [] instead.
+	if sessions == nil {
+		sessions = []domain.PlayerSession{}
 	}
 
 	writeJSON(w, http.StatusOK, sessions)

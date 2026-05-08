@@ -445,6 +445,19 @@ func (s *Store) SearchPlayers(ctx context.Context, query string, limit int, incl
 	var rows *sql.Rows
 	var err error
 
+	// Most-recent model is sourced from match_player_stats, same lookup
+	// strategy as GetPlayerByID — surfaced inline as a correlated
+	// subquery so a single round trip populates the card portraits.
+	const modelSubquery = `(
+		SELECT mps.model
+		FROM match_player_stats mps
+		JOIN player_guids pg2 ON mps.player_guid_id = pg2.id
+		JOIN matches m ON mps.match_id = m.id
+		WHERE pg2.player_id = p.id AND mps.model IS NOT NULL AND mps.model != ''
+		ORDER BY m.ended_at DESC
+		LIMIT 1
+	) as model`
+
 	if includeGUID {
 		// Search by name OR by GUID (admin feature)
 		rows, err = s.db.QueryContext(ctx, `
@@ -457,7 +470,8 @@ func (s *Store) SearchPlayers(ctx context.Context, query string, limit int, incl
 				), 0) as total_playtime_seconds,
 				p.is_bot, p.is_vr,
 				CASE WHEN u.id IS NOT NULL THEN 1 ELSE 0 END as is_verified,
-				COALESCE(u.is_admin, 0) as is_admin
+				COALESCE(u.is_admin, 0) as is_admin,
+				`+modelSubquery+`
 			FROM players p
 			LEFT JOIN player_guids pg ON pg.player_id = p.id
 			LEFT JOIN users u ON u.player_id = p.id
@@ -477,7 +491,8 @@ func (s *Store) SearchPlayers(ctx context.Context, query string, limit int, incl
 				), 0) as total_playtime_seconds,
 				p.is_bot, p.is_vr,
 				CASE WHEN u.id IS NOT NULL THEN 1 ELSE 0 END as is_verified,
-				COALESCE(u.is_admin, 0) as is_admin
+				COALESCE(u.is_admin, 0) as is_admin,
+				`+modelSubquery+`
 			FROM players p
 			LEFT JOIN users u ON u.player_id = p.id
 			WHERE p.clean_name LIKE ? OR p.name LIKE ?
@@ -493,8 +508,12 @@ func (s *Store) SearchPlayers(ctx context.Context, query string, limit int, incl
 	var players []domain.Player
 	for rows.Next() {
 		var p domain.Player
-		if err := rows.Scan(&p.ID, &p.Name, &p.CleanName, &p.FirstSeen, &p.LastSeen, &p.TotalPlaytimeSeconds, &p.IsBot, &p.IsVR, &p.IsVerified, &p.IsAdmin); err != nil {
+		var model sql.NullString
+		if err := rows.Scan(&p.ID, &p.Name, &p.CleanName, &p.FirstSeen, &p.LastSeen, &p.TotalPlaytimeSeconds, &p.IsBot, &p.IsVR, &p.IsVerified, &p.IsAdmin, &model); err != nil {
 			return nil, err
+		}
+		if model.Valid {
+			p.Model = model.String
 		}
 		players = append(players, p)
 	}

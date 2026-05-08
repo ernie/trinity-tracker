@@ -1,9 +1,10 @@
 import { DISCORD_INVITE_URL } from "../../constants/discord";
+import { DocsH2 } from "./DocsH2";
 
 export function DocsCredits() {
   return (
     <div className="about-section">
-      <h2>Who made this?</h2>
+      <DocsH2 id="credits">Who made this?</DocsH2>
       <p>
         I'm NilClass. Or, occasionally, I go by{" "}
         <a href="https://ernie.io">Ernie Miller</a>. But really, the folks

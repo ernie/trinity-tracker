@@ -38,6 +38,16 @@ type Router struct {
 	// in-process ServerManager. See SetRconClient / SetLocalSource.
 	rconClient    *natsbus.RconClient
 	localSource   string
+	// Version string surfaced to the frontend via /api/version. Set by
+	// main.go after NewRouter so binary builds report their git-describe
+	// tag; unset = "dev".
+	version       string
+}
+
+// SetVersion records the running binary's version for /api/version.
+// Called once at startup from cmd/trinity/main.go.
+func (r *Router) SetVersion(v string) {
+	r.version = v
 }
 
 // SetPoller plugs in the hub's UDP poller. Always set in hub mode —
@@ -81,6 +91,7 @@ func NewRouter(store *storage.Store, manager *collector.ServerManager, writer *h
 	}
 
 	// API routes
+	r.mux.HandleFunc("GET /api/version", r.handleGetVersion)
 	r.mux.HandleFunc("GET /api/servers", r.handleGetServers)
 	r.mux.HandleFunc("GET /api/servers/{id}", r.handleGetServer)
 	r.mux.HandleFunc("GET /api/servers/{id}/status", r.handleGetServerStatus)

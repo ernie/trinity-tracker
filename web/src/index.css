@@ -48,12 +48,58 @@
   --green: #4caf50;
   --blue: #2196f3;
   --red: #e94560;
+
+  /* Spacing scale (4-multiple). New work uses these; legacy unchanged. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-pill: 999px;
+
+  /* Warm-tinted to match the cream palette. */
+  --shadow-1: 0 1px 0 rgba(255, 248, 240, 0.04) inset, 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 2px 8px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 248, 240, 0.06);
+  --shadow-glow: 0 0 0 1px var(--red), 0 0 16px rgba(233, 69, 96, 0.25);
+
+  --rule: 1px solid #2a2622;
+  --rule-strong: 1px solid #3d3833;
+
+  /* Editorial hairline used for ceremonial transitions (drawer headers,
+     modal headers, footer top edge, end-of-page navigation). The warm
+     orange echoes the logo glow and gives the otherwise-quiet chrome a
+     small celebratory beat. Apply via a 1px ::before/::after positioned
+     across the boundary you want to mark. */
+  --rule-gradient-h: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(255, 110, 60, 0.3) 20%,
+    rgba(255, 110, 60, 0.5) 50%,
+    rgba(255, 110, 60, 0.3) 80%,
+    transparent 100%
+  );
 }
 
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+}
+
+/* Reserve scrollbar gutter even when content doesn't overflow, so route
+   transitions between scrollable (long lists, /docs) and non-scrollable
+   (short pages, modals open) layouts don't horizontally shift the page
+   by the scrollbar's width. Modern browsers (Chromium, Firefox, Safari
+   16.4+) honor this; older browsers degrade to today's behavior. */
+html {
+  scrollbar-gutter: stable;
 }
 
 body {
@@ -71,90 +117,7 @@ body {
   margin: 0 auto;
 }
 
-/* Left sidebar */
-.left-sidebar {
-  position: fixed;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 450px;
-  background: var(--bg-card);
-  border-right: 1px solid #333;
-  display: flex;
-  flex-direction: column;
-  z-index: 100;
-}
-
-.left-sidebar.collapsed {
-  width: 50px;
-}
-
-.left-sidebar .sidebar-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 15px;
-  border-bottom: 1px solid #333;
-}
-
-.left-sidebar.collapsed .sidebar-header {
-  flex-direction: column-reverse;
-  justify-content: flex-end;
-  gap: 10px;
-  padding: 15px 5px;
-  flex: 1;
-  border-bottom: none;
-}
-
-.collapsed-header {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 15px;
-}
-
-.activity-indicator-wrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.activity-count {
-  position: absolute;
-  bottom: -2px;
-  right: -6px;
-  font-size: 0.6rem;
-  font-weight: bold;
-  color: #fff;
-  text-shadow: 0 0 2px #000;
-}
-
-.rotated-title {
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
-  transform: rotate(180deg);
-  font-size: 0.9rem;
-  color: var(--text-dim);
-  letter-spacing: 1px;
-}
-
-.activity-indicator {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.activity-indicator.inactive {
-  background: var(--red);
-}
-
-.activity-indicator.active {
-  background: var(--green);
-  animation: pulse-green 1.5s ease-in-out infinite;
-}
-
+/* Pulse used by StatusPill (and any future "live" indicators). */
 @keyframes pulse-green {
   0%, 100% {
     box-shadow: 0 0 4px var(--green);
@@ -166,42 +129,9 @@ body {
   }
 }
 
-.left-sidebar .sidebar-header h2 {
-  margin: 0;
-  font-size: 1rem;
-  color: var(--text);
-}
-
-.collapse-toggle {
-  background: transparent;
-  border: none;
-  color: var(--text-dim);
-  cursor: pointer;
-  font-size: 1.2rem;
-  padding: 5px;
-  line-height: 1;
-}
-
-.collapse-toggle:hover {
-  color: var(--text);
-}
-
-.left-sidebar .activity-log {
-  flex: 1;
-  overflow-y: auto;
-  border: none;
-  border-radius: 0;
-  max-height: none;
-}
-
-/* App layout */
+/* App layout — no left sidebar; main content fills the column. */
 .app-layout {
-  margin-left: 450px;
-}
-
-.left-sidebar.collapsed + .app-layout,
-.app-layout.sidebar-collapsed {
-  margin-left: 50px;
+  margin-left: 0;
 }
 
 .main-content {
@@ -221,15 +151,384 @@ h2 {
   margin-bottom: 10px;
 }
 
-/* Connection indicator */
-.connection-indicator {
+/* Sticky-footer wrapper: page content fills the viewport so the footer
+   sits at the bottom on short pages, but flows naturally below on tall
+   ones. */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app-main { flex: 1; }
+
+/* ── Footer ───────────────────────────────────────────────────────── */
+.app-footer {
+  margin-top: var(--space-7);
+  padding: var(--space-4) var(--space-5);
+  border-top: var(--rule);
+  position: relative;
+}
+
+.app-footer::before {
+  content: '';
+  position: absolute;
+  left: var(--space-5);
+  right: var(--space-5);
+  top: 0;
+  height: 1px;
+  background: var(--rule-gradient-h);
+}
+
+.app-footer__row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: var(--space-3) var(--space-5);
+  max-width: 1800px;
+  margin: 0 auto;
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}
+
+.app-footer__left {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  justify-self: start;
+}
+
+.app-footer__brand {
+  font-family: 'Cinzel', serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--accent-dim);
+}
+
+.app-footer__version {
+  font-family: 'Barlow', sans-serif;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  opacity: 0.7;
+}
+
+.app-footer__center {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  justify-self: center;
+  justify-content: center;
+}
+
+.app-footer__center a {
+  color: var(--text-dim);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.app-footer__center a:hover { color: var(--accent); }
+
+.app-footer__sep { color: rgba(208, 200, 184, 0.3); }
+
+.app-footer__right { color: var(--text-dim); justify-self: end; }
+.app-footer__right a {
+  color: var(--accent-dim);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.app-footer__right a:hover { color: var(--accent); }
+
+@media (max-width: 768px) {
+  .app-footer__row {
+    grid-template-columns: 1fr;
+    gap: var(--space-2);
+    text-align: center;
+    justify-items: center;
+  }
+  .app-footer__left,
+  .app-footer__center,
+  .app-footer__right { justify-self: center; }
+  .app-footer__center { justify-content: center; }
+}
+
+/* ── Breadcrumbs ──────────────────────────────────────────────────── */
+.breadcrumbs {
+  margin: calc(-1 * var(--space-3)) 0 var(--space-4);
+}
+
+.breadcrumbs__list {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.78rem;
+}
+
+.breadcrumbs__item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.breadcrumbs__link {
+  color: var(--text-dim);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.breadcrumbs__link:hover { color: var(--accent); }
+
+.breadcrumbs__current {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.breadcrumbs__sep {
+  color: rgba(208, 200, 184, 0.3);
+  font-weight: 300;
+}
+
+/* ── Command palette (⌘K) ─────────────────────────────────────────── */
+.cmdk-overlay {
   position: fixed;
-  top: 12px;
-  right: 12px;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  z-index: 200;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 12vh;
+}
+
+.cmdk-palette {
+  width: min(640px, 92vw);
+  max-height: 70vh;
+  background: linear-gradient(180deg, #181412 0%, var(--bg-card) 60%);
+  border: var(--rule-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7),
+              0 0 0 1px rgba(255, 110, 60, 0.12),
+              inset 0 1px 0 rgba(255, 110, 60, 0.06);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.cmdk-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  position: relative;
+}
+
+.cmdk-input-wrap::after {
+  content: '';
+  position: absolute;
+  left: var(--space-4);
+  right: var(--space-4);
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(255, 110, 60, 0.3) 20%,
+    rgba(255, 110, 60, 0.5) 50%,
+    rgba(255, 110, 60, 0.3) 80%,
+    transparent 100%
+  );
+}
+
+.cmdk-prompt {
+  font-family: 'Cinzel', serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: rgba(255, 110, 60, 0.85);
+  flex-shrink: 0;
+}
+
+.cmdk-input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-family: 'Barlow', sans-serif;
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+  padding: 4px 0;
+}
+
+.cmdk-input::placeholder { color: var(--text-dim); }
+
+.cmdk-kbd {
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  background: rgba(208, 200, 184, 0.08);
+  border: 1px solid rgba(208, 200, 184, 0.2);
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+  flex-shrink: 0;
+}
+
+.cmdk-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-2) 0;
+}
+
+.cmdk-empty {
+  padding: var(--space-5);
+  text-align: center;
+  color: var(--text-dim);
+  font-style: italic;
+  font-size: 0.85rem;
+}
+
+.cmdk-group { padding: var(--space-1) 0; }
+
+.cmdk-group__title {
+  font-family: 'Cinzel', serif;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  padding: var(--space-2) var(--space-4) var(--space-1);
+}
+
+.cmdk-item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-left: 2px solid transparent;
+  padding: var(--space-2) var(--space-4);
+  text-align: left;
+  cursor: pointer;
+  color: var(--text);
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.9rem;
+  transition: background 0.1s, border-color 0.1s, color 0.1s;
+}
+
+.cmdk-item__label { flex: 1; min-width: 0; }
+
+.cmdk-item__hint {
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  flex-shrink: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 50%;
+}
+
+.cmdk-item--active {
+  background: rgba(255, 110, 60, 0.08);
+  border-left-color: rgb(255, 110, 60);
+  color: var(--accent);
+}
+
+.cmdk-item--active .cmdk-item__hint { color: var(--accent-dim); }
+
+/* Click-to-open search trigger sitting in its own row above the
+   nav-row divider. Visually reads as a search input but is actually
+   a button that opens the command palette. */
+.cmdk-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: rgba(255, 248, 240, 0.04);
+  border: 1px solid rgba(208, 200, 184, 0.18);
+  border-radius: var(--radius-md);
+  padding: 6px 10px 6px 12px;
+  color: var(--text-dim);
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.cmdk-trigger:hover,
+.cmdk-trigger:focus-visible {
+  background: rgba(255, 248, 240, 0.07);
+  border-color: rgba(255, 110, 60, 0.35);
+  color: var(--text);
+  outline: none;
+}
+
+.cmdk-trigger__icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.cmdk-trigger__placeholder {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cmdk-trigger__kbd {
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  background: rgba(208, 200, 184, 0.1);
+  border: 1px solid rgba(208, 200, 184, 0.18);
+  border-radius: var(--radius-sm);
+  padding: 1px 6px;
+  flex-shrink: 0;
+}
+
+/* Compact variant used in the header search row. Sized to its content
+   (icon + label + kbd) since this is a button that opens the palette,
+   not an actual input field. Right-aligned via the parent. */
+.cmdk-trigger--full {
+  width: auto;
+}
+
+/* Top-right chrome cluster: StatusPill + ConnectionStatus, anchored
+   to the viewport so they're visible on every route. */
+.chrome-top-right {
+  position: fixed;
+  top: var(--space-3);
+  right: var(--space-3);
+  z-index: 100;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.chrome-top-right .connection-indicator {
+  position: static;
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  z-index: 100;
   cursor: default;
 }
 
@@ -1164,6 +1463,12 @@ h2 {
   z-index: 1;
 }
 
+.activity-message .medal-icon,
+.activity-message .flag-icon {
+  position: relative;
+  top: 2px;
+}
+
 .activity-server-watermark {
   position: absolute;
   right: 5px;
@@ -1201,45 +1506,6 @@ h2 {
   text-decoration: underline;
 }
 
-/* Activity filters */
-.activity-filters {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 10px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.server-filter {
-  flex: 1;
-  min-width: 120px;
-  padding: 5px 8px;
-  background: var(--bg-card);
-  border: 1px solid #444;
-  border-radius: 4px;
-  color: var(--text);
-  font-size: 0.85rem;
-}
-
-.server-filter:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-
-.include-bots-toggle {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--text-dim);
-  font-size: 0.85rem;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.include-bots-toggle input {
-  cursor: pointer;
-}
-
 .activity-list {
   overflow-y: auto;
   flex: 1;
@@ -1262,31 +1528,73 @@ h2 {
   height: 315px;
 }
 
+.activity-map-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
 .activity-map-name {
-  font-size: 1.3rem;
-  font-weight: bold;
-  color: #fff;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8), 0 0 8px rgba(0, 0, 0, 0.6);
+  font-family: 'Cinzel', serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+  /* Stacked tight black halos give a uniform outline so the text reads
+     against any levelshot color, with a directional drop and a warm
+     orange tail layered on top for character. */
+  text-shadow:
+    0 0 2px rgba(0, 0, 0, 1),
+    0 0 4px rgba(0, 0, 0, 1),
+    0 0 8px rgba(0, 0, 0, 0.9),
+    0 2px 4px rgba(0, 0, 0, 0.95),
+    0 0 14px rgba(255, 110, 60, 0.35);
+}
+
+.activity-map-time {
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.1em;
+  color: rgba(240, 236, 228, 0.7);
+  text-shadow:
+    0 0 2px rgba(0, 0, 0, 1),
+    0 0 4px rgba(0, 0, 0, 0.95),
+    0 1px 2px rgba(0, 0, 0, 0.9);
 }
 
 .activity-map-server {
-  font-size: 1rem;
-  font-weight: bold;
-  color: rgba(255, 255, 255, 0.5);
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  font-family: 'Cinzel', serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(240, 236, 228, 0.7);
+  text-shadow:
+    0 0 2px rgba(0, 0, 0, 1),
+    0 0 4px rgba(0, 0, 0, 0.95),
+    0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
-/* Active players section - above filters */
+/* Active players section — Cinzel small-cap title to anchor it visually
+   inside the drawer alongside the filter section headers. */
 .active-players-section {
-  padding: 10px 15px;
-  border-bottom: 1px solid #333;
+  padding: var(--space-3) 0;
+  border-bottom: var(--rule);
 }
 
 .active-players-header {
-  font-size: 0.85rem;
+  font-family: 'Cinzel', serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
   color: var(--green);
-  font-weight: 600;
-  margin-bottom: 8px;
+  text-shadow: 0 0 8px rgba(76, 175, 80, 0.3);
+  margin-bottom: var(--space-2);
 }
 
 .active-players-list {
@@ -1666,15 +1974,218 @@ h2 {
   cursor: not-allowed;
 }
 
-/* App header */
-.app-header {
+/* App header — two-tier console: brand row on top (with the search
+   trigger tucked into its empty right region), nav row beneath. Every
+   page-level header class shares this layout so the chrome reads
+   identically across the app. */
+.app-header,
+.players-header,
+.matches-header,
+.match-detail-header,
+.leaderboard-header,
+.about-header,
+.account-header,
+.claim-header,
+.admin-header {
   display: flex;
-  justify-content: flex-end;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.app-header__brand {
+  position: relative; /* anchor for absolute search trigger */
+  display: flex;
   align-items: center;
-  margin-bottom: 20px;
-  margin-left: 450px;
+  gap: var(--space-4);
+  min-height: 64px; /* anchored to .app-logo height so the row stays consistent across pages */
+  /* Reserve right-side space for the absolutely-positioned search
+     trigger so the title text doesn't run under it on narrow widths.
+     The fixed chrome cluster (StatusPill + ConnectionStatus) lives
+     above the brand row vertically (top:12px), so it doesn't need
+     horizontal reservation here — its top edge clears the search
+     button's bottom-right anchor. */
+  padding-right: 180px;
+}
+
+.app-header__row {
+  display: flex;
+  align-items: center;
   flex-wrap: wrap;
-  gap: 15px;
+  gap: var(--space-4);
+  border-top: var(--rule);
+  padding-top: var(--space-3);
+}
+
+/* Search trigger lives inside the brand row, anchored flush to its
+   bottom-right corner — i.e. just above the rule that separates header
+   from nav. The fixed chrome cluster (StatusPill + ConnectionStatus)
+   sits at the *top* of the viewport (top:12px), so anchoring search to
+   the *bottom* of the brand row keeps them vertically separated even
+   though they share the right edge horizontally. By being absolute the
+   search claims no row of its own, eliminating the empty left gutter
+   that the previous flex-row layout left under the logo. */
+.app-header__search {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  z-index: 1;
+}
+
+/* ── Hamburger menu (mobile-only collapsing wrapper) ──────────────── */
+.hamburger { display: contents; }
+.hamburger__btn { display: none; }
+/* On desktop the popup acts like display: contents so its children
+   become row members. */
+.hamburger__popup { display: contents; }
+
+/* Wrapper around PageNav. display: contents on desktop (transparent),
+   becomes a real horizontal-scroll container on mobile. Lives as a
+   sibling of the hamburger so the popup escapes any overflow clipping. */
+.app-header__nav-scroll { display: contents; }
+
+/* Hide the ⌘K / Ctrl K hint on touch-primary devices. Phones and
+   tablets almost always have no keyboard; the few users on a Bluetooth
+   keyboard already know the convention. Width-based breakpoints would
+   miss iPad-in-landscape (>768px); modality-based queries are the
+   right tool because they describe the *input*, not the screen size. */
+@media (hover: none) and (pointer: coarse) {
+  .cmdk-trigger__kbd {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Mobile keeps the same two-row header as desktop: brand row (logo +
+     title + absolute search trigger at bottom-right) → rule → nav row.
+     The right-side reservation just shrinks since phone widths can't
+     afford 180px. */
+  .app-header__brand {
+    padding-right: 110px;
+  }
+  .app-header__search .cmdk-trigger {
+    padding: 6px 10px;
+  }
+
+  .app-header__row {
+    flex-wrap: nowrap;
+    align-items: center;
+  }
+
+  .app-header__nav-scroll {
+    display: block;
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    /* Fade the right edge so users see content disappearing into the
+       hamburger sibling, telegraphing "more past here". */
+    mask-image: linear-gradient(to right, black calc(100% - 28px), transparent);
+    -webkit-mask-image: linear-gradient(to right, black calc(100% - 28px), transparent);
+  }
+  .app-header__nav-scroll::-webkit-scrollbar { display: none; }
+  .app-header__nav-scroll .page-nav {
+    flex-wrap: nowrap;
+    width: max-content;
+    /* Trailing padding so the last nav link can scroll PAST the
+       28px fade zone — otherwise "Docs" lands inside the mask when
+       fully scrolled right. */
+    padding-right: 32px;
+  }
+
+  /* Hamburger sits outside the scroll container so its popup isn't
+     clipped by the scroll element's effective overflow:auto on both
+     axes. z-index above page-level elements (e.g. .server-name-badge
+     at z=10) so the popup paints over the page content. */
+  .hamburger {
+    display: inline-flex;
+    align-items: center;
+    position: relative;
+    flex-shrink: 0;
+    margin-left: var(--space-2);
+    z-index: 50;
+  }
+
+  .hamburger__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 32px;
+    background: var(--bg);
+    border: 1px solid rgba(208, 200, 184, 0.22);
+    border-radius: var(--radius-md);
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 0;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+
+  .hamburger__btn:hover,
+  .hamburger__btn:focus-visible {
+    background: rgba(255, 110, 60, 0.08);
+    border-color: rgba(255, 110, 60, 0.4);
+    color: var(--accent);
+    outline: none;
+  }
+
+  .hamburger--open .hamburger__btn {
+    background: rgba(255, 110, 60, 0.12);
+    border-color: rgba(255, 110, 60, 0.55);
+    color: var(--accent);
+  }
+
+  /* Popup is a real positioned panel under the button. Width sized
+     to its content (the widest child sets the width); viewport-safe
+     max-width so it never overflows on small screens. */
+  .hamburger__popup {
+    display: none;
+    position: absolute;
+    top: calc(100% + var(--space-2));
+    right: 0;
+    background: linear-gradient(180deg, #181412 0%, var(--bg-card) 60%);
+    border: var(--rule-strong);
+    border-radius: var(--radius-md);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6),
+                inset 0 1px 0 rgba(255, 110, 60, 0.06);
+    padding: var(--space-3);
+    width: max-content;
+    max-width: calc(100vw - 24px);
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
+    z-index: 1; /* relative within hamburger context; the context
+                   itself sits at z=50 in the document root */
+  }
+
+  .hamburger--open .hamburger__popup {
+    display: flex;
+  }
+
+  /* Children inside the popup get full-width, vertical layout. */
+  .hamburger__popup .community-cluster {
+    margin: 0;
+    padding: 0 0 var(--space-2);
+    border-left: none;
+    border-bottom: var(--rule);
+    height: auto;
+    justify-content: flex-start;
+  }
+
+  .hamburger__popup .auth-section {
+    margin: 0;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hamburger__popup .user-info {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
+  }
+
 }
 
 .app-header h1,
@@ -1688,16 +2199,46 @@ h2 {
 .admin-header h1 {
   display: flex;
   align-items: center;
+  gap: var(--space-3);
   margin: 0;
-  margin-right: auto;
+  margin-right: auto; /* Pushes future brand-row siblings (StatusPill, ⌘K) right. */
+  color: var(--accent);
   font-family: 'Cinzel', serif;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
-.app.sidebar-collapsed .app-header {
-  margin-left: 50px;
+/* When a wordmark is present, anchor it absolutely so the h1's height
+   stays identical to a wordmark-less title — that's what keeps TRINITY
+   visually at the same Y as "Player Stats" on other pages. The
+   wordmark hangs into the lower (empty) portion of the brand row. */
+.app-header h1:has(.app-wordmark),
+.players-header h1:has(.app-wordmark),
+.matches-header h1:has(.app-wordmark),
+.match-detail-header h1:has(.app-wordmark),
+.leaderboard-header h1:has(.app-wordmark),
+.about-header h1:has(.app-wordmark),
+.account-header h1:has(.app-wordmark),
+.claim-header h1:has(.app-wordmark),
+.admin-header h1:has(.app-wordmark) {
+  position: relative;
+}
+
+.app-wordmark {
+  position: absolute;
+  top: calc(100% - 0.2em);
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.6rem;
+  font-weight: 500;
+  letter-spacing: 0.45em;
+  text-transform: lowercase;
+  color: var(--text-dim);
+  line-height: 1;
+  white-space: nowrap;
+  padding-left: 0.45em; /* optical centering against trailing letter-spacing */
 }
 
 .app-logo {
@@ -1705,17 +2246,93 @@ h2 {
   height: 64px;
   width: auto;
   margin: 0;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 14px rgba(255, 110, 60, 0.4))
+          drop-shadow(0 0 4px rgba(255, 110, 60, 0.7));
 }
 
-.discord-link {
+/* Live-state pill in the brand row. Pulses when humans are on, sits
+   quiet otherwise. Toggles the activity drawer. */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px 12px 6px 10px;
+  /* Layered: a 4% warm wash on top of an opaque card background.
+     The wash gives the HUD glow we want; the opaque base prevents
+     page content (login buttons, table rows) from bleeding through
+     since the pill is fixed-positioned over the document. */
+  background-color: var(--bg-card);
+  background-image: linear-gradient(rgba(255, 248, 240, 0.04), rgba(255, 248, 240, 0.04));
+  border: 1px solid rgba(208, 200, 184, 0.18);
+  border-radius: var(--radius-pill);
+  color: var(--text-dim);
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.status-pill:hover,
+.status-pill:focus-visible {
+  background-image: linear-gradient(rgba(255, 248, 240, 0.08), rgba(255, 248, 240, 0.08));
+  border-color: rgba(208, 200, 184, 0.36);
+  color: var(--text);
+  outline: none;
+}
+
+.status-pill__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-pill.live {
+  color: var(--text);
+  border-color: rgba(76, 175, 80, 0.36);
+}
+
+.status-pill.live .status-pill__dot {
+  background: var(--green);
+  animation: pulse-green 1.8s ease-in-out infinite;
+}
+
+.status-pill.quiet .status-pill__dot {
+  background: var(--text-dim);
+  opacity: 0.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-pill.live .status-pill__dot { animation: none; }
+}
+
+/* Community cluster — Download / Discord / GitHub grouped, separated from
+   primary nav by a hairline rule on the left. All three children share
+   the same icon-button footprint (28px square, pill border). Each sets
+   its own brand-tinted hover. */
+.community-cluster {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-left: var(--space-4);
+  margin-left: auto;
+  border-left: var(--rule);
+  height: 28px;
+}
+
+.discord-link,
+.github-link {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  margin-left: 14px;
-  padding: 6px;
-  border: 1px solid rgba(88, 101, 242, 0.45);
-  border-radius: 999px;
-  color: #a8b1ff;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(208, 200, 184, 0.25);
+  color: var(--text-dim);
   text-decoration: none;
   line-height: 1;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
@@ -1729,7 +2346,16 @@ h2 {
   outline: none;
 }
 
-.discord-icon {
+.github-link:hover,
+.github-link:focus-visible {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+  outline: none;
+}
+
+.discord-icon,
+.github-icon {
   width: 16px;
   height: 16px;
   flex-shrink: 0;
@@ -1742,6 +2368,10 @@ h2 {
 }
 
 .nav-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
   color: var(--accent-dim);
   text-decoration: none;
   font-size: 0.95rem;
@@ -1757,6 +2387,22 @@ h2 {
   color: var(--red);
   font-weight: 600;
   text-decoration: none;
+}
+
+/* Tri-point logo glyph next to the active nav link. The placeholder
+   variant occupies the same footprint on inactive links so tabs don't
+   reflow as the active marker moves. */
+.nav-link__glyph {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  display: block;
+  filter: drop-shadow(0 0 4px rgba(255, 110, 60, 0.55))
+          drop-shadow(0 0 1px rgba(255, 110, 60, 0.9));
+}
+
+.nav-link__glyph--placeholder {
+  visibility: hidden;
 }
 
 /* Auth section */
@@ -1835,6 +2481,7 @@ h2 {
   cursor: pointer;
   font-family: inherit;
   font-size: 0.85rem;
+  text-align: center;
 }
 
 .login-form button[type="submit"] {
@@ -1879,6 +2526,7 @@ h2 {
   font-family: inherit;
   font-size: 0.8rem;
   line-height: 1;
+  text-align: center;
 }
 
 .logout-btn:hover {
@@ -1898,6 +2546,7 @@ h2 {
   font-size: 0.8rem;
   line-height: 1;
   text-decoration: none;
+  text-align: center;
 }
 
 .admin-btn:hover,
@@ -1916,6 +2565,7 @@ h2 {
   font-family: inherit;
   font-size: 0.8rem;
   line-height: 1;
+  text-align: center;
 }
 
 .my-source-btn:hover {
@@ -1947,32 +2597,371 @@ h2 {
   right: 0;
   height: 100vh;
   width: min(560px, 100%);
-  background: var(--bg-card);
+  background: linear-gradient(180deg, #181412 0%, var(--bg-card) 60%);
   color: var(--text);
-  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.5);
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.6),
+              inset 1px 0 0 rgba(255, 110, 60, 0.08);
   display: flex;
   flex-direction: column;
-  border-left: 1px solid var(--accent-dim);
+  border-left: var(--rule-strong);
 }
 
 .drawer-header {
-  padding: 16px;
-  border-bottom: 1px solid var(--accent-dim);
+  padding: var(--space-5) var(--space-5) var(--space-4);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  position: relative;
+}
+
+/* Decorative rule under the header — see --rule-gradient-h. */
+.drawer-header::after {
+  content: '';
+  position: absolute;
+  left: var(--space-5);
+  right: var(--space-5);
+  bottom: 0;
+  height: 1px;
+  background: var(--rule-gradient-h);
 }
 
 .drawer-header h2 {
   margin: 0;
+  font-family: 'Cinzel', serif;
   font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.drawer-header .close-btn {
+  background: transparent;
+  border: 1px solid rgba(208, 200, 184, 0.2);
+  color: var(--text-dim);
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.drawer-header .close-btn:hover,
+.drawer-header .close-btn:focus-visible {
+  color: var(--accent);
+  border-color: var(--accent-dim);
+  background: rgba(255, 248, 240, 0.06);
+  outline: none;
 }
 
 .drawer-body {
-  padding: 16px;
+  padding: var(--space-4) var(--space-5);
   overflow-y: auto;
   flex: 1;
   font-size: 0.9rem;
+}
+
+/* Activity drawer — host the existing ActivityLog without forcing it
+   to keep its sidebar-era max-height/border treatment. */
+.activity-drawer__body {
+  padding: 0;
+}
+
+.activity-drawer__body .activity-log {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  max-height: none;
+  padding: var(--space-4);
+}
+
+/* "Filters" disclosure that wraps the whole panel inside the drawer. */
+.activity-filters-toggle {
+  margin: var(--space-4) 0 var(--space-3);
+  border: var(--rule-strong);
+  border-radius: var(--radius-md);
+  background: rgba(255, 248, 240, 0.015);
+}
+
+.activity-filters-toggle > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: var(--space-3) var(--space-4);
+  font-family: 'Cinzel', serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--accent-dim);
+  user-select: none;
+  transition: color 0.15s;
+}
+
+.activity-filters-toggle > summary:hover { color: var(--accent); }
+.activity-filters-toggle > summary::-webkit-details-marker { display: none; }
+
+.activity-filters-toggle > summary::before {
+  content: '▸';
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.2em;
+  font-size: 1.3em;
+  line-height: 1;
+  color: rgba(255, 110, 60, 0.7);
+  position: relative;
+  top: 0;
+  transition: transform 0.15s;
+}
+
+.activity-filters-toggle[open] > summary::before { transform: rotate(90deg); }
+.activity-filters-toggle[open] > summary { color: var(--accent); }
+
+.activity-filters-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-4) var(--space-4);
+}
+
+/* Top-level orthogonal filter (currently just the bot toggle). Lives
+   above the categorical sections; same hairline-rule below as the
+   sections share between each other. */
+.filter-toplevel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-5);
+  padding-bottom: var(--space-3);
+  border-bottom: var(--rule);
+}
+
+/* ─ Top-level filter section (Sources/Events/Game modes) ─ */
+.filter-section {
+  border-top: var(--rule);
+  padding-top: var(--space-3);
+}
+
+.filter-section:first-of-type { border-top: none; padding-top: 0; }
+
+.filter-section > summary.filter-section__header {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) 0 var(--space-2);
+  user-select: none;
+  font-size: 0.72rem;
+}
+
+.filter-section > summary::-webkit-details-marker { display: none; }
+
+.filter-section__caret {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1em;
+  height: 1em;
+  font-size: 1.25em;
+  line-height: 1;
+  color: rgba(255, 110, 60, 0.7);
+  position: relative;
+  top: -0.04em;
+  transition: transform 0.15s;
+  flex-shrink: 0;
+}
+
+.filter-section[open] .filter-section__caret { transform: rotate(90deg); }
+
+.filter-section__title {
+  flex: 1;
+  font-family: 'Cinzel', serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.filter-section__actions {
+  display: inline-flex;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.filter-section__actions button {
+  background: transparent;
+  border: 1px solid rgba(208, 200, 184, 0.18);
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.filter-section__actions button:hover {
+  color: var(--accent);
+  border-color: var(--accent-dim);
+  background: rgba(255, 248, 240, 0.05);
+}
+
+.filter-section__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-left: var(--space-3);
+}
+
+/* ─ Per-source / per-category subgroup ─ */
+.filter-subgroup {
+  border-left: 1px solid rgba(208, 200, 184, 0.08);
+  padding-left: var(--space-3);
+}
+
+.filter-subgroup__header {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  user-select: none;
+  font-size: 0.85rem;
+}
+
+.filter-subgroup__header::-webkit-details-marker { display: none; }
+
+.filter-subgroup__caret {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1em;
+  line-height: 1;
+  color: var(--text-dim);
+  position: relative;
+  top: -0.04em;
+  transition: transform 0.15s;
+  flex-shrink: 0;
+  width: 1em;
+  height: 1em;
+}
+
+.filter-subgroup[open] .filter-subgroup__caret { transform: rotate(90deg); }
+
+.filter-subgroup__title-wrap { flex: 1; min-width: 0; }
+
+.filter-subgroup__body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-1) var(--space-3);
+  padding: var(--space-2) 0 var(--space-2) var(--space-5);
+}
+
+.filter-subgroup__body--flat {
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  padding: 0;
+}
+
+.filter-empty {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  font-style: italic;
+  grid-column: 1 / -1;
+}
+
+/* ─ Toggle switch ─ */
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.78rem;
+  color: var(--text);
+  cursor: pointer;
+  user-select: none;
+  min-width: 0;
+}
+
+.switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.switch__track {
+  position: relative;
+  display: inline-block;
+  width: 28px;
+  height: 14px;
+  background: rgba(208, 200, 184, 0.12);
+  border: 1px solid rgba(208, 200, 184, 0.22);
+  border-radius: var(--radius-pill);
+  transition: background 0.18s, border-color 0.18s, box-shadow 0.18s;
+  flex-shrink: 0;
+}
+
+.switch__thumb {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  transition: transform 0.18s, background 0.18s, box-shadow 0.18s;
+}
+
+.switch input:checked + .switch__track {
+  background: rgba(255, 110, 60, 0.28);
+  border-color: rgba(255, 110, 60, 0.55);
+  box-shadow: 0 0 8px rgba(255, 110, 60, 0.18);
+}
+
+.switch input:checked + .switch__track .switch__thumb {
+  transform: translateX(14px);
+  background: rgb(255, 130, 80);
+  box-shadow: 0 0 6px rgba(255, 110, 60, 0.6);
+}
+
+/* Mixed (some children on, some off) — thumb sits midway as a visual hint. */
+.switch--mixed .switch__track {
+  background: rgba(255, 110, 60, 0.12);
+  border-color: rgba(255, 110, 60, 0.35);
+}
+
+.switch--mixed .switch__thumb {
+  transform: translateX(7px);
+  background: rgba(255, 130, 80, 0.7);
+}
+
+.switch__label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.switch--disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.switch--disabled .switch__track,
+.switch--disabled .switch__thumb { cursor: not-allowed; }
+
+@media (prefers-reduced-motion: reduce) {
+  .switch__track, .switch__thumb,
+  .filter-section__caret, .filter-subgroup__caret { transition: none; }
 }
 
 /* Per-source card inside the drawer */
@@ -2259,7 +3248,18 @@ h2 {
   align-items: center;
   margin-bottom: 15px;
   padding-bottom: 10px;
-  border-bottom: 1px solid var(--accent-dim);
+  position: relative;
+}
+
+/* Same warm gradient hairline as drawer headers — see --rule-gradient-h. */
+.modal-header::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: var(--rule-gradient-h);
 }
 
 .modal-header h2 {
@@ -2983,7 +3983,14 @@ h2 {
   justify-content: space-between;
   align-items: center;
   padding: 15px;
-  border-bottom: 1px solid #333;
+  position: relative;
+}
+
+/* Override the generic .modal-header::after inset (which assumes 0 padding)
+   so the gradient hugs the inner padding edge here too. */
+.player-stats-modal .modal-header::after {
+  left: 15px;
+  right: 15px;
 }
 
 .player-stats-modal .modal-header h3 {
@@ -3174,42 +4181,7 @@ h2 {
 }
 
 /* Mobile responsiveness */
-@media (max-width: 1024px) {
-  .left-sidebar {
-    width: 300px;
-  }
-
-  .app-layout,
-  .app-header {
-    margin-left: 300px;
-  }
-
-  .left-sidebar.collapsed {
-    width: 50px;
-  }
-
-  .app-layout.sidebar-collapsed,
-  .app.sidebar-collapsed .app-header {
-    margin-left: 50px;
-  }
-}
-
 @media (max-width: 768px) {
-  .left-sidebar {
-    display: none;
-  }
-
-  .app-layout,
-  .app-header {
-    margin-left: 0;
-  }
-
-  .left-sidebar.collapsed + .app-layout,
-  .app-layout.sidebar-collapsed,
-  .app.sidebar-collapsed .app-header {
-    margin-left: 0;
-  }
-
   .app.with-right-sidebar {
     padding-right: 0;
   }
@@ -3245,26 +4217,10 @@ h2 {
 /* Players page */
 .players-page {
   padding: 20px;
-  max-width: 1200px;
+  max-width: 1800px;
   margin: 0 auto;
 }
 
-.players-header {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  margin-bottom: 20px;
-  gap: 15px;
-  flex-wrap: wrap;
-}
-
-.players-header h1 {
-  display: flex;
-  align-items: center;
-  color: var(--accent);
-  margin: 0;
-  margin-right: auto;
-}
 
 .back-link {
   color: var(--red);
@@ -3273,6 +4229,159 @@ h2 {
 
 .back-link:hover {
   text-decoration: underline;
+}
+
+/* Two-column players layout. Left: persistent search rail. Right:
+   either the active search results (as cards), the selected player's
+   stats, or a friendly empty state. The rail stays sticky so the user
+   can keep typing while scrolling a long stats page. */
+.players-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: var(--space-5);
+  align-items: start;
+  margin-top: var(--space-3);
+}
+
+.players-search-rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  position: sticky;
+  top: var(--space-3);
+}
+
+.players-search-rail__input {
+  width: 100%;
+}
+
+.players-search-rail__hint {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  margin: 0;
+  padding: 0 var(--space-1);
+  font-family: 'Barlow', sans-serif;
+}
+
+.players-results-area {
+  min-width: 0; /* prevent grid blowout from long names / wide tables */
+}
+
+/* Card grid replaces the old full-width search-result rows. Auto-fills
+   the right column with cards sized to be readable on a phone (single
+   column at 280px) up through wide desktop (3-4 across). */
+.player-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-3);
+}
+
+.player-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--bg-card);
+  border: var(--rule-strong);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  color: inherit;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+  min-width: 0;
+}
+
+.player-card:hover,
+.player-card:focus-visible {
+  border-color: rgba(255, 110, 60, 0.4);
+  background: rgba(255, 110, 60, 0.04);
+  outline: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .player-card:hover { transform: translateY(-1px); }
+}
+
+.player-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.player-card__name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.player-card__meta {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  letter-spacing: 0.02em;
+}
+
+/* Right-pane "playing now" panel — shown when no search is active and
+   no player is selected. Reuses .player-cards-grid + .player-card so
+   the visual rhythm matches search results: only the heading and the
+   meta-line (server name vs last-seen) differ. */
+.online-players {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.online-players__heading {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-family: 'Cinzel', serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.online-players__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  flex-shrink: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .online-players__dot { animation: pulse-green 2s ease-in-out infinite; }
+}
+
+.online-players__count {
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  background: rgba(208, 200, 184, 0.08);
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 768px) {
+  .players-layout {
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+  }
+  .players-search-rail { position: static; }
 }
 
 .players-search {
@@ -3698,28 +4807,10 @@ h2 {
 /* Account page */
 .account-page {
   padding: 20px;
-  max-width: 1200px;
+  max-width: 1800px;
   margin: 0 auto;
 }
 
-.account-header {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  margin-bottom: 20px;
-  gap: 15px;
-  flex-wrap: wrap;
-}
-
-.account-header h1 {
-  display: flex;
-  align-items: center;
-  color: var(--accent);
-  margin: 0;
-  margin-right: auto;
-  display: flex;
-  align-items: center;
-}
 
 .account-columns {
   display: grid;
@@ -4194,6 +5285,7 @@ h2 {
   font-size: 0.8rem;
   line-height: 1;
   display: inline-block;
+  text-align: center;
 }
 
 .username-link:hover {
@@ -4204,26 +5296,10 @@ h2 {
 /* Leaderboard page */
 .leaderboard-page {
   padding: 20px;
-  max-width: 1200px;
+  max-width: 1800px;
   margin: 0 auto;
 }
 
-.leaderboard-header {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  margin-bottom: 20px;
-  gap: 15px;
-  flex-wrap: wrap;
-}
-
-.leaderboard-header h1 {
-  display: flex;
-  align-items: center;
-  color: var(--accent);
-  margin: 0;
-  margin-right: auto;
-}
 
 /* Snapshot banner: shown when ?as_of=... pins a historical anchor.
    Mirrors how the digest's footer URL works — clicking the link
@@ -4515,25 +5591,8 @@ h2 {
 
 .matches-page {
   padding: 20px;
-  max-width: 1200px;
+  max-width: 1800px;
   margin: 0 auto;
-}
-
-.matches-header {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  margin-bottom: 20px;
-  gap: 15px;
-  flex-wrap: wrap;
-}
-
-.matches-header h1 {
-  display: flex;
-  align-items: center;
-  color: var(--accent);
-  margin: 0;
-  margin-right: auto;
 }
 
 .match-filters {
@@ -4691,26 +5750,10 @@ h2 {
 
 .match-detail-page {
   padding: 20px;
-  max-width: 1200px;
+  max-width: 1800px;
   margin: 0 auto;
 }
 
-.match-detail-header {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  margin-bottom: 20px;
-  gap: 15px;
-  flex-wrap: wrap;
-}
-
-.match-detail-header h1 {
-  display: flex;
-  align-items: center;
-  color: var(--accent);
-  margin: 0;
-  margin-right: auto;
-}
 
 .match-detail-content {
   max-width: 800px;
@@ -4811,26 +5854,10 @@ h2 {
 /* Admin page */
 .admin-page {
   padding: 20px;
-  max-width: 1400px;
+  max-width: 1800px;
   margin: 0 auto;
 }
 
-.admin-header {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  margin-bottom: 20px;
-  gap: 15px;
-  flex-wrap: wrap;
-}
-
-.admin-header h1 {
-  display: flex;
-  align-items: center;
-  color: var(--accent);
-  margin: 0;
-  margin-right: auto;
-}
 
 .admin-layout {
   display: grid;
@@ -5093,26 +6120,10 @@ h2 {
 /* About page */
 .about-page {
   padding: 20px;
-  max-width: 1200px;
+  max-width: 1800px;
   margin: 0 auto;
 }
 
-.about-header {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  margin-bottom: 20px;
-  gap: 15px;
-  flex-wrap: wrap;
-}
-
-.about-header h1 {
-  display: flex;
-  align-items: center;
-  color: var(--accent);
-  margin: 0;
-  margin-right: auto;
-}
 
 .about-content {
   display: flex;
@@ -5266,26 +6277,50 @@ h2 {
 .about-features {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-2);
 }
 
 .about-feature {
-  background: rgba(0, 0, 0, 0.25);
-  border-radius: 6px;
+  background: var(--bg-card);
+  border: var(--rule-strong);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.about-feature:hover {
+  border-color: rgba(255, 110, 60, 0.28);
+}
+
+.about-feature[open] {
+  border-color: rgba(255, 110, 60, 0.45);
 }
 
 .about-feature summary,
 .about-feature-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 14px;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-left: 3px solid transparent;
+  padding-left: calc(var(--space-4) - 3px);
   list-style: none;
   user-select: none;
+  transition: border-left-color 0.15s, background 0.15s;
 }
 
 .about-feature summary {
   cursor: pointer;
+}
+
+.about-feature[open] summary {
+  border-left-color: rgb(255, 110, 60);
+  background: rgba(255, 110, 60, 0.04);
+}
+
+.about-feature summary:focus-visible {
+  outline: none;
+  background: rgba(255, 110, 60, 0.06);
 }
 
 .about-feature summary::-webkit-details-marker {
@@ -5293,15 +6328,28 @@ h2 {
 }
 
 .about-feature summary::before {
-  content: "\25B6";
-  font-size: 0.6em;
-  color: var(--text-dim);
-  transition: transform 0.15s;
+  content: '▸';
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1em;
+  height: 1em;
+  font-size: 1.25em;
+  line-height: 1;
+  color: rgba(255, 110, 60, 0.7);
+  position: relative;
+  top: -0.08em;
+  transition: transform 0.15s, color 0.15s;
   flex-shrink: 0;
+}
+
+.about-feature summary:hover::before {
+  color: rgba(255, 130, 80, 0.95);
 }
 
 .about-feature[open] summary::before {
   transform: rotate(90deg);
+  color: rgb(255, 130, 80);
 }
 
 .about-feature-name {
@@ -5310,16 +6358,26 @@ h2 {
 }
 
 .about-feature-cvar {
-  font-size: 0.8em;
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
   color: var(--text-dim);
-  background: rgba(0, 0, 0, 0.3);
-  padding: 1px 6px;
-  border-radius: 3px;
+  background: rgba(208, 200, 184, 0.08);
+  border: 1px solid rgba(208, 200, 184, 0.14);
+  padding: 1px 8px;
+  border-radius: var(--radius-sm);
   margin-left: auto;
 }
 
 .about-feature-content {
-  padding: 0 14px 12px;
+  padding: var(--space-2) var(--space-4) var(--space-3);
+  border-top: 1px solid rgba(208, 200, 184, 0.06);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .about-feature,
+  .about-feature summary,
+  .about-feature summary::before { transition: none; }
 }
 
 .about-feature-content p {
@@ -5368,42 +6426,283 @@ h2 {
   border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
-/* Docs tabs */
-.docs-tabs {
-  display: flex;
-  align-items: flex-end;
-  gap: 0;
-  border-bottom: 1px solid #333;
-  margin-bottom: 20px;
-  max-width: 1200px;
-  margin-left: auto;
-  margin-right: auto;
-  padding: 0 20px;
+/* ── Docs three-column layout ─────────────────────────────────────── */
+.docs-layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) 220px;
+  gap: var(--space-6);
+  align-items: start;
 }
 
-.docs-tab {
-  padding: 10px 20px;
+.docs-layout__left,
+.docs-layout__right {
+  position: sticky;
+  top: var(--space-5);
+  align-self: start;
+  max-height: calc(100vh - var(--space-7));
+  overflow-y: auto;
+  padding-bottom: var(--space-5);
+}
+
+.docs-layout__content {
+  min-width: 0;
+  max-width: 72ch;
+}
+
+@media (max-width: 1280px) {
+  .docs-layout {
+    grid-template-columns: 200px minmax(0, 1fr);
+  }
+  .docs-layout__right { display: none; }
+}
+
+@media (max-width: 900px) {
+  .docs-layout {
+    grid-template-columns: 1fr;
+  }
+  .docs-layout__left {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+}
+
+/* ── Left rail ─ */
+.docs-toc-rail__title {
+  font-family: 'Cinzel', serif;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  padding: 0 0 var(--space-3);
+  border-bottom: var(--rule);
+  margin-bottom: var(--space-3);
+}
+
+.docs-toc-rail__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.docs-toc-rail__item { display: flex; flex-direction: column; }
+
+.docs-toc-rail__tab {
+  padding: var(--space-2) var(--space-1);
+  font-family: 'Cinzel', serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
   color: var(--text-dim);
   text-decoration: none;
-  font-size: 0.9rem;
-  font-weight: 500;
-  border-bottom: 2px solid transparent;
-  transition: color 0.2s, border-color 0.2s;
-  margin-bottom: -1px;
+  border-left: 2px solid transparent;
+  padding-left: var(--space-3);
+  transition: color 0.15s, border-color 0.15s;
 }
 
-.docs-tab:hover {
-  color: var(--text);
-}
+.docs-toc-rail__tab:hover { color: var(--text); }
 
-.docs-tab.active {
+.docs-toc-rail__item--active .docs-toc-rail__tab {
   color: var(--accent);
-  border-bottom-color: var(--accent);
+  border-left-color: rgb(255, 110, 60);
 }
 
+/* ── Right rail (on this page) ─ */
+.docs-on-this-page__title {
+  font-family: 'Cinzel', serif;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  padding: 0 0 var(--space-3);
+  border-bottom: var(--rule);
+  margin-bottom: var(--space-3);
+}
+
+.docs-on-this-page__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.docs-on-this-page__link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  text-decoration: none;
+  border-left: 2px solid transparent;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.docs-on-this-page__link:hover { color: var(--text); }
+
+.docs-on-this-page__glyph {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  opacity: 0.25;
+  transition: opacity 0.18s, transform 0.18s, filter 0.18s;
+}
+
+.docs-on-this-page__item--active .docs-on-this-page__link {
+  color: var(--accent);
+  border-left-color: rgb(255, 110, 60);
+  background: rgba(255, 110, 60, 0.04);
+}
+
+.docs-on-this-page__item--active .docs-on-this-page__glyph {
+  opacity: 1;
+  transform: scale(1.15);
+  filter: drop-shadow(0 0 4px rgba(255, 110, 60, 0.55))
+          drop-shadow(0 0 1px rgba(255, 110, 60, 0.9));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .docs-on-this-page__glyph,
+  .docs-toc-rail__tab,
+  .docs-on-this-page__link { transition: none; }
+}
+
+/* ── Content typography upgrades ─────────────────────────────────── */
+h2.docs-h2 {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-family: 'Cinzel', serif;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 var(--space-3);
+  padding: 0 0 var(--space-2) var(--space-3);
+  border-left: 3px solid rgb(255, 110, 60);
+  border-bottom: 1px solid rgba(208, 200, 184, 0.08);
+  scroll-margin-top: var(--space-7);
+}
+
+.docs-h2__text { flex: 1; min-width: 0; }
+
+.docs-h2__anchor {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-family: 'Barlow', sans-serif;
+  font-size: 1rem;
+  letter-spacing: normal;
+  text-transform: none;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+}
+
+h2.docs-h2:hover .docs-h2__anchor,
+h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
+
+.docs-h2__anchor:hover {
+  color: rgb(255, 130, 80);
+  background: rgba(255, 110, 60, 0.08);
+}
+
+/* Override the legacy .about-section h2 styling now that h2s are
+   wrapped in <DocsH2>. The disclaimer at the bottom of every docs
+   route still uses a plain <h2> — leave it as-is so it reads as a
+   "minor end-of-page note" rather than a section header. */
+.about-section .docs-h2 {
+  border-bottom: 1px solid rgba(208, 200, 184, 0.08);
+}
+
+/* ── Prev / next at bottom of each docs subpage ─ */
+.docs-prev-next {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+  padding-top: var(--space-5);
+  position: relative;
+}
+
+/* Editorial transition from content to navigation — same warm hairline
+   that closes drawers/modals so the docs page feels of-a-piece. */
+.docs-prev-next::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 1px;
+  background: var(--rule-gradient-h);
+}
+
+.docs-prev-next__link {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-3) var(--space-4);
+  background: rgba(255, 248, 240, 0.02);
+  border: var(--rule);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.docs-prev-next__link:hover {
+  background: rgba(255, 110, 60, 0.04);
+  border-color: rgba(255, 110, 60, 0.4);
+}
+
+.docs-prev-next__link--next { text-align: right; }
+
+.docs-prev-next__direction {
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.docs-prev-next__label {
+  font-family: 'Cinzel', serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+/* End-of-page disclaimer — small + understated. */
 .docs-disclaimer {
-  opacity: 0.6;
-  font-size: 0.9em;
+  opacity: 0.55;
+  font-size: 0.85em;
+  margin-top: var(--space-5);
+}
+
+.docs-disclaimer h2 {
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: var(--text-dim);
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  border: none;
 }
 
 /* Docs mode cards */
@@ -5880,21 +7179,26 @@ h2 {
 }
 
 .download-toggle {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 28px;
+  height: 28px;
   background: none;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  color: var(--accent-dim);
+  border: 1px solid rgba(208, 200, 184, 0.25);
+  border-radius: var(--radius-pill);
+  color: var(--text-dim);
   cursor: pointer;
-  padding: 4px;
-  transition: color 0.15s, border-color 0.15s;
+  padding: 0;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
-.download-toggle:hover {
-  color: var(--accent);
-  border-color: rgba(255, 255, 255, 0.15);
+.download-toggle:hover,
+.download-toggle:focus-visible {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+  outline: none;
 }
 
 .download-panel {
@@ -6027,17 +7331,8 @@ h2 {
 /* Claim page */
 .claim-page {
   padding: 20px;
-  max-width: 1200px;
+  max-width: 1800px;
   margin: 0 auto;
-}
-
-.claim-header {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  margin-bottom: 20px;
-  gap: 15px;
-  flex-wrap: wrap;
 }
 
 .claim-container {

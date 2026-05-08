@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { MatchCard } from './MatchCard'
 import { Header } from './Header'
+import { Breadcrumbs } from './Breadcrumbs'
 import type { MatchSummary } from '../types'
 
 export function MatchDetailPage() {
@@ -49,6 +50,21 @@ export function MatchDetailPage() {
   return (
     <div className="match-detail-page">
       <Header title="Match Details" className="match-detail-header" />
+
+      {match && (
+        <Breadcrumbs
+          crumbs={[
+            { label: 'Matches', to: '/matches' },
+            {
+              label: (() => {
+                const date = match.started_at ? new Date(match.started_at).toLocaleDateString() : ''
+                const map = match.map_name ?? ''
+                return [date, map].filter(Boolean).join(' · ') || 'Match'
+              })(),
+            },
+          ]}
+        />
+      )}
 
       <div className="match-detail-content">
         <div className="match-detail-nav">

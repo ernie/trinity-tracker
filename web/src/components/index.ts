@@ -1,6 +1,5 @@
 export { ServerCard } from './ServerCard'
 export { PlayerItem } from './PlayerItem'
-export { ActivityLog } from './ActivityLog'
 export { ConnectionStatus } from './ConnectionStatus'
 export { ColoredText } from './ColoredText'
 export { RecentMatches } from './RecentMatches'
