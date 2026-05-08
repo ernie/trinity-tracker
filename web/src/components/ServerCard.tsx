@@ -1,10 +1,15 @@
 import { useState, useEffect } from 'react'
-import type { ServerStatus, Player, FlagStatus } from '../types'
+import type { ServerStatus, Player } from '../types'
 import { FlagIcon } from './FlagIcon'
-import { PlayerItem } from './PlayerItem'
 import { formatNumber, serverDisplay } from '../utils'
 import { useSources } from '../hooks/useSources'
 import { formatGameType } from './MatchCard'
+import { useMapMeta } from '../hooks/useMapMeta'
+import { RichChip } from './cards/RichChip'
+import { Scoreboard } from './cards/Scoreboard'
+import { classifyScores } from './cards/format'
+import { PlayerRows } from './cards/PlayerRows'
+import { SpectatorStrip } from './cards/SpectatorStrip'
 
 interface ServerCardProps {
   server: ServerStatus
@@ -25,18 +30,6 @@ function isTeamGame(gameType: string): boolean {
 function isCTF(gameType: string): boolean {
   const ctfModes = ['capture the flag', 'ctf', 'one flag ctf', '1fctf']
   return ctfModes.includes(gameType.toLowerCase())
-}
-
-// In 1FCTF only neutral_carrier is meaningful; in CTF only red/blue.
-// The unused fields are present-but-meaningless and must not be matched.
-function flagCarriedBy(fs: FlagStatus | undefined, clientNum: number): 'red' | 'blue' | 'neutral' | undefined {
-  if (!fs) return undefined
-  if (fs.mode === '1fctf') {
-    return fs.neutral_carrier !== undefined && fs.neutral_carrier === clientNum && fs.neutral_carrier >= 0 ? 'neutral' : undefined
-  }
-  if (fs.red_carrier === clientNum && fs.red_carrier >= 0) return 'red'
-  if (fs.blue_carrier === clientNum && fs.blue_carrier >= 0) return 'blue'
-  return undefined
 }
 
 // Get flag status indicator: 0=at base, 1=taken, 2=dropped
@@ -252,10 +245,9 @@ export function ModeIcons({ movement, gameplay }: { movement?: string, gameplay?
   )
 }
 
-export function ServerCard({ server, newPlayers, isSelected, onSelect, onPlayerClick, liveness }: ServerCardProps) {
+export function ServerCard({ server, newPlayers: _newPlayers, isSelected, onSelect, onPlayerClick: _onPlayerClick, liveness }: ServerCardProps) {
   const { hasMultiple: hasMultipleSources } = useSources()
-  const humans = server.players?.filter(p => !p.is_bot) ?? []
-  const bots = server.players?.filter(p => p.is_bot) ?? []
+  const meta = useMapMeta(server.map)
   const showTeamScores = isTeamGame(server.game_type) && server.team_scores
   const scoreLimit = getScoreLimit(server.game_type, server.server_vars)
   const timeLimit = getTimeLimit(server.server_vars)
@@ -272,6 +264,7 @@ export function ServerCard({ server, newPlayers, isSelected, onSelect, onPlayerC
   const { gameTimeMs, warmupRemaining } = useInterpolatedTime(server, timeLimit, !isDegraded)
   const interpolatedServer = { ...server, game_time_ms: gameTimeMs, warmup_remaining: warmupRemaining }
   const displayTime = getDisplayTime(interpolatedServer, timeLimit)
+
   // Determine state class and label for top-right badge.
   // Liveness from /api/servers wins over match_state when degraded — a
   // stale collector or UDP-unreachable server should signal that
@@ -286,16 +279,16 @@ export function ServerCard({ server, newPlayers, isSelected, onSelect, onPlayerC
     }
     switch (server.match_state) {
       case 'overtime':
-        return { className: 'state-overtime', label: 'Overtime' }
+        return { className: 'overtime', label: 'Overtime' }
       case 'warmup':
-        return { className: 'state-warmup', label: 'Warmup' }
+        return { className: 'warmup', label: 'Warmup' }
       case 'waiting':
-        return { className: 'state-waiting', label: 'Waiting' }
+        return { className: 'waiting', label: 'Waiting' }
       case 'intermission':
-        return { className: 'state-intermission', label: 'Intermission' }
+        return { className: 'intermission', label: 'Intermission' }
       case 'active':
       default:
-        return { className: 'state-active', label: 'Active' }
+        return { className: 'active', label: 'Active' }
     }
   }
   const stateBadge = getStateBadge()
@@ -303,100 +296,123 @@ export function ServerCard({ server, newPlayers, isSelected, onSelect, onPlayerC
   // Generate levelshot URL from map name
   const levelshotUrl = server.map ? `/assets/levelshots/${server.map.toLowerCase()}.jpg` : undefined
 
+  // Players excluding spectators (team 3), sorted for display
+  const activePlayers = sortPlayersByTeam(
+    (server.players ?? []).filter(p => p.team !== 3)
+  )
+  const spectators = (server.players ?? []).filter(p => p.team === 3)
+
   return (
     <div
-      className={`server-card ${isSelected ? 'selected' : ''} ${onSelect ? 'selectable' : ''} ${isDegraded ? 'degraded' : ''}`}
+      className={`card server-card ${isSelected ? 'selected' : ''} ${onSelect ? 'selectable' : ''} ${isDegraded ? 'degraded' : ''}`}
       style={levelshotUrl ? { '--levelshot': `url(${levelshotUrl})` } as React.CSSProperties : undefined}
       onClick={onSelect}
       role={onSelect ? 'button' : undefined}
       tabIndex={onSelect ? 0 : undefined}
     >
-      <span className="server-name-badge">
-        <ModeIcons movement={server.server_vars?.g_movement} gameplay={server.server_vars?.g_gameplay} />
-        {serverDisplay(server.source, server.key, { hasMultipleSources: hasMultipleSources })}
-        <span className="badge-sep">/</span>
-        <span className="badge-label">Mode</span> {formatGameType(server.game_type)}
-      </span>
-      <span className={`server-state-badge ${stateBadge.className}`}>{stateBadge.label}</span>
-      <div className="server-header">
-        <span className="server-map">{server.map || 'Unknown'}</span>
+      <div className="card__topbar">
+        <RichChip
+          source={hasMultipleSources ? server.source : undefined}
+          server={serverDisplay(server.source, server.key, { hasMultipleSources })}
+          mode={formatGameType(server.game_type)}
+        />
+        <span className={`card__state ${stateBadge.className}`}>{stateBadge.label}</span>
+      </div>
+
+      <div className="card__header">
+        <div className="card__map">
+          {meta.longName && <span className="card__map-short">{meta.shortName}</span>}
+          <span className="card__map-long">{meta.displayName || server.map || 'Unknown'}</span>
+        </div>
         {(scoreLimit || timeLimit || gameTimeMs > 0 || displayTime.isWarmup) && (
-          <span className="server-limits">
-            {scoreLimit && <span className="score-limit">Limit: {scoreLimit}</span>}
-            {scoreLimit && (timeLimit || gameTimeMs > 0 || displayTime.isWarmup) && <span className="limit-sep"> | </span>}
+          <div className="card__limits">
+            {scoreLimit && <span>Limit: {scoreLimit}</span>}
+            {scoreLimit && (timeLimit || gameTimeMs > 0 || displayTime.isWarmup) && <span> | </span>}
             <span className={displayTime.isOvertime ? 'overtime-time' : displayTime.isWarmup ? 'warmup-time' : ''}>{displayTime.time}</span>
-            {timeLimit && <span className="time-limit"> / {timeLimit}m</span>}
-          </span>
+            {timeLimit && <span> / {timeLimit}m</span>}
+          </div>
         )}
       </div>
+
+      <ModeIcons movement={server.server_vars?.g_movement} gameplay={server.server_vars?.g_gameplay} />
 
       {showTeamScores && server.team_scores && (
-        <div className="team-scores">
-          <span className="team-score red">
-            <span className="team-label">{server.server_vars?.g_redteam || 'Red'}</span>
-            <span className="score-row">
-              <span className="score-value">{formatNumber(server.team_scores.red)}</span>
-              {server.flag_status?.mode === 'ctf' && (() => {
-                const indicator = getFlagIndicator(server.flag_status.red)
-                return (
-                  <span className={`flag-indicator ${indicator.className}`}>
-                    <FlagIcon team="red" status={indicator.status} size="sm" title={`Red flag: ${indicator.title}`} />
-                  </span>
-                )
-              })()}
-            </span>
-          </span>
-          {server.flag_status?.mode === '1fctf' && (() => {
-            const indicator = getNeutralFlagIndicator(server.flag_status.neutral ?? 0)
-            return (
-              <span className={`team-score team-flag-center ${indicator.drift}`}>
-                <span className="team-label" aria-hidden="true">&nbsp;</span>
+        <>
+          {isCTF(server.game_type) ? (
+            // CTF: keep existing flag-aware team score rendering
+            <div className="team-scores">
+              <span className="team-score red">
+                <span className="team-label">{server.server_vars?.g_redteam || 'Red'}</span>
                 <span className="score-row">
-                  <span className="score-value" aria-hidden="true">&nbsp;</span>
-                  <span className="flag-indicator">
-                    <FlagIcon team="neutral" status={indicator.status} size="sm" title={indicator.title} />
-                  </span>
+                  <span className="score-value">{formatNumber(server.team_scores.red)}</span>
+                  {server.flag_status?.mode === 'ctf' && (() => {
+                    const indicator = getFlagIndicator(server.flag_status.red)
+                    return (
+                      <span className={`flag-indicator ${indicator.className}`}>
+                        <FlagIcon team="red" status={indicator.status} size="sm" title={`Red flag: ${indicator.title}`} />
+                      </span>
+                    )
+                  })()}
                 </span>
               </span>
-            )
-          })()}
-          <span className="team-score blue">
-            <span className="team-label">{server.server_vars?.g_blueteam || 'Blue'}</span>
-            <span className="score-row">
-              <span className="score-value">{formatNumber(server.team_scores.blue)}</span>
-              {server.flag_status?.mode === 'ctf' && (() => {
-                const indicator = getFlagIndicator(server.flag_status.blue)
+              {server.flag_status?.mode === '1fctf' && (() => {
+                const indicator = getNeutralFlagIndicator(server.flag_status.neutral ?? 0)
                 return (
-                  <span className={`flag-indicator ${indicator.className}`}>
-                    <FlagIcon team="blue" status={indicator.status} size="sm" title={`Blue flag: ${indicator.title}`} />
+                  <span className={`team-score team-flag-center ${indicator.drift}`}>
+                    <span className="team-label" aria-hidden="true">&nbsp;</span>
+                    <span className="score-row">
+                      <span className="score-value" aria-hidden="true">&nbsp;</span>
+                      <span className="flag-indicator">
+                        <FlagIcon team="neutral" status={indicator.status} size="sm" title={indicator.title} />
+                      </span>
+                    </span>
                   </span>
                 )
               })()}
-            </span>
-          </span>
-        </div>
+              <span className="team-score blue">
+                <span className="team-label">{server.server_vars?.g_blueteam || 'Blue'}</span>
+                <span className="score-row">
+                  <span className="score-value">{formatNumber(server.team_scores.blue)}</span>
+                  {server.flag_status?.mode === 'ctf' && (() => {
+                    const indicator = getFlagIndicator(server.flag_status.blue)
+                    return (
+                      <span className={`flag-indicator ${indicator.className}`}>
+                        <FlagIcon team="blue" status={indicator.status} size="sm" title={`Blue flag: ${indicator.title}`} />
+                      </span>
+                    )
+                  })()}
+                </span>
+              </span>
+            </div>
+          ) : (
+            // Non-CTF team modes: use Scoreboard primitive
+            <Scoreboard
+              redLabel={server.server_vars?.g_redteam ?? 'Red'}
+              redScore={server.team_scores.red}
+              blueLabel={server.server_vars?.g_blueteam ?? 'Blue'}
+              blueScore={server.team_scores.blue}
+              state={classifyScores(server.team_scores.red, server.team_scores.blue)}
+            />
+          )}
+        </>
       )}
 
-      <div className="player-counts">
-        <span className="count-humans">{humans.length} humans</span>
-        <span className="count-bots">{bots.length} bots</span>
-      </div>
+      {/* TODO(card-conformance): wire onPlayerClick through PlayerRows */}
+      <PlayerRows
+        players={activePlayers.map(p => ({
+          name: p.name,
+          team: p.team as 1 | 2 | undefined,
+          isBot: p.is_bot,
+          score: p.score,
+          ping: p.ping,
+        }))}
+        mode="live"
+      />
 
-      <ul className="player-list">
-        {server.players && server.players.length > 0 ? (
-          sortPlayersByTeam(server.players).map((player, index) => (
-            <PlayerItem
-              key={`${player.clean_name}-${index}`}
-              player={player}
-              isNew={newPlayers.has(player.clean_name)}
-              carryingFlag={flagCarriedBy(server.flag_status, player.client_num)}
-              onClick={onPlayerClick ? () => onPlayerClick(player.name, player.clean_name, player.player_id) : undefined}
-            />
-          ))
-        ) : (
-          <li className="no-players">No players</li>
-        )}
-      </ul>
+      <SpectatorStrip
+        spectators={spectators.map(p => ({ name: p.name }))}
+        isLive={true}
+      />
     </div>
   )
 }
