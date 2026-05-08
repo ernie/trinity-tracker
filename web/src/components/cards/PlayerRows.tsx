@@ -1,13 +1,18 @@
 // Player table for team / FFA cards. Live mode shows ping; finished
 // mode shows F + D + Score. Awards render as one icon per type with a
 // count badge when multiple were earned (e.g., "5x excellent" is one
-// medal icon with `5` superscripted). The mask-fade still trims the
-// left edge if the row gets crowded.
+// medal icon with `5` superscripted). When the row gets crowded, the
+// awards trail off the right edge with a soft mask-fade so they never
+// shove the name out of view.
+//
+// CTF/1FCTF: when a player is the active flag carrier, a flag icon
+// renders directly to the right of their name.
 import { ColoredText } from '../ColoredText'
 import { PlayerPortrait } from '../PlayerPortrait'
 import { PlayerBadge } from '../PlayerBadge'
 import { BotBadge } from '../BotBadge'
 import { MedalIcon } from '../MedalIcon'
+import { FlagIcon } from '../FlagIcon'
 import type { AwardEntry } from './format'
 
 export interface PlayerRowData {
@@ -28,11 +33,22 @@ export interface PlayerRowData {
   deaths?: number
   ping?: number
   awards?: AwardEntry[]
+  /** DB player ID — needed to open the PlayerStatsModal on click. */
+  playerId?: number
+  /** When set, renders a flag icon next to the name marking this
+   *  player as the active CTF / 1FCTF carrier. */
+  flagCarrier?: 'red' | 'blue' | 'neutral'
 }
 
 type Mode = 'live' | 'finished'
 
-export function PlayerRows({ players, mode }: { players: PlayerRowData[]; mode: Mode }) {
+interface PlayerRowsProps {
+  players: PlayerRowData[]
+  mode: Mode
+  onPlayerClick?: (playerName: string, cleanName: string, playerId?: number) => void
+}
+
+export function PlayerRows({ players, mode, onPlayerClick }: PlayerRowsProps) {
   return (
     <div className="player-rows">
       <div className={`player-row header ${mode}`}>
@@ -44,8 +60,24 @@ export function PlayerRows({ players, mode }: { players: PlayerRowData[]; mode: 
       </div>
       {players.map((p, i) => {
         const portraitFallback = (p.cleanName || p.name || '?').replace(/\^./g, '').charAt(0).toLowerCase() || '?'
+        const clickable = !!onPlayerClick && !p.isBot
+        const handleClick = clickable
+          ? () => onPlayerClick!(p.name, p.cleanName ?? p.name, p.playerId)
+          : undefined
         return (
-          <div key={i} className={`player-row ${mode}`}>
+          <div
+            key={i}
+            className={`player-row ${mode} ${clickable ? 'clickable' : ''}`}
+            onClick={handleClick}
+            role={clickable ? 'button' : undefined}
+            tabIndex={clickable ? 0 : undefined}
+            onKeyDown={clickable ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                handleClick!()
+              }
+            } : undefined}
+          >
             <span className="pname-cell">
               <span className={`team-dot ${teamClass(p.team)}`} aria-hidden />
               <span className="player-row__portrait">
@@ -57,6 +89,11 @@ export function PlayerRows({ players, mode }: { players: PlayerRowData[]; mode: 
                 <PlayerBadge isVerified={p.isVerified} isAdmin={p.isAdmin} isVR={p.isVR} size="sm" />
               )}
               <span className={`name ${p.isBot ? 'bot' : ''}`}><ColoredText text={p.name} /></span>
+              {p.flagCarrier && (
+                <span className="row-carrier" aria-hidden>
+                  <FlagIcon team={p.flagCarrier} status="taken" size="sm" />
+                </span>
+              )}
               {p.awards && p.awards.length > 0 && (
                 <span className="row-awards">
                   {p.awards.map((a) => (

@@ -90,6 +90,7 @@ function duelistFromMatchPlayer(p: MatchPlayerSummary | undefined): DuelistData 
     score: p.frags ?? 0,
     sub: <span>{p.frags ?? 0} F · {p.deaths ?? 0} D</span>,
     awards: awardsFromCounts(p),
+    playerId: p.player_id,
   }
 }
 
@@ -102,11 +103,11 @@ interface MatchCardProps {
 
 export function MatchCard({
   match,
-  onPlayerClick: _onPlayerClick,
+  onPlayerClick,
   highlightPlayerId: _highlightPlayerId,
   showPermalink: _showPermalink = false,
 }: MatchCardProps) {
-  // TODO(card-conformance): wire onPlayerClick / highlight / permalink through the new primitives
+  // TODO(card-conformance): wire highlight / permalink through the new primitives
   const { hasMultiple: hasMultipleSources } = useSources()
   const meta = useMapMeta(match.map_name)
   const location = useLocation()
@@ -153,6 +154,7 @@ export function MatchCard({
     deaths: p.deaths,
     score: p.score,
     awards: awardsFromCounts(p),
+    playerId: p.player_id,
   }))
 
   return (
@@ -170,6 +172,7 @@ export function MatchCard({
           server={match.server_key}
           mode={formatGameType(match.game_type)}
         />
+        <ModeIcons movement={match.movement} gameplay={match.gameplay} />
         {match.ended_at && (
           <span className="card__time" title={new Date(match.ended_at).toLocaleString()}>
             {formatTimeAgo(match.ended_at)}
@@ -185,13 +188,12 @@ export function MatchCard({
         </div>
       </div>
 
-      <ModeIcons movement={match.movement} gameplay={match.gameplay} />
-
       {isDuel && activeTeams.length >= 2 ? (
         <Duelists
           left={duelistFromMatchPlayer(activeTeams[0])}
           right={duelistFromMatchPlayer(activeTeams[1])}
           state={classifyScores(activeTeams[0]?.frags ?? 0, activeTeams[1]?.frags ?? 0)}
+          onPlayerClick={onPlayerClick}
         />
       ) : (
         <>
@@ -204,7 +206,7 @@ export function MatchCard({
               state={scoreState}
             />
           )}
-          <PlayerRows players={rowData} mode="finished" />
+          <PlayerRows players={rowData} mode="finished" onPlayerClick={onPlayerClick} />
         </>
       )}
 

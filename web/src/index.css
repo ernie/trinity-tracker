@@ -1887,7 +1887,11 @@ h2 {
   display: flex;
   align-items: center;
   gap: var(--space-4);
-  min-height: 64px; /* anchored to .app-logo height so the row stays consistent across pages */
+  /* Anchored to .app-logo height (56px) so that clicking from the
+     landing page (hero header) into a non-landing route doesn't
+     shift the brand baseline — both sides render at the same
+     logo size and the same vertical placement. */
+  min-height: 56px;
   /* Reserve right-side space for the absolutely-positioned search
      trigger so the title text doesn't run under it on narrow widths.
      The fixed chrome cluster (StatusPill + ConnectionStatus) lives
@@ -2094,6 +2098,10 @@ h2 {
   color: var(--accent);
   font-family: 'Cinzel', serif;
   font-weight: 700;
+  /* Matches hero__brand-title (28px) so the heading doesn't reflow
+     between landing and other pages. */
+  font-size: 28px;
+  line-height: 1;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -2132,7 +2140,9 @@ h2 {
 
 .app-logo {
   display: block;
-  height: 64px;
+  /* Sized to match .hero__brand-logo so the icon doesn't appear to
+     shift when clicking from landing into another route. */
+  height: 56px;
   width: auto;
   margin: 0;
   flex-shrink: 0;
@@ -2166,62 +2176,73 @@ h2 {
   text-shadow: none;
 }
 
-/* Live-state pill in the brand row. Pulses when humans are on, sits
-   quiet otherwise. Toggles the activity drawer. */
+/* Live-state pill — mirrors .hero__pill on the landing page so the
+   indicator looks identical between landing and other routes. The
+   dot pulses ember-orange whenever the hub is connected, regardless
+   of whether anybody is playing (the label flips to "ALL QUIET"
+   in that case). When the WebSocket drops, both dot and label go
+   gray and the pulse stops. */
 .status-pill {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: 6px 12px 6px 10px;
-  /* Layered: a 4% warm wash on top of an opaque card background.
-     The wash gives the HUD glow we want; the opaque base prevents
-     page content (login buttons, table rows) from bleeding through
-     since the pill is fixed-positioned over the document. */
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 248, 240, 0.18);
+  /* Opaque base prevents page content from bleeding through (the
+     pill sits fixed over the document on non-landing routes). */
   background-color: var(--bg-card);
-  background-image: linear-gradient(rgba(255, 248, 240, 0.04), rgba(255, 248, 240, 0.04));
-  border: 1px solid rgba(208, 200, 184, 0.18);
-  border-radius: var(--radius-pill);
-  color: var(--text-dim);
+  background-image: linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.35));
+  color: var(--text);
   font-family: 'Barlow', sans-serif;
-  font-size: 0.8rem;
+  font-size: 11px;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  white-space: nowrap;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
 .status-pill:hover,
 .status-pill:focus-visible {
-  background-image: linear-gradient(rgba(255, 248, 240, 0.08), rgba(255, 248, 240, 0.08));
-  border-color: rgba(208, 200, 184, 0.36);
-  color: var(--text);
+  border-color: rgba(255, 248, 240, 0.36);
   outline: none;
 }
 
 .status-pill__dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   flex-shrink: 0;
+  background: var(--ember-strong, #ff6e3c);
+  box-shadow: 0 0 8px var(--ember-strong, #ff6e3c);
+  animation: landing-hero-pulse 1.6s ease-in-out infinite;
 }
 
-.status-pill.live {
-  color: var(--text);
-  border-color: rgba(76, 175, 80, 0.36);
-}
-
-.status-pill.live .status-pill__dot {
-  background: var(--green);
-  animation: pulse-green 1.8s ease-in-out infinite;
-}
-
+/* Quiet (connected, no humans): dim text + dot, but keep the dot
+   pulsing so the page still reads as "live, just nobody on". */
+.status-pill.quiet { color: var(--text-dim); }
 .status-pill.quiet .status-pill__dot {
+  /* Keep the pulse; just dial down brightness. */
+  background: var(--ember-strong, #ff6e3c);
+  box-shadow: 0 0 6px rgba(255, 110, 60, 0.4);
+  opacity: 0.6;
+}
+
+/* Disconnected: hub feed lost. No glow, no pulse, fully gray — this
+   is the (rare) state that the old red/green ConnectionStatus dot
+   used to flag separately. */
+.status-pill.offline { color: var(--text-dim); }
+.status-pill.offline .status-pill__dot {
   background: var(--text-dim);
+  box-shadow: none;
+  animation: none;
   opacity: 0.5;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .status-pill.live .status-pill__dot { animation: none; }
+  .status-pill__dot { animation: none; }
 }
 
 /* Community cluster — Download / Discord / GitHub grouped, separated from
@@ -3609,10 +3630,10 @@ h2 {
    edit-player form is provided by .admin-btn / .admin-btn-primary on
    the markup. The .edit-actions wrapper just lays them out. */
 
-/* Right sidebar layout */
-.app.with-right-sidebar {
-  padding-right: calc(var(--sidebar-width, 350px) + 20px);
-}
+/* Right sidebar (RCON) overlays the page like every other drawer
+   instead of squishing layout. The previous padding-right pushed all
+   content left; now the fixed-positioned sidebar simply floats over
+   the right edge, matching ActivityDrawer / MyServersDrawer behavior. */
 
 /* Selectable server cards */
 .server-card.selectable {
@@ -8962,6 +8983,63 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   vertical-align: middle;
   animation: landing-hero-pulse 1.6s ease-in-out infinite;
 }
+/* "All quiet" placeholder for the Active Now shelf. Stands in when
+   no live matches are in progress — a single dim card with a soft
+   pulse and a CTA into the servers page. Anchors the section so the
+   landing page doesn't visibly collapse when the shelf is empty. */
+.landing-quiet {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 48px 24px;
+  border: 1px dashed rgba(255, 248, 240, 0.12);
+  border-radius: 6px;
+  background: rgba(20, 16, 14, 0.4);
+  text-align: center;
+}
+.landing-quiet__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  box-shadow: 0 0 8px rgba(208, 200, 184, 0.25);
+  animation: landing-hero-pulse 1.6s ease-in-out infinite;
+  opacity: 0.7;
+}
+.landing-quiet__title {
+  margin: 4px 0 0;
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.32em;
+  color: var(--text-dim);
+}
+.landing-quiet__sub {
+  margin: 0;
+  font-family: 'Barlow', sans-serif;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+.landing-quiet__cta {
+  font-family: 'Barlow', sans-serif;
+  font-weight: 500;
+  font-size: 11px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(208, 200, 184, 0.2);
+  padding-bottom: 2px;
+  margin-top: 6px;
+  transition: color 0.15s, border-color 0.15s;
+}
+.landing-quiet__cta:hover {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
 .landing-section__cta {
   font-family: 'Barlow', sans-serif;
   font-weight: 500;
@@ -9522,21 +9600,61 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   min-width: 0;
 }
 .player-row .pname-cell .name.bot { color: var(--text-dim); font-style: italic; }
+/* Awards pin to the far right of the row. With count badges (one icon
+   per medal type, count overlaid) crowding is rare, so we drop the
+   old left-edge fade that ate into legibility. A right-edge mask lets
+   the row trail off when we overflow rather than shoving the name
+   into ellipsis. */
 .player-row .pname-cell .row-awards {
   display: flex;
-  gap: 2px;
-  flex-shrink: 0;
+  gap: 4px;
+  flex-shrink: 1;
+  min-width: 0;
   padding-left: 6px;
   margin-left: auto;
-  -webkit-mask-image: linear-gradient(to right, transparent 0, black 24px);
-          mask-image: linear-gradient(to right, transparent 0, black 24px);
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to left, transparent 0, black 16px);
+          mask-image: linear-gradient(to left, transparent 0, black 16px);
 }
 .player-row .pname-cell .row-awards .medal-icon {
   margin: 0;
+  flex-shrink: 0;
 }
 .player-row .pname-cell .row-awards .medal-icon-sm img {
   width: 14px;
   height: 14px;
+}
+/* CTF/1FCTF flag-carrier marker — sits directly to the right of the
+   player's name. Small inline icon, slightly elevated above the
+   awards strip so it stays prominent. */
+.player-row .pname-cell .row-carrier {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  flex-shrink: 0;
+}
+.player-row .pname-cell .row-carrier .flag-icon img {
+  width: 14px;
+  height: 14px;
+}
+/* Clickable rows (live + finished, humans only). The whole row reacts
+   so the click target matches the cell's visual extent. Hover/focus
+   give a subtle highlight; the cursor flips to pointer. */
+.player-row.clickable { cursor: pointer; transition: background 0.15s ease; }
+.player-row.clickable:hover,
+.player-row.clickable:focus-visible {
+  background: rgba(255, 110, 60, 0.07);
+  outline: none;
+}
+.duelist.clickable { cursor: pointer; transition: opacity 0.15s ease; }
+.duelist.clickable:hover,
+.duelist.clickable:focus-visible {
+  outline: none;
+}
+.duelist.clickable:hover .duelist__portrait-wrap,
+.duelist.clickable:focus-visible .duelist__portrait-wrap {
+  border-color: var(--ember-strong, #ff6e3c);
+  box-shadow: 0 0 12px rgba(255, 110, 60, 0.35);
 }
 .player-row .stat {
   font-variant-numeric: tabular-nums;
@@ -9616,11 +9734,44 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 .card > * { position: relative; z-index: 1; }
 .card__topbar {
   display: flex;
-  justify-content: space-between;
   align-items: center;
   gap: 10px;
   margin-bottom: 10px;
 }
+/* Right-side meta (state pill on live cards, time/duration on match
+   cards) pins to the far right, leaving chip + mode icons grouped on
+   the left. Both use auto-margin instead of justify-content:between so
+   the new ModeIcons sibling doesn't get sprung into the middle. */
+.card__topbar > .card__state,
+.card__topbar > .card__time { margin-left: auto; }
+/* Match card's relative timestamp (e.g. "2h ago") above the elapsed
+   match duration. Right-aligned, dim-on-dim so neither dominates. */
+.card__time {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-family: 'Barlow', sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  white-space: nowrap;
+  flex-shrink: 0;
+  line-height: 1.1;
+}
+.card__time .duration {
+  font-family: 'Cinzel', serif;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  text-transform: none;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+/* In-topbar mode icons should not push other items via large hover
+   panel margin. Reset the small inline-text margin the original
+   .mode-icons rule carries (assumed adjacent text). */
+.card__topbar .mode-icons { margin: 0; }
 .card__state {
   font-family: 'Barlow', sans-serif;
   font-size: 9px;
@@ -9656,12 +9807,15 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 .card__map-long {
   font-family: 'Barlow', sans-serif; font-weight: 700; font-size: 17px;
   color: var(--text);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  /* Single-line truncation. Long names like "Draconian Measures -
+     www.ninemil.com" used to wrap; now they ellipsize. The full name
+     is still revealed via the levelshot hover preview's title attr
+     and the chip below. */
+  display: block;
+  white-space: nowrap;
   overflow: hidden;
-  word-break: break-word;
-  hyphens: auto;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 /* Levelshot preview on map-name hover (resurrected from pre-redesign).
    Uses the --levelshot custom property the card sets on its root. */

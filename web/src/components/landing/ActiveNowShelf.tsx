@@ -7,9 +7,9 @@ export function ActiveNowShelf() {
   const activeServers = Array.from(live.servers.values()).filter(
     (s) => s.online && s.human_count > 0
   )
-
-  // Hide silently if no active matches qualify
-  if (activeServers.length === 0) return null
+  const totalOnline = live.servers.size > 0
+    ? Array.from(live.servers.values()).filter((s) => s.online).length
+    : 0
 
   return (
     <section className="landing-section">
@@ -19,20 +19,35 @@ export function ActiveNowShelf() {
         </h2>
         <Link to="/servers" className="landing-section__cta">All servers →</Link>
       </header>
-      <div className="landing-shelf-h">
-        <div className="landing-shelf-h__scroll">
-          {activeServers.map((server) => (
-            <div key={server.server_id} className="landing-shelf-h__slot">
-              <ServerCard
-                server={server}
-                newPlayers={live.newPlayers}
-                onPlayerClick={live.showPlayer}
-                liveness={live.liveness.get(server.server_id)}
-              />
-            </div>
-          ))}
+      {activeServers.length > 0 ? (
+        <div className="landing-shelf-h">
+          <div className="landing-shelf-h__scroll">
+            {activeServers.map((server) => (
+              <div key={server.server_id} className="landing-shelf-h__slot">
+                <ServerCard
+                  server={server}
+                  newPlayers={live.newPlayers}
+                  onPlayerClick={live.showPlayer}
+                  liveness={live.liveness.get(server.server_id)}
+                />
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      ) : (
+        // "All quiet" placeholder rather than hiding the section entirely.
+        // Keeps the section anchor in place across renders and reassures
+        // the visitor that the live feed is up — just nobody's playing.
+        <div className="landing-quiet">
+          <span className="landing-quiet__dot" aria-hidden />
+          <p className="landing-quiet__title">ALL QUIET</p>
+          <p className="landing-quiet__sub">
+            No live matches right now.
+            {totalOnline > 0 ? ` ${totalOnline} server${totalOnline === 1 ? '' : 's'} online and waiting.` : ''}
+          </p>
+          <Link to="/servers" className="landing-quiet__cta">Browse servers →</Link>
+        </div>
+      )}
     </section>
   )
 }

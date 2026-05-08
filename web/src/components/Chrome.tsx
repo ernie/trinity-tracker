@@ -1,6 +1,5 @@
 import { useCallback } from 'react'
 import { useLocation } from 'react-router-dom'
-import { ConnectionStatus } from './ConnectionStatus'
 import { StatusPill } from './StatusPill'
 import { ActivityDrawer } from './ActivityDrawer'
 import { PlayerStatsModal } from './PlayerStatsModal'
@@ -34,10 +33,10 @@ export function Chrome() {
           <StatusPill
             humansOnline={live.activeHumanPlayersCount}
             activeServers={live.activeServersCount}
+            isConnected={live.isConnected}
             open={live.activityDrawerOpen}
             onToggle={live.toggleActivityDrawer}
           />
-          <ConnectionStatus isConnected={live.isConnected} />
         </div>
       )}
 

@@ -21,6 +21,8 @@ export interface DuelistData {
   /** sub-text below the score, e.g. "24 ping" or "25 F · 19 D" */
   sub?: React.ReactNode
   awards?: AwardEntry[]
+  /** DB player ID — needed to open the PlayerStatsModal on click. */
+  playerId?: number
 }
 
 interface DuelistsProps {
@@ -29,6 +31,7 @@ interface DuelistsProps {
   state: ScoreState
   /** Live duels: no winner/loser styling, no TIE / NO CONTEST. Just `vs`. */
   live?: boolean
+  onPlayerClick?: (playerName: string, cleanName: string, playerId?: number) => void
 }
 
 function DuelistAwards({ awards, side }: { awards?: AwardEntry[]; side: 'left' | 'right' }) {
@@ -44,13 +47,35 @@ function DuelistAwards({ awards, side }: { awards?: AwardEntry[]; side: 'left' |
   )
 }
 
-function Duelist({ data, side, winnerSide }: { data: DuelistData; side: 'left' | 'right'; winnerSide: 'left' | 'right' | null }) {
+interface DuelistProps {
+  data: DuelistData
+  side: 'left' | 'right'
+  winnerSide: 'left' | 'right' | null
+  onClick?: (playerName: string, cleanName: string, playerId?: number) => void
+}
+
+function Duelist({ data, side, winnerSide, onClick }: DuelistProps) {
   const isWinner = winnerSide === side
   const isLoser = winnerSide !== null && winnerSide !== side
   const portraitFallback = (data.cleanName || data.name || '?').replace(/\^./g, '').charAt(0).toLowerCase() || '?'
+  const clickable = !!onClick && !data.isBot
+  const handleClick = clickable
+    ? () => onClick!(data.name, data.cleanName ?? data.name, data.playerId)
+    : undefined
 
   return (
-    <div className="duelist">
+    <div
+      className={`duelist ${clickable ? 'clickable' : ''}`}
+      onClick={handleClick}
+      role={clickable ? 'button' : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onKeyDown={clickable ? (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          handleClick!()
+        }
+      } : undefined}
+    >
       <span className={`duelist__portrait-wrap ${isWinner ? 'winner' : ''}`}>
         <PlayerPortrait model={data.model} size="lg" fallback={portraitFallback} />
         {data.isBot ? (
@@ -68,7 +93,7 @@ function Duelist({ data, side, winnerSide }: { data: DuelistData; side: 'left' |
   )
 }
 
-export function Duelists({ left, right, state, live }: DuelistsProps) {
+export function Duelists({ left, right, state, live, onPlayerClick }: DuelistsProps) {
   // Live duel: no winner/loser styling and the connector is always `vs`.
   // The match isn't decided, so showing TIE / NO CONTEST is misleading.
   const winnerSide = !live && state === 'left' ? 'left'
@@ -81,9 +106,9 @@ export function Duelists({ left, right, state, live }: DuelistsProps) {
   return (
     <div className="duelists">
       <DuelistAwards awards={left.awards} side="left" />
-      <Duelist data={left} side="left" winnerSide={winnerSide} />
+      <Duelist data={left} side="left" winnerSide={winnerSide} onClick={onPlayerClick} />
       <span className="scoreboard__vs">{connector}</span>
-      <Duelist data={right} side="right" winnerSide={winnerSide} />
+      <Duelist data={right} side="right" winnerSide={winnerSide} onClick={onPlayerClick} />
       <DuelistAwards awards={right.awards} side="right" />
     </div>
   )

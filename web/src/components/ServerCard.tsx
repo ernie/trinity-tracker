@@ -245,7 +245,7 @@ export function ModeIcons({ movement, gameplay }: { movement?: string, gameplay?
   )
 }
 
-export function ServerCard({ server, newPlayers: _newPlayers, isSelected, onSelect, onPlayerClick: _onPlayerClick, liveness }: ServerCardProps) {
+export function ServerCard({ server, newPlayers: _newPlayers, isSelected, onSelect, onPlayerClick, liveness }: ServerCardProps) {
   const { hasMultiple: hasMultipleSources } = useSources()
   const meta = useMapMeta(server.map)
   const showTeamScores = isTeamGame(server.game_type) && server.team_scores
@@ -316,6 +316,7 @@ export function ServerCard({ server, newPlayers: _newPlayers, isSelected, onSele
           server={server.key}
           mode={formatGameType(server.game_type)}
         />
+        <ModeIcons movement={server.server_vars?.g_movement} gameplay={server.server_vars?.g_gameplay} />
         <span className={`card__state ${stateBadge.className}`}>{stateBadge.label}</span>
       </div>
 
@@ -333,8 +334,6 @@ export function ServerCard({ server, newPlayers: _newPlayers, isSelected, onSele
           </div>
         )}
       </div>
-
-      <ModeIcons movement={server.server_vars?.g_movement} gameplay={server.server_vars?.g_gameplay} />
 
       {showTeamScores && server.team_scores && (() => {
         // CTF / 1FCTF inject flag indicators into Scoreboard slots; other
@@ -387,9 +386,9 @@ export function ServerCard({ server, newPlayers: _newPlayers, isSelected, onSele
           right={duelistFromLivePlayer(activePlayers[1])}
           state={classifyScores(activePlayers[0]?.score ?? 0, activePlayers[1]?.score ?? 0)}
           live
+          onPlayerClick={onPlayerClick}
         />
       ) : (
-        // TODO(card-conformance): wire onPlayerClick through PlayerRows
         <PlayerRows
           players={activePlayers.map(p => ({
             name: p.name,
@@ -404,8 +403,11 @@ export function ServerCard({ server, newPlayers: _newPlayers, isSelected, onSele
             score: p.score,
             ping: p.ping,
             awards: awardsFromCounts(p),
+            playerId: p.player_id,
+            flagCarrier: flagCarrierForClient(server.flag_status, p.client_num),
           }))}
           mode="live"
+          onPlayerClick={onPlayerClick}
         />
       )}
 
@@ -435,5 +437,24 @@ function duelistFromLivePlayer(p: Player | undefined): DuelistData {
     score: p.score ?? 0,
     sub: <span>{p.ping ?? 0} ping</span>,
     awards: awardsFromCounts(p),
+    playerId: p.player_id,
   }
+}
+
+// Maps a player's client_num to the flag they're currently carrying,
+// if any. The 1FCTF "neutral" carrier rides on the same field shape
+// (status 2 = red carrier, 3 = blue carrier).
+function flagCarrierForClient(
+  flag: import('../types').FlagStatus | undefined,
+  clientNum: number,
+): 'red' | 'blue' | 'neutral' | undefined {
+  if (!flag) return undefined
+  if (flag.mode === 'ctf') {
+    if (flag.red_carrier === clientNum && flag.red === 1) return 'red'
+    if (flag.blue_carrier === clientNum && flag.blue === 1) return 'blue'
+  }
+  if (flag.mode === '1fctf' && flag.neutral_carrier === clientNum) {
+    return 'neutral'
+  }
+  return undefined
 }
