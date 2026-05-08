@@ -8564,12 +8564,10 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   box-shadow: none;
 }
 
-/* Mobile + landscape iPhone (≤900px catches landscape iPhone Pro at
-   932 still as desktop, but most others get the stacked layout).
-   Top row: brand on the left, pill pinned to the right. Second row:
-   nav links horizontal-scroll across the full width — the nav is no
-   longer hidden on portrait, and no longer squished on landscape. */
-@media (max-width: 900px) {
+/* Stacked layout for narrow viewports — phone portrait, plus iPhone
+   12 mini / SE in landscape. Anything bigger (iPhone 14+ landscape
+   at ~844px and up) gets the inline brand · nav · pill row. */
+@media (max-width: 800px) {
   .hero__header {
     grid-template-columns: 1fr auto;
     grid-template-rows: auto auto;
