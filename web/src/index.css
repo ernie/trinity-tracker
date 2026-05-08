@@ -9656,7 +9656,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   font-variant-numeric: tabular-nums;
   text-align: right;
   color: var(--text);
-  font-size: 12px;
+  font-size: 13px;
 }
 .player-row .stat.dim { color: var(--text-dim); }
 
