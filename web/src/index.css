@@ -9502,3 +9502,42 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   font-size: 12px;
 }
 .player-row .stat.dim { color: var(--text-dim); }
+
+/* ── Card bottom row — spectator strip + optional right slot ─── */
+.card__bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(255, 248, 240, 0.06);
+  margin-top: auto;
+}
+.card__spectators {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  font-family: 'Barlow', sans-serif;
+}
+.card__spectators-label {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  color: var(--ember-light, #ffc78a);
+}
+.card__spectators-label.spec { color: var(--text-dim); }
+.card__spectators-list {
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.card__spectators-list .next { color: var(--text); font-weight: 500; }
