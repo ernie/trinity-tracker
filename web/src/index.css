@@ -9220,3 +9220,98 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   text-transform: uppercase;
   color: var(--text-dim);
 }
+
+.landing-doors {
+  padding: 72px 36px 100px;
+  position: relative;
+}
+.landing-doors::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(to right,
+    transparent 0%,
+    rgba(255, 110, 60, 0.3) 20%,
+    rgba(255, 110, 60, 0.5) 50%,
+    rgba(255, 110, 60, 0.3) 80%,
+    transparent 100%);
+}
+.landing-doors__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+.landing-door {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 36px 32px 30px;
+  background: rgba(20, 16, 14, 0.55);
+  border: 1px solid #2a2622;
+  border-radius: 4px;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.25s ease, transform 0.25s ease, background 0.25s ease;
+  position: relative;
+  overflow: hidden;
+  min-height: 180px;
+}
+.landing-door::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at bottom right, rgba(255, 110, 60, 0.12), transparent 65%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+.landing-door:hover {
+  border-color: rgba(255, 110, 60, 0.55);
+  transform: translateY(-2px);
+  background: rgba(28, 22, 18, 0.65);
+}
+.landing-door:hover::before { opacity: 1; }
+.landing-door__title {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: 0.14em;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin: 0 0 4px;
+}
+.landing-door__desc {
+  font-family: 'Barlow', sans-serif;
+  font-size: 14px;
+  color: var(--text-dim);
+  letter-spacing: 0.04em;
+  line-height: 1.55;
+  flex-grow: 1;
+}
+.landing-door__arrow {
+  font-family: 'Barlow', sans-serif;
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-top: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: color 0.25s ease;
+}
+.landing-door__arrow::after {
+  content: '→';
+  display: inline-block;
+  transition: transform 0.25s ease;
+}
+.landing-door:hover .landing-door__arrow { color: #ffc78a; }
+.landing-door:hover .landing-door__arrow::after { transform: translateX(4px); }
+
+@media (max-width: 720px) {
+  .landing-doors { padding: 56px 20px 80px; }
+  .landing-doors__grid { grid-template-columns: 1fr; }
+}
