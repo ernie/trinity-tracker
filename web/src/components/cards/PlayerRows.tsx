@@ -49,7 +49,7 @@ export function PlayerRows({ players, mode, onPlayerClick }: PlayerRowsProps) {
     <div className="player-rows">
       <div className={`player-row header ${mode}`}>
         <span>Player</span>
-        <span style={{ textAlign: 'right' }}>{mode === 'live' ? 'Score' : 'F'}</span>
+        <span style={{ textAlign: 'right' }}>{mode === 'live' ? 'Score' : 'K'}</span>
         {mode === 'finished' && <span style={{ textAlign: 'right' }}>D</span>}
         {mode === 'finished' && <span style={{ textAlign: 'right' }}>Score</span>}
         {mode === 'live' && <span style={{ textAlign: 'right' }}>Ping</span>}

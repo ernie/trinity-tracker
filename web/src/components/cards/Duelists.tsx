@@ -18,7 +18,7 @@ export interface DuelistData {
   isVerified?: boolean
   isAdmin?: boolean
   score: number
-  /** sub-text below the score, e.g. "24 ping" or "25 F · 19 D" */
+  /** sub-text below the score, e.g. "24 ping" or "25 K · 19 D" */
   sub?: React.ReactNode
   awards?: AwardEntry[]
   /** DB player ID — opens PlayerStatsModal on click. */

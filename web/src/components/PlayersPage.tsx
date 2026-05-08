@@ -160,7 +160,9 @@ export function PlayersPage() {
                     className="player-card"
                     onClick={() => selectPlayer(player.id)}
                   >
-                    <PlayerPortrait model={player.model} size="lg" />
+                    <span className="player-card__avatar">
+                      <PlayerPortrait model={player.model} size="lg" />
+                    </span>
                     <div className="player-card__body">
                       <span className="player-card__name">
                         {player.is_bot && <BotBadge isBot skill={5} />}
@@ -286,7 +288,9 @@ export function PlayersPage() {
                     className="player-card"
                     onClick={() => navigate(`/players/${p.playerId}`)}
                   >
-                    <PlayerPortrait model={p.model} size="lg" />
+                    <span className="player-card__avatar">
+                      <PlayerPortrait model={p.model} size="lg" />
+                    </span>
                     <div className="player-card__body">
                       <span className="player-card__name">
                         <PlayerBadge

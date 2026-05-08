@@ -73,7 +73,7 @@ export function HeroSection() {
         </h1>
 
         <p className="landing-hero__subhead">
-          still the best arena shooter ever made. still here.
+          still the best arena shooter ever made.
         </p>
 
         <div className="landing-hero__pulse" aria-live="polite">

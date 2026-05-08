@@ -4257,6 +4257,40 @@ h2 {
   .player-card:hover { transform: translateY(-1px); }
 }
 
+/* Portrait wrapper — same chrome as .leaderboard-card__avatar so the
+   two surfaces read as one visual family. Subtle ember ring brightens
+   on hover. */
+.player-card__avatar {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2a1f1a 0%, #0a0808 100%);
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 110, 60, 0.18);
+  flex-shrink: 0;
+  overflow: hidden;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.player-card__avatar .player-portrait {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+.player-card__avatar .player-portrait img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.player-card:hover .player-card__avatar,
+.player-card:focus-visible .player-card__avatar {
+  border-color: rgba(255, 110, 60, 0.5);
+  box-shadow: 0 0 12px rgba(255, 110, 60, 0.18);
+}
+
 .player-card__body {
   display: flex;
   flex-direction: column;
@@ -5348,19 +5382,11 @@ h2 {
   transform: translateY(-2px);
 }
 /* Top 3 — each rank gets its own metal tint on the border, portrait
-   ring, rank numeral, and headline stat. */
-.leaderboard-card.top-1 {
-  border-color: rgba(255, 215, 0, 0.55);
-  background: linear-gradient(180deg, rgba(255, 215, 0, 0.10), rgba(20, 16, 14, 0.55) 60%);
-}
-.leaderboard-card.top-2 {
-  border-color: rgba(192, 192, 192, 0.5);
-  background: linear-gradient(180deg, rgba(192, 192, 192, 0.07), rgba(20, 16, 14, 0.55) 60%);
-}
-.leaderboard-card.top-3 {
-  border-color: rgba(205, 127, 50, 0.55);
-  background: linear-gradient(180deg, rgba(205, 127, 50, 0.08), rgba(20, 16, 14, 0.55) 60%);
-}
+   ring, rank numeral, and headline stat. Card body keeps the same
+   base background; only the border and the portrait-ring glow shift. */
+.leaderboard-card.top-1 { border-color: rgba(255, 215, 0, 0.55); }
+.leaderboard-card.top-2 { border-color: rgba(192, 192, 192, 0.5); }
+.leaderboard-card.top-3 { border-color: rgba(205, 127, 50, 0.55); }
 .leaderboard-card__rank {
   position: absolute;
   top: 10px;

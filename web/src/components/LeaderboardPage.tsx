@@ -318,7 +318,7 @@ function LeaderboardGrid({ entries, category }: LeaderboardGridProps) {
                   </span>
                 )}
                 {category !== "kd_ratio" && <span><i>K/D</i>{entry.kd_ratio.toFixed(2)}</span>}
-                {category !== "frags" && <span><i>F</i>{formatNumber(entry.total_frags)}</span>}
+                {category !== "frags" && <span><i>K</i>{formatNumber(entry.total_frags)}</span>}
                 {category !== "deaths" && <span><i>D</i>{formatNumber(entry.total_deaths)}</span>}
               </div>
             )}

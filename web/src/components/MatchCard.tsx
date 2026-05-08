@@ -99,7 +99,7 @@ function duelistFromMatchPlayer(p: MatchPlayerSummary | undefined): DuelistData 
     isVerified: p.is_verified,
     isAdmin: p.is_admin,
     score: p.frags ?? 0,
-    sub: <span>{p.frags ?? 0} F · {p.deaths ?? 0} D</span>,
+    sub: <span>{p.frags ?? 0} K · {p.deaths ?? 0} D</span>,
     awards: awardsFromCounts(p),
     playerId: p.player_id,
   }
