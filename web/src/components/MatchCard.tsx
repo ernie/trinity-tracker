@@ -71,9 +71,7 @@ function demoFilename(match: MatchSummary): string {
   return `${date}_${time}_${match.map_name}.tvd`
 }
 
-// Builds DuelistData from a finished-match player. Surfaces medals from the
-// player's per-match counters (excellents/impressives/etc.) so 1v1s show the
-// "earned" awards next to each portrait.
+// DuelistData from a finished match. Awards come from per-match counters.
 function duelistFromMatchPlayer(p: MatchPlayerSummary | undefined): DuelistData {
   if (!p) {
     return { name: '—', score: 0 }
@@ -107,7 +105,7 @@ export function MatchCard({
   highlightPlayerId: _highlightPlayerId,
   showPermalink: _showPermalink = false,
 }: MatchCardProps) {
-  // TODO(card-conformance): wire highlight / permalink through the new primitives
+  // TODO: wire highlight / permalink through the card primitives
   const { hasMultiple: hasMultipleSources } = useSources()
   const meta = useMapMeta(match.map_name)
   const location = useLocation()

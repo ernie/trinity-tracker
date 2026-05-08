@@ -1,21 +1,13 @@
 interface StatusPillProps {
   humansOnline: number
   activeServers: number
-  /** Hub WebSocket connectivity. Drives the dot's pulse; even when no
-   *  humans are on, a pulsing dot signals "page is live". */
+  /** Hub WS connectivity. Drives pulse; gray when disconnected. */
   isConnected: boolean
   open: boolean
   onToggle: () => void
 }
 
-// Top-right live signal across non-landing routes. Mirrors the hero
-// pill on the landing page: the dot pulses whenever the hub feed is
-// connected, regardless of how many humans are playing. Label flips
-// to "ALL QUIET" when nobody is on. Click toggles the activity drawer.
-//
-// (This replaces the older StatusPill + ConnectionStatus pair, where
-// the green/red dot duplicated the connection signal that the pill
-// itself can convey.)
+// Top-right live signal across non-landing routes. Mirrors .hero__pill.
 export function StatusPill({ humansOnline, activeServers, isConnected, open, onToggle }: StatusPillProps) {
   const live = humansOnline > 0
   const label = live

@@ -1,12 +1,6 @@
-// Player table for team / FFA cards. Live mode shows ping; finished
-// mode shows F + D + Score. Awards render as one icon per type with a
-// count badge when multiple were earned (e.g., "5x excellent" is one
-// medal icon with `5` superscripted). When the row gets crowded, the
-// awards trail off the right edge with a soft mask-fade so they never
-// shove the name out of view.
-//
-// CTF/1FCTF: when a player is the active flag carrier, a flag icon
-// renders directly to the right of their name.
+// Player table for team / FFA cards. Live shows ping; finished shows
+// F+D+Score. Awards collapse into one icon per type with a count
+// badge. CTF/1FCTF carrier renders to the right of the name.
 import { ColoredText } from '../ColoredText'
 import { PlayerPortrait } from '../PlayerPortrait'
 import { PlayerBadge } from '../PlayerBadge'
@@ -33,10 +27,9 @@ export interface PlayerRowData {
   deaths?: number
   ping?: number
   awards?: AwardEntry[]
-  /** DB player ID — needed to open the PlayerStatsModal on click. */
+  /** DB player ID — opens PlayerStatsModal on click. */
   playerId?: number
-  /** When set, renders a flag icon next to the name marking this
-   *  player as the active CTF / 1FCTF carrier. */
+  /** Active CTF / 1FCTF flag this player is carrying, if any. */
   flagCarrier?: 'red' | 'blue' | 'neutral'
 }
 

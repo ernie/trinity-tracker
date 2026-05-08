@@ -336,9 +336,7 @@ export function ServerCard({ server, newPlayers: _newPlayers, isSelected, onSele
       </div>
 
       {showTeamScores && server.team_scores && (() => {
-        // CTF / 1FCTF inject flag indicators into Scoreboard slots; other
-        // team modes (TDM, OBL, HRV) render bare scoreboard. Either way
-        // we use the same primitive so styling stays consistent.
+        // CTF/1FCTF feed flag icons into Scoreboard slots; other team modes leave them empty.
         const flag = server.flag_status
         const redInd = flag?.mode === 'ctf' ? (() => {
           const i = getFlagIndicator(flag.red)
@@ -419,8 +417,7 @@ export function ServerCard({ server, newPlayers: _newPlayers, isSelected, onSele
   )
 }
 
-// Builds DuelistData from a live-server Player. Sub-text shows ping (a live
-// signal that matters during the match — analogous to F/D for a finished one).
+// DuelistData from a live-server Player. Sub-text is ping (live analog of F/D).
 function duelistFromLivePlayer(p: Player | undefined): DuelistData {
   if (!p) {
     return { name: '—', score: 0 }
@@ -441,9 +438,7 @@ function duelistFromLivePlayer(p: Player | undefined): DuelistData {
   }
 }
 
-// Maps a player's client_num to the flag they're currently carrying,
-// if any. The 1FCTF "neutral" carrier rides on the same field shape
-// (status 2 = red carrier, 3 = blue carrier).
+// Maps client_num → carried flag (if any).
 function flagCarrierForClient(
   flag: import('../types').FlagStatus | undefined,
   clientNum: number,

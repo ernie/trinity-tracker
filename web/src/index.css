@@ -512,11 +512,7 @@ h2 {
   width: auto;
 }
 
-/* Top-right chrome cluster: StatusPill, anchored to the viewport so
-   it's visible on every non-landing route. Aligned to the same
-   top/right offsets the hero pill uses on the landing page (22px /
-   36px) so the indicator doesn't appear to jump when navigating
-   between landing and other routes. */
+/* Mirrors hero-pill placement (22 / 36) so it doesn't jump on nav. */
 .chrome-top-right {
   position: fixed;
   top: 22px;
@@ -1862,12 +1858,8 @@ h2 {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  /* Pull out of the .app container's 20px padding and re-pad to match
-     .hero__header (22px top, 36px sides). That way the Trinity logo
-     and h1 land at the same viewport coordinates whether the visitor
-     came from the landing hero or directly to /servers, /matches,
-     etc. The bottom padding/margin keep the hairline rule + spacing
-     from the page content below. */
+  /* Negative margin escapes .app's 20px padding so the brand can sit
+     at hero coords (22 / 36). */
   margin: -20px -20px var(--space-5);
   padding: 22px 36px var(--space-3);
 }
@@ -1896,11 +1888,7 @@ h2 {
   display: flex;
   align-items: center;
   gap: var(--space-4);
-  /* Anchored to .app-logo height (56px) so that clicking from the
-     landing page (hero header) into a non-landing route doesn't
-     shift the brand baseline — both sides render at the same
-     logo size and the same vertical placement. */
-  min-height: 56px;
+  min-height: 56px; /* matches .app-logo + .hero__brand-logo height */
   /* Reserve right-side space for the absolutely-positioned search
      trigger so the title text doesn't run under it on narrow widths.
      The fixed chrome cluster (StatusPill + ConnectionStatus) lives
@@ -1958,10 +1946,8 @@ h2 {
 }
 
 @media (max-width: 768px) {
-  /* Mobile keeps the same two-row header as desktop: brand row (logo +
-     title + absolute search trigger at bottom-right) → rule → nav row.
-     The right-side reservation just shrinks since phone widths can't
-     afford 180px. */
+  /* Match .hero__header's mobile padding so brand position stays
+     consistent across landing → other routes on phones. */
   .app-header,
   .players-header,
   .matches-header,
@@ -1971,8 +1957,6 @@ h2 {
   .account-header,
   .claim-header,
   .admin-header {
-    /* Match the hero header's mobile padding (16px 20px 0) so the
-       brand row stays at the same viewport coords on phone widths. */
     padding: 16px 20px var(--space-3);
   }
   .chrome-top-right {
@@ -2124,9 +2108,7 @@ h2 {
   color: var(--accent);
   font-family: 'Cinzel', serif;
   font-weight: 700;
-  /* Matches hero__brand-title (28px) so the heading doesn't reflow
-     between landing and other pages. */
-  font-size: 28px;
+  font-size: 28px; /* matches .hero__brand-title */
   line-height: 1;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -2166,9 +2148,7 @@ h2 {
 
 .app-logo {
   display: block;
-  /* Sized to match .hero__brand-logo so the icon doesn't appear to
-     shift when clicking from landing into another route. */
-  height: 56px;
+  height: 56px; /* matches .hero__brand-logo */
   width: auto;
   margin: 0;
   flex-shrink: 0;
@@ -2202,12 +2182,8 @@ h2 {
   text-shadow: none;
 }
 
-/* Live-state pill — mirrors .hero__pill on the landing page so the
-   indicator looks identical between landing and other routes. The
-   dot pulses ember-orange whenever the hub is connected, regardless
-   of whether anybody is playing (the label flips to "ALL QUIET"
-   in that case). When the WebSocket drops, both dot and label go
-   gray and the pulse stops. */
+/* Live-state pill — mirrors .hero__pill. Three states: live (ember
+   pulse), quiet (gray pulse), offline (gray, no pulse). */
 .status-pill {
   display: inline-flex;
   align-items: center;
@@ -2215,8 +2191,7 @@ h2 {
   padding: 6px 12px;
   border-radius: 999px;
   border: 1px solid rgba(255, 248, 240, 0.18);
-  /* Opaque base prevents page content from bleeding through (the
-     pill sits fixed over the document on non-landing routes). */
+  /* Opaque base + tint — pill sits fixed over the document. */
   background-color: var(--bg-card);
   background-image: linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.35));
   color: var(--text);
@@ -2246,9 +2221,7 @@ h2 {
   animation: landing-hero-pulse 1.6s ease-in-out infinite;
 }
 
-/* Quiet (connected, no humans): mirror .hero__pill.quiet — gray dot
-   with no glow. Pulse animation keeps running so the indicator still
-   reads as "live, just nobody playing", not as "frozen". */
+/* Quiet: connected but nobody playing. Pulse keeps running in gray. */
 .status-pill.quiet { color: var(--text-dim); }
 .status-pill.quiet .status-pill__dot {
   background: var(--text-dim);
@@ -2256,9 +2229,7 @@ h2 {
   opacity: 1;
 }
 
-/* Disconnected: hub feed lost. No glow, no pulse, fully gray — this
-   is the (rare) state that the old red/green ConnectionStatus dot
-   used to flag separately. */
+/* Offline: hub feed lost. No pulse, fully gray. */
 .status-pill.offline { color: var(--text-dim); }
 .status-pill.offline .status-pill__dot {
   background: var(--text-dim);
@@ -3656,10 +3627,7 @@ h2 {
    edit-player form is provided by .admin-btn / .admin-btn-primary on
    the markup. The .edit-actions wrapper just lays them out. */
 
-/* Right sidebar (RCON) overlays the page like every other drawer
-   instead of squishing layout. The previous padding-right pushed all
-   content left; now the fixed-positioned sidebar simply floats over
-   the right edge, matching ActivityDrawer / MyServersDrawer behavior. */
+/* RCON sidebar overlays via position:fixed; no layout reservation. */
 
 /* Selectable server cards */
 .server-card.selectable {
@@ -8828,7 +8796,6 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   color: var(--text-dim);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
   padding: 8px 0;
-  cursor: help;
   border-bottom: 1px dotted rgba(255, 248, 240, 0.25);
   transition: color 0.2s ease, border-bottom-color 0.2s ease;
 }
@@ -9009,10 +8976,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   vertical-align: middle;
   animation: landing-hero-pulse 1.6s ease-in-out infinite;
 }
-/* "All quiet" placeholder for the Active Now shelf. Stands in when
-   no live matches are in progress — a single dim card with a soft
-   pulse and a CTA into the servers page. Anchors the section so the
-   landing page doesn't visibly collapse when the shelf is empty. */
+/* "All quiet" placeholder for the Active Now shelf when no live matches. */
 .landing-quiet {
   display: flex;
   flex-direction: column;
@@ -9267,8 +9231,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   flex-shrink: 0;
   overflow: hidden;
 }
-/* PlayerPortrait inside the avatar fills the circle. The component
-   itself supplies size lg (48x48 img), so we override to 100%. */
+/* Override portrait-lg (48px) so it fills the 64px wrap. */
 .landing-player-card__avatar .player-portrait {
   margin: 0;
   width: 100%;
@@ -9448,9 +9411,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 }
 .scoreboard__label.red { color: var(--red); }
 .scoreboard__label.blue { color: #4a9fef; }
-/* Score + optional flag indicator share a row inside each side. The
-   blue side reverses order so the flag sits between the team label and
-   the connector — visually mirroring red. */
+/* Score + optional flag indicator. Blue side reverses order to mirror red. */
 .scoreboard__score-line {
   display: inline-flex;
   align-items: center;
@@ -9468,9 +9429,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   color: #facc15;
   text-shadow: 0 0 12px rgba(250, 204, 21, 0.35);
 }
-/* Center column stacks `vs` over an optional indicator (1FCTF
-   neutral-flag drift). The indicator's existing flag-toward-red /
-   flag-toward-blue translate animation is preserved. */
+/* Center stacks `vs` over an optional indicator (1FCTF neutral drift). */
 .scoreboard__center {
   display: flex;
   flex-direction: column;
@@ -9508,7 +9467,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 .duelist-awards.right { justify-content: flex-start; }
 .duelist-awards .medal-icon { margin: 0; }
 .duelist-awards .medal-icon-sm img { width: 16px; height: 16px; }
-/* Stub-only color hooks (kept for legacy mockups; production uses MedalIcon imgs) */
+/* Legacy stub-mockup color hooks — production uses MedalIcon imgs. */
 .medal-excellent { color: #facc15; }
 .medal-impressive { color: rgba(255, 248, 240, 0.7); }
 .medal-humiliation { color: var(--red); }
@@ -9522,10 +9481,9 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   background: linear-gradient(135deg, #2a1f1a, #0a0808);
   display: grid; place-items: center;
   border: 1px solid rgba(255, 248, 240, 0.1);
-  overflow: visible; /* allow PlayerBadge to overflow */
+  overflow: visible; /* badge overflows */
 }
-/* Inner PlayerPortrait fills the circle; size lg (48x48) is overridden
-   to wrap dimension. Badge is the second child and sits bottom-right. */
+/* Inner portrait fills the circle; badge overlaps bottom-right. */
 .duelist__portrait-wrap .player-portrait {
   margin: 0;
   width: 100%;
@@ -9618,11 +9576,8 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 .player-row .pname-cell .team-dot.blue { background: #4a9fef; }
 .player-row .pname-cell .team-dot.spec { background: rgba(255, 248, 240, 0.2); }
 .player-row .pname-cell .name {
-  /* flex:0 1 auto (default) — display at natural width, shrink with
-     ellipsis when crowded, but don't *grow* to fill the row. flex:1
-     would force the name to consume all leftover space, which pushed
-     the flag-carrier marker to the far right of the card instead of
-     sitting directly to the right of the name. */
+  /* Natural width + shrink-with-ellipsis. Don't grow — that would
+     push the flag carrier away from the name. */
   flex: 0 1 auto;
   white-space: nowrap;
   overflow: hidden;
@@ -9631,12 +9586,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   min-width: 0;
 }
 .player-row .pname-cell .name.bot { color: var(--text-dim); font-style: italic; }
-/* Awards pin to the far right of the row. The name + flag-carrier
-   group sits to the left, taking only its natural width. As the
-   awards block grows leftward (more medals earned) it extends FROM
-   the right edge — the left edge of the strip fades into the
-   carrier/name area so older medals dissolve gracefully instead of
-   slamming up against the name. */
+/* Awards extend from the right; left edge fades into the name area. */
 .player-row .pname-cell .row-awards {
   display: flex;
   gap: 4px;
@@ -9656,9 +9606,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   width: 14px;
   height: 14px;
 }
-/* CTF/1FCTF flag-carrier marker — sits directly to the right of the
-   player's name. Small inline icon, slightly elevated above the
-   awards strip so it stays prominent. */
+/* CTF/1FCTF flag-carrier — sits directly right of the name. */
 .player-row .pname-cell .row-carrier {
   display: inline-flex;
   align-items: center;
@@ -9669,9 +9617,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   width: 14px;
   height: 14px;
 }
-/* Clickable rows (live + finished, humans only). The whole row reacts
-   so the click target matches the cell's visual extent. Hover/focus
-   give a subtle highlight; the cursor flips to pointer. */
+/* Clickable rows / duelists (humans only). Whole row is the target. */
 .player-row.clickable { cursor: pointer; transition: background 0.15s ease; }
 .player-row.clickable:hover,
 .player-row.clickable:focus-visible {
@@ -9770,14 +9716,10 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   gap: 10px;
   margin-bottom: 10px;
 }
-/* Right-side meta (state pill on live cards, time/duration on match
-   cards) pins to the far right, leaving chip + mode icons grouped on
-   the left. Both use auto-margin instead of justify-content:between so
-   the new ModeIcons sibling doesn't get sprung into the middle. */
+/* Right-side meta pins to the far right; chip + mode-icons stay grouped left. */
 .card__topbar > .card__state,
 .card__topbar > .card__time { margin-left: auto; }
-/* Match card's relative timestamp (e.g. "2h ago") above the elapsed
-   match duration. Right-aligned, dim-on-dim so neither dominates. */
+/* Match card relative-time stacked over elapsed duration. */
 .card__time {
   display: inline-flex;
   flex-direction: column;
@@ -9800,9 +9742,6 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   color: var(--text);
   font-variant-numeric: tabular-nums;
 }
-/* In-topbar mode icons should not push other items via large hover
-   panel margin. Reset the small inline-text margin the original
-   .mode-icons rule carries (assumed adjacent text). */
 .card__topbar .mode-icons { margin: 0; }
 .card__state {
   font-family: 'Barlow', sans-serif;
@@ -9839,18 +9778,13 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 .card__map-long {
   font-family: 'Barlow', sans-serif; font-weight: 700; font-size: 17px;
   color: var(--text);
-  /* Single-line truncation. Long names like "Draconian Measures -
-     www.ninemil.com" used to wrap; now they ellipsize. The full name
-     is still revealed via the levelshot hover preview's title attr
-     and the chip below. */
   display: block;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
 }
-/* Levelshot preview on map-name hover (resurrected from pre-redesign).
-   Uses the --levelshot custom property the card sets on its root. */
+/* Levelshot preview on map-name hover. Reads --levelshot from the card root. */
 .card__map-long::after {
   content: '';
   position: absolute;

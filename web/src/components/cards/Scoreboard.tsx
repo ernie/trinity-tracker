@@ -7,15 +7,13 @@ interface ScoreboardProps {
   blueLabel: string
   blueScore: number
   state: ScoreState   // 'left' | 'right' | 'tie' | 'no_contest'
-  /** Live games never show TIE / NO CONTEST and never dim a side — the
-   *  outcome isn't decided yet, so we always render `vs`. */
+  /** Live: always `vs`, no winner/loser dimming. */
   live?: boolean
-  /** Optional content rendered next to the red score (CTF flag icon). */
+  /** Slot next to red score — CTF flag indicator. */
   redIndicator?: React.ReactNode
-  /** Optional content rendered next to the blue score (CTF flag icon). */
+  /** Slot next to blue score — CTF flag indicator. */
   blueIndicator?: React.ReactNode
-  /** Optional content rendered below `vs` in the center column (1FCTF
-   *  neutral flag drift). */
+  /** Slot below `vs` — 1FCTF neutral flag drift. */
   centerIndicator?: React.ReactNode
 }
 
@@ -30,13 +28,11 @@ export function Scoreboard({
   blueIndicator,
   centerIndicator,
 }: ScoreboardProps) {
-  // On a live card the match is in progress: no winner, no loser, no
-  // TIE / NO CONTEST badge. Just two scores and `vs`.
-  const effectiveState: ScoreState = live ? 'left' /* unused */ : state
-  const redClass = !live && effectiveState === 'left' ? 'winner'
-                  : !live && effectiveState === 'right' ? 'loser' : ''
-  const blueClass = !live && effectiveState === 'right' ? 'winner'
-                   : !live && effectiveState === 'left' ? 'loser' : ''
+  // Live cards skip winner/loser hooks — outcome isn't decided.
+  const redClass = !live && state === 'left' ? 'winner'
+                  : !live && state === 'right' ? 'loser' : ''
+  const blueClass = !live && state === 'right' ? 'winner'
+                   : !live && state === 'left' ? 'loser' : ''
 
   let connector: React.ReactNode = 'vs'
   if (!live && state === 'tie') connector = <span className="scoreboard__state tie">TIE</span>

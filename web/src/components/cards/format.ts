@@ -47,11 +47,7 @@ export interface PlayerAwardCounts {
   victories?: number
 }
 
-/**
- * Maps a player's medal-count fields to a stable display order. Returned in
- * the order they should render on the card (most prestigious first, with
- * objective medals trailing). Zero/absent counts are filtered out.
- */
+/** Player medal counts → ordered AwardEntry list. Zero/absent dropped. */
 export function awardsFromCounts(p: PlayerAwardCounts): AwardEntry[] {
   const order: Array<[MedalType, number | undefined]> = [
     ['excellent', p.excellents],

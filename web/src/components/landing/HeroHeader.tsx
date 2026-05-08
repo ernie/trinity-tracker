@@ -1,17 +1,11 @@
-// Bespoke header for the landing-page hero. Replaces the standard <Header>
-// (which is a full app shell with PageNav, search, hamburger, login form) with
-// a marketing-page treatment: brand on the left, sparse nav in the middle,
-// live-count pill on the right. Sits over the wallpaper and scrolls away with
-// the hero — no sticky transition.
+// Bespoke landing hero header — brand · sparse nav · live pill.
+// Replaces the standard <Header> over the wallpaper.
 import { Link } from 'react-router-dom'
 import { useLiveData } from '../../contexts/LiveDataContext'
 
 export function HeroHeader() {
   const { activeHumanPlayersCount, activeServersCount } = useLiveData()
   const live = activeHumanPlayersCount > 0
-  // Mirrors the StatusPill convention: when nobody's playing, show "ALL QUIET"
-  // instead of "0 · 0 LIVE" or hiding the pill entirely. The pulsing dot stays
-  // visible either way as a sign that the page is connected to live data.
   const label = live
     ? `${activeHumanPlayersCount} · ${activeServersCount} LIVE`
     : 'ALL QUIET'

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build:landing-images": "bun scripts/build-landing-images.ts",
-    "build": "bun run build:landing-images && tsc -b && bun run build.ts",
+    "build": "tsc -b && bun run build.ts",
     "lint": "eslint ."
   },
   "dependencies": {

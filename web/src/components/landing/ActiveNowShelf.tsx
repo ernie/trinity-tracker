@@ -35,9 +35,6 @@ export function ActiveNowShelf() {
           </div>
         </div>
       ) : (
-        // "All quiet" placeholder rather than hiding the section entirely.
-        // Keeps the section anchor in place across renders and reassures
-        // the visitor that the live feed is up — just nobody's playing.
         <div className="landing-quiet">
           <span className="landing-quiet__dot" aria-hidden />
           <p className="landing-quiet__title">ALL QUIET</p>

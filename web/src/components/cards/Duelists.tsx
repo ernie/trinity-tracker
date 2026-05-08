@@ -21,7 +21,7 @@ export interface DuelistData {
   /** sub-text below the score, e.g. "24 ping" or "25 F · 19 D" */
   sub?: React.ReactNode
   awards?: AwardEntry[]
-  /** DB player ID — needed to open the PlayerStatsModal on click. */
+  /** DB player ID — opens PlayerStatsModal on click. */
   playerId?: number
 }
 
@@ -29,7 +29,7 @@ interface DuelistsProps {
   left: DuelistData
   right: DuelistData
   state: ScoreState
-  /** Live duels: no winner/loser styling, no TIE / NO CONTEST. Just `vs`. */
+  /** Live: always `vs`, no winner/loser styling. */
   live?: boolean
   onPlayerClick?: (playerName: string, cleanName: string, playerId?: number) => void
 }
@@ -94,8 +94,6 @@ function Duelist({ data, side, winnerSide, onClick }: DuelistProps) {
 }
 
 export function Duelists({ left, right, state, live, onPlayerClick }: DuelistsProps) {
-  // Live duel: no winner/loser styling and the connector is always `vs`.
-  // The match isn't decided, so showing TIE / NO CONTEST is misleading.
   const winnerSide = !live && state === 'left' ? 'left'
                     : !live && state === 'right' ? 'right' : null
 

@@ -16,9 +16,7 @@ export function Chrome() {
   const { auth, changePassword } = useAuth()
   const { pathname } = useLocation()
 
-  // The landing page has its own bespoke hero header with an inline live-count
-  // pill, so hide the floating chrome-top-right cluster there to avoid the
-  // duplicate StatusPill colliding with the hero brand.
+  // Landing has its own hero pill — hide the chrome cluster there.
   const isLanding = pathname === '/'
 
   // ⌘K / Ctrl+K opens the palette from anywhere.
