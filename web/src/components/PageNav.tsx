@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'react-router-dom'
 
 const NAV_ITEMS = [
-  { path: '/', label: 'Servers' },
+  { path: '/servers', label: 'Servers' },
   { path: '/players', label: 'Players' },
   { path: '/matches', label: 'Matches' },
   { path: '/leaderboard', label: 'Leaderboard' },
