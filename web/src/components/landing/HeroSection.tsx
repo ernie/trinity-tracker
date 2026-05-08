@@ -2,6 +2,7 @@ import type React from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveData } from '../../contexts/LiveDataContext'
 import { plural, formatFragTime } from './format'
+import { HeroHeader } from './HeroHeader'
 
 export function HeroSection() {
   const live = useLiveData()
@@ -57,6 +58,8 @@ export function HeroSection() {
         />
         <img src="/assets/landing/wallpaper.png" alt="" fetchPriority="high" />
       </picture>
+
+      <HeroHeader />
 
       <div className="landing-hero__main">
         <div className="landing-hero__kicker">

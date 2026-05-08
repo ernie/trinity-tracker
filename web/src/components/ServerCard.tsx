@@ -7,6 +7,7 @@ import { formatGameType } from './MatchCard'
 import { useMapMeta } from '../hooks/useMapMeta'
 import { RichChip } from './cards/RichChip'
 import { Scoreboard } from './cards/Scoreboard'
+import { Duelists, type DuelistData } from './cards/Duelists'
 import { classifyScores } from './cards/format'
 import { PlayerRows } from './cards/PlayerRows'
 import { SpectatorStrip } from './cards/SpectatorStrip'
@@ -397,17 +398,26 @@ export function ServerCard({ server, newPlayers: _newPlayers, isSelected, onSele
         </>
       )}
 
-      {/* TODO(card-conformance): wire onPlayerClick through PlayerRows */}
-      <PlayerRows
-        players={activePlayers.map(p => ({
-          name: p.name,
-          team: p.team as 1 | 2 | undefined,
-          isBot: p.is_bot,
-          score: p.score,
-          ping: p.ping,
-        }))}
-        mode="live"
-      />
+      {/* 1v1 duel: portraits + score side-by-side. Other modes use the player table. */}
+      {server.game_type === '1v1' && activePlayers.length >= 2 ? (
+        <Duelists
+          left={duelistFromLivePlayer(activePlayers[0])}
+          right={duelistFromLivePlayer(activePlayers[1])}
+          state={classifyScores(activePlayers[0]?.score ?? 0, activePlayers[1]?.score ?? 0)}
+        />
+      ) : (
+        // TODO(card-conformance): wire onPlayerClick through PlayerRows
+        <PlayerRows
+          players={activePlayers.map(p => ({
+            name: p.name,
+            team: p.team as 1 | 2 | undefined,
+            isBot: p.is_bot,
+            score: p.score,
+            ping: p.ping,
+          }))}
+          mode="live"
+        />
+      )}
 
       <SpectatorStrip
         spectators={spectators.map(p => ({ name: p.name }))}
@@ -415,4 +425,19 @@ export function ServerCard({ server, newPlayers: _newPlayers, isSelected, onSele
       />
     </div>
   )
+}
+
+// Builds DuelistData from a live-server Player. Sub-text shows ping (a live
+// signal that matters during the match — analogous to F/D for a finished one).
+function duelistFromLivePlayer(p: Player | undefined): DuelistData {
+  if (!p) {
+    return { name: '—', portraitChar: '?', score: 0 }
+  }
+  const initial = (p.clean_name || p.name || '?').replace(/\^./g, '').charAt(0).toLowerCase() || '?'
+  return {
+    name: p.name,
+    portraitChar: initial,
+    score: p.score ?? 0,
+    sub: <span>{p.ping ?? 0} ping</span>,
+  }
 }

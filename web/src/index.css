@@ -9509,6 +9509,10 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   min-width: 0;
 }
 .card__spectators-list .next { color: var(--text); font-weight: 500; }
+/* Pin actions slot (e.g. Watch / Download) to the right of the bottom row even
+   when the spectator list isn't present — without this, justify-content:space-between
+   leaves a sole child at flex-start. */
+.card__bottom-actions { margin-left: auto; flex-shrink: 0; }
 
 /* ── Shared .card shell (Server + Match) ────────────────── */
 .card {

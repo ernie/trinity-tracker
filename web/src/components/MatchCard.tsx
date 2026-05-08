@@ -4,6 +4,7 @@ import type { MatchSummary, MatchPlayerSummary } from '../types'
 import { ModeIcons } from './ServerCard'
 import { RichChip } from './cards/RichChip'
 import { Scoreboard } from './cards/Scoreboard'
+import { Duelists, type DuelistData } from './cards/Duelists'
 import { PlayerRows } from './cards/PlayerRows'
 import { SpectatorStrip } from './cards/SpectatorStrip'
 import { classifyScores } from './cards/format'
@@ -71,6 +72,22 @@ function demoFilename(match: MatchSummary): string {
   return `${date}_${time}_${match.map_name}.tvd`
 }
 
+// Builds DuelistData from a finished-match player. Awards aren't mapped yet —
+// MatchPlayerSummary's per-medal counters (impressives/excellents/etc.) need a
+// rule to decide which to surface for a 1v1 in particular.
+function duelistFromMatchPlayer(p: MatchPlayerSummary | undefined): DuelistData {
+  if (!p) {
+    return { name: '—', portraitChar: '?', score: 0 }
+  }
+  const initial = (p.clean_name || p.name || '?').replace(/\^./g, '').charAt(0).toLowerCase() || '?'
+  return {
+    name: p.name,
+    portraitChar: initial,
+    score: p.frags ?? 0,
+    sub: <span>{p.frags ?? 0} F · {p.deaths ?? 0} D</span>,
+  }
+}
+
 interface MatchCardProps {
   match: MatchSummary
   onPlayerClick?: (playerName: string, cleanName: string, playerId?: number) => void
@@ -85,11 +102,11 @@ export function MatchCard({
   showPermalink: _showPermalink = false,
 }: MatchCardProps) {
   // TODO(card-conformance): wire onPlayerClick / highlight / permalink through the new primitives
-  // TODO(card-conformance): use Duelists primitive for 1v1 modes
   const { hasMultiple: hasMultipleSources } = useSources()
   const meta = useMapMeta(match.map_name)
   const location = useLocation()
   const isTeam = isTeamGame(match.game_type)
+  const isDuel = match.game_type === '1v1'
   const players = match.players ?? []
   const activeTeams = players.filter((p) => !isSpectator(p))
   const spectators = players.filter(isSpectator).map((p) => ({ name: p.name }))
@@ -159,17 +176,26 @@ export function MatchCard({
 
       <ModeIcons movement={match.movement} gameplay={match.gameplay} />
 
-      {isTeam && (
-        <Scoreboard
-          redLabel="Red"
-          redScore={redScore}
-          blueLabel="Blue"
-          blueScore={blueScore}
-          state={scoreState}
+      {isDuel && activeTeams.length >= 2 ? (
+        <Duelists
+          left={duelistFromMatchPlayer(activeTeams[0])}
+          right={duelistFromMatchPlayer(activeTeams[1])}
+          state={classifyScores(activeTeams[0]?.frags ?? 0, activeTeams[1]?.frags ?? 0)}
         />
+      ) : (
+        <>
+          {isTeam && (
+            <Scoreboard
+              redLabel="Red"
+              redScore={redScore}
+              blueLabel="Blue"
+              blueScore={blueScore}
+              state={scoreState}
+            />
+          )}
+          <PlayerRows players={rowData} mode="finished" />
+        </>
       )}
-
-      <PlayerRows players={rowData} mode="finished" />
 
       <SpectatorStrip spectators={spectators} isLive={false} rightSlot={demoActions} />
     </article>

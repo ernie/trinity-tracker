@@ -1,4 +1,5 @@
 import { useCallback } from 'react'
+import { useLocation } from 'react-router-dom'
 import { ConnectionStatus } from './ConnectionStatus'
 import { StatusPill } from './StatusPill'
 import { ActivityDrawer } from './ActivityDrawer'
@@ -14,6 +15,12 @@ import { useHotkey } from '../hooks/useHotkey'
 export function Chrome() {
   const live = useLiveData()
   const { auth, changePassword } = useAuth()
+  const { pathname } = useLocation()
+
+  // The landing page has its own bespoke hero header with an inline live-count
+  // pill, so hide the floating chrome-top-right cluster there to avoid the
+  // duplicate StatusPill colliding with the hero brand.
+  const isLanding = pathname === '/'
 
   // ⌘K / Ctrl+K opens the palette from anywhere.
   useHotkey({ key: 'k', meta: true }, useCallback(() => {
@@ -22,15 +29,17 @@ export function Chrome() {
 
   return (
     <>
-      <div className="chrome-top-right" aria-hidden={false}>
-        <StatusPill
-          humansOnline={live.activeHumanPlayersCount}
-          activeServers={live.activeServersCount}
-          open={live.activityDrawerOpen}
-          onToggle={live.toggleActivityDrawer}
-        />
-        <ConnectionStatus isConnected={live.isConnected} />
-      </div>
+      {!isLanding && (
+        <div className="chrome-top-right" aria-hidden={false}>
+          <StatusPill
+            humansOnline={live.activeHumanPlayersCount}
+            activeServers={live.activeServersCount}
+            open={live.activityDrawerOpen}
+            onToggle={live.toggleActivityDrawer}
+          />
+          <ConnectionStatus isConnected={live.isConnected} />
+        </div>
+      )}
 
       {live.activityDrawerOpen && (
         <ActivityDrawer

@@ -37,7 +37,7 @@ export function SpectatorStrip({ spectators, isLive, rightSlot, ariaLabel }: Spe
           </span>
         </span>
       )}
-      {rightSlot}
+      {rightSlot && <span className="card__bottom-actions">{rightSlot}</span>}
     </div>
   )
 }
