@@ -1,14 +1,15 @@
-import { useEffect, useRef, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { Link } from 'react-router-dom'
 import type { MatchSummary, MatchPlayerSummary } from '../types'
-import { BotBadge } from './BotBadge'
-import { ColoredText } from './ColoredText'
-import { MedalIcon } from './MedalIcon'
-import { PlayerPortrait } from './PlayerPortrait'
-import { PlayerBadge } from './PlayerBadge'
 import { ModeIcons } from './ServerCard'
+import { RichChip } from './cards/RichChip'
+import { Scoreboard } from './cards/Scoreboard'
+import { PlayerRows } from './cards/PlayerRows'
+import { SpectatorStrip } from './cards/SpectatorStrip'
+import { classifyScores } from './cards/format'
+import { useMapMeta } from '../hooks/useMapMeta'
 import { useSources } from '../hooks/useSources'
-import { formatNumber, serverDisplay, stripVRPrefix } from '../utils'
+import { serverDisplay } from '../utils'
 
 export function formatDuration(startedAt: string, endedAt: string): string {
   const start = new Date(startedAt)
@@ -58,22 +59,8 @@ export function isTeamGame(gameType: string): boolean {
          gt === 'overload' || gt === 'harvester'
 }
 
-function getTeamClass(team?: number): string {
-  if (team === 1) return 'team-red'
-  if (team === 2) return 'team-blue'
-  if (team === 3) return 'team-spec'
-  return ''
-}
-
 function isSpectator(player: MatchPlayerSummary): boolean {
   return player.team === 3 && player.frags === 0 && player.deaths === 0
-}
-
-interface MatchCardProps {
-  match: MatchSummary
-  onPlayerClick?: (playerName: string, cleanName: string, playerId?: number) => void
-  highlightPlayerId?: number
-  showPermalink?: boolean
 }
 
 function demoFilename(match: MatchSummary): string {
@@ -84,266 +71,107 @@ function demoFilename(match: MatchSummary): string {
   return `${date}_${time}_${match.map_name}.tvd`
 }
 
-export function MatchCard({ match, onPlayerClick, highlightPlayerId, showPermalink = false }: MatchCardProps) {
+interface MatchCardProps {
+  match: MatchSummary
+  onPlayerClick?: (playerName: string, cleanName: string, playerId?: number) => void
+  highlightPlayerId?: number
+  showPermalink?: boolean
+}
+
+export function MatchCard({
+  match,
+  onPlayerClick: _onPlayerClick,
+  highlightPlayerId: _highlightPlayerId,
+  showPermalink: _showPermalink = false,
+}: MatchCardProps) {
+  // TODO(card-conformance): wire onPlayerClick / highlight / permalink through the new primitives
+  // TODO(card-conformance): use Duelists primitive for 1v1 modes
   const { hasMultiple: hasMultipleSources } = useSources()
+  const meta = useMapMeta(match.map_name)
+  const location = useLocation()
   const isTeam = isTeamGame(match.game_type)
-  const players = [...(match.players ?? [])].sort((a, b) => {
-    // Sort by team first (red=1, blue=2, others after), then completed before incomplete, then by score descending
-    const teamA = a.team ?? 99
-    const teamB = b.team ?? 99
-    if (teamA !== teamB) return teamA - teamB
-    const specA = isSpectator(a) ? 1 : 0
-    const specB = isSpectator(b) ? 1 : 0
-    if (specA !== specB) return specA - specB
-    if (a.completed !== b.completed) return a.completed ? -1 : 1
-    return (b.score ?? 0) - (a.score ?? 0)
-  })
+  const players = match.players ?? []
+  const activeTeams = players.filter((p) => !isSpectator(p))
+  const spectators = players.filter(isSpectator).map((p) => ({ name: p.name }))
 
-  const levelshotUrl = match.map_name ? `/assets/levelshots/${match.map_name.toLowerCase()}.jpg` : undefined
+  const redScore = match.red_score ?? 0
+  const blueScore = match.blue_score ?? 0
+  const scoreState = classifyScores(redScore, blueScore)
 
-  // Helper to check if player is winner
-  const isPlayerWinner = (player: MatchPlayerSummary) => {
-    return (player.victories ?? 0) > 0
-  }
+  const levelshotUrl = match.map_name
+    ? `/assets/levelshots/${match.map_name.toLowerCase()}.jpg`
+    : undefined
+
+  const demoActions = match.demo_url ? (
+    <span className="demo-actions">
+      <Link
+        to={`/matches/${match.id}/demo`}
+        state={{ from: location.pathname }}
+        className="demo-action watch"
+      >
+        Watch
+      </Link>
+      <a href={match.demo_url} download={demoFilename(match)} className="demo-action download">
+        Download
+      </a>
+    </span>
+  ) : null
+
+  // TODO(card-conformance): map per-player award counts to row awards
+  const rowData = activeTeams.map((p) => ({
+    name: p.name,
+    team: p.team as 1 | 2 | 3 | undefined,
+    isBot: p.is_bot,
+    frags: p.frags,
+    deaths: p.deaths,
+    score: p.score,
+  }))
 
   return (
-    <div
-      className={`match-card${match.server_active === false ? ' inactive-server' : ''}`}
-      style={levelshotUrl ? { '--levelshot': `url(${levelshotUrl})` } as React.CSSProperties : undefined}
+    <article
+      className={`card match-card${match.server_active === false ? ' inactive-server' : ''}`}
+      style={
+        levelshotUrl
+          ? ({ ['--levelshot']: `url(${levelshotUrl})` } as React.CSSProperties)
+          : undefined
+      }
     >
-      <span className="server-name-badge">
-        <ModeIcons movement={match.movement} gameplay={match.gameplay} />{' '}
-        {serverDisplay(match.source, match.server_key, { hasMultipleSources })}
-        {match.server_active === false && <span className="inactive-chip">inactive</span>}
-        <span className="badge-sep">/</span>
-        <span className="badge-label">Mode</span> {formatGameType(match.game_type)}
-      </span>
-      <div className="match-header">
-        <div className="match-title">
-          <span className="match-map">{match.map_name}</span>
-        </div>
-        <div className="match-header-right">
-          {match.ended_at && (
-            <div className="match-timing">
-              <span className="match-ago" title={new Date(match.ended_at).toLocaleString()}>{formatTimeAgo(match.ended_at)}</span>
-              <span className="match-duration">{formatDuration(match.started_at, match.ended_at)}</span>
-            </div>
-          )}
-          {match.demo_url && (
-            <Link
-              to={`/matches/${match.id}/demo`}
-              className="demo-play-btn"
-              title="Play demo"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="2" y="4" width="20" height="16" rx="3" ry="3" />
-                <polygon points="10,8.5 16,12 10,15.5" fill="currentColor" stroke="none" />
-              </svg>
-            </Link>
-          )}
-          {match.demo_url && (
-            <a
-              href={match.demo_url}
-              className="demo-download-btn"
-              title="Download demo"
-              download={demoFilename(match)}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="2" y="5" width="20" height="15" rx="3" ry="3" />
-                <polyline points="12,9 12,16" />
-                <polyline points="8,13 12,17 16,13" />
-              </svg>
-            </a>
-          )}
-          {showPermalink && (
-            <Link
-              to={`/matches/${match.id}`}
-              className="permalink-btn"
-              title="Permalink to this match"
-              onClick={(e) => e.stopPropagation()}
-            >
-              #
-            </Link>
-          )}
+      <div className="card__topbar">
+        <RichChip
+          source={hasMultipleSources ? match.source : undefined}
+          server={serverDisplay(match.source, match.server_key, { hasMultipleSources })}
+          mode={formatGameType(match.game_type)}
+        />
+        {match.ended_at && (
+          <span className="card__time" title={new Date(match.ended_at).toLocaleString()}>
+            {formatTimeAgo(match.ended_at)}
+            <span className="duration">{formatDuration(match.started_at, match.ended_at)}</span>
+          </span>
+        )}
+      </div>
+
+      <div className="card__header">
+        <div className="card__map">
+          {meta.longName && <span className="card__map-short">{meta.shortName}</span>}
+          <span className="card__map-long">{meta.displayName}</span>
         </div>
       </div>
 
-      {isTeam && match.red_score != null && match.blue_score != null && (() => {
-        // No team "wins" if both teams ended at zero or negative — keeps the
-        // header in sync with the backend's victory rule for TDM bot-fest matches.
-        const hasWinner = Math.max(match.red_score, match.blue_score) > 0
-        return (
-          <div className="team-scores">
-            <div className="team-scores-inner">
-              {hasWinner && match.red_score > match.blue_score && (
-                <span className="victory-badge left">
-                  <MedalIcon type="victory" size="lg" showCount={false} />
-                </span>
-              )}
-              <div className="team-score red">
-                <span className="team-label">Red</span>
-                <span className="score-value">{formatNumber(match.red_score)}</span>
-              </div>
-              <div className="team-score blue">
-                <span className="team-label">Blue</span>
-                <span className="score-value">{formatNumber(match.blue_score)}</span>
-              </div>
-              {hasWinner && match.blue_score > match.red_score && (
-                <span className="victory-badge right">
-                  <MedalIcon type="victory" size="lg" showCount={false} />
-                </span>
-              )}
-            </div>
-          </div>
-        )
-      })()}
+      <ModeIcons movement={match.movement} gameplay={match.gameplay} />
 
-      {!isTeam && match.ended_at && players.length > 0 && (() => {
-        const winners = players.filter(p => (p.victories ?? 0) > 0)
-        if (winners.length > 0) {
-          return (
-            <div className="ffa-winners">
-              {winners.map((winner, idx) => (
-                <div key={`winner-${winner.player_id}-${idx}`} className="ffa-winner-row">
-                  <PlayerPortrait model={winner.model} size="md" />
-                  {winner.is_bot && <BotBadge isBot skill={winner.skill!} size="md" />}
-                  {!winner.is_bot && <PlayerBadge isVerified={winner.is_verified} isAdmin={winner.is_admin} isVR={winner.is_vr} size="md" />}
-                  <ColoredText text={winner.is_vr ? stripVRPrefix(winner.name) : winner.name} />
-                </div>
-              ))}
-            </div>
-          )
-        }
-        const nonSpectators = players.filter(p => p.completed && !isSpectator(p))
-        const maxScore = Math.max(...nonSpectators.map(p => p.score ?? p.frags ?? 0))
-        if (maxScore === 0) {
-          return <div className="match-status-label">No contest</div>
-        }
-        const is1v1 = match.game_type?.toLowerCase() === 'tournament' || match.game_type?.toLowerCase() === '1v1'
-        if (is1v1) {
-          return <div className="match-status-label">Tie</div>
-        }
-        const tiedPlayers = nonSpectators.filter(p => (p.score ?? p.frags ?? 0) === maxScore)
-        return (
-          <>
-            {tiedPlayers.length > 1 && <div className="match-status-label">Tie</div>}
-            <div className="ffa-winners">
-              {tiedPlayers.map((player, idx) => (
-                <div key={`tie-${player.player_id}-${idx}`} className="ffa-winner-row">
-                  <PlayerPortrait model={player.model} size="md" />
-                  {player.is_bot && <BotBadge isBot skill={player.skill!} size="md" />}
-                  {!player.is_bot && <PlayerBadge isVerified={player.is_verified} isAdmin={player.is_admin} isVR={player.is_vr} size="md" />}
-                  <ColoredText text={player.is_vr ? stripVRPrefix(player.name) : player.name} />
-                </div>
-              ))}
-            </div>
-          </>
-        )
-      })()}
-
-      <ul className="match-player-list">
-        {players.map((player, index) => (
-          <MatchPlayerRow
-            key={`${player.player_id}-${index}`}
-            player={player}
-            showTeam={isTeam}
-            isWinner={isPlayerWinner(player)}
-            highlightPlayerId={highlightPlayerId}
-            onPlayerClick={onPlayerClick}
-          />
-        ))}
-      </ul>
-    </div>
-  )
-}
-
-interface MatchPlayerRowProps {
-  player: MatchPlayerSummary
-  showTeam?: boolean
-  isWinner?: boolean
-  highlightPlayerId?: number
-  onPlayerClick?: (playerName: string, cleanName: string, playerId?: number) => void
-}
-
-function MatchPlayerRow({ player, showTeam, isWinner, highlightPlayerId, onPlayerClick }: MatchPlayerRowProps) {
-  const teamClass = showTeam ? getTeamClass(player.team) : ''
-  const spectator = isSpectator(player)
-  const isHighlighted = highlightPlayerId === player.player_id
-  const awardsRef = useRef<HTMLSpanElement>(null)
-  const [isOverflowing, setIsOverflowing] = useState(false)
-  const [scrollWidth, setScrollWidth] = useState(0)
-
-  useEffect(() => {
-    const checkOverflow = () => {
-      if (awardsRef.current) {
-        const sw = awardsRef.current.scrollWidth
-        const cw = awardsRef.current.clientWidth
-        setIsOverflowing(sw > cw)
-        setScrollWidth(sw)
-      }
-    }
-    checkOverflow()
-    window.addEventListener('resize', checkOverflow)
-    return () => window.removeEventListener('resize', checkOverflow)
-  }, [])
-
-  return (
-    <li
-      className={`match-player-row ${teamClass} ${spectator ? 'spectator' : ''} ${onPlayerClick ? 'clickable' : ''} ${isHighlighted ? 'highlighted' : ''}`}
-      onClick={onPlayerClick ? (e: React.MouseEvent) => { e.stopPropagation(); onPlayerClick(player.name, player.clean_name, player.player_id) } : undefined}
-    >
-      <span className="player-name">
-        <span className={`completion-dot ${spectator ? 'spectator' : player.completed ? 'completed' : 'left-early'}`} />
-        <PlayerPortrait model={player.model} size="sm" />
-        {player.is_bot && <BotBadge isBot skill={player.skill!} />}
-        {!player.is_bot && <PlayerBadge isVerified={player.is_verified} isAdmin={player.is_admin} isVR={player.is_vr} />}
-        <ColoredText text={player.is_vr ? stripVRPrefix(player.name) : player.name} />
-        <span
-          ref={awardsRef}
-          className={`awards-container ${isOverflowing ? 'overflowing' : ''}`}
-          style={isOverflowing ? { '--scroll-width': `${scrollWidth}px` } as React.CSSProperties : undefined}
-        >
-          {isWinner && (
-            <MedalIcon type="victory" showCount={false} />
-          )}
-          {(player.impressives ?? 0) > 0 && (
-            <MedalIcon type="impressive" count={player.impressives} />
-          )}
-          {(player.excellents ?? 0) > 0 && (
-            <MedalIcon type="excellent" count={player.excellents} />
-          )}
-          {(player.humiliations ?? 0) > 0 && (
-            <MedalIcon type="humiliation" count={player.humiliations} />
-          )}
-          {(player.defends ?? 0) > 0 && (
-            <MedalIcon type="defend" count={player.defends} />
-          )}
-          {(player.captures ?? 0) > 0 && (
-            <MedalIcon type="capture" count={player.captures} />
-          )}
-          {(player.assists ?? 0) > 0 && (
-            <MedalIcon type="assist" count={player.assists} />
-          )}
-        </span>
-      </span>
-      {spectator ? (
-        <span className="player-stats">
-          <span className="spectator-label">Spectator</span>
-        </span>
-      ) : (
-        <span className="player-stats">
-          <span className="kd">
-            <span className="frags">{formatNumber(player.frags)}</span>
-            <span className="sep">/</span>
-            <span className="deaths">{formatNumber(player.deaths)}</span>
-          </span>
-          {player.score != null && (
-            <span className="score">{formatNumber(player.score)}</span>
-          )}
-        </span>
+      {isTeam && (
+        <Scoreboard
+          redLabel="Red"
+          redScore={redScore}
+          blueLabel="Blue"
+          blueScore={blueScore}
+          state={scoreState}
+        />
       )}
-    </li>
+
+      <PlayerRows players={rowData} mode="finished" />
+
+      <SpectatorStrip spectators={spectators} isLive={false} rightSlot={demoActions} />
+    </article>
   )
 }
