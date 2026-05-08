@@ -2177,6 +2177,10 @@ func cmdAssets(args []string) {
 	cmdFlags(subArgs)
 	fmt.Println()
 
+	fmt.Println("=== Extracting Map Names ===")
+	cmdArenas(subArgs)
+	fmt.Println()
+
 	fmt.Println("=== All asset extraction complete ===")
 }
 
