@@ -3219,6 +3219,20 @@ h2 {
   color: var(--text);
 }
 
+/* Disruptive-but-recoverable action (e.g. rotate creds — invalidates
+   currently-authenticated collectors but the source itself stays
+   approved). Warm-orange separates it from neutral Download/Edit and
+   from the permanent Leave action below. */
+.source-card-actions button.warn {
+  border-color: var(--ember-strong);
+  color: var(--ember-strong);
+}
+
+.source-card-actions button.warn:hover:not(:disabled) {
+  background: var(--ember-strong);
+  color: var(--bg);
+}
+
 .source-card-server-list {
   list-style: none;
   padding: 0;
@@ -8529,6 +8543,35 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 }
 
 .admin-btn-danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Warm-orange admin variant for disruptive-but-recoverable actions
+   (rotate creds, force-disconnect, etc.). Same shape as .admin-btn-
+   danger; warmer tint signals "this will kick existing clients" without
+   the permanence the red palette implies. */
+.admin-btn-warn {
+  background: transparent;
+  border: 1px solid rgba(255, 110, 60, 0.5);
+  color: rgb(255, 145, 95);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.admin-btn-warn:hover:not(:disabled) {
+  background: rgba(255, 110, 60, 0.15);
+  border-color: var(--ember-strong);
+  color: rgb(255, 165, 120);
+}
+
+.admin-btn-warn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }

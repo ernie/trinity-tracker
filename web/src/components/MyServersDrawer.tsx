@@ -238,7 +238,7 @@ function SourceCard({ src, onUpdated }: SourceCardProps) {
         <button onClick={downloadCreds} disabled={busy !== null}>
           {busy === 'download' ? 'Downloading…' : 'Download .creds'}
         </button>
-        <button onClick={rotateCreds} disabled={busy !== null}>
+        <button className="warn" onClick={rotateCreds} disabled={busy !== null}>
           {busy === 'rotate' ? 'Rotating…' : 'Rotate creds'}
         </button>
         <button className="danger" onClick={leave} disabled={busy !== null}>

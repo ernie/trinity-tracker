@@ -502,7 +502,7 @@ export function AccountPage() {
                       </div>
                     ) : (
                       <button
-                        className="generate-btn rotate-btn"
+                        className="generate-btn"
                         onClick={() => setShowRotateConfirm(true)}
                       >
                         Rotate

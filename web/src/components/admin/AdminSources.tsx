@@ -496,7 +496,7 @@ export function AdminSources() {
                         s.active ? (
                           <>
                             <button className="admin-btn" onClick={() => downloadExisting(s)}>Download creds</button>
-                            <button className="admin-btn" onClick={() => rotateCreds(s)}>Rotate creds</button>
+                            <button className="admin-btn admin-btn-warn" onClick={() => rotateCreds(s)}>Rotate creds</button>
                             <button className="admin-btn admin-btn-danger" onClick={() => deactivateSource(s)}>Deactivate</button>
                           </>
                         ) : (
