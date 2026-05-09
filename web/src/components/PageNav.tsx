@@ -1,9 +1,12 @@
 import { Link, useLocation } from 'react-router-dom'
 
+// Order mirrors the landing page's door grid so cross-surface
+// navigation feels consistent. Matches → Players adjacency keeps the
+// stats-oriented surfaces (Players + Leaderboard) next to each other.
 const NAV_ITEMS = [
   { path: '/servers', label: 'Servers' },
-  { path: '/players', label: 'Players' },
   { path: '/matches', label: 'Matches' },
+  { path: '/players', label: 'Players' },
   { path: '/leaderboard', label: 'Leaderboard' },
   { path: '/docs', label: 'Docs' },
 ]

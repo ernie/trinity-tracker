@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { formatDuration } from '../MatchCard'
+import { PlayIcon } from '../PlayIcon'
 import { useMapMeta } from '../../hooks/useMapMeta'
 import type { MatchSummary } from '../../types'
 
@@ -52,7 +53,10 @@ export function RecentMatchesShelf() {
                   {m.started_at && m.ended_at ? formatDuration(m.started_at, m.ended_at) : ''}
                 </span>
               </span>
-              <span className="landing-match-row__demo">▶ Watch demo</span>
+              <span className="landing-match-row__demo">
+                <PlayIcon size={9} />
+                Watch
+              </span>
             </a>
           </li>
         ))}

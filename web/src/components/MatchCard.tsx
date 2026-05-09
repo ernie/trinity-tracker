@@ -9,6 +9,7 @@ import { Duelists, type DuelistData } from './cards/Duelists'
 import { PlayerRows } from './cards/PlayerRows'
 import { SpectatorStrip } from './cards/SpectatorStrip'
 import { classifyScores, awardsFromCounts } from './cards/format'
+import { PlayIcon } from './PlayIcon'
 import { useMapMeta } from '../hooks/useMapMeta'
 import { useSources } from '../hooks/useSources'
 import { useAuth } from '../hooks/useAuth'
@@ -189,6 +190,7 @@ export function MatchCard({
         state={{ from: location.pathname }}
         className="demo-action watch"
       >
+        <PlayIcon size={10} />
         Watch
       </Link>
       <a href={match.demo_url} download={demoFilename(match)} className="demo-action download">

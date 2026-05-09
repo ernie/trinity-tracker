@@ -90,7 +90,7 @@ export function HeroSection() {
       <div className="landing-hero__scroll-hint" aria-hidden>Scroll ↓</div>
 
       <div className="landing-hero__wallpaper" tabIndex={0}>
-        <span className="landing-hero__wallpaper-trigger">Like this background?</span>
+        <span className="landing-hero__wallpaper-trigger">Wallpaper</span>
         <div className="landing-hero__wallpaper-popup" role="menu">
           <div className="landing-hero__wallpaper-popup-label">Download wallpaper</div>
           <a

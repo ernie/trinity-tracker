@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { AppLogo } from "./AppLogo";
 import { PageNav } from "./PageNav";
+import { NavScroller } from "./NavScroller";
 import { LoginForm } from "./LoginForm";
 import { MySourceButton } from "./MySourceButton";
 import { CommunityCluster } from "./CommunityCluster";
@@ -64,9 +65,9 @@ export function Header({ title, className, linkToHome, wordmark, transparent, so
       </div>
 
       <div className="app-header__row">
-        <div className="app-header__nav-scroll">
+        <NavScroller>
           <PageNav />
-        </div>
+        </NavScroller>
         <HamburgerMenu
           className={
             auth.isAuthenticated

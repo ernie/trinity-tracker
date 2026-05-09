@@ -1928,8 +1928,12 @@ h2 {
 
 /* Wrapper around PageNav. display: contents on desktop (transparent),
    becomes a real horizontal-scroll container on mobile. Lives as a
-   sibling of the hamburger so the popup escapes any overflow clipping. */
+   sibling of the hamburger so the popup escapes any overflow clipping.
+   On mobile, wrapped by .nav-scroller which hosts the edge chevron
+   affordances. */
+.nav-scroller,
 .app-header__nav-scroll { display: contents; }
+.nav-scroller__edge { display: none; }
 
 /* Hide the ⌘K / Ctrl K hint on touch-primary devices. Phones and
    tablets almost always have no keyboard; the few users on a Bluetooth
@@ -1972,27 +1976,108 @@ h2 {
     align-items: center;
   }
 
-  .app-header__nav-scroll {
+  /* On mobile the wrapper becomes the actual flex item — it owns the
+     row's flex-basis so it can host both the scrollable nav and the
+     absolutely-positioned chevron affordances at its edges. */
+  .nav-scroller {
     display: block;
+    position: relative;
     flex: 1;
     min-width: 0;
+  }
+
+  .app-header__nav-scroll {
+    display: block;
     overflow-x: auto;
     overflow-y: hidden;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
-    /* Fade the right edge so users see content disappearing into the
-       hamburger sibling, telegraphing "more past here". */
-    mask-image: linear-gradient(to right, black calc(100% - 28px), transparent);
-    -webkit-mask-image: linear-gradient(to right, black calc(100% - 28px), transparent);
+    /* Edge fades soften the cutoff where text disappears past the
+       visible area. The mask is state-driven (set via classes on the
+       scroll container) so a fade only appears on the side that has
+       more content to reveal. */
+  }
+  .app-header__nav-scroll.is-scroll-left {
+    mask-image: linear-gradient(to right, transparent, black 28px);
+    -webkit-mask-image: linear-gradient(to right, transparent, black 28px);
+  }
+  .app-header__nav-scroll.is-scroll-right {
+    mask-image: linear-gradient(to left, transparent, black 28px);
+    -webkit-mask-image: linear-gradient(to left, transparent, black 28px);
+  }
+  .app-header__nav-scroll.is-scroll-left.is-scroll-right {
+    mask-image: linear-gradient(to right, transparent, black 28px, black calc(100% - 28px), transparent);
+    -webkit-mask-image: linear-gradient(to right, transparent, black 28px, black calc(100% - 28px), transparent);
   }
   .app-header__nav-scroll::-webkit-scrollbar { display: none; }
   .app-header__nav-scroll .page-nav {
     flex-wrap: nowrap;
     width: max-content;
-    /* Trailing padding so the last nav link can scroll PAST the
-       28px fade zone — otherwise "Docs" lands inside the mask when
-       fully scrolled right. */
+    /* Trailing + leading padding so the first/last nav link can scroll
+       PAST the fade zones — otherwise "Servers" / "Docs" land inside
+       the mask when fully scrolled to that edge. */
+    padding-left: 4px;
     padding-right: 32px;
+  }
+
+  /* Edge chevrons: small ember-tinted hints that sit in the fade zones
+     and ride above the mask (siblings of the scroll container, not
+     descendants). They appear only when there's content to reveal in
+     that direction, with a subtle horizontal bob echoing the landing
+     hero's vertical scroll-hint bob. Tapping jumps the scroll to that
+     edge — touch target is wider than the visible chevron for finger
+     comfort while staying out of the way of the nav links. */
+  .nav-scroller__edge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 32px;
+    height: 36px;
+    color: var(--accent);
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    /* Disabled-state pointer behavior: the button is always in the DOM
+       (so the bob animation can replay cleanly when scrollability
+       returns), but it can't be tapped when not shown. */
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.18s ease;
+    z-index: 1;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .nav-scroller__edge.is-shown {
+    opacity: 0.85;
+    pointer-events: auto;
+  }
+  .nav-scroller__edge:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+    border-radius: var(--radius-sm);
+  }
+  .nav-scroller__edge:active { opacity: 1; color: var(--ember-strong, #ff6e3c); }
+  .nav-scroller__edge--left { left: 0; }
+  .nav-scroller__edge--right { right: 0; }
+  .nav-scroller__edge--left.is-shown {
+    animation: nav-scroller-bob-left 2.4s ease-in-out infinite;
+  }
+  .nav-scroller__edge--right.is-shown {
+    animation: nav-scroller-bob-right 2.4s ease-in-out infinite;
+  }
+  @keyframes nav-scroller-bob-left {
+    0%, 100% { transform: translate(0, -50%); }
+    50%      { transform: translate(-2px, -50%); }
+  }
+  @keyframes nav-scroller-bob-right {
+    0%, 100% { transform: translate(0, -50%); }
+    50%      { transform: translate(2px, -50%); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .nav-scroller__edge.is-shown { animation: none; }
   }
 
   /* Hamburger sits outside the scroll container so its popup isn't
@@ -2326,23 +2411,33 @@ h2 {
 }
 
 .nav-link {
+  /* Mirror the landing-hero nav treatment so cross-surface navigation
+     feels typographically continuous: Barlow 500 at 12px, tracked +
+     uppercase. Active state lifts to the warm accent (no more red,
+     which was the pre-redesign voice) and the tri-point glyph beside
+     it carries the "you are here" signal. */
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  color: var(--accent-dim);
+  font-family: 'Barlow', sans-serif;
+  font-weight: 500;
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-dim);
   text-decoration: none;
-  font-size: 0.95rem;
+  transition: color 0.2s ease;
 }
 
 .nav-link:hover {
-  color: var(--accent);
-  text-decoration: underline;
+  color: var(--text);
+  text-decoration: none;
 }
 
 .nav-link.active,
 .nav-link.active:hover {
-  color: var(--red);
+  color: var(--accent);
   font-weight: 600;
   text-decoration: none;
 }
@@ -8923,8 +9018,14 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 /* ── Landing hero ──────────────────────────────────────── */
 .landing-hero {
   position: relative;
-  min-height: 100svh;
+  /* svh is the SMALL viewport (URL bar + chrome present), so the hero
+     never extends behind the iOS Safari bottom address bar. The vh
+     declaration is a fallback for browsers that don't grok svh —
+     listed first so the cascade promotes svh to the winner everywhere
+     else. (Reversing this order silently regresses to vh, which is
+     what was hiding the scroll-hint under the URL bar.) */
   min-height: 100vh;
+  min-height: 100svh;
   width: 100%;
   overflow: hidden;
   display: flex;
@@ -9085,7 +9186,11 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 }
 .landing-hero__scroll-hint {
   position: absolute;
-  bottom: 22px;
+  /* env() pads above any iOS Safari home-indicator / bottom-toolbar
+     safe-area inset so the hint clears the chrome on phones with a
+     bottom URL bar. Falls back to 0 on browsers that don't expose
+     env(), keeping the static 22px behavior on desktop. */
+  bottom: calc(22px + env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
   font-family: 'Barlow', sans-serif;
@@ -9192,7 +9297,9 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 /* Wallpaper download trigger + hover popup, bottom-right of hero. */
 .landing-hero__wallpaper {
   position: absolute;
-  bottom: 22px;
+  /* Match the scroll-hint's safe-area dodge so the trigger never lands
+     under iOS Safari's bottom URL bar. */
+  bottom: calc(22px + env(safe-area-inset-bottom, 0px));
   right: 28px;
   z-index: 2;
   font-family: 'Barlow', sans-serif;
@@ -9579,13 +9686,32 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   white-space: nowrap;
   opacity: 0.6;
   transition: opacity 0.2s ease, color 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 .landing-match-row:hover .landing-match-row__demo { opacity: 1; color: #ffc78a; }
 
 @media (max-width: 720px) {
-  .landing-match-row { grid-template-columns: 1fr auto; gap: 12px; padding: 14px 8px; }
-  .landing-match-row__mode { grid-column: 1 / -1; align-self: start; }
-  .landing-match-row__meta, .landing-match-row__demo { display: none; }
+  /* Three-row stack: mode chip on top, title + score below it, then a
+     meta + Watch-demo footer. Keeps every signal the desktop row
+     surfaces — the previous mobile rule hid meta/demo and lost the
+     "what will this row do when I tap it" affordance. */
+  .landing-match-row {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "mode  mode"
+      "title score"
+      "meta  demo";
+    gap: 6px 12px;
+    padding: 14px 8px;
+    align-items: start;
+  }
+  .landing-match-row__mode  { grid-area: mode; align-self: start; }
+  .landing-match-row__title { grid-area: title; }
+  .landing-match-row__score { grid-area: score; align-self: center; }
+  .landing-match-row__meta  { grid-area: meta; text-align: left; }
+  .landing-match-row__demo  { grid-area: demo; align-self: center; }
 }
 
 .landing-players-strip {
@@ -10361,7 +10487,10 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   padding-bottom: 1px;
 }
 .demo-action:hover { color: var(--ember-light, #ffc78a); border-bottom-color: var(--ember-light, #ffc78a); }
-.demo-action.watch::before { content: '▶'; font-size: 9px; }
+/* .demo-action.watch's play-triangle now comes from <PlayIcon /> rendered
+   inline (matches the chevron / eye stroke-icon vocabulary). The download
+   action keeps its glyph as a CSS pseudo-element since it's a single
+   character with no inline children. */
 .demo-action.download::before { content: '↓'; font-size: 11px; }
 
 /* Match detail page — exit reason note (lives in .match-detail__meta) */
