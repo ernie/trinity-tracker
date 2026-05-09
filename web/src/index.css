@@ -7102,6 +7102,11 @@ details[open] > .admin-form-toggle .admin-form-toggle__caret {
   padding: 2px 6px;
   border-radius: var(--radius-sm);
   font-size: 0.9em;
+  /* Bold so cvar names, file paths, and other "exact reference"
+     bits don't get skimmed past in body prose. The CopyableCommand
+     resets this for code inside its pre block (see its rules). */
+  font-weight: 600;
+  color: var(--text);
 }
 
 .about-downloads {
@@ -11362,6 +11367,58 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 
 .about-section .docs-tip > p:last-child {
   margin-bottom: 0;
+}
+
+/* CopyableCommand — block-level shell command in a doc body, with a
+   copy-to-clipboard button anchored top-right. The wrapper is
+   relatively-positioned so the button can sit on top of the pre. */
+.docs-copyable-command {
+  position: relative;
+  margin: 16px 0;
+}
+
+.docs-copyable-command pre {
+  margin: 0;
+  padding: 12px 80px 12px 16px;
+  background: var(--bg-elev);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.docs-copyable-command pre code {
+  /* Override inline <code> chrome — this code lives inside a styled
+     pre block already. Reset font-weight too so we don't inherit
+     the body bold treatment used for cvar / path references. */
+  background: transparent;
+  padding: 0;
+  border: none;
+  color: inherit;
+  font-size: inherit;
+  font-weight: normal;
+}
+
+.docs-copyable-command__copy {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 4px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.docs-copyable-command__copy:hover {
+  color: var(--text);
+  border-color: var(--rule-strong);
 }
 
 /* "You're done" banner shown after the final install step — gives
