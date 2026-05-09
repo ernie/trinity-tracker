@@ -51,7 +51,7 @@ export function DocsWelcome() {
             <ArrowIcon direction="right" size={14} className="docs-welcome__persona-arrow" />
           </Link>
 
-          <Link to="/docs/getting-started" className="docs-welcome__persona-card">
+          <Link to="/docs/install" className="docs-welcome__persona-card">
             <span className="docs-welcome__persona-title">I'm ready to install</span>
             <span className="docs-welcome__persona-teaser">
               Download an engine, set up your config, claim a Trinity
