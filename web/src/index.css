@@ -10901,3 +10901,45 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   padding: 16px 18px;
   background: var(--bg-card);
 }
+
+/* ─── Docs platform note ──────────────────────────────────────
+   Ember-tinted callout for platform-specific asides. Header
+   chip names the audience; body is normal prose.
+   ──────────────────────────────────────────────────────────── */
+
+.docs-platform-note {
+  background: var(--ember-tint-bg);
+  border: 1px solid var(--ember-strong);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin: 16px 0;
+}
+
+.docs-platform-note__header {
+  margin-bottom: 8px;
+}
+
+.docs-platform-note__chip {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(255, 110, 60, 0.22);
+  color: var(--ember-tint-text);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.docs-platform-note__body {
+  color: var(--text);
+  line-height: 1.55;
+}
+
+.docs-platform-note__body > p:first-child {
+  margin-top: 0;
+}
+
+.docs-platform-note__body > p:last-child {
+  margin-bottom: 0;
+}
