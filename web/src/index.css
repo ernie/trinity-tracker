@@ -85,8 +85,6 @@
   /* Warm-tinted to match the cream palette. */
   --shadow-1: 0 1px 0 rgba(255, 248, 240, 0.04) inset, 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-2: 0 2px 8px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 248, 240, 0.06);
-  --shadow-glow: 0 0 0 1px var(--red), 0 0 16px rgba(233, 69, 96, 0.25);
-
   --rule: 1px solid #2a2622;
   --rule-strong: 1px solid #3d3833;
 
@@ -2088,7 +2086,7 @@ h2 {
     outline-offset: -2px;
     border-radius: var(--radius-sm);
   }
-  .nav-scroller__edge:active { opacity: 1; color: var(--ember-strong, #ff6e3c); }
+  .nav-scroller__edge:active { opacity: 1; color: var(--ember-strong); }
   .nav-scroller__edge--left { left: 0; }
   .nav-scroller__edge--right { right: 0; }
   .nav-scroller__edge--left.is-shown {
@@ -2355,8 +2353,8 @@ h2 {
   height: 7px;
   border-radius: 50%;
   flex-shrink: 0;
-  background: var(--ember-strong, #ff6e3c);
-  box-shadow: 0 0 8px var(--ember-strong, #ff6e3c);
+  background: var(--ember-strong);
+  box-shadow: 0 0 8px var(--ember-strong);
   animation: landing-hero-pulse 1.6s ease-in-out infinite;
 }
 
@@ -3563,23 +3561,27 @@ h2 {
   margin-top: 20px;
 }
 
-/* Modal / drawer keep the legacy red submit-button styling; admin uses
-   .admin-btn-primary on the markup, which would otherwise lose the cascade
-   to a tag+attribute selector with higher specificity. */
+/* Default modal/drawer submit chrome. Ember-on-dark CTA matches the
+   warm chrome palette; brightness lift on hover gives subtle response
+   without needing a darker-ember token. Admin surfaces still pick up
+   .admin-btn-primary explicitly for the tinted variant. */
 .modal button[type="submit"],
 .drawer button[type="submit"] {
-  background: var(--red);
+  background: var(--ember-strong);
   border: none;
-  color: #fff;
+  color: var(--bg);
   padding: 8px 16px;
   border-radius: var(--radius-sm);
   cursor: pointer;
   font-family: inherit;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  transition: filter 0.15s;
 }
 
 .modal button[type="submit"]:hover:not(:disabled),
 .drawer button[type="submit"]:hover:not(:disabled) {
-  background: #c73550;
+  filter: brightness(1.08);
 }
 
 .modal button[type="submit"]:disabled,
@@ -3797,12 +3799,12 @@ h2 {
 }
 
 .server-card.selectable:hover {
-  border-color: var(--red);
+  border-color: var(--ember-strong);
 }
 
 .server-card.selected {
-  border-color: var(--red);
-  box-shadow: 0 0 10px rgba(33, 150, 243, 0.3);
+  border-color: var(--ember-strong);
+  box-shadow: 0 0 10px rgba(255, 110, 60, 0.3);
 }
 
 /* Degraded = liveness offline/stale. Freeze the timer, dim the whole card. */
@@ -4688,23 +4690,24 @@ h2 {
 
 .search-input:focus {
   outline: none;
-  border-color: var(--red);
+  border-color: var(--ember-strong);
 }
 
 .search-btn {
   padding: 10px 20px;
-  background: var(--red);
+  background: var(--ember-strong);
   border: none;
-  color: #000;
+  color: var(--bg);
   border-radius: var(--radius-md);
   cursor: pointer;
   font-family: inherit;
   font-size: 1rem;
   font-weight: 600;
+  transition: filter 0.15s;
 }
 
 .search-btn:hover {
-  opacity: 0.9;
+  filter: brightness(1.08);
 }
 
 .search-btn:disabled {
@@ -5662,8 +5665,8 @@ h2 {
 }
 
 .category-btn.active {
-  background: var(--red);
-  color: #fff;
+  background: var(--ember-strong);
+  color: var(--bg);
 }
 
 /* Leaderboard content — wrapper with no chrome of its own. Cards
@@ -6052,9 +6055,9 @@ h2 {
 }
 
 .mode-filter-btn.active {
-  background: var(--red);
-  border-color: var(--red);
-  color: #fff;
+  background: var(--ember-strong);
+  border-color: var(--ember-strong);
+  color: var(--bg);
 }
 
 .mode-filter-btn.icon-btn {
@@ -6248,11 +6251,11 @@ h2 {
 }
 .toggle-filter input:checked ~ .toggle-filter__switch {
   background: rgba(255, 110, 60, 0.2);
-  border-color: var(--ember-strong, #ff6e3c);
+  border-color: var(--ember-strong);
 }
 .toggle-filter input:checked ~ .toggle-filter__switch::after {
   transform: translateX(14px);
-  background: var(--ember-strong, #ff6e3c);
+  background: var(--ember-strong);
 }
 .toggle-filter input:checked ~ .toggle-filter__label {
   color: var(--text);
@@ -7603,7 +7606,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  color: #ccc;
+  color: var(--text-dim);
   font-family: monospace;
   font-size: clamp(24px, 4vw, 48px);
   font-weight: 700;
@@ -7682,11 +7685,11 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 }
 
 .demo-back-link-text:hover {
-  color: #fff;
+  color: var(--accent);
 }
 
 .demo-player-error {
-  color: #aaa;
+  color: var(--text-dim);
   font-family: monospace;
   text-align: center;
 }
@@ -7750,8 +7753,8 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 }
 
 .ctrl-btn.active {
-  background: rgba(233, 69, 96, 0.3);
-  color: var(--red);
+  background: rgba(255, 110, 60, 0.3);
+  color: var(--ember-light);
 }
 
 .ctrl-volume-wrap {
@@ -8138,8 +8141,8 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   display: inline-block;
   padding: 10px 20px;
   margin-top: 8px;
-  background: var(--red);
-  color: #fff;
+  background: var(--ember-strong);
+  color: var(--bg);
   font-weight: 600;
   font-size: 0.95rem;
   border-radius: var(--radius-md);
@@ -8223,30 +8226,32 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 
 .claim-code-input:focus {
   outline: none;
-  border-color: var(--red);
+  border-color: var(--ember-strong);
 }
 
 .claim-code-input::placeholder {
   letter-spacing: 0.4em;
-  color: #444;
+  color: var(--text-dim);
 }
 
 .claim-submit-btn,
 .claim-primary-btn {
   padding: 10px 20px;
-  background: var(--red);
-  color: #fff;
+  background: var(--ember-strong);
+  color: var(--bg);
   border: none;
   border-radius: var(--radius-md);
   cursor: pointer;
   font-size: 0.95rem;
   font-family: inherit;
-  transition: background 0.15s;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  transition: filter 0.15s;
 }
 
 .claim-submit-btn:hover:not(:disabled),
 .claim-primary-btn:hover:not(:disabled) {
-  background: #c73550;
+  filter: brightness(1.08);
 }
 
 .claim-submit-btn:disabled,
@@ -8397,7 +8402,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 
 .claim-form-group input:focus {
   outline: none;
-  border-color: var(--red);
+  border-color: var(--ember-strong);
 }
 
 .claim-success {
@@ -9008,8 +9013,8 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 .hero__pill .dot {
   width: 7px; height: 7px;
   border-radius: 50%;
-  background: var(--ember-strong, #ff6e3c);
-  box-shadow: 0 0 8px var(--ember-strong, #ff6e3c);
+  background: var(--ember-strong);
+  box-shadow: 0 0 8px var(--ember-strong);
   animation: landing-hero-pulse 1.6s ease-in-out infinite;
 }
 /* Quiet state: dim the dot and drop its glow so the pill reads as "still on,
@@ -9122,7 +9127,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   font-family: 'Cinzel', serif;
   font-size: 12px;
   letter-spacing: 0.5em;
-  color: #ffc78a;
+  color: var(--ember-light);
   margin-bottom: 38px;
   text-transform: uppercase;
   text-shadow:
@@ -9134,11 +9139,11 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   display: inline-block;
   width: 56px;
   height: 1px;
-  background: linear-gradient(90deg, transparent, #ffc78a);
+  background: linear-gradient(90deg, transparent, var(--ember-light));
   box-shadow: 0 0 6px rgba(255, 199, 138, 0.4);
 }
 .landing-hero__rule:last-child {
-  background: linear-gradient(90deg, #ffc78a, transparent);
+  background: linear-gradient(90deg, var(--ember-light), transparent);
 }
 .landing-hero__headline {
   font-family: 'Cinzel', serif;
@@ -9181,8 +9186,8 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--ember-strong, #ff6e3c);
-  box-shadow: 0 0 10px var(--ember-strong, #ff6e3c);
+  background: var(--ember-strong);
+  box-shadow: 0 0 10px var(--ember-strong);
   margin-right: 8px;
   vertical-align: middle;
   animation: landing-hero-pulse 1.6s ease-in-out infinite;
@@ -9210,7 +9215,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   color: var(--accent);
   padding: 16px 32px;
   text-decoration: none;
-  border: 1px solid var(--ember-strong, #ff6e3c);
+  border: 1px solid var(--ember-strong);
   background: linear-gradient(180deg, rgba(255, 110, 60, 0.12), rgba(255, 110, 60, 0.04));
   transition: all 0.3s ease;
 }
@@ -9371,8 +9376,8 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 }
 .landing-hero__wallpaper:hover .landing-hero__wallpaper-trigger,
 .landing-hero__wallpaper:focus-within .landing-hero__wallpaper-trigger {
-  color: #ffc78a;
-  border-bottom-color: #ffc78a;
+  color: var(--ember-light);
+  border-bottom-color: var(--ember-light);
 }
 .landing-hero__wallpaper-popup {
   position: absolute;
@@ -9411,7 +9416,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   font-weight: 700;
   letter-spacing: 0.32em;
   text-transform: uppercase;
-  color: #ffc78a;
+  color: var(--ember-light);
   margin-bottom: 10px;
   padding-bottom: 8px;
   position: relative;
@@ -9439,7 +9444,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 .landing-hero__wallpaper-link + .landing-hero__wallpaper-link {
   border-top: 1px dashed rgba(255, 248, 240, 0.06);
 }
-.landing-hero__wallpaper-link:hover { color: #ffc78a; }
+.landing-hero__wallpaper-link:hover { color: var(--ember-light); }
 .landing-hero__wallpaper-link-meta {
   font-family: 'Barlow', sans-serif;
   font-weight: 400;
@@ -9472,7 +9477,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   margin-bottom: 48px;
   font-family: 'Cinzel', serif;
   font-size: 14px;
-  color: var(--ember-strong, #ff6e3c);
+  color: var(--ember-strong);
   letter-spacing: 0.4em;
   opacity: 0.7;
 }
@@ -9480,10 +9485,10 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   display: inline-block;
   width: 80px;
   height: 1px;
-  background: linear-gradient(90deg, transparent, var(--ember-strong, #ff6e3c));
+  background: linear-gradient(90deg, transparent, var(--ember-strong));
 }
 .landing-about__rule:last-child {
-  background: linear-gradient(90deg, var(--ember-strong, #ff6e3c), transparent);
+  background: linear-gradient(90deg, var(--ember-strong), transparent);
 }
 .landing-about__prose {
   font-family: 'Barlow', sans-serif;
@@ -9540,8 +9545,8 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--ember-strong, #ff6e3c);
-  box-shadow: 0 0 10px var(--ember-strong, #ff6e3c);
+  background: var(--ember-strong);
+  box-shadow: 0 0 10px var(--ember-strong);
   margin-right: 14px;
   vertical-align: middle;
   animation: landing-hero-pulse 1.6s ease-in-out infinite;
@@ -9672,7 +9677,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   font-weight: 600;
   font-size: 10px;
   letter-spacing: 0.22em;
-  color: var(--ember-strong, #ff6e3c);
+  color: var(--ember-strong);
   text-transform: uppercase;
   border: 1px solid rgba(255, 110, 60, 0.35);
   padding: 4px 9px;
@@ -9750,7 +9755,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   align-items: center;
   gap: 6px;
 }
-.landing-match-row:hover .landing-match-row__demo { opacity: 1; color: #ffc78a; }
+.landing-match-row:hover .landing-match-row__demo { opacity: 1; color: var(--ember-light); }
 
 @media (max-width: 720px) {
   /* Three-row stack: mode chip on top, title + score below it, then a
@@ -9809,7 +9814,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   letter-spacing: 0.2em;
   color: var(--text-dim);
 }
-.landing-player-card__rank.top { color: #ffc78a; }
+.landing-player-card__rank.top { color: var(--ember-light); }
 .landing-player-card__avatar {
   width: 64px;
   height: 64px;
@@ -9840,7 +9845,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   object-fit: cover;
 }
 .landing-player-card.top .landing-player-card__avatar {
-  border-color: var(--ember-strong, #ff6e3c);
+  border-color: var(--ember-strong);
   box-shadow: 0 0 14px rgba(255, 110, 60, 0.25);
 }
 .landing-player-card__name {
@@ -9863,7 +9868,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
-.landing-player-card.top .landing-player-card__stat { color: #ffc78a; }
+.landing-player-card.top .landing-player-card__stat { color: var(--ember-light); }
 .landing-player-card__stat-label {
   font-family: 'Barlow', sans-serif;
   font-weight: 500;
@@ -9980,7 +9985,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   font-weight: 600;
   font-size: 10px;
   letter-spacing: 0.22em;
-  color: var(--ember-strong, #ff6e3c);
+  color: var(--ember-strong);
   text-transform: uppercase;
   border: 1px solid rgba(255, 110, 60, 0.35);
   padding: 4px 10px;
@@ -10077,7 +10082,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: 0.3em;
   color: var(--text-dim); text-transform: uppercase;
 }
-.scoreboard__state.tie { color: var(--ember-light, #ffc78a); letter-spacing: 0.4em; }
+.scoreboard__state.tie { color: var(--ember-light); letter-spacing: 0.4em; }
 .scoreboard__state.nc {
   display: inline-block;
   text-align: center;
@@ -10099,7 +10104,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   text-transform: uppercase;
   margin: 6px 0 -2px;
 }
-.duelists-state.tie { color: var(--ember-light, #ffc78a); }
+.duelists-state.tie { color: var(--ember-light); }
 .duelists-state.nc { color: var(--text-dim); }
 
 /* 1v1 cards have only two players, so the body has more vertical and
@@ -10125,7 +10130,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 .medal-excellent { color: #facc15; }
 .medal-impressive { color: rgba(255, 248, 240, 0.7); }
 .medal-humiliation { color: var(--red); }
-.medal-gauntlet { color: var(--ember-strong, #ff6e3c); }
+.medal-gauntlet { color: var(--ember-strong); }
 
 .duelist { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .duelist__portrait-wrap {
@@ -10298,7 +10303,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 }
 .duelist.clickable:hover .duelist__portrait-wrap,
 .duelist.clickable:focus-visible .duelist__portrait-wrap {
-  border-color: var(--ember-strong, #ff6e3c);
+  border-color: var(--ember-strong);
   box-shadow: 0 0 12px rgba(255, 110, 60, 0.35);
 }
 .player-row .stat {
@@ -10334,7 +10339,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   flex-shrink: 0;
   width: 14px;
   height: 14px;
-  color: var(--ember-light, #ffc78a);
+  color: var(--ember-light);
 }
 .card__spectators-label.spec { color: var(--text-dim); }
 .card__spectators-list {
