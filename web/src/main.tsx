@@ -7,7 +7,9 @@ import { Quake3EulaPage } from './components/Quake3EulaPage'
 import { DocsGettingStarted } from './components/docs/DocsGettingStarted'
 import { DocsFeatures } from './components/docs/DocsFeatures'
 import { DocsServerAdmin } from './components/docs/DocsServerAdmin'
-import { DocsCredits } from './components/docs/DocsCredits'
+import { DocsWelcome } from './components/docs/DocsWelcome'
+import { FeaturesPage } from './components/FeaturesPage'
+import { CreditsPage } from './components/CreditsPage'
 import { AdminPage } from './components/admin/AdminPage'
 import { AdminUsers } from './components/admin/AdminUsers'
 import { AdminSessions } from './components/admin/AdminSessions'
@@ -44,12 +46,13 @@ createRoot(document.getElementById('root')!).render(
                 <Route path="/leaderboard" element={<LeaderboardPage />} />
                 <Route path="/account" element={<AccountPage />} />
                 <Route path="/docs" element={<DocsPage />}>
-                  <Route index element={<Navigate to="/docs/getting-started" replace />} />
+                  <Route index element={<DocsWelcome />} />
                   <Route path="getting-started" element={<DocsGettingStarted />} />
                   <Route path="features" element={<DocsFeatures />} />
                   <Route path="server-admin" element={<DocsServerAdmin />} />
-                  <Route path="credits" element={<DocsCredits />} />
                 </Route>
+                <Route path="/features" element={<FeaturesPage />} />
+                <Route path="/credits" element={<CreditsPage />} />
                 <Route path="/admin" element={<AdminPage />}>
                   <Route index element={<Navigate to="/admin/users" replace />} />
                   <Route path="users" element={<AdminUsers />} />
@@ -58,8 +61,6 @@ createRoot(document.getElementById('root')!).render(
                   <Route path="sources" element={<AdminSources />} />
                   <Route path="audit" element={<AdminAudit />} />
                 </Route>
-                <Route path="/about" element={<Navigate to="/docs" replace />} />
-                <Route path="/getting-started" element={<Navigate to="/docs/getting-started" replace />} />
                 <Route path="/claim" element={<ClaimPage />} />
                 <Route path="/quake3-eula" element={<Quake3EulaPage />} />
               </Routes>
