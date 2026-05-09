@@ -10848,3 +10848,56 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
     padding: 32px 20px;
   }
 }
+
+/* ─── Docs platform tabs ──────────────────────────────────────
+   Synced segmented control sitting above platform-divergent
+   content. Visually echoes the .filter-chips__strip pattern
+   used elsewhere but with stronger active-state borders since
+   these tabs change which content is visible, not just which
+   subset is shown.
+   ──────────────────────────────────────────────────────────── */
+
+.docs-platform-tabs {
+  margin: 16px 0 20px;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.docs-platform-tabs__strip {
+  display: flex;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--rule);
+}
+
+.docs-platform-tabs__tab {
+  flex: 1;
+  background: transparent;
+  border: none;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.9375rem;
+  color: var(--text-dim);
+  transition: color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+
+.docs-platform-tabs__tab:hover {
+  color: var(--text);
+}
+
+.docs-platform-tabs__tab.is-active {
+  color: var(--ember-tint-text);
+  background: var(--ember-tint-bg);
+  box-shadow: inset 0 -2px 0 var(--ember-strong);
+}
+
+.docs-platform-tabs__tab:focus-visible {
+  outline: 2px solid var(--ember-strong);
+  outline-offset: -2px;
+}
+
+.docs-platform-tabs__panel {
+  padding: 16px 18px;
+  background: var(--bg-card);
+}
