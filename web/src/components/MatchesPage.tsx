@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { MatchCard, formatGameType } from './MatchCard'
 import { SourceFilter } from './SourceFilter'
 import { ModeFilterGroup } from './ServerFilters'
+import { NavScroller } from './NavScroller'
 import { MOVEMENT_MODES, GAMEPLAY_MODES } from './ServerCard'
 import { GAME_TYPES, isGameTypeFilter, type GameTypeFilter } from '../constants/labels'
 import { useLiveData } from '../contexts/LiveDataContext'
@@ -225,22 +226,26 @@ export function MatchesPage() {
     <div className="matches-page">
       <div className="match-filters">
         <div className="game-type-selector">
-          <button
-            key="all"
-            className={`game-type-btn ${gameType === 'all' ? 'active' : ''}`}
-            onClick={() => setGameType('all')}
-          >
-            All
-          </button>
-          {GAME_TYPES.map((gt) => (
-            <button
-              key={gt}
-              className={`game-type-btn ${gameType === gt ? 'active' : ''}`}
-              onClick={() => setGameType(gt)}
-            >
-              {formatGameType(gt)}
-            </button>
-          ))}
+          <NavScroller scrollClassName="filter-chips__scroll">
+            <div className="filter-chips__strip">
+              <button
+                key="all"
+                className={`game-type-btn ${gameType === 'all' ? 'active' : ''}`}
+                onClick={() => setGameType('all')}
+              >
+                All
+              </button>
+              {GAME_TYPES.map((gt) => (
+                <button
+                  key={gt}
+                  className={`game-type-btn ${gameType === gt ? 'active' : ''}`}
+                  onClick={() => setGameType(gt)}
+                >
+                  {formatGameType(gt)}
+                </button>
+              ))}
+            </div>
+          </NavScroller>
         </div>
 
         <div className="match-mode-filters">

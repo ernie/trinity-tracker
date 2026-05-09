@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import type { ServerStatus } from '../types'
 import { SourceFilter } from './SourceFilter'
+import { NavScroller } from './NavScroller'
 import { MOVEMENT_MODES, GAMEPLAY_MODES } from './ServerCard'
 import { formatGameType } from './MatchCard'
 
@@ -122,23 +123,27 @@ export function ServerFilters({ servers, filters, onChange }: ServerFiltersProps
       <SourceFilter value={filters.source} onChange={(v) => onChange({ ...filters, source: v })} />
       {showGameType && (
         <div className="server-filter-group" role="radiogroup" aria-label="Filter by game type">
-          <button
-            type="button"
-            className={`game-type-btn ${filters.gameType === '' ? 'active' : ''}`}
-            onClick={() => onChange({ ...filters, gameType: '' })}
-          >
-            All
-          </button>
-          {gameTypes.map((gt) => (
-            <button
-              type="button"
-              key={gt}
-              className={`game-type-btn ${filters.gameType === gt ? 'active' : ''}`}
-              onClick={() => onChange({ ...filters, gameType: gt })}
-            >
-              {formatGameType(gt)}
-            </button>
-          ))}
+          <NavScroller scrollClassName="filter-chips__scroll">
+            <div className="filter-chips__strip">
+              <button
+                type="button"
+                className={`game-type-btn ${filters.gameType === '' ? 'active' : ''}`}
+                onClick={() => onChange({ ...filters, gameType: '' })}
+              >
+                All
+              </button>
+              {gameTypes.map((gt) => (
+                <button
+                  type="button"
+                  key={gt}
+                  className={`game-type-btn ${filters.gameType === gt ? 'active' : ''}`}
+                  onClick={() => onChange({ ...filters, gameType: gt })}
+                >
+                  {formatGameType(gt)}
+                </button>
+              ))}
+            </div>
+          </NavScroller>
         </div>
       )}
       {showMovement && (
@@ -187,30 +192,34 @@ export function ModeFilterGroup({ label, shortLabel, modes, available, value, on
   return (
     <div className="server-filter-group" role="radiogroup" aria-label={`Filter by ${label.toLowerCase()}`}>
       <span className="server-filter-label" aria-hidden="true">{shortLabel}</span>
-      <button
-        type="button"
-        className={`mode-filter-btn ${value === '' ? 'active' : ''}`}
-        onClick={() => onChange('')}
-        title={`All ${label}`}
-      >
-        All
-      </button>
-      {available.map((id) => {
-        const mode = modes[id]
-        if (!mode) return null
-        return (
+      <NavScroller scrollClassName="filter-chips__scroll">
+        <div className="filter-chips__strip">
           <button
             type="button"
-            key={id}
-            className={`mode-filter-btn icon-btn ${value === id ? 'active' : ''}`}
-            onClick={() => onChange(id)}
-            title={`${label}: ${mode.label}`}
-            aria-label={`${label}: ${mode.label}`}
+            className={`mode-filter-btn ${value === '' ? 'active' : ''}`}
+            onClick={() => onChange('')}
+            title={`All ${label}`}
           >
-            <img src={mode.icon} alt="" />
+            All
           </button>
-        )
-      })}
+          {available.map((id) => {
+            const mode = modes[id]
+            if (!mode) return null
+            return (
+              <button
+                type="button"
+                key={id}
+                className={`mode-filter-btn icon-btn ${value === id ? 'active' : ''}`}
+                onClick={() => onChange(id)}
+                title={`${label}: ${mode.label}`}
+                aria-label={`${label}: ${mode.label}`}
+              >
+                <img src={mode.icon} alt="" />
+              </button>
+            )
+          })}
+        </div>
+      </NavScroller>
     </div>
   )
 }

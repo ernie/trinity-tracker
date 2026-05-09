@@ -1971,6 +1971,43 @@ h2 {
 .admin-sidebar__strip { display: contents; }
 .nav-scroller__edge { display: none; }
 
+/* Filter chip scroll container — self-contained on every viewport
+   (no display: contents trick), so the segmented control always
+   establishes its own scroll context regardless of width. The
+   NavScroller wrapping it provides the chevron + bob behavior;
+   the masks below fade out content sitting under either chevron. */
+.filter-chips__scroll {
+  display: block;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.filter-chips__scroll::-webkit-scrollbar { display: none; }
+.filter-chips__scroll.is-scroll-left {
+  mask-image: linear-gradient(to right, transparent, black 28px);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 28px);
+}
+.filter-chips__scroll.is-scroll-right {
+  mask-image: linear-gradient(to left, transparent, black 28px);
+  -webkit-mask-image: linear-gradient(to left, transparent, black 28px);
+}
+.filter-chips__scroll.is-scroll-left.is-scroll-right {
+  mask-image: linear-gradient(to right, transparent, black 28px, black calc(100% - 28px), transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 28px, black calc(100% - 28px), transparent);
+}
+
+/* Inner flex strip; width: max-content so scrollWidth tracks real
+   content size and chevron-detection in NavScroller fires correctly. */
+.filter-chips__strip {
+  display: flex;
+  flex-wrap: nowrap;
+  width: max-content;
+  gap: 0;
+}
+
 /* Hide the ⌘K / Ctrl K hint on touch-primary devices. Phones and
    tablets almost always have no keyboard; the few users on a Bluetooth
    keyboard already know the convention. Width-based breakpoints would
@@ -4119,23 +4156,17 @@ h2 {
   .view-profile-link:focus-visible { transform: translateX(2px); }
 }
 
-/* Period selector — connected segmented control. Lives in modal hero
-   strip and full profile, also used elsewhere as a generic time-window
-   switcher. Buttons sit flush; first/last get the rounded outer corners
-   via the shared segmented rules below. Block-level scroll pattern
-   matches .game-type-selector. */
+/* Period selector — connected segmented control hosted inside a
+   NavScroller. Buttons sit flush; first/last get the rounded outer
+   corners via the shared segmented rules below. Overflow/mask/scroll
+   live on .filter-chips__scroll. */
 .period-selector {
   display: flex;
-  flex-wrap: nowrap;
-  gap: 0;
+  align-items: center;
   padding: 0;
   border-bottom: none;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
+  min-width: 0;
 }
-.period-selector::-webkit-scrollbar { display: none; }
 
 .period-btn {
   padding: 6px 14px;
@@ -5610,23 +5641,14 @@ h2 {
   margin-bottom: 15px;
 }
 
-/* Segmented control container — buttons sit flush, share borders via
-   negative margins, and the strip scrolls horizontally on narrow
-   viewports rather than wrapping. Block-level (display: flex, not
-   inline-flex) so the element actually establishes a scroll context;
-   inline-flex's shrink-to-fit semantics fight overflow-x: auto in
-   ways some browsers won't honor. The parent's width drives the
-   container, content overflows it, and the strip scrolls. */
+/* Outer flex container that hosts a NavScroller inside. The actual
+   overflow/mask/scroll behavior lives on .filter-chips__scroll
+   (NavScroller's inner element); this wrapper just provides a
+   layout slot the chevron-bearing nav-scroller div can grow into. */
 .game-type-selector {
   display: flex;
-  flex-wrap: nowrap;
-  gap: 0;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
+  align-items: center;
 }
-.game-type-selector::-webkit-scrollbar { display: none; }
 
 .game-type-btn {
   padding: 6px 14px;
@@ -6080,20 +6102,14 @@ h2 {
   margin-bottom: 15px;
 }
 
-/* Segmented control container; same block-level scroll pattern as
-   .game-type-selector but supports an optional .server-filter-label
-   sibling at the head. */
+/* Outer flex container; supports an optional .server-filter-label
+   sibling at the head before the NavScroller-wrapped strip. */
 .server-filter-group {
   display: flex;
   align-items: center;
-  flex-wrap: nowrap;
   gap: 0;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
+  min-width: 0;
 }
-.server-filter-group::-webkit-scrollbar { display: none; }
 
 .server-filter-label {
   color: var(--text-dim);

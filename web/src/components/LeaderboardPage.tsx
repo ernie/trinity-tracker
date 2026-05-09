@@ -6,6 +6,7 @@ import { PlayerBadge } from "./PlayerBadge";
 import { FlagIcon } from "./FlagIcon";
 import { MedalIcon } from "./MedalIcon";
 import { ArrowIcon } from "./ArrowIcon";
+import { NavScroller } from "./NavScroller";
 import { PeriodSelector } from "./PeriodSelector";
 
 import { GAME_TYPES, type GameTypeFilter } from "../constants/labels";
@@ -185,22 +186,26 @@ export function LeaderboardPage() {
 
       <div className="filter-row">
         <div className="game-type-selector">
-          <button
-            key="all"
-            className={`game-type-btn ${gameType === "all" ? "active" : ""}`}
-            onClick={() => setGameType("all")}
-          >
-            All
-          </button>
-          {GAME_TYPES.map((gt) => (
-            <button
-              key={gt}
-              className={`game-type-btn ${gameType === gt ? "active" : ""}`}
-              onClick={() => setGameType(gt)}
-            >
-              {formatGameType(gt)}
-            </button>
-          ))}
+          <NavScroller scrollClassName="filter-chips__scroll">
+            <div className="filter-chips__strip">
+              <button
+                key="all"
+                className={`game-type-btn ${gameType === "all" ? "active" : ""}`}
+                onClick={() => setGameType("all")}
+              >
+                All
+              </button>
+              {GAME_TYPES.map((gt) => (
+                <button
+                  key={gt}
+                  className={`game-type-btn ${gameType === gt ? "active" : ""}`}
+                  onClick={() => setGameType(gt)}
+                >
+                  {formatGameType(gt)}
+                </button>
+              ))}
+            </div>
+          </NavScroller>
         </div>
       </div>
 
