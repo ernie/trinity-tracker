@@ -40,7 +40,7 @@ export function Footer() {
           <span className="app-footer__sep" aria-hidden="true">·</span>
           <a href={GITHUB_REPO_URL} target="_blank" rel="noopener noreferrer">GitHub</a>
           <span className="app-footer__sep" aria-hidden="true">·</span>
-          <Link to="/docs/credits">Credits</Link>
+          <Link to="/credits">Credits</Link>
         </nav>
         <div className="app-footer__right">
           <span>Made by <a href="https://ernie.io" target="_blank" rel="noopener noreferrer">NilClass</a></span>
