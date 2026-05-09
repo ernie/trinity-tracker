@@ -2857,21 +2857,25 @@ h2 {
 .activity-filters-toggle > summary:hover { color: var(--accent); }
 .activity-filters-toggle > summary::-webkit-details-marker { display: none; }
 
+/* Disclosure caret drawn from two perpendicular borders rather than a
+   ▸ glyph so it matches the line-weight of ArrowIcon and the rest of
+   the chrome SVGs. Rotates 45° → right-pointing chevron when closed,
+   135° → down-pointing when open. */
 .activity-filters-toggle > summary::before {
-  content: '▸';
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.2em;
-  font-size: 1.3em;
-  line-height: 1;
-  color: rgba(255, 110, 60, 0.7);
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-top: 1.4px solid rgba(255, 110, 60, 0.7);
+  border-right: 1.4px solid rgba(255, 110, 60, 0.7);
+  margin-right: 0.6em;
   position: relative;
-  top: 0;
+  top: -1px;
+  transform: rotate(45deg);
   transition: transform 0.15s;
 }
 
-.activity-filters-toggle[open] > summary::before { transform: rotate(90deg); }
+.activity-filters-toggle[open] > summary::before { transform: rotate(135deg); }
 .activity-filters-toggle[open] > summary { color: var(--accent); }
 
 .activity-filters-panel {
@@ -7093,29 +7097,30 @@ details[open] > .admin-form-toggle .admin-form-toggle__caret {
   display: none;
 }
 
+/* Same border-chevron pattern as activity-filters-toggle; see notes there. */
 .about-feature summary::before {
-  content: '▸';
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1em;
-  height: 1em;
-  font-size: 1.25em;
-  line-height: 1;
-  color: rgba(255, 110, 60, 0.7);
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-top: 1.4px solid rgba(255, 110, 60, 0.7);
+  border-right: 1.4px solid rgba(255, 110, 60, 0.7);
   position: relative;
-  top: -0.08em;
-  transition: transform 0.15s, color 0.15s;
+  top: -1px;
+  transform: rotate(45deg);
+  transition: transform 0.15s, border-color 0.15s;
   flex-shrink: 0;
 }
 
 .about-feature summary:hover::before {
-  color: rgba(255, 130, 80, 0.95);
+  border-top-color: rgba(255, 130, 80, 0.95);
+  border-right-color: rgba(255, 130, 80, 0.95);
 }
 
 .about-feature[open] summary::before {
-  transform: rotate(90deg);
-  color: rgb(255, 130, 80);
+  transform: rotate(135deg);
+  border-top-color: rgb(255, 130, 80);
+  border-right-color: rgb(255, 130, 80);
 }
 
 .about-feature-name {
@@ -9950,13 +9955,12 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   gap: 8px;
   transition: color 0.25s ease;
 }
-.landing-door__arrow::after {
-  content: '→';
-  display: inline-block;
+/* Arrow lives inline as <ArrowIcon /> now; hover slides the SVG. */
+.landing-door__arrow svg {
   transition: transform 0.25s ease;
 }
-.landing-door:hover .landing-door__arrow { color: #ffc78a; }
-.landing-door:hover .landing-door__arrow::after { transform: translateX(4px); }
+.landing-door:hover .landing-door__arrow { color: var(--ember-light); }
+.landing-door:hover .landing-door__arrow svg { transform: translateX(4px); }
 
 @media (max-width: 720px) {
   .landing-doors { padding: 56px 20px 80px; }
@@ -10543,12 +10547,11 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   border-bottom: 1px solid transparent;
   padding-bottom: 1px;
 }
-.demo-action:hover { color: var(--ember-light, #ffc78a); border-bottom-color: var(--ember-light, #ffc78a); }
-/* .demo-action.watch's play-triangle now comes from <PlayIcon /> rendered
-   inline (matches the chevron / eye stroke-icon vocabulary). The download
-   action keeps its glyph as a CSS pseudo-element since it's a single
-   character with no inline children. */
-.demo-action.download::before { content: '↓'; font-size: 11px; }
+.demo-action:hover { color: var(--ember-light); border-bottom-color: var(--ember-light); }
+/* Both demo actions render their glyphs inline (PlayIcon, ArrowIcon)
+   so they share stroke-weight / vocabulary with the rest of the chrome
+   icons. The .demo-action.download ::before pseudo-element was retired
+   when the download arrow moved into JSX. */
 
 /* Match detail page — exit reason note (lives in .match-detail__meta) */
 .match-detail__exit {

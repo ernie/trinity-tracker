@@ -11,6 +11,7 @@ import { SpectatorStrip } from './cards/SpectatorStrip'
 import { classifyScores, awardsFromCounts } from './cards/format'
 import { PlayIcon } from './PlayIcon'
 import { StarIcon } from './StarIcon'
+import { ArrowIcon } from './ArrowIcon'
 import { useMapMeta } from '../hooks/useMapMeta'
 import { useSources } from '../hooks/useSources'
 import { useAuth } from '../hooks/useAuth'
@@ -195,6 +196,7 @@ export function MatchCard({
         Watch
       </Link>
       <a href={match.demo_url} download={demoFilename(match)} className="demo-action download">
+        <ArrowIcon direction="down" size={10} />
         Download
       </a>
     </span>

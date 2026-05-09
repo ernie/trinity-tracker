@@ -1,6 +1,7 @@
 import type React from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useFeaturedMatches, pickRandomFeatured } from '../../hooks/useFeaturedMatches'
+import { ArrowIcon } from '../ArrowIcon'
 import { DISCORD_INVITE_URL } from '../../constants/discord'
 
 export function DoorsSection() {
@@ -23,25 +24,25 @@ export function DoorsSection() {
         <Link to="/servers" className="landing-door">
           <h3 className="landing-door__title">Find a fight</h3>
           <p className="landing-door__desc">Live servers, current scores, who&rsquo;s on.</p>
-          <span className="landing-door__arrow">All servers</span>
+          <span className="landing-door__arrow">All servers <ArrowIcon direction="right" /></span>
         </Link>
 
         <a href="/matches" onClick={handleWatch} className="landing-door">
           <h3 className="landing-door__title">Watch a fight</h3>
           <p className="landing-door__desc">Replay any match in your browser, frame by frame.</p>
-          <span className="landing-door__arrow">Featured demo</span>
+          <span className="landing-door__arrow">Featured demo <ArrowIcon direction="right" /></span>
         </a>
 
         <Link to="/leaderboard" className="landing-door">
           <h3 className="landing-door__title">Pay respects</h3>
           <p className="landing-door__desc">Weekly rankings, all-time legends, every mode.</p>
-          <span className="landing-door__arrow">Leaderboard</span>
+          <span className="landing-door__arrow">Leaderboard <ArrowIcon direction="right" /></span>
         </Link>
 
         <a href={DISCORD_INVITE_URL} target="_blank" rel="noreferrer" className="landing-door">
           <h3 className="landing-door__title">Talk to the regulars</h3>
           <p className="landing-door__desc">Where everyone is when they&rsquo;re not in a server.</p>
-          <span className="landing-door__arrow">Discord</span>
+          <span className="landing-door__arrow">Discord <ArrowIcon direction="right" /></span>
         </a>
       </div>
     </section>
