@@ -9,6 +9,14 @@ export function stripVRPrefix(name: string): string {
   return name.replace(/^(\^[0-9])*\[VR\]\s*/i, '');
 }
 
+// Canonical display name for a player record. Strips the [VR] prefix
+// when the player is VR (the badge already conveys it). Anywhere a
+// player's name is rendered alongside its badges, prefer this over
+// inlining the ternary.
+export function displayPlayerName(player: { name: string; is_vr?: boolean }): string {
+  return player.is_vr ? stripVRPrefix(player.name) : player.name;
+}
+
 // serverDisplay composes the canonical UI string for a server from
 // its (source, key) identity. Single-source installs see just the
 // key; multi-source see "<source> / <key>".

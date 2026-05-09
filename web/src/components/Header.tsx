@@ -67,7 +67,13 @@ export function Header({ title, className, linkToHome, wordmark, transparent, so
         <div className="app-header__nav-scroll">
           <PageNav />
         </div>
-        <HamburgerMenu>
+        <HamburgerMenu
+          className={
+            auth.isAuthenticated
+              ? `hamburger--authed${auth.isAdmin ? ' hamburger--admin' : ''}`
+              : ''
+          }
+        >
           <CommunityCluster />
           <div className="auth-section">
             {auth.isAuthenticated ? (

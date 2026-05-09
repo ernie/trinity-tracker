@@ -270,10 +270,7 @@ function PlayerSection({ token, playerId, playerLabel, onPick }: PlayerSectionPr
   const debounced = useDebouncedValue(query, 200)
 
   useEffect(() => {
-    if (debounced.length < 2) {
-      setResults([])
-      return
-    }
+    if (debounced.length < 2) return
     const ctrl = new AbortController()
     fetch(`/api/players?search=${encodeURIComponent(debounced)}&limit=10`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -286,6 +283,9 @@ function PlayerSection({ token, playerId, playerLabel, onPick }: PlayerSectionPr
       })
     return () => ctrl.abort()
   }, [debounced, token])
+
+  // Hide stored results once the query is too short.
+  const displayResults = debounced.length >= 2 ? results : []
 
   return (
     <StaticSection
@@ -311,9 +311,9 @@ function PlayerSection({ token, playerId, playerLabel, onPick }: PlayerSectionPr
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
-          {results.length > 0 && (
+          {displayResults.length > 0 && (
             <ul className="player-results">
-              {results.map((p) => (
+              {displayResults.map((p) => (
                 <li
                   key={p.id}
                   onClick={() => {

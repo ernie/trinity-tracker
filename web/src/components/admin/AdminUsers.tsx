@@ -147,10 +147,7 @@ export function AdminUsers() {
   const debouncedEditPlayerSearch = useDebouncedValue(editPlayerSearch, 200)
 
   useEffect(() => {
-    if (debouncedPlayerSearch.length < 2) {
-      setPlayerResults([])
-      return
-    }
+    if (debouncedPlayerSearch.length < 2) return
     const ctrl = new AbortController()
     fetch(`/api/players?search=${encodeURIComponent(debouncedPlayerSearch)}&limit=10`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -165,10 +162,7 @@ export function AdminUsers() {
   }, [debouncedPlayerSearch, token])
 
   useEffect(() => {
-    if (debouncedEditPlayerSearch.length < 2) {
-      setEditPlayerResults([])
-      return
-    }
+    if (debouncedEditPlayerSearch.length < 2) return
     const ctrl = new AbortController()
     fetch(`/api/players?search=${encodeURIComponent(debouncedEditPlayerSearch)}&limit=10`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -181,6 +175,10 @@ export function AdminUsers() {
       })
     return () => ctrl.abort()
   }, [debouncedEditPlayerSearch, token])
+
+  // Hide stored results once the corresponding query is too short.
+  const displayPlayerResults = debouncedPlayerSearch.length >= 2 ? playerResults : []
+  const displayEditPlayerResults = debouncedEditPlayerSearch.length >= 2 ? editPlayerResults : []
 
   const startEditingUser = (user: User) => {
     setEditingUserId(user.id)
@@ -281,9 +279,9 @@ export function AdminUsers() {
               value={playerSearch}
               onChange={(e) => setPlayerSearch(e.target.value)}
             />
-            {playerResults.length > 0 && (
+            {displayPlayerResults.length > 0 && (
               <ul className="player-results">
-                {playerResults.map((p) => (
+                {displayPlayerResults.map((p) => (
                   <li
                     key={p.id}
                     onClick={() => {
@@ -341,9 +339,9 @@ export function AdminUsers() {
                       value={editPlayerSearch}
                       onChange={(e) => setEditPlayerSearch(e.target.value)}
                     />
-                    {editPlayerResults.length > 0 && (
+                    {displayEditPlayerResults.length > 0 && (
                       <ul className="player-results">
-                        {editPlayerResults.map((p) => (
+                        {displayEditPlayerResults.map((p) => (
                           <li
                             key={p.id}
                             onClick={() => {

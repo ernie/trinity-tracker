@@ -1,14 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { BotBadge } from './BotBadge'
-import { ColoredText } from './ColoredText'
-import { PlayerPortrait } from './PlayerPortrait'
-import { PlayerBadge } from './PlayerBadge'
-import { StatItem } from './StatItem'
 import { PeriodSelector } from './PeriodSelector'
+import { PlayerHero } from './PlayerHero'
+import { HonorsPanel } from './HonorsPanel'
+import { PlayerAkaList } from './PlayerAkaList'
 import { usePlayerStats } from '../hooks/usePlayerStats'
-import { formatDate, formatDuration } from '../utils/formatters'
-import type { TimePeriod, PlayerStatsResponse, PlayerName } from '../types'
+import { useLiveData } from '../contexts/LiveDataContext'
+import type { TimePeriod, PlayerStatsResponse } from '../types'
 
 interface PlayerStatsModalProps {
   playerName: string
@@ -16,6 +14,9 @@ interface PlayerStatsModalProps {
   onClose: () => void
 }
 
+// Quick-look profile modal. Shares hero / honors / aka chrome with
+// the full /players/:id page; the page is the same shape at a larger
+// scale, plus admin sections + recent matches.
 export function PlayerStatsModal({ playerName, playerId, onClose }: PlayerStatsModalProps) {
   const [period, setPeriod] = useState<TimePeriod>('all')
   const { stats, loading, error } = usePlayerStats(playerId, period)
@@ -34,26 +35,32 @@ export function PlayerStatsModal({ playerName, playerId, onClose }: PlayerStatsM
 
   return (
     <div className="modal-backdrop" onClick={handleBackdropClick}>
-      <div className="player-stats-modal">
-        <div className="modal-header">
-          <h3>
-            {stats && <PlayerPortrait model={stats.player.model} size="md" />}
-            {stats?.player.is_bot && <BotBadge isBot skill={5} size="md" />}
-            {stats && !stats.player.is_bot && <PlayerBadge isVerified={stats.player.is_verified} isAdmin={stats.player.is_admin} isVR={stats.player.is_vr} size="md" />}
-            <ColoredText text={playerName} />
-          </h3>
-          <button onClick={onClose} className="close-btn" aria-label="Close">×</button>
-        </div>
+      <div
+        className="player-stats-modal"
+        role="dialog"
+        aria-label={`${playerName} stats`}
+      >
+        <button
+          onClick={onClose}
+          className="player-stats-modal__close"
+          aria-label="Close"
+        >
+          &times;
+        </button>
 
-        <PeriodSelector period={period} onChange={setPeriod} />
-
-        <div className="modal-content">
+        <div className="player-stats-modal__content">
           {loading ? (
-            <div className="stats-loading">Loading stats...</div>
+            <div className="stats-loading">Loading stats…</div>
           ) : error ? (
             <div className="stats-error">{error}</div>
           ) : stats ? (
-            <StatsDisplay stats={stats} onClose={onClose} />
+            <ModalBody
+              stats={stats}
+              fallbackName={playerName}
+              period={period}
+              onPeriodChange={setPeriod}
+              onClose={onClose}
+            />
           ) : null}
         </div>
       </div>
@@ -61,62 +68,41 @@ export function PlayerStatsModal({ playerName, playerId, onClose }: PlayerStatsM
   )
 }
 
-function StatsDisplay({ stats, onClose }: { stats: PlayerStatsResponse; onClose: () => void }) {
+interface ModalBodyProps {
+  stats: PlayerStatsResponse
+  fallbackName: string
+  period: TimePeriod
+  onPeriodChange: (p: TimePeriod) => void
+  onClose: () => void
+}
+
+function ModalBody({ stats, fallbackName, period, onPeriodChange, onClose }: ModalBodyProps) {
+  const { notifyDrillIn } = useLiveData()
+
   return (
     <>
-      <div className="player-meta-top">
-        <span><em>Seen:</em> {formatDate(stats.player.first_seen)} – {formatDate(stats.player.last_seen)}</span>
-        {stats.player.total_playtime_seconds > 0 && (
-          <span><em>Played:</em> {formatDuration(stats.player.total_playtime_seconds)}</span>
-        )}
-      </div>
+      <PlayerHero
+        player={stats.player}
+        stats={stats.stats}
+        variant="modal"
+        fallbackName={fallbackName}
+      />
 
-      <div className="stats-grid">
-        <StatItem
-          label="Matches"
-          value={stats.stats.completed_matches}
-          title={stats.stats.uncompleted_matches > 0
-            ? `${stats.stats.completed_matches} completed, ${stats.stats.uncompleted_matches} incomplete`
-            : undefined}
-        />
-        <StatItem label="K/D" value={stats.stats.kd_ratio.toFixed(2)} />
-        <StatItem label="Frags" value={stats.stats.frags} className="frags" />
-        <StatItem label="Deaths" value={stats.stats.deaths} className="deaths" />
-        <StatItem label="Victories" value={stats.stats.victories} backgroundIcon="/assets/medals/medal_victory.png" />
-        <StatItem label="Excellent" value={stats.stats.excellents} backgroundIcon="/assets/medals/medal_excellent.png" />
-        <StatItem label="Impressive" value={stats.stats.impressives} backgroundIcon="/assets/medals/medal_impressive.png" />
-        <StatItem label="Humiliation" value={stats.stats.humiliations} backgroundIcon="/assets/medals/medal_gauntlet.png" />
-        <StatItem label="Captures" value={stats.stats.captures} backgroundIcon="/assets/medals/medal_capture.png" />
-        <StatItem label="Returns" value={stats.stats.flag_returns} backgroundIcon="/assets/flags/flag_in_base_red.png" />
-        <StatItem label="Assists" value={stats.stats.assists} backgroundIcon="/assets/medals/medal_assist.png" />
-        <StatItem label="Defense" value={stats.stats.defends} backgroundIcon="/assets/medals/medal_defend.png" />
-      </div>
+      <PeriodSelector period={period} onChange={onPeriodChange} />
 
-      {stats.names && (() => {
-        const uniqueNames = [...new Set(stats.names.map((n: PlayerName) => n.name))].filter(name => name !== stats.player.name)
-        return uniqueNames.length > 0 && (
-          <div className="also-known-as">
-            <h4>Also known as</h4>
-            <div className="name-list">
-              {uniqueNames.slice(0, 5).map((name: string, i: number) => (
-                <span key={i} className="aka-name">
-                  <ColoredText text={name} />
-                </span>
-              ))}
-            </div>
-          </div>
-        )
-      })()}
+      <HonorsPanel stats={stats.stats} />
 
-      <div className="modal-footer">
+      <PlayerAkaList names={stats.names} primaryName={stats.player.name} max={6} />
+
+      <footer className="player-stats-modal__footer">
         <Link
           to={`/players/${stats.player.id}`}
           className="view-profile-link"
-          onClick={onClose}
+          onClick={() => { notifyDrillIn(); onClose() }}
         >
-          View full profile
+          View full profile →
         </Link>
-      </div>
+      </footer>
     </>
   )
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { Link } from 'react-router-dom'
 import type { MatchSummary, MatchPlayerSummary } from '../types'
@@ -67,13 +67,22 @@ function isSpectator(player: MatchPlayerSummary): boolean {
 
 // Sort active players. Team modes group by team (red, blue, others)
 // then by score within. Non-team keeps API order (already score desc).
+// In every section, players who didn't finish (completed === false)
+// float to the bottom — interleaving them with finishers reads as a
+// scoreboard glitch. Array.sort is stable in ES2019+, so connected
+// players retain their incoming order.
 function sortMatchPlayers(players: MatchPlayerSummary[], isTeam: boolean): MatchPlayerSummary[] {
-  if (!isTeam) return players
+  const dropOrder = (p: MatchPlayerSummary) => (p.completed === false ? 1 : 0)
+  if (!isTeam) {
+    return [...players].sort((a, b) => dropOrder(a) - dropOrder(b))
+  }
   const teamOrder = (t?: number) => (t === 1 ? 0 : t === 2 ? 1 : 2)
   const score = (p: MatchPlayerSummary) => p.score ?? p.frags ?? 0
   return [...players].sort((a, b) => {
     const td = teamOrder(a.team) - teamOrder(b.team)
     if (td !== 0) return td
+    const dd = dropOrder(a) - dropOrder(b)
+    if (dd !== 0) return dd
     return score(b) - score(a)
   })
 }
@@ -117,10 +126,8 @@ interface MatchCardProps {
 export function MatchCard({
   match,
   onPlayerClick,
-  highlightPlayerId: _highlightPlayerId,
-  showPermalink: _showPermalink = false,
+  // TODO: wire highlightPlayerId / showPermalink through the card primitives.
 }: MatchCardProps) {
-  // TODO: wire highlight / permalink through the card primitives
   const { hasMultiple: hasMultipleSources } = useSources()
   const meta = useMapMeta(match.map_name)
   const location = useLocation()
@@ -128,12 +135,15 @@ export function MatchCard({
 
   // Optimistic featured state — admins can toggle from the card without
   // navigating to the detail page. Resyncs to the prop when the match
-  // changes (new match, or parent refetch with updated value).
+  // changes (new match, or parent refetch with updated value) via
+  // during-render adjustment so there's no extra commit cycle.
   const [isFeatured, setIsFeatured] = useState(match.is_featured ?? false)
   const [featurePending, setFeaturePending] = useState(false)
-  useEffect(() => {
+  const [prevSync, setPrevSync] = useState({ id: match.id, value: match.is_featured })
+  if (prevSync.id !== match.id || prevSync.value !== match.is_featured) {
+    setPrevSync({ id: match.id, value: match.is_featured })
     setIsFeatured(match.is_featured ?? false)
-  }, [match.id, match.is_featured])
+  }
 
   const canFeature = auth.isAdmin && !!match.demo_url
   const toggleFeatured = async (e: React.MouseEvent) => {
@@ -219,8 +229,9 @@ export function MatchCard({
           source={hasMultipleSources ? match.source : undefined}
           server={match.server_key}
           mode={formatGameType(match.game_type)}
-        />
-        <ModeIcons movement={match.movement} gameplay={match.gameplay} />
+        >
+          <ModeIcons movement={match.movement} gameplay={match.gameplay} />
+        </RichChip>
         {canFeature && (
           <button
             type="button"

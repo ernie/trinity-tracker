@@ -22,10 +22,7 @@ export function useScrollSpy(ids: string[], offsetTop = 120): string | null {
   const idsKey = ids.join('|')
 
   useEffect(() => {
-    if (ids.length === 0) {
-      setActiveId(null)
-      return
-    }
+    if (ids.length === 0) return  // no sections to spy on
 
     let raf = 0
     const update = () => {
@@ -82,5 +79,8 @@ export function useScrollSpy(ids: string[], offsetTop = 120): string | null {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idsKey, offsetTop])
 
-  return activeId
+  // When the caller has no ids to spy on, the listener didn't run, so
+  // any value left in state is stale — return null so the consumer
+  // doesn't act on it.
+  return ids.length === 0 ? null : activeId
 }

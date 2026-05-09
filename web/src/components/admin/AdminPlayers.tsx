@@ -35,10 +35,7 @@ export function AdminPlayers() {
   const headers = { Authorization: `Bearer ${token}` }
 
   useEffect(() => {
-    if (debouncedSearchQuery.trim().length < 2) {
-      setSearchResults([])
-      return
-    }
+    if (debouncedSearchQuery.trim().length < 2) return
     const ctrl = new AbortController()
     fetch(`/api/players?search=${encodeURIComponent(debouncedSearchQuery)}&limit=10`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -51,6 +48,10 @@ export function AdminPlayers() {
       })
     return () => ctrl.abort()
   }, [debouncedSearchQuery, token])
+
+  // Hide stored results once the query is too short — store keeps the
+  // last fetch's data so a fresh ≥2-char query overwrites cleanly.
+  const displaySearchResults = debouncedSearchQuery.trim().length >= 2 ? searchResults : []
 
   const fetchGuids = useCallback(
     (playerId: number) => {
@@ -81,10 +82,7 @@ export function AdminPlayers() {
   }
 
   useEffect(() => {
-    if (!selected || debouncedMergeQuery.trim().length < 2) {
-      setMergeResults([])
-      return
-    }
+    if (!selected || debouncedMergeQuery.trim().length < 2) return
     const ctrl = new AbortController()
     fetch(`/api/players?search=${encodeURIComponent(debouncedMergeQuery)}&limit=10`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -100,6 +98,10 @@ export function AdminPlayers() {
       })
     return () => ctrl.abort()
   }, [debouncedMergeQuery, selected, token])
+
+  // Hide stored merge results when no player is selected or the merge
+  // query is too short — fresh fetches overwrite when both are valid.
+  const displayMergeResults = selected && debouncedMergeQuery.trim().length >= 2 ? mergeResults : []
 
   const handleMerge = async (mergePlayerId: number) => {
     if (!selected) return
@@ -157,8 +159,9 @@ export function AdminPlayers() {
 
   // Right-pane priority mirrors PlayersPage: a fresh search hides the
   // selected detail panel so admins can pivot to a different player
-  // without losing context.
-  const showResults = searchResults.length > 0
+  // without losing context. Gates on `displaySearchResults` so a stale
+  // in-flight fetch resolving after a short-query gap can't reappear.
+  const showResults = displaySearchResults.length > 0
 
   return (
     <div className="admin-players">
@@ -176,7 +179,7 @@ export function AdminPlayers() {
 
       {showResults && (
         <div className="player-cards-grid" style={{ marginTop: 'var(--space-3)' }}>
-          {searchResults.map((p) => {
+          {displaySearchResults.map((p) => {
             const displayName = p.is_vr ? stripVRPrefix(p.name) : p.name
             return (
               <button
@@ -273,9 +276,9 @@ export function AdminPlayers() {
                   onChange={(e) => setMergeQuery(e.target.value)}
                 />
               </div>
-              {mergeResults.length > 0 && (
+              {displayMergeResults.length > 0 && (
                 <div className="merge-results">
-                  {mergeResults.map((p) => (
+                  {displayMergeResults.map((p) => (
                     <div key={p.id} className="merge-result-item">
                       <div className="merge-player-info">
                         <ColoredText text={p.name} />

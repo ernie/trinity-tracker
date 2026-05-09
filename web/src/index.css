@@ -575,12 +575,6 @@ h2 {
   cursor: pointer;
 }
 
-.mode-label {
-  font-size: 0.6rem;
-  color: var(--text-dim);
-  vertical-align: middle;
-}
-
 .mode-icon {
   width: 14px;
   height: 14px;
@@ -2026,7 +2020,7 @@ h2 {
     color: var(--text-dim);
     cursor: pointer;
     padding: 0;
-    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
   }
 
   .hamburger__btn:hover,
@@ -2041,6 +2035,34 @@ h2 {
     background: rgba(255, 110, 60, 0.12);
     border-color: rgba(255, 110, 60, 0.55);
     color: var(--accent);
+  }
+
+  /* Signed-in tint — persistent ember treatment on the button so the
+     mobile chrome reads as "this is your account" without needing an
+     extra glyph or notification-style badge. */
+  .hamburger--authed .hamburger__btn {
+    background: rgba(255, 110, 60, 0.07);
+    border-color: rgba(255, 110, 60, 0.4);
+    color: var(--accent);
+  }
+  .hamburger--authed .hamburger__btn:hover,
+  .hamburger--authed .hamburger__btn:focus-visible {
+    background: rgba(255, 110, 60, 0.14);
+    border-color: rgba(255, 110, 60, 0.6);
+  }
+  .hamburger--authed.hamburger--open .hamburger__btn {
+    background: rgba(255, 110, 60, 0.18);
+    border-color: rgba(255, 110, 60, 0.7);
+  }
+  /* Admin gets the same ember body plus a soft glow so admin chrome
+     stays distinguishable from regular signed-in chrome. */
+  .hamburger--admin .hamburger__btn {
+    box-shadow: 0 0 8px rgba(255, 110, 60, 0.28);
+  }
+  .hamburger--admin .hamburger__btn:hover,
+  .hamburger--admin .hamburger__btn:focus-visible,
+  .hamburger--admin.hamburger--open .hamburger__btn {
+    box-shadow: 0 0 12px rgba(255, 110, 60, 0.45);
   }
 
   /* Popup is a real positioned panel under the button. Width sized
@@ -3650,262 +3672,162 @@ h2 {
 /* Degraded = liveness offline/stale. Freeze the timer, dim the whole card. */
 .server-card.degraded { opacity: 0.7; filter: saturate(0.8); }
 
-/* RCON Sidebar */
-.rcon-sidebar {
-  position: fixed;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  width: 350px;
-  background: var(--bg-card);
-  border-left: 1px solid #333;
-  display: flex;
-  flex-direction: column;
-  z-index: 100;
+/* RCON drawer — shares .drawer chrome with ActivityDrawer / MyServersDrawer.
+   Slightly wider (640px) than the others so the 'players' / 'status' table
+   output renders without aggressive wrapping. */
+.rcon-drawer {
+  width: min(640px, 100%);
 }
 
-.rcon-sidebar.resizing {
-  user-select: none;
+.rcon-drawer .drawer-header h2 {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
 }
 
-.resize-handle {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 6px;
-  cursor: ew-resize;
-  background: transparent;
-  transition: background 0.2s;
+.rcon-drawer__sep {
+  color: var(--text-dim);
+  font-weight: 400;
+  letter-spacing: 0;
 }
 
-.resize-handle:hover,
-.rcon-sidebar.resizing .resize-handle {
-  background: var(--red);
-}
-
-.rcon-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 15px;
-  border-bottom: 1px solid #333;
-}
-
-.rcon-header h3 {
-  margin: 0;
-  font-size: 1rem;
+.rcon-drawer__server {
+  /* The server key (e.g. TRINITY-NA) sits beside the engraved RCON
+     wordmark — Barlow at body weight makes it read like a server tag,
+     not a second title. Lowercase tracking, normal case. */
+  font-family: 'Barlow', sans-serif;
+  font-weight: 600;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  text-transform: none;
   color: var(--text);
 }
 
-.close-btn {
-  background: transparent;
-  border: none;
-  color: var(--text-dim);
-  cursor: pointer;
-  font-size: 1rem;
-  padding: 5px;
-  line-height: 1;
+.rcon-drawer__body {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  font-size: 0.9rem;
 }
 
-.close-btn:hover {
-  color: var(--red);
-}
-
-.rcon-output {
+.rcon-drawer__output {
   flex: 1;
   overflow-y: auto;
-  padding: 10px;
+  padding: var(--space-4) var(--space-5);
   font-size: 0.85rem;
 }
 
-.rcon-entry {
-  margin-bottom: 12px;
-}
-
-.rcon-command {
-  color: var(--red);
-  margin-bottom: 4px;
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+.rcon-drawer__hint {
+  color: var(--text-dim);
+  font-style: italic;
   font-size: 0.85rem;
+  text-align: center;
+  padding: var(--space-5) 0;
 }
 
-.rcon-response {
+.rcon-drawer__placeholder,
+.rcon-drawer__unavailable {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: var(--space-7) var(--space-5);
+  color: var(--text-dim);
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.rcon-drawer__placeholder { font-style: italic; }
+
+.rcon-drawer__entry {
+  margin-bottom: var(--space-3);
+}
+
+.rcon-drawer__entry:last-child {
+  margin-bottom: 0;
+}
+
+.rcon-drawer__command {
+  /* The echoed prompt — accent color so the eye finds the boundary
+     between commands when scanning long output. */
+  color: var(--accent);
+  margin-bottom: var(--space-1);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+}
+
+.rcon-drawer__response {
   color: var(--text-dim);
   white-space: pre-wrap;
   word-break: break-word;
   margin: 0;
-  padding: 8px;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 4px;
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-  font-size: 0.8rem;
+  padding: var(--space-3);
+  background: rgba(0, 0, 0, 0.35);
+  border: var(--rule);
+  border-radius: var(--radius-sm);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.82rem;
+  line-height: 1.5;
 }
 
-.rcon-placeholder,
-.rcon-unavailable,
-.sidebar-placeholder,
-.sidebar-unavailable {
-  padding: 20px;
-  color: var(--text-dim);
-  text-align: center;
-}
-
-.rcon-unavailable,
-.sidebar-unavailable {
-  color: var(--red);
-}
-
-/* Sidebar Tabs */
-.sidebar-tabs {
+.rcon-drawer__form {
   display: flex;
-  border-bottom: 1px solid #333;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5) var(--space-5);
+  border-top: var(--rule);
+  background: rgba(0, 0, 0, 0.25);
 }
 
-.sidebar-tab {
+.rcon-drawer__form input {
   flex: 1;
-  padding: 10px 15px;
-  background: transparent;
-  border: none;
-  color: var(--text-dim);
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 0.85rem;
-  transition: background 0.2s, color 0.2s;
-}
-
-.sidebar-tab:hover {
-  background: rgba(255, 255, 255, 0.05);
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  background: rgba(20, 16, 14, 0.6);
+  border: var(--rule);
+  border-radius: var(--radius-sm);
   color: var(--text);
-}
-
-.sidebar-tab.active {
-  color: var(--red);
-  border-bottom: 2px solid var(--red);
-  margin-bottom: -1px;
-}
-
-.sidebar-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-/* Log Viewer */
-.log-viewer {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  overflow: hidden;
-}
-
-.log-status-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 10px;
-  border-bottom: 1px solid #333;
-  font-size: 0.8rem;
-}
-
-.log-status {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.log-status::before {
-  content: '';
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--red);
-}
-
-.log-status.connected::before {
-  background: var(--green);
-}
-
-.auto-scroll-toggle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--text-dim);
-  cursor: pointer;
-}
-
-.auto-scroll-toggle input {
-  cursor: pointer;
-}
-
-.log-content {
-  flex: 1;
-  overflow-y: auto;
-  padding: 10px;
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-  font-size: 0.75rem;
-  line-height: 1.4;
-}
-
-.log-line {
-  white-space: pre-wrap;
-  word-break: break-all;
-  color: var(--text-dim);
-}
-
-.log-line:hover {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.log-empty,
-.log-error,
-.log-placeholder {
-  padding: 20px;
-  text-align: center;
-  color: var(--text-dim);
-}
-
-.log-error {
-  color: var(--red);
-}
-
-.rcon-input-form {
-  display: flex;
-  padding: 10px;
-  border-top: 1px solid #333;
-  gap: 8px;
-}
-
-.rcon-input-form input {
-  flex: 1;
-  padding: 8px 10px;
-  background: var(--bg);
-  border: 1px solid #333;
-  color: var(--text);
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.85rem;
-  border-radius: 4px;
+  transition: border-color 0.15s, background 0.15s;
 }
 
-.rcon-input-form input:focus {
+.rcon-drawer__form input::placeholder {
+  color: var(--text-dim);
+  opacity: 0.7;
+}
+
+.rcon-drawer__form input:focus {
   outline: none;
-  border-color: var(--red);
+  border-color: rgba(255, 110, 60, 0.45);
+  background: rgba(20, 16, 14, 0.85);
 }
 
-.rcon-input-form button {
-  padding: 8px 15px;
-  background: var(--red);
-  border: none;
-  color: #fff;
+.rcon-drawer__form button {
+  /* Cinzel uppercase Send echoes the engraved drawer-header voice and
+     ties the action chip to the rest of the redesign's chrome. */
+  padding: var(--space-2) var(--space-4);
+  background: rgba(255, 110, 60, 0.1);
+  border: 1px solid rgba(255, 110, 60, 0.4);
+  border-radius: var(--radius-sm);
+  color: var(--accent);
+  font-family: 'Cinzel', serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
   cursor: pointer;
-  font-family: inherit;
-  font-size: 0.85rem;
-  border-radius: 4px;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
 }
 
-.rcon-input-form button:disabled {
-  opacity: 0.5;
+.rcon-drawer__form button:hover:not(:disabled),
+.rcon-drawer__form button:focus-visible:not(:disabled) {
+  border-color: rgba(255, 110, 60, 0.7);
+  background: rgba(255, 110, 60, 0.18);
+  outline: none;
+}
+
+.rcon-drawer__form button:disabled {
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
@@ -3923,107 +3845,355 @@ h2 {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.72);
+  /* Subtle warm haze toward the top so the modal feels inset into the
+     overall warm-dark cinematic, not floating in pure black. */
+  background-image: radial-gradient(ellipse at center 30%, rgba(255, 110, 60, 0.04), transparent 60%);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 200;
+  padding: var(--space-4);
 }
 
-/* Player stats modal */
+/* Player stats modal — quick-look profile. Same visual DNA as the full
+   /players/:id page, just compressed: warm-gradient panel, inset
+   red-tinted hairline, the hero strip, period chips, medal grid, AKA
+   chips, view-profile CTA. */
 .player-stats-modal {
-  background: var(--bg-card);
-  border-radius: 8px;
-  width: 90%;
-  max-width: 500px;
-  max-height: 80vh;
+  background: linear-gradient(180deg, #181412 0%, var(--bg-card) 60%);
+  border: var(--rule-strong);
+  border-radius: var(--radius-md);
+  width: 100%;
+  max-width: 580px;
+  max-height: 88vh;
   overflow-y: auto;
-  border: 1px solid #333;
+  position: relative;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6),
+              inset 1px 0 0 rgba(255, 110, 60, 0.06);
 }
 
-.player-stats-modal .modal-header {
-  display: flex;
-  justify-content: space-between;
+.player-stats-modal__close {
+  /* Pill close button matches the .drawer-header .close-btn so all
+     dismissable surfaces feel like one family. */
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
   align-items: center;
-  padding: 15px;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid rgba(208, 200, 184, 0.2);
+  border-radius: var(--radius-pill);
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  z-index: 2;
+}
+
+.player-stats-modal__close:hover,
+.player-stats-modal__close:focus-visible {
+  color: var(--accent);
+  border-color: var(--accent-dim);
+  background: rgba(255, 248, 240, 0.06);
+  outline: none;
+}
+
+.player-stats-modal__content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+}
+
+.player-stats-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: var(--space-4);
   position: relative;
 }
 
-/* Override the generic .modal-header::after inset (which assumes 0 padding)
-   so the gradient hugs the inner padding edge here too. */
-.player-stats-modal .modal-header::after {
-  left: 15px;
-  right: 15px;
+.player-stats-modal__footer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--rule-gradient-h);
 }
 
-.player-stats-modal .modal-header h3 {
-  margin: 0;
-  font-size: 1.1rem;
-  display: flex;
+/* "View full profile →" CTA — Cinzel-tracked, accent-toned. */
+.view-profile-link {
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  font-family: 'Cinzel', serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+  text-decoration: none;
+  background: rgba(255, 110, 60, 0.08);
+  border: 1px solid rgba(255, 110, 60, 0.4);
+  border-radius: var(--radius-sm);
+  transition: border-color 0.15s, background 0.15s, color 0.15s, transform 0.15s;
 }
 
-/* Period selector */
+.view-profile-link:hover,
+.view-profile-link:focus-visible {
+  border-color: rgba(255, 110, 60, 0.7);
+  background: rgba(255, 110, 60, 0.18);
+  outline: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .view-profile-link:hover,
+  .view-profile-link:focus-visible { transform: translateX(2px); }
+}
+
+/* Period selector — sleek pill row. Lives in modal hero strip and full
+   profile, also used elsewhere as a generic time-window switcher. */
 .period-selector {
   display: flex;
-  padding: 10px 15px;
-  gap: 8px;
-  border-bottom: 1px solid #333;
   flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: 0;
+  border-bottom: none;
 }
 
 .period-btn {
-  padding: 6px 12px;
+  padding: 6px 14px;
   background: transparent;
-  border: 1px solid #444;
+  border: 1px solid rgba(208, 200, 184, 0.18);
   color: var(--text-dim);
-  border-radius: 4px;
+  border-radius: var(--radius-pill);
   cursor: pointer;
-  font-family: inherit;
-  font-size: 0.8rem;
-  transition: all 0.2s;
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
 
-.period-btn:hover {
-  border-color: var(--red);
+.period-btn:hover,
+.period-btn:focus-visible {
+  border-color: rgba(208, 200, 184, 0.4);
   color: var(--text);
+  outline: none;
 }
 
 .period-btn.active {
-  background: var(--red);
-  border-color: var(--red);
-  color: #fff;
+  background: rgba(255, 110, 60, 0.1);
+  border-color: rgba(255, 110, 60, 0.5);
+  color: var(--accent);
 }
 
-/* Stats grid */
-.modal-content {
-  padding: 15px;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 15px;
-  margin-bottom: 20px;
-}
-
-.stat-item {
-  text-align: center;
-  padding: 10px;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
+/* PLAYER HERO — shared between modal and full profile. CSS scale comes
+   from .player-hero--modal vs .player-hero--page; markup is identical. */
+.player-hero {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  background: var(--bg-card);
+  border: var(--rule);
+  border-radius: var(--radius-md);
+  padding: var(--space-6) var(--space-5) var(--space-5);
+}
+
+.player-hero__portrait {
+  /* 96px ringed portrait — same DNA as .leaderboard-card__avatar but a
+     size up. Badge / bot-badge overlays bottom-right. */
+  position: relative;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2a1f1a 0%, #0a0808 100%);
+  border: 1px solid rgba(255, 110, 60, 0.25);
+  box-shadow: 0 0 24px rgba(255, 110, 60, 0.15);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  margin-bottom: var(--space-3);
+}
+
+.player-hero__portrait .player-portrait {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
   overflow: hidden;
 }
 
+.player-hero__portrait .player-portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.player-hero__portrait .player-badge,
+.player-hero__portrait .bot-badge {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  z-index: 2;
+}
+
+.player-hero__name {
+  font-family: 'Barlow', sans-serif;
+  font-weight: 700;
+  font-size: 26px;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  margin: 0;
+  line-height: 1.1;
+  word-break: break-word;
+  max-width: 100%;
+}
+
+.player-hero__meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px var(--space-4);
+  margin-top: var(--space-2);
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.82rem;
+  color: var(--text-dim);
+}
+
+/* Bullet between meta items — collapses naturally if the playtime span
+   is omitted (no playtime data). */
+.player-hero__meta span + span::before {
+  content: '\00b7';
+  display: inline-block;
+  margin-right: var(--space-3);
+  margin-left: -3px;
+  color: var(--text-dim);
+  opacity: 0.55;
+}
+
+.player-hero__headline {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-3);
+  width: 100%;
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  position: relative;
+}
+
+/* Gradient hairline above the headline strip — same treatment as the
+   drawer-header rule, just inverted. Centered ~76% width. */
+.player-hero__headline::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 12%;
+  right: 12%;
+  height: 1px;
+  background: var(--rule-gradient-h);
+}
+
+.headline-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.headline-stat__value {
+  font-family: 'Barlow', sans-serif;
+  font-weight: 700;
+  font-size: 24px;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+.headline-stat__label {
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 0.62rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+/* Modal scale — already-compact 96px portrait stays, name/value
+   slightly tightened so the hero leaves room for medals + AKAs. */
+.player-hero--modal .player-hero__portrait { width: 80px; height: 80px; }
+.player-hero--modal .player-hero__name { font-size: 22px; }
+.player-hero--modal .headline-stat__value { font-size: 20px; }
+
+/* Page scale — bigger portrait + headline numbers, more breathing room. */
+.player-hero--page {
+  padding: var(--space-7) var(--space-5) var(--space-5);
+}
+.player-hero--page .player-hero__portrait { width: 120px; height: 120px; }
+.player-hero--page .player-hero__name { font-size: 32px; }
+.player-hero--page .headline-stat__value { font-size: 32px; }
+.player-hero--page .headline-stat__label { font-size: 0.7rem; }
+
+@media (max-width: 520px) {
+  .player-hero__headline {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-3) var(--space-4);
+  }
+}
+
+/* Stats grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-2);
+  margin: 0;
+}
+
+@media (max-width: 600px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+.stat-item {
+  /* Specialty cell — keeps the rotated background medal whisper from
+     the previous design (signature visual) but on a quieter cell with
+     finer chrome. */
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+  padding: var(--space-3) var(--space-2);
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(255, 248, 240, 0.04);
+  border-radius: var(--radius-sm);
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.stat-item:hover {
+  border-color: rgba(255, 110, 60, 0.28);
+  background: rgba(0, 0, 0, 0.32);
+}
+
 .stat-item-bg-icon {
+  /* Rotated medal whisper at lower-right — preserved signature visual
+     from the previous design. Lower opacity now since the cells are
+     denser; we don't want the rotation to feel busy. */
   position: absolute;
   bottom: -10px;
   right: -10px;
   width: 96px;
   height: 96px;
-  opacity: 0.15;
+  opacity: 0.12;
   pointer-events: none;
   transform: rotate(-20deg);
 }
@@ -4031,33 +4201,39 @@ h2 {
 .stat-item-bg-hash {
   width: auto;
   height: auto;
-  font-size: 7.5rem;
+  font-size: 6.5rem;
   font-weight: 900;
   line-height: 1;
   color: #fff;
-  bottom: -16px;
-  right: -6px;
+  bottom: -12px;
+  right: -4px;
+  opacity: 0.06;
 }
 
 .stat-item .stat-value {
-  font-size: 1.5rem;
-  font-weight: bold;
+  font-family: 'Barlow', sans-serif;
+  font-size: 1.4rem;
+  font-weight: 700;
   color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  position: relative;
+  z-index: 1;
 }
 
-.stat-item .stat-value.frags {
-  color: var(--green);
-}
-
-.stat-item .stat-value.deaths {
-  color: var(--red);
-}
+.stat-item .stat-value.frags { color: var(--green); }
+.stat-item .stat-value.deaths { color: var(--red); }
 
 .stat-item .stat-label {
-  font-size: 0.75rem;
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 0.6rem;
+  letter-spacing: 0.18em;
   color: var(--text-dim);
   text-transform: uppercase;
-  margin-top: 4px;
+  margin-top: var(--space-1);
+  position: relative;
+  z-index: 1;
 }
 
 .stat-item .stat-value sub {
@@ -4070,65 +4246,60 @@ h2 {
   bottom: -0.3em;
 }
 
-/* Also known as */
-.also-known-as {
-  margin-top: 15px;
-  padding-top: 15px;
-  border-top: 1px solid #333;
+/* Player profile + modal panels — generic card chrome that hosts a
+   Cinzel-tracked heading and a content body (medal grid, AKA chips,
+   GUID list, etc.). Used in both PlayerStatsModal and PlayersPage. */
+.player-panel {
+  background: var(--bg-card);
+  border: var(--rule);
+  border-radius: var(--radius-md);
+  padding: var(--space-4) var(--space-5);
 }
 
-.also-known-as h4 {
-  font-size: 0.85rem;
-  color: var(--text-dim);
-  margin-bottom: 8px;
+.player-panel__heading {
+  display: block;
+  margin: 0 0 var(--space-3);
+  padding-bottom: var(--space-2);
+  font-family: 'Cinzel', serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent);
+  position: relative;
 }
 
-.name-list {
+.player-panel__heading::after {
+  /* Same gradient hairline used under .drawer-header — ties the
+     section dividers across drawers and panels into one motif. */
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: var(--rule-gradient-h);
+}
+
+/* Also-known-as chip cluster — used in both modal and page panels. */
+.aka-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
 }
 
-.aka-name {
-  padding: 2px 8px;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 3px;
-  font-size: 0.85rem;
-}
-
-/* Player meta info */
-.player-meta {
-  margin-top: 15px;
-  padding-top: 15px;
-  border-top: 1px solid #333;
-  font-size: 0.8rem;
-  color: var(--text-dim);
-  display: flex;
-  justify-content: space-between;
-}
-
-.player-meta-top {
-  margin-bottom: 12px;
-  font-size: 0.85rem;
-  color: var(--text-dim);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 16px;
-}
-
-.player-meta-top em {
+.aka-chip {
+  padding: 4px 10px;
+  background: rgba(208, 200, 184, 0.06);
+  border: 1px solid rgba(208, 200, 184, 0.14);
+  border-radius: var(--radius-pill);
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
   color: var(--text);
-  font-style: normal;
-}
-
-.player-meta-top span::after {
-  content: "·";
-  margin-left: 16px;
-  color: #555;
-}
-
-.player-meta-top span:last-child::after {
-  content: none;
+  white-space: nowrap;
 }
 
 /* Stats loading and error */
@@ -4149,11 +4320,6 @@ h2 {
     padding-right: 0;
   }
 
-  .rcon-sidebar {
-    width: 100%;
-    max-width: 100%;
-  }
-
   .login-form {
     width: 100%;
   }
@@ -4163,17 +4329,8 @@ h2 {
     min-width: 0;
   }
 
-  .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .period-selector {
+  .player-profile > .period-selector {
     justify-content: center;
-  }
-
-  .player-meta {
-    flex-direction: column;
-    gap: 4px;
   }
 }
 
@@ -4426,19 +4583,61 @@ h2 {
   font-size: 0.85rem;
 }
 
-.player-stats-container {
-  background: var(--bg-card);
-  border-radius: 8px;
-  padding: 20px;
-  border: 1px solid #333;
+/* Player profile layout — vertical stack of: hero card, period chips,
+   specialties panel, AKA panel, GUIDs panel (admin), sessions section
+   (admin), recent matches section. The shell itself is just a flex
+   column; each panel owns its own card chrome. */
+.player-profile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
 }
 
-.player-stats-full h2 {
-  margin: 0 0 20px 0;
-  font-size: 1.5rem;
-  display: flex;
-  align-items: center;
-  gap: 12px;
+/* Inside .player-profile the period selector hugs the right edge so
+   it reads as a control affordance, not part of the panel rhythm. */
+.player-profile > .period-selector {
+  justify-content: flex-end;
+  margin: 0;
+}
+
+/* Recent matches & sessions inside the profile — adopt the panel
+   chrome and Cinzel section heading to align with .player-panel. */
+.player-profile .recent-matches,
+.player-profile .player-sessions-section,
+.player-profile .player-guids-section {
+  margin-top: 0;
+  padding: var(--space-4) var(--space-5);
+  background: var(--bg-card);
+  border: var(--rule);
+  border-radius: var(--radius-md);
+  border-top: var(--rule); /* override the dim 1px #333 from old rules */
+}
+
+.player-profile .recent-matches h2,
+.player-profile .player-sessions-section h4,
+.player-profile .player-guids-section h4 {
+  display: block;
+  margin: 0 0 var(--space-3);
+  padding-bottom: var(--space-2);
+  font-family: 'Cinzel', serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent);
+  position: relative;
+}
+
+.player-profile .recent-matches h2::after,
+.player-profile .player-sessions-section h4::after,
+.player-profile .player-guids-section h4::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: var(--rule-gradient-h);
 }
 
 .players-empty {
@@ -9584,6 +9783,10 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 
 /* ── Rich chip — compound identifier ───────────────────── */
 .rich-chip {
+  /* `position: relative` anchors any absolutely-positioned descendants
+     (e.g. .mode-icons hover popup) to the chip itself. `overflow: visible`
+     lets that popup escape below the chip on hover. */
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -9598,13 +9801,20 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   border-radius: 3px;
   background: rgba(0, 0, 0, 0.35);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   max-width: 100%;
 }
 .rich-chip__source { color: var(--text-dim); font-weight: 500; }
 .rich-chip__sep { color: rgba(255, 248, 240, 0.25); font-weight: 400; }
 .rich-chip__server { color: var(--accent); }
+.rich-chip__extras { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Mode icons nested inside the chip drop their outer margin and tighten
+   the gap so the M/G letter labels and their icon thumbnails read as a
+   single chip segment. */
+.rich-chip__extras .mode-icons {
+  margin: 0;
+  gap: 3px;
+}
 
 /* ── Scoreboard (team) and Duelists (1v1) — share styles ─ */
 .scoreboard {
@@ -9621,14 +9831,31 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 }
 .scoreboard__label.red { color: var(--red); }
 .scoreboard__label.blue { color: #4a9fef; }
-/* Score + optional flag indicator. Blue side reverses order to mirror red. */
+/* Score sits in a 3-column grid so it's always centered under the
+   team label — the optional flag indicator lives in one of the
+   flanking 1fr tracks without nudging the score off-center. */
 .scoreboard__score-line {
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  gap: 8px;
+  width: 100%;
   line-height: 1;
 }
+.scoreboard__score-line > .scoreboard__score { grid-column: 2; justify-self: center; }
 .scoreboard__indicator { display: inline-flex; align-items: center; }
+/* Red: indicator goes to the right of the score (column 3),
+   anchored to the inside edge so it sits 8px off the score. */
+.scoreboard__side--red .scoreboard__indicator {
+  grid-column: 3;
+  justify-self: start;
+  margin-left: 8px;
+}
+/* Blue: mirrored — indicator goes left of the score (column 1). */
+.scoreboard__side--blue .scoreboard__indicator {
+  grid-column: 1;
+  justify-self: end;
+  margin-right: 8px;
+}
 .scoreboard__score {
   font-family: 'Cinzel', serif; font-weight: 700; font-size: 32px;
   color: var(--accent); letter-spacing: 0.04em; line-height: 1;
@@ -9655,10 +9882,10 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   transition: transform 0.45s ease-out;
 }
 .scoreboard__center-indicator .flag-indicator.flag-toward-red {
-  transform: translateX(-30px);
+  transform: translateX(-60px);
 }
 .scoreboard__center-indicator .flag-indicator.flag-toward-blue {
-  transform: translateX(30px);
+  transform: translateX(60px);
 }
 .scoreboard__vs {
   font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: 0.3em;
@@ -10042,7 +10269,6 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   font-variant-numeric: tabular-nums;
   transition: color 0.15s ease;
 }
-.card__topbar .mode-icons { margin: 0; }
 .card__state {
   font-family: 'Barlow', sans-serif;
   font-size: 9px;

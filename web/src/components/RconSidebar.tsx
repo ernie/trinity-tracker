@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect, FormEvent, KeyboardEvent, useCallback } from 'react'
+import { useState, useRef, useEffect, useMemo, type FormEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { ColoredText } from './ColoredText'
 import type { RconCommand, ServerStatus } from '../types'
 
 interface RconSidebarProps {
@@ -7,56 +8,41 @@ interface RconSidebarProps {
   onClose: () => void
 }
 
-const MIN_WIDTH = 300
-const MAX_WIDTH = 800
-const DEFAULT_WIDTH = 500
+// Cap on per-mount command history. Long sessions running `dumpuser`
+// or repeated `status` calls would grow unbounded otherwise.
+const HISTORY_CAP = 200
 
+// Right-side overlay drawer for RCON command execution. Shares the
+// .drawer chrome with ActivityDrawer / MyServersDrawer; mount/unmount
+// is the open/close gesture. Esc + backdrop both close.
 export function RconSidebar({ server, token, onClose }: RconSidebarProps) {
   const [command, setCommand] = useState('')
   const [history, setHistory] = useState<RconCommand[]>([])
   const [historyIndex, setHistoryIndex] = useState(-1)
   const [rconAvailable, setRconAvailable] = useState<boolean | null>(null)
-  const [width, setWidth] = useState(DEFAULT_WIDTH)
-  const [isResizing, setIsResizing] = useState(false)
   const outputRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const commandIdRef = useRef(0)
-  const sidebarRef = useRef<HTMLDivElement>(null)
+  // Tracks every in-flight RCON command fetch so they can be aborted
+  // on unmount (preventing setState on a dead component and dropping
+  // late responses that would otherwise land in the next mount).
+  const inflightRef = useRef<Set<AbortController>>(new Set())
 
-  // Handle resize drag
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault()
-    setIsResizing(true)
+  // Esc closes; document-level so focus inside the drawer still reaches it.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  // Abort every in-flight command fetch on unmount.
+  useEffect(() => {
+    const inflight = inflightRef.current
+    return () => {
+      for (const ctrl of inflight) ctrl.abort()
+      inflight.clear()
+    }
   }, [])
-
-  useEffect(() => {
-    if (!isResizing) return
-
-    const handleMouseMove = (e: MouseEvent) => {
-      const newWidth = window.innerWidth - e.clientX
-      setWidth(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, newWidth)))
-    }
-
-    const handleMouseUp = () => {
-      setIsResizing(false)
-    }
-
-    document.addEventListener('mousemove', handleMouseMove)
-    document.addEventListener('mouseup', handleMouseUp)
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleMouseUp)
-    }
-  }, [isResizing])
-
-  // Update CSS variable for sidebar width
-  useEffect(() => {
-    document.documentElement.style.setProperty('--sidebar-width', `${width}px`)
-    return () => {
-      document.documentElement.style.removeProperty('--sidebar-width')
-    }
-  }, [width])
 
   // Check if RCON is available for this server. Keying on server_id only
   // so we don't re-fetch when other server fields tick (game_time_ms, etc.)
@@ -66,13 +52,19 @@ export function RconSidebar({ server, token, onClose }: RconSidebarProps) {
       setRconAvailable(null)
       return
     }
-
+    const ctrl = new AbortController()
     fetch(`/api/servers/${server.server_id}/rcon-status`, {
       headers: { Authorization: `Bearer ${token}` },
+      signal: ctrl.signal,
     })
       .then(res => res.json())
       .then(data => setRconAvailable(data.available))
-      .catch(() => setRconAvailable(false))
+      .catch(() => {
+        // Genuine network error → RCON unreachable. Aborts also land
+        // here but the unmounted setter is a no-op, so we don't gate.
+        if (!ctrl.signal.aborted) setRconAvailable(false)
+      })
+    return () => ctrl.abort()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [server?.server_id, token])
 
@@ -88,6 +80,13 @@ export function RconSidebar({ server, token, onClose }: RconSidebarProps) {
     inputRef.current?.focus()
   }, [server])
 
+  // Per-server view of history — used by both arrow-key recall and the
+  // output list. Recomputing once per render beats four times.
+  const serverHistory = useMemo(
+    () => history.filter(h => h.serverName === server?.key),
+    [history, server?.key]
+  )
+
   const executeCommand = (cmd: string) => {
     if (!server || !cmd.trim()) return
 
@@ -100,13 +99,15 @@ export function RconSidebar({ server, token, onClose }: RconSidebarProps) {
       serverName: server.key,
     }
 
-    // Immediately update UI
-    setHistory(prev => [...prev, newCommand])
+    // Immediately update UI; cap at HISTORY_CAP entries so a long
+    // session doesn't grow unbounded.
+    setHistory(prev => [...prev, newCommand].slice(-HISTORY_CAP))
     setCommand('')
     setHistoryIndex(-1)
     inputRef.current?.focus()
 
-    // Fetch response asynchronously
+    const ctrl = new AbortController()
+    inflightRef.current.add(ctrl)
     fetch(`/api/servers/${server.server_id}/rcon`, {
       method: 'POST',
       headers: {
@@ -114,6 +115,7 @@ export function RconSidebar({ server, token, onClose }: RconSidebarProps) {
         'Authorization': `Bearer ${token}`,
       },
       body: JSON.stringify({ command: cmd }),
+      signal: ctrl.signal,
     })
       .then(async res => {
         if (!res.ok) {
@@ -123,8 +125,10 @@ export function RconSidebar({ server, token, onClose }: RconSidebarProps) {
         const data = await res.json()
         return data.output || '(no output)'
       })
-      .catch(err => `Error: ${err}`)
+      .catch(err => ctrl.signal.aborted ? null : `Error: ${err}`)
       .then(output => {
+        inflightRef.current.delete(ctrl)
+        if (output === null) return  // aborted on unmount
         setHistory(prev =>
           prev.map(h => (h.id === commandId ? { ...h, output } : h))
         )
@@ -136,21 +140,19 @@ export function RconSidebar({ server, token, onClose }: RconSidebarProps) {
     executeCommand(command)
   }
 
-  const handleKeyDown = (e: KeyboardEvent) => {
+  const handleKeyDown = (e: ReactKeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowUp') {
       e.preventDefault()
-      const commands = history.filter(h => h.serverName === server?.key)
-      if (commands.length === 0) return
-      const newIndex = historyIndex < commands.length - 1 ? historyIndex + 1 : historyIndex
+      if (serverHistory.length === 0) return
+      const newIndex = historyIndex < serverHistory.length - 1 ? historyIndex + 1 : historyIndex
       setHistoryIndex(newIndex)
-      setCommand(commands[commands.length - 1 - newIndex]?.command || '')
+      setCommand(serverHistory[serverHistory.length - 1 - newIndex]?.command || '')
     } else if (e.key === 'ArrowDown') {
       e.preventDefault()
       if (historyIndex > 0) {
-        const commands = history.filter(h => h.serverName === server?.key)
         const newIndex = historyIndex - 1
         setHistoryIndex(newIndex)
-        setCommand(commands[commands.length - 1 - newIndex]?.command || '')
+        setCommand(serverHistory[serverHistory.length - 1 - newIndex]?.command || '')
       } else {
         setHistoryIndex(-1)
         setCommand('')
@@ -158,65 +160,76 @@ export function RconSidebar({ server, token, onClose }: RconSidebarProps) {
     }
   }
 
-  const renderContent = () => {
+  const renderBody = () => {
     if (!server) {
-      return (
-        <div className="sidebar-placeholder">
-          Select a server
-        </div>
-      )
+      return <div className="rcon-drawer__placeholder">Select a server to issue commands.</div>
     }
 
     if (rconAvailable === false) {
-      return (
-        <div className="sidebar-unavailable">
-          RCON is not configured for this server
-        </div>
-      )
+      return <div className="rcon-drawer__unavailable">RCON is not configured for this server.</div>
     }
 
     return (
       <>
-        <div className="rcon-output" ref={outputRef}>
-          {history.filter(h => h.serverName === server.key).map(cmd => (
-            <div key={cmd.id} className="rcon-entry">
-              <div className="rcon-command">&gt; {cmd.command}</div>
-              <pre className="rcon-response">{cmd.output}</pre>
+        <div className="rcon-drawer__output" ref={outputRef}>
+          {serverHistory.length === 0 ? (
+            <div className="rcon-drawer__hint">
+              {rconAvailable === null ? 'Checking RCON…' : 'Issue your first command below. ↑/↓ recalls history.'}
             </div>
-          ))}
+          ) : (
+            serverHistory.map(cmd => (
+              <div key={cmd.id} className="rcon-drawer__entry">
+                <div className="rcon-drawer__command">&gt; {cmd.command}</div>
+                <pre className="rcon-drawer__response">{cmd.output}</pre>
+              </div>
+            ))
+          )}
         </div>
 
-        <form onSubmit={handleSubmit} className="rcon-input-form">
+        <form onSubmit={handleSubmit} className="rcon-drawer__form">
           <input
             ref={inputRef}
             type="text"
             value={command}
             onChange={(e) => setCommand(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Enter command..."
+            placeholder="rcon command…"
             disabled={rconAvailable === null}
             autoComplete="off"
             spellCheck={false}
+            aria-label="RCON command"
           />
-          <button type="submit" disabled={!command.trim()}>
-            Send
-          </button>
+          <button type="submit" disabled={!command.trim()}>Send</button>
         </form>
       </>
     )
   }
 
   return (
-    <div className={`rcon-sidebar ${isResizing ? 'resizing' : ''}`} style={{ width }} ref={sidebarRef}>
-      <div className="resize-handle" onMouseDown={handleMouseDown} />
-      <div className="rcon-header">
-        <h3>{server ? `RCON - ${server.key}` : 'RCON'}</h3>
-        <button onClick={onClose} className="close-btn">X</button>
-      </div>
+    <div className="drawer-overlay" onClick={onClose}>
+      <aside
+        className="drawer rcon-drawer"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-label="RCON console"
+      >
+        <div className="drawer-header">
+          <h2>
+            RCON
+            {server && (
+              <>
+                <span className="rcon-drawer__sep" aria-hidden="true">·</span>
+                <span className="rcon-drawer__server"><ColoredText text={server.key} /></span>
+              </>
+            )}
+          </h2>
+          <button onClick={onClose} className="close-btn" aria-label="Close RCON">&times;</button>
+        </div>
 
-      <div className="sidebar-content">
-        {renderContent()}
-      </div>
+        <div className="drawer-body rcon-drawer__body">
+          {renderBody()}
+        </div>
+      </aside>
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { BotBadge } from './BotBadge'
 import { ColoredText } from './ColoredText'
 import { PlayerPortrait } from './PlayerPortrait'
@@ -7,22 +7,23 @@ import { PlayerRecentMatches } from './PlayerRecentMatches'
 import { PlayerSessions } from './PlayerSessions'
 import { PlayerBadge } from './PlayerBadge'
 import { Breadcrumbs } from './Breadcrumbs'
-import { StatItem } from './StatItem'
 import { PeriodSelector } from './PeriodSelector'
+import { PlayerHero } from './PlayerHero'
+import { HonorsPanel } from './HonorsPanel'
+import { PlayerAkaList } from './PlayerAkaList'
 import { useAuth } from '../hooks/useAuth'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { usePlayerStats } from '../hooks/usePlayerStats'
 import { useLiveData } from '../contexts/LiveDataContext'
 import { useSources } from '../hooks/useSources'
 import { formatDate, formatDuration } from '../utils/formatters'
-import { stripVRPrefix, serverDisplay } from '../utils'
+import { displayPlayerName, stripVRPrefix, serverDisplay } from '../utils'
 import type { TimePeriod, PlayerProfile, PlayerGUID } from '../types'
 
 export function PlayersPage() {
   const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
   const { auth } = useAuth()
-  const { servers } = useLiveData()
+  const { servers, showPlayer, drillInVersion } = useLiveData()
   const { hasMultiple: hasMultipleSources } = useSources()
 
   // Live search (includes GUID search if admin) — fires automatically as the user types.
@@ -76,10 +77,10 @@ export function PlayersPage() {
   }, [servers, hasMultipleSources])
 
   useEffect(() => {
-    if (debouncedSearchQuery.trim().length < 2) {
-      setSearchResults([])
-      return
-    }
+    // Don't fetch for short queries; `displayResults` (below) gates
+    // visibility, so leaving stale results in state is safe — a fresh
+    // fetch will overwrite when the query grows back to ≥ 2 chars.
+    if (debouncedSearchQuery.trim().length < 2) return
     const headers: HeadersInit = {}
     if (auth.token) headers['Authorization'] = `Bearer ${auth.token}`
     const ctrl = new AbortController()
@@ -95,9 +96,22 @@ export function PlayersPage() {
     return () => ctrl.abort()
   }, [debouncedSearchQuery, auth.token])
 
-  // Select a player from search results
-  const selectPlayer = (playerId: number) => {
-    navigate(`/players/${playerId}`)
+  // Drill-in clears the search rail. Two signals: URL `id` change
+  // covers nav/back/cross-player; `drillInVersion` covers the same-id
+  // case where the modal CTA points at the URL we're already on (no
+  // router event). Adjusting state during render — no extra commit:
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const [prevId, setPrevId] = useState(id)
+  const [prevDrillIn, setPrevDrillIn] = useState(drillInVersion)
+  if (id !== prevId) {
+    setPrevId(id)
+    if (id) {
+      setSearchResults([])
+      setSearchQuery('')
+    }
+  }
+  if (drillInVersion !== prevDrillIn) {
+    setPrevDrillIn(drillInVersion)
     setSearchResults([])
     setSearchQuery('')
   }
@@ -118,11 +132,12 @@ export function PlayersPage() {
     searchHint = `${searchResults.length} match${searchResults.length === 1 ? '' : 'es'}`
   }
 
-  // Right-pane content priority: live search results take precedence
-  // (so users can jump between players without backing out), then the
-  // selected player's stats, then a friendly empty state.
-  const showResults = searchResults.length > 0
-  const showStats = !showResults && id
+  // Priority gates on `searchQuery`, not `searchResults` — a stale
+  // in-flight fetch resolving after drill-in mustn't re-occlude the
+  // profile pane.
+  const isSearching = trimmed.length >= 2
+  const showResults = isSearching && searchResults.length > 0
+  const showStats = !showResults && !!id
 
   return (
     <div className="players-page">
@@ -130,7 +145,7 @@ export function PlayersPage() {
         <Breadcrumbs
           crumbs={[
             { label: 'Players', to: '/players' },
-            { label: <ColoredText text={stats.player.is_vr ? stripVRPrefix(stats.player.name) : stats.player.name} /> },
+            { label: <ColoredText text={displayPlayerName(stats.player)} /> },
           ]}
         />
       )}
@@ -151,107 +166,59 @@ export function PlayersPage() {
         <main className="players-results-area">
           {showResults ? (
             <div className="player-cards-grid">
-              {searchResults.map((player) => {
-                const displayName = player.is_vr ? stripVRPrefix(player.name) : player.name
-                return (
-                  <button
-                    key={player.id}
-                    type="button"
-                    className="player-card"
-                    onClick={() => selectPlayer(player.id)}
-                  >
-                    <span className="player-card__avatar">
-                      <PlayerPortrait model={player.model} size="lg" />
-                      {player.is_bot ? (
-                        <BotBadge isBot skill={5} size="sm" />
-                      ) : (
-                        <PlayerBadge
-                          isVerified={player.is_verified}
-                          isAdmin={player.is_admin}
-                          isVR={player.is_vr}
-                          size="sm"
-                        />
-                      )}
-                    </span>
-                    <span className="player-card__name">
-                      <ColoredText text={displayName} />
-                    </span>
-                    <span className="player-card__meta">
-                      Last seen {formatDate(player.last_seen)}
-                    </span>
-                    {player.total_playtime_seconds > 0 && (
-                      <span className="player-card__meta">
-                        {formatDuration(player.total_playtime_seconds)} played
-                      </span>
+              {searchResults.map((player) => (
+                <button
+                  key={player.id}
+                  type="button"
+                  className="player-card"
+                  onClick={() => showPlayer(player.name, player.clean_name, player.id)}
+                >
+                  <span className="player-card__avatar">
+                    <PlayerPortrait model={player.model} size="lg" />
+                    {player.is_bot ? (
+                      <BotBadge isBot skill={5} size="sm" />
+                    ) : (
+                      <PlayerBadge
+                        isVerified={player.is_verified}
+                        isAdmin={player.is_admin}
+                        isVR={player.is_vr}
+                        size="sm"
+                      />
                     )}
-                  </button>
-                )
-              })}
+                  </span>
+                  <span className="player-card__name">
+                    <ColoredText text={displayPlayerName(player)} />
+                  </span>
+                  <span className="player-card__meta">
+                    Last seen {formatDate(player.last_seen)}
+                  </span>
+                  {player.total_playtime_seconds > 0 && (
+                    <span className="player-card__meta">
+                      {formatDuration(player.total_playtime_seconds)} played
+                    </span>
+                  )}
+                </button>
+              ))}
             </div>
           ) : showStats ? (
-            <div className="player-stats-container">
-              <PeriodSelector period={period} onChange={setPeriod} />
-
+            <div className="player-profile">
               {loading ? (
-                <div className="stats-loading">Loading stats...</div>
+                <div className="stats-loading">Loading stats…</div>
               ) : error ? (
                 <div className="stats-error">{error}</div>
               ) : stats ? (
-                <div className="player-stats-full">
-                  <h2>
-                    <PlayerPortrait model={stats.player.model} size="lg" />
-                    {stats.player.is_bot && <BotBadge isBot skill={5} size="lg" />}
-                    {!stats.player.is_bot && <PlayerBadge isVerified={stats.player.is_verified} isAdmin={stats.player.is_admin} isVR={stats.player.is_vr} size="lg" />}
-                    <ColoredText text={stats.player.is_vr ? stripVRPrefix(stats.player.name) : stats.player.name} />
-                  </h2>
+                <>
+                  <PlayerHero player={stats.player} stats={stats.stats} variant="page" />
 
-                  <div className="player-meta-top">
-                    <span><em>Seen:</em> {formatDate(stats.player.first_seen)} – {formatDate(stats.player.last_seen)}</span>
-                    {stats.player.total_playtime_seconds > 0 && (
-                      <span><em>Played:</em> {formatDuration(stats.player.total_playtime_seconds)}</span>
-                    )}
-                  </div>
+                  <PeriodSelector period={period} onChange={setPeriod} />
 
-                  <div className="stats-grid">
-                    <StatItem
-                      label="Matches"
-                      value={stats.stats.completed_matches}
-                      title={stats.stats.uncompleted_matches > 0
-                        ? `${stats.stats.completed_matches} completed, ${stats.stats.uncompleted_matches} incomplete`
-                        : undefined}
-                    />
-                    <StatItem label="K/D" value={stats.stats.kd_ratio.toFixed(2)} />
-                    <StatItem label="Frags" value={stats.stats.frags} className="frags" />
-                    <StatItem label="Deaths" value={stats.stats.deaths} className="deaths" />
-                    <StatItem label="Victories" value={stats.stats.victories} backgroundIcon="/assets/medals/medal_victory.png" />
-                    <StatItem label="Excellent" value={stats.stats.excellents} backgroundIcon="/assets/medals/medal_excellent.png" />
-                    <StatItem label="Impressive" value={stats.stats.impressives} backgroundIcon="/assets/medals/medal_impressive.png" />
-                    <StatItem label="Humiliation" value={stats.stats.humiliations} backgroundIcon="/assets/medals/medal_gauntlet.png" />
-                    <StatItem label="Captures" value={stats.stats.captures} backgroundIcon="/assets/medals/medal_capture.png" />
-                    <StatItem label="Returns" value={stats.stats.flag_returns} backgroundIcon="/assets/flags/flag_in_base_red.png" />
-                    <StatItem label="Assists" value={stats.stats.assists} backgroundIcon="/assets/medals/medal_assist.png" />
-                    <StatItem label="Defense" value={stats.stats.defends} backgroundIcon="/assets/medals/medal_defend.png" />
-                  </div>
+                  <HonorsPanel stats={stats.stats} />
 
-                  {stats.names && (() => {
-                    const uniqueNames = [...new Set(stats.names.map(n => n.name))].filter(name => name !== stats.player.name)
-                    return uniqueNames.length > 0 && (
-                      <div className="also-known-as">
-                        <h4>Also known as</h4>
-                        <div className="name-list">
-                          {uniqueNames.slice(0, 9).map((name, i) => (
-                            <span key={i} className="aka-name">
-                              <ColoredText text={name} />
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )
-                  })()}
+                  <PlayerAkaList names={stats.names} primaryName={stats.player.name} max={12} />
 
                   {auth.isAuthenticated && stats.player.guids && stats.player.guids.length > 0 && (
-                    <div className="player-guids-section">
-                      <h4>Linked GUIDs ({stats.player.guids.length})</h4>
+                    <section className="player-panel player-guids-section">
+                      <h4 className="player-panel__heading">Linked GUIDs ({stats.player.guids.length})</h4>
                       <div className="guids-list">
                         {stats.player.guids.map((guid: PlayerGUID) => (
                           <div key={guid.id} className="guid-item">
@@ -265,15 +232,15 @@ export function PlayersPage() {
                           </div>
                         ))}
                       </div>
-                    </div>
+                    </section>
                   )}
 
                   {auth.isAdmin && auth.token && !stats.player.is_bot && (
                     <PlayerSessions playerId={stats.player.id} token={auth.token} />
                   )}
 
-                  <PlayerRecentMatches playerId={stats.player.id} />
-                </div>
+                  <PlayerRecentMatches playerId={stats.player.id} onPlayerClick={showPlayer} />
+                </>
               ) : null}
             </div>
           ) : onlinePlayers.length > 0 ? (
@@ -289,7 +256,7 @@ export function PlayersPage() {
                     key={p.key}
                     type="button"
                     className="player-card"
-                    onClick={() => navigate(`/players/${p.playerId}`)}
+                    onClick={() => showPlayer(p.name, p.cleanName, p.playerId)}
                   >
                     <span className="player-card__avatar">
                       <PlayerPortrait model={p.model} size="lg" />

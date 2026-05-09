@@ -221,13 +221,28 @@ export function ModeIcons({ movement, gameplay }: { movement?: string, gameplay?
   const moveMode = MOVEMENT_MODES[movement ?? '0']
   const gameMode = GAMEPLAY_MODES[gameplay ?? '0']
   if (!moveMode && !gameMode) return null
+  // When movement and gameplay resolve to the same mode (the common
+  // case — e.g. pure CPM or pure VQ3), render a single icon. The
+  // hover popup still spells out which axis the icon describes.
+  const sameMode = moveMode && gameMode && moveMode.icon === gameMode.icon
   return (
     <span className="mode-icons">
-      <span className="mode-label">M</span>
-      {moveMode && <img className="mode-icon" src={moveMode.icon} alt={moveMode.label} />}
-      <span className="mode-label">G</span>
-      {gameMode && <img className="mode-icon" src={gameMode.icon} alt={gameMode.label} />}
+      {sameMode ? (
+        <img className="mode-icon" src={moveMode!.icon} alt={moveMode!.label} />
+      ) : (
+        <>
+          {moveMode && <img className="mode-icon" src={moveMode.icon} alt={moveMode.label} />}
+          {gameMode && <img className="mode-icon" src={gameMode.icon} alt={gameMode.label} />}
+        </>
+      )}
       <span className="mode-panel">
+        {sameMode ? (
+          <span className="mode-panel-row">
+            <img src={moveMode!.icon} alt={moveMode!.label} />
+            <span>Movement &amp; Gameplay: {moveMode!.label}</span>
+          </span>
+        ) : (
+          <>
         {moveMode && (
           <span className="mode-panel-row">
             <img src={moveMode.icon} alt={moveMode.label} />
@@ -240,12 +255,14 @@ export function ModeIcons({ movement, gameplay }: { movement?: string, gameplay?
             <span>Gameplay: {gameMode.label}</span>
           </span>
         )}
+          </>
+        )}
       </span>
     </span>
   )
 }
 
-export function ServerCard({ server, newPlayers: _newPlayers, isSelected, onSelect, onPlayerClick, liveness }: ServerCardProps) {
+export function ServerCard({ server, isSelected, onSelect, onPlayerClick, liveness }: ServerCardProps) {
   const { hasMultiple: hasMultipleSources } = useSources()
   const meta = useMapMeta(server.map)
   const showTeamScores = isTeamGame(server.game_type) && server.team_scores
@@ -315,8 +332,9 @@ export function ServerCard({ server, newPlayers: _newPlayers, isSelected, onSele
           source={hasMultipleSources ? server.source : undefined}
           server={server.key}
           mode={formatGameType(server.game_type)}
-        />
-        <ModeIcons movement={server.server_vars?.g_movement} gameplay={server.server_vars?.g_gameplay} />
+        >
+          <ModeIcons movement={server.server_vars?.g_movement} gameplay={server.server_vars?.g_gameplay} />
+        </RichChip>
         <span className={`card__state ${stateBadge.className}`}>{stateBadge.label}</span>
       </div>
 
@@ -342,7 +360,7 @@ export function ServerCard({ server, newPlayers: _newPlayers, isSelected, onSele
           const i = getFlagIndicator(flag.red)
           return (
             <span className={`flag-indicator ${i.className}`}>
-              <FlagIcon team="red" status={i.status} size="sm" title={`Red flag: ${i.title}`} />
+              <FlagIcon team="red" status={i.status} size="md" title={`Red flag: ${i.title}`} />
             </span>
           )
         })() : undefined
@@ -350,7 +368,7 @@ export function ServerCard({ server, newPlayers: _newPlayers, isSelected, onSele
           const i = getFlagIndicator(flag.blue)
           return (
             <span className={`flag-indicator ${i.className}`}>
-              <FlagIcon team="blue" status={i.status} size="sm" title={`Blue flag: ${i.title}`} />
+              <FlagIcon team="blue" status={i.status} size="md" title={`Blue flag: ${i.title}`} />
             </span>
           )
         })() : undefined
@@ -358,7 +376,7 @@ export function ServerCard({ server, newPlayers: _newPlayers, isSelected, onSele
           const i = getNeutralFlagIndicator(flag.neutral ?? 0)
           return (
             <span className={`flag-indicator ${i.drift}`}>
-              <FlagIcon team="neutral" status={i.status} size="sm" title={i.title} />
+              <FlagIcon team="neutral" status={i.status} size="md" title={i.title} />
             </span>
           )
         })() : undefined

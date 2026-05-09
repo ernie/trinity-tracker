@@ -3,6 +3,11 @@ import { useLocation } from 'react-router-dom'
 
 interface HamburgerMenuProps {
   children: ReactNode
+  /** Extra modifier classes for the root element. Lets consumers
+   *  encode visual states like login status via CSS modifiers
+   *  (e.g. 'hamburger--authed') without coupling this component to
+   *  auth concerns. */
+  className?: string
 }
 
 // Wraps content that lives inline on desktop and collapses behind a
@@ -10,7 +15,7 @@ interface HamburgerMenuProps {
 // desktop so its children participate directly in the parent's flex
 // layout (no visual change). On mobile the wrapper becomes a sticky
 // right-edge button + popup.
-export function HamburgerMenu({ children }: HamburgerMenuProps) {
+export function HamburgerMenu({ children, className }: HamburgerMenuProps) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const location = useLocation()
@@ -39,7 +44,7 @@ export function HamburgerMenu({ children }: HamburgerMenuProps) {
   }, [open])
 
   return (
-    <div className={`hamburger ${open ? 'hamburger--open' : ''}`} ref={ref}>
+    <div className={`hamburger ${open ? 'hamburger--open' : ''} ${className ?? ''}`} ref={ref}>
       <button
         type="button"
         className="hamburger__btn"

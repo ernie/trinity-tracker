@@ -68,24 +68,31 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const listRef = useRef<HTMLDivElement>(null)
   const debounced = useDebouncedValue(query, 180)
 
-  // Reset state when the palette opens.
-  useEffect(() => {
+  // Reset palette state on the open transition. Adjusting state during
+  // render so there's no extra commit cycle.
+  const [prevOpen, setPrevOpen] = useState(open)
+  if (open !== prevOpen) {
+    setPrevOpen(open)
     if (open) {
       setQuery('')
       setHighlightIdx(0)
       setPlayers([])
-      // Focus runs after the input mounts.
-      requestAnimationFrame(() => inputRef.current?.focus())
     }
+  }
+
+  // Focus the input on the open transition (side-effect, must stay in
+  // an effect — rAF schedules after the input mounts).
+  useEffect(() => {
+    if (open) requestAnimationFrame(() => inputRef.current?.focus())
   }, [open])
 
   // Live player search — only fires when palette is open and query is
-  // long enough to be meaningful.
+  // long enough to be meaningful. The display gate at the consumer
+  // (items useMemo below also reads `players`) means stale state from
+  // a too-short query is overwritten by the next fetch when the query
+  // grows back; no clear needed in the early-return.
   useEffect(() => {
-    if (!open || debounced.trim().length < 2) {
-      setPlayers([])
-      return
-    }
+    if (!open || debounced.trim().length < 2) return
     const ctrl = new AbortController()
     const headers: HeadersInit = {}
     if (auth.token) headers['Authorization'] = `Bearer ${auth.token}`
@@ -125,15 +132,19 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
       })
     }
 
-    // Players
-    for (const p of players) {
-      out.push({
-        id: `player:${p.id}`,
-        group: 'Players',
-        label: p.clean_name || `Player #${p.id}`,
-        hint: p.last_seen ? `Last seen ${new Date(p.last_seen).toLocaleDateString()}` : undefined,
-        action: () => { navigate(`/players/${p.id}`); onClose() },
-      })
+    // Players — gate on the live query, not the (potentially stale)
+    // `players` array. When the query is too short, skip the section
+    // entirely; the next ≥2-char query overwrites `players`.
+    if (query.trim().length >= 2) {
+      for (const p of players) {
+        out.push({
+          id: `player:${p.id}`,
+          group: 'Players',
+          label: p.clean_name || `Player #${p.id}`,
+          hint: p.last_seen ? `Last seen ${new Date(p.last_seen).toLocaleDateString()}` : undefined,
+          action: () => { navigate(`/players/${p.id}`); onClose() },
+        })
+      }
     }
 
     return out
@@ -141,16 +152,19 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, players])
 
-  // Reset highlight when items change so we never point past the end.
-  useEffect(() => {
-    setHighlightIdx((i) => Math.min(i, Math.max(0, items.length - 1)))
-  }, [items.length])
+  // Clamp the highlight to the live items range so it never points
+  // past the end after the list shrinks (e.g. user types a more
+  // restrictive query). Derived rather than stored — keyboard handlers
+  // below pivot off this so the raw `highlightIdx` state never goes
+  // out of bounds in practice.
+  const maxIdx = Math.max(0, items.length - 1)
+  const safeHighlight = Math.min(highlightIdx, maxIdx)
 
   // Scroll the highlighted item into view as the user keys around.
   useEffect(() => {
-    const el = listRef.current?.querySelector<HTMLElement>(`[data-idx="${highlightIdx}"]`)
+    const el = listRef.current?.querySelector<HTMLElement>(`[data-idx="${safeHighlight}"]`)
     if (el) el.scrollIntoView({ block: 'nearest' })
-  }, [highlightIdx])
+  }, [safeHighlight])
 
   // Group items by their group label, preserving insertion order.
   const groups = useMemo(() => {
@@ -168,13 +182,13 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault()
-      setHighlightIdx((i) => Math.min(i + 1, items.length - 1))
+      setHighlightIdx(Math.min(safeHighlight + 1, maxIdx))
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
-      setHighlightIdx((i) => Math.max(i - 1, 0))
+      setHighlightIdx(Math.max(safeHighlight - 1, 0))
     } else if (e.key === 'Enter') {
       e.preventDefault()
-      items[highlightIdx]?.action()
+      items[safeHighlight]?.action()
     } else if (e.key === 'Escape') {
       e.preventDefault()
       onClose()
@@ -218,11 +232,11 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                   key={item.id}
                   type="button"
                   data-idx={idx}
-                  className={`cmdk-item ${idx === highlightIdx ? 'cmdk-item--active' : ''}`}
+                  className={`cmdk-item ${idx === safeHighlight ? 'cmdk-item--active' : ''}`}
                   onMouseEnter={() => setHighlightIdx(idx)}
                   onClick={item.action}
                   role="option"
-                  aria-selected={idx === highlightIdx}
+                  aria-selected={idx === safeHighlight}
                 >
                   <span className="cmdk-item__label">{item.label}</span>
                   {item.hint && <span className="cmdk-item__hint">{item.hint}</span>}

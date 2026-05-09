@@ -40,7 +40,7 @@ export function Scoreboard({
 
   return (
     <div className="scoreboard">
-      <div className="scoreboard__side">
+      <div className="scoreboard__side scoreboard__side--red">
         <span className="scoreboard__label red">{redLabel}</span>
         <span className="scoreboard__score-line">
           <span className={`scoreboard__score ${redClass}`}>{redScore}</span>
@@ -51,7 +51,7 @@ export function Scoreboard({
         <span className="scoreboard__vs">{connector}</span>
         {centerIndicator && <span className="scoreboard__center-indicator">{centerIndicator}</span>}
       </div>
-      <div className="scoreboard__side">
+      <div className="scoreboard__side scoreboard__side--blue">
         <span className="scoreboard__label blue">{blueLabel}</span>
         <span className="scoreboard__score-line">
           {blueIndicator && <span className="scoreboard__indicator">{blueIndicator}</span>}

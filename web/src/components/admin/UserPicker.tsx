@@ -38,10 +38,7 @@ export function UserPicker({
   // already matches the picked user's username — otherwise selecting a row
   // would re-trigger a search and re-open the dropdown a moment later.
   useEffect(() => {
-    if (debounced.length < 2) {
-      setResults([])
-      return
-    }
+    if (debounced.length < 2) return
     if (selected && debounced.toLowerCase() === selected.username.toLowerCase()) {
       return
     }
@@ -57,6 +54,13 @@ export function UserPicker({
       })
     return () => ctrl.abort()
   }, [debounced, token, selected])
+
+  // Hide stored results when the query is too short, or when the
+  // current input already matches the picked user's name (otherwise
+  // selecting a row would re-open the dropdown a moment later).
+  const showResults = debounced.length >= 2 &&
+    !(selected && debounced.toLowerCase() === selected.username.toLowerCase())
+  const displayResults = showResults ? results : []
 
   const pick = (u: UserOption) => {
     onChange(u)
@@ -87,9 +91,9 @@ export function UserPicker({
         autoComplete="off"
         spellCheck={false}
       />
-      {results.length > 0 && (
+      {displayResults.length > 0 && (
         <ul className="player-results user-picker-results">
-          {results.map((u) => {
+          {displayResults.map((u) => {
             const disabled = excludeUserId !== undefined && u.id === excludeUserId
             return (
               <li

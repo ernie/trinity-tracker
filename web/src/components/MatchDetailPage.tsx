@@ -1,47 +1,51 @@
-import { useState, useEffect, useCallback } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useParams } from 'react-router-dom'
 import { MatchCard } from './MatchCard'
 import { Breadcrumbs } from './Breadcrumbs'
 import { useAuth } from '../hooks/useAuth'
+import { useLiveData } from '../contexts/LiveDataContext'
 import { formatExitReason } from './cards/format'
 import type { MatchSummary } from '../types'
 
 export function MatchDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
+  const { showPlayer } = useLiveData()
   const { auth } = useAuth()
   const [match, setMatch] = useState<MatchSummary | null>(null)
-  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [featurePending, setFeaturePending] = useState(false)
-
-  const fetchMatch = useCallback(async () => {
-    if (!id) return
-    try {
-      setLoading(true)
-      setError(null)
-      const res = await fetch(`/api/matches/${id}`)
-      if (res.status === 404) {
-        setError('Match not found')
-        return
-      }
-      if (!res.ok) {
-        setError('Failed to load match')
-        return
-      }
-      const data = await res.json()
-      setMatch(data)
-    } catch (e) {
-      console.error('Failed to fetch match:', e)
-      setError('Failed to load match')
-    } finally {
-      setLoading(false)
-    }
-  }, [id])
+  // Bumped to force a refetch (e.g. after toggling featured). Cleaner
+  // than a useCallback wrapper because the fetch lives entirely inside
+  // the effect and the dependencies are explicit.
+  const [refetchToken, setRefetchToken] = useState(0)
 
   useEffect(() => {
-    fetchMatch()
-  }, [fetchMatch])
+    if (!id) return
+    const ctrl = new AbortController()
+    fetch(`/api/matches/${id}`, { signal: ctrl.signal })
+      .then(async (res) => {
+        if (res.status === 404) { setError('Match not found'); return null }
+        if (!res.ok) { setError('Failed to load match'); return null }
+        return res.json() as Promise<MatchSummary>
+      })
+      .then((data) => {
+        if (!data) return
+        setMatch(data)
+        setError(null)  // success clears any prior error
+      })
+      .catch((e) => {
+        if (ctrl.signal.aborted) return
+        console.error('Failed to fetch match:', e)
+        setError('Failed to load match')
+      })
+    return () => ctrl.abort()
+  }, [id, refetchToken])
+
+  // Loading is derived: nothing yet AND no error to show. During
+  // refetches (e.g. after toggling featured) `match` retains the
+  // optimistic value, so we don't flash a spinner over user-visible
+  // content — the eventual server confirmation just refreshes in place.
+  const loading = !match && !error
 
   const toggleFeatured = async () => {
     if (!match || !auth.token) return
@@ -58,15 +62,9 @@ export function MatchDetailPage() {
       }
       // Optimistic update + refetch to confirm server state.
       setMatch({ ...match, is_featured: next })
-      fetchMatch()
+      setRefetchToken((t) => t + 1)
     } finally {
       setFeaturePending(false)
-    }
-  }
-
-  const handlePlayerClick = (_playerName: string, _cleanName: string, playerId?: number) => {
-    if (playerId) {
-      navigate(`/players/${playerId}`)
     }
   }
 
@@ -117,7 +115,7 @@ export function MatchDetailPage() {
             <div className="match-detail-card-container">
               <MatchCard
                 match={match}
-                onPlayerClick={handlePlayerClick}
+                onPlayerClick={showPlayer}
               />
             </div>
           </>

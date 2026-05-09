@@ -45,6 +45,13 @@ interface LiveDataValue {
   selectedPlayer: SelectedPlayer | null
   showPlayer: (playerName: string, cleanName: string, playerId?: number) => void
   closePlayer: () => void
+  /** Monotonic counter — bumps every time the user clicks "View full
+   *  profile" inside the player-stats modal. Pages that host search /
+   *  list state (e.g. PlayersPage) can watch the counter to detect the
+   *  drill-in commit even when the URL doesn't change (clicking through
+   *  to the player you're already viewing). */
+  drillInVersion: number
+  notifyDrillIn: () => void
 
   // Forced password-change modal — needs to surface regardless of route.
   showPasswordChange: boolean
@@ -493,6 +500,11 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
 
   const closePlayer = useCallback(() => setSelectedPlayer(null), [])
 
+  // Bumped by the modal's "View full profile" CTA so pages can react to
+  // drill-in intent independently of URL change.
+  const [drillInVersion, setDrillInVersion] = useState(0)
+  const notifyDrillIn = useCallback(() => setDrillInVersion((v) => v + 1), [])
+
   const toggleActivityDrawer = useCallback(() => setActivityDrawerOpen((v) => !v), [])
 
   const value = useMemo<LiveDataValue>(() => ({
@@ -500,6 +512,7 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
     activeHumanPlayersCount, activeServersCount,
     activityDrawerOpen, setActivityDrawerOpen, toggleActivityDrawer,
     selectedPlayer, showPlayer, closePlayer,
+    drillInVersion, notifyDrillIn,
     showPasswordChange, setShowPasswordChange,
     commandPaletteOpen, setCommandPaletteOpen,
   }), [
@@ -507,6 +520,7 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
     activeHumanPlayersCount, activeServersCount,
     activityDrawerOpen, toggleActivityDrawer,
     selectedPlayer, showPlayer, closePlayer,
+    drillInVersion, notifyDrillIn,
     showPasswordChange,
     commandPaletteOpen,
   ])
