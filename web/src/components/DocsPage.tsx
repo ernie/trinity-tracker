@@ -3,6 +3,9 @@ import { useLocation, Outlet } from "react-router-dom";
 import { DocsTocRail, type DocSection } from "./docs/DocsTocRail";
 import { DocsOnThisPage } from "./docs/DocsOnThisPage";
 import { DocsPrevNext } from "./docs/DocsPrevNext";
+import { PlatformProvider } from "./docs/PlatformContext";
+import { PlatformPicker } from "./docs/PlatformPicker";
+import { PlatformBadge } from "./docs/PlatformBadge";
 
 export function DocsPage() {
   const location = useLocation();
@@ -49,33 +52,36 @@ export function DocsPage() {
   }, [location.pathname, location.hash]);
 
   return (
-    <div className="about-page docs-page-v2">
-      <div className="docs-layout">
-        <aside className="docs-layout__left">
-          <DocsTocRail />
-        </aside>
+    <PlatformProvider renderPicker={(onPick) => <PlatformPicker onPick={onPick} />}>
+      <div className="about-page docs-page-v2">
+        <div className="docs-layout">
+          <aside className="docs-layout__left">
+            <PlatformBadge />
+            <DocsTocRail />
+          </aside>
 
-        <main className="docs-layout__content" ref={contentRef}>
-          <Outlet />
-          <DocsPrevNext />
+          <main className="docs-layout__content" ref={contentRef}>
+            <Outlet />
+            <DocsPrevNext />
 
-          <div className="about-section docs-disclaimer">
-            <h2>Please don't sue me.</h2>
-            <p>
-              Trinity is not affiliated, associated, authorized, endorsed by, or
-              in any way officially connected with Bethesda or id Software, or any
-              of its subsidiaries or its affiliates. Quake 3, Quake 3 Arena, id,
-              id Software, id Tech and related logos are registered trademarks or
-              trademarks of id Software LLC in the U.S. and/or other countries.
-              All Rights Reserved.
-            </p>
-          </div>
-        </main>
+            <div className="about-section docs-disclaimer">
+              <h2>Please don't sue me.</h2>
+              <p>
+                Trinity is not affiliated, associated, authorized, endorsed by, or
+                in any way officially connected with Bethesda or id Software, or any
+                of its subsidiaries or its affiliates. Quake 3, Quake 3 Arena, id,
+                id Software, id Tech and related logos are registered trademarks or
+                trademarks of id Software LLC in the U.S. and/or other countries.
+                All Rights Reserved.
+              </p>
+            </div>
+          </main>
 
-        <aside className="docs-layout__right">
-          <DocsOnThisPage sections={sections} />
-        </aside>
+          <aside className="docs-layout__right">
+            <DocsOnThisPage sections={sections} />
+          </aside>
+        </div>
       </div>
-    </div>
+    </PlatformProvider>
   );
 }
