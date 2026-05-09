@@ -9252,6 +9252,13 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   bottom: calc(22px + env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
+  /* Flex with align-items: center pulls the inline SVG arrow's center
+     onto the cap-height center of "SCROLL" — without this the icon
+     sits on the baseline and reads as visually high. The trailing space
+     in "Scroll " plus letter-spacing supplies the gap; no explicit gap
+     value keeps spacing identical to the prior text-glyph version. */
+  display: inline-flex;
+  align-items: center;
   font-family: 'Barlow', sans-serif;
   font-size: 10px;
   letter-spacing: 0.4em;
