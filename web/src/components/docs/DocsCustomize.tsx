@@ -283,18 +283,18 @@ export function DocsCustomize() {
       <div className="about-section">
         <DocsH2 id="modes-note">Movement &amp; gameplay modes</DocsH2>
         <p>
-          Trinity ships with the major Quake 3 movement and
-          gameplay variants — vanilla Q3, CPMA, Quake Live, and
-          Quake Live Turbo — and lets you switch between them
-          anywhere, including in single-player against bots. The
-          other Q3 forks lock you into a single ruleset.
+          Trinity ships with several Quake 3 movement and
+          gameplay variants. Usually, they are matched together:
+          Vanilla Q3 and Vanilla Q3, CPMA and CPMA, Quake Live
+          (or Quake Live Turbo) and Quake Live, but you can mix
+          and match if you like, and the choices you make in the
+          menu will affect all of your local single player games.
         </p>
         <p>
-          In multiplayer the server picks the rules: the in-game
-          menu options govern local play only, and joining a
+          In multiplayer the server picks the rules — joining a
           server hands movement and gameplay over to whatever
           it's running. Pull up the scoreboard during a match to
-          see what's active — the modes appear as small icons in
+          see what's active: the modes appear as small icons in
           the top-right of the HUD, and the server name usually
           calls them out too.
         </p>
