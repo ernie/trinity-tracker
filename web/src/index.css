@@ -11201,3 +11201,39 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   border-radius: 6px;
   margin-top: 4px;
 }
+
+/* ─── /credits page ───────────────────────────────────────────
+   Simple top-level credits, outside docs chrome.
+   ──────────────────────────────────────────────────────────── */
+
+.credits-page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 40px 20px 64px;
+  color: var(--text);
+}
+
+.credits-page__title {
+  font-family: 'Cinzel', serif;
+  font-size: 2rem;
+  margin: 0 0 20px;
+  color: var(--text);
+}
+
+.credits-page p,
+.credits-page li {
+  line-height: 1.65;
+  color: var(--text-dim);
+}
+
+.credits-page ul {
+  padding-left: 1.5rem;
+}
+
+.credits-page li {
+  margin-bottom: 6px;
+}
+
+.credits-page a {
+  color: var(--ember-tint-text);
+}
