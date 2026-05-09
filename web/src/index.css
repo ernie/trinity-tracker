@@ -45,6 +45,10 @@
   --text-dim: #a8a090;
   --accent: #fff8f0;
   --accent-dim: #d0c8b8;
+  /* Warm orange used for ceremonial accents (rule gradients, glows,
+     featured chips). Referenced widely; fallback hex used to be inline. */
+  --ember-strong: #ff6e3c;
+  --ember-light: #ffc78a;
   --green: #4caf50;
   --blue: #2196f3;
   --red: #e94560;
@@ -157,7 +161,10 @@ h2 {
 .app-shell {
   display: flex;
   flex-direction: column;
+  /* svh keeps the footer pinned correctly when iOS Safari's URL bar
+     expands; vh is the fallback for browsers without svh support. */
   min-height: 100vh;
+  min-height: 100svh;
 }
 
 .app-main { flex: 1; }
@@ -2716,7 +2723,9 @@ h2 {
   position: fixed;
   top: 0;
   right: 0;
+  /* svh prevents drawer overflow when iOS URL bar expands. */
   height: 100vh;
+  height: 100svh;
   width: min(560px, 100%);
   background: linear-gradient(180deg, #181412 0%, var(--bg-card) 60%);
   color: var(--text);
@@ -7650,19 +7659,22 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   margin-top: 1rem;
 }
 
-/* Controls bar */
+/* Controls bar — grows by safe-area inset on iOS so the 48px control
+   row stays centered above the home indicator while the bar still
+   fills the screen edge. box-sizing: border-box keeps align-items:
+   center anchored to the original 48px content height. */
 .demo-controls-bar {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  height: 48px;
+  height: calc(48px + env(safe-area-inset-bottom, 0px));
+  padding: 0 16px env(safe-area-inset-bottom, 0px);
   background: rgba(0, 0, 0, 0.85);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 12px;
-  padding: 0 16px;
   z-index: 20;
   -webkit-touch-callout: none;
   -webkit-user-select: none;
@@ -7917,7 +7929,8 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 .demo-move-pad {
   display: none;
   position: fixed;
-  bottom: 56px;
+  /* Sits above the controls bar; both account for safe-area inset. */
+  bottom: calc(56px + env(safe-area-inset-bottom, 0px));
   left: 8px;
   grid-template-columns: repeat(3, 48px);
   grid-template-rows: repeat(2, 48px);
