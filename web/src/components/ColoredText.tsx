@@ -1,18 +1,20 @@
 import { useMemo } from 'react'
 
-// Q3 color codes: ^0-^9
+// Q3 chat color codes ^0–^7 (stock palette). Engine forks may extend
+// the table (e.g., ^8/^9 = orange/gray in some builds); we render those
+// as literal text since stock Q3 doesn't support them.
 const Q3_COLORS: Record<string, string> = {
-  '0': '#000000', // black
-  '1': '#ff0000', // red
-  '2': '#00ff00', // green
-  '3': '#ffff00', // yellow
-  '4': '#0000ff', // blue
-  '5': '#00ffff', // cyan
-  '6': '#ff00ff', // magenta
-  '7': '#ffffff', // white
-  '8': '#ff8800', // orange
-  '9': '#888888', // gray
+  '0': 'var(--q3-color-0)',
+  '1': 'var(--q3-color-1)',
+  '2': 'var(--q3-color-2)',
+  '3': 'var(--q3-color-3)',
+  '4': 'var(--q3-color-4)',
+  '5': 'var(--q3-color-5)',
+  '6': 'var(--q3-color-6)',
+  '7': 'var(--q3-color-7)',
 }
+
+const DEFAULT_COLOR = 'var(--q3-color-7)' // white
 
 interface ColoredSegment {
   text: string
@@ -21,7 +23,7 @@ interface ColoredSegment {
 
 function parseQ3ColorCodes(name: string): ColoredSegment[] {
   const segments: ColoredSegment[] = []
-  let currentColor = '#ffffff' // default white
+  let currentColor = DEFAULT_COLOR
   let currentText = ''
   let i = 0
 

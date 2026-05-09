@@ -53,6 +53,17 @@
   --blue: #2196f3;
   --red: #e94560;
 
+  /* Q3 chat color codes ^0–^7 (stock palette). Driven by ColoredText.tsx;
+     these are protocol primaries, not chrome — keep raw RGB. */
+  --q3-color-0: #000000; /* black */
+  --q3-color-1: #ff0000; /* red */
+  --q3-color-2: #00ff00; /* green */
+  --q3-color-3: #ffff00; /* yellow */
+  --q3-color-4: #0000ff; /* blue */
+  --q3-color-5: #00ffff; /* cyan */
+  --q3-color-6: #ff00ff; /* magenta */
+  --q3-color-7: #ffffff; /* white */
+
   /* Spacing scale (4-multiple). New work uses these; legacy unchanged. */
   --space-1: 4px;
   --space-2: 8px;
