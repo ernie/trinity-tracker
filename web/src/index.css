@@ -5611,7 +5611,7 @@ h2 {
 .game-type-btn {
   padding: 6px 14px;
   background: var(--bg-card);
-  border: 1px solid #333;
+  border: var(--rule-strong);
   color: var(--text-dim);
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -5626,9 +5626,9 @@ h2 {
 }
 
 .game-type-btn.active {
-  background: var(--red);
-  border-color: var(--red);
-  color: #fff;
+  background: var(--ember-strong);
+  border-color: var(--ember-strong);
+  color: var(--bg);
 }
 
 /* Category selector — 6 columns so 8–12 categories pack as 2 even rows. */
@@ -6987,11 +6987,16 @@ details[open] > .admin-form-toggle .admin-form-toggle__caret {
 }
 
 .about-section a {
-  color: var(--red);
+  color: var(--ember-strong);
 }
 
+/* CTA inside about-section needs explicit color: the .about-section a
+   rule above outranks the bare .getting-started-cta selector via
+   selector specificity, so without this override the dark-on-ember
+   CTA would render ember-on-ember (invisible). var(--bg) matches the
+   redesigned CTA's foreground. */
 .about-section .getting-started-cta {
-  color: #fff;
+  color: var(--bg);
 }
 
 .about-section code {
@@ -7739,7 +7744,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 }
 
 .demo-player-error a {
-  color: var(--red);
+  color: var(--ember-strong);
   display: block;
   margin-top: 1rem;
 }
