@@ -4,10 +4,12 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import App from './App'
 import { LandingPage, PlayersPage, AccountPage, LeaderboardPage, MatchesPage, MatchDetailPage, DemoPlayerPage, PlayPage, DocsPage, ClaimPage } from './components'
 import { Quake3EulaPage } from './components/Quake3EulaPage'
-import { DocsGettingStarted } from './components/docs/DocsGettingStarted'
-import { DocsFeatures } from './components/docs/DocsFeatures'
 import { DocsServerAdmin } from './components/docs/DocsServerAdmin'
 import { DocsWelcome } from './components/docs/DocsWelcome'
+import { DocsInstall } from './components/docs/DocsInstall'
+import { DocsAccount } from './components/docs/DocsAccount'
+import { DocsCustomize } from './components/docs/DocsCustomize'
+import { DocsReference } from './components/docs/DocsReference'
 import { FeaturesPage } from './components/FeaturesPage'
 import { CreditsPage } from './components/CreditsPage'
 import { AdminPage } from './components/admin/AdminPage'
@@ -47,9 +49,11 @@ createRoot(document.getElementById('root')!).render(
                 <Route path="/account" element={<AccountPage />} />
                 <Route path="/docs" element={<DocsPage />}>
                   <Route index element={<DocsWelcome />} />
-                  <Route path="getting-started" element={<DocsGettingStarted />} />
-                  <Route path="features" element={<DocsFeatures />} />
+                  <Route path="install" element={<DocsInstall />} />
+                  <Route path="account" element={<DocsAccount />} />
+                  <Route path="customize" element={<DocsCustomize />} />
                   <Route path="server-admin" element={<DocsServerAdmin />} />
+                  <Route path="reference" element={<DocsReference />} />
                 </Route>
                 <Route path="/features" element={<FeaturesPage />} />
                 <Route path="/credits" element={<CreditsPage />} />
