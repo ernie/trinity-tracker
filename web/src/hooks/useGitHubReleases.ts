@@ -5,14 +5,40 @@ export interface ReleaseInfo {
   displayName: string
   version: string | null
   url: string
+  assetUrl?: string
   bundled: boolean
 }
 
-const REPOS = [
+// Shape of the bits of GitHub's /releases/latest response we consume.
+interface GitHubAsset {
+  name: string
+  browser_download_url: string
+}
+
+interface RepoConfig {
+  repo: string
+  displayName: string
+  bundled: boolean
+  // Optional asset selector — when the API call succeeds, the matching
+  // asset's browser_download_url is exposed as ReleaseInfo.assetUrl.
+  // Use for repos whose canonical download is version-stamped (e.g.,
+  // an APK named with the release tag) where /releases/latest/download
+  // can't be used with a constant filename. Repos with stable asset
+  // names should skip the matcher and hardcode the redirect URL at the
+  // call site instead.
+  assetMatcher?: (asset: GitHubAsset) => boolean
+}
+
+const REPOS: RepoConfig[] = [
   { repo: 'trinity', displayName: 'Trinity Mod', bundled: false },
   { repo: 'trinity-engine', displayName: 'Trinity Engine', bundled: true },
   { repo: 'q3vr', displayName: 'Quake 3 VR', bundled: true },
-  { repo: 'ioq3quest', displayName: 'Quake3Quest', bundled: true },
+  {
+    repo: 'ioq3quest',
+    displayName: 'Quake3Quest',
+    bundled: true,
+    assetMatcher: (a) => /^ioq3quest-.*\.apk$/.test(a.name),
+  },
 ]
 
 const CACHE_KEY = 'github-releases'
@@ -66,13 +92,18 @@ export function useGitHubReleases() {
           if (!res.ok) throw new Error(`${res.status}`)
           return res.json()
         })
-        .then(data => ({
-          repo: r.repo,
-          displayName: r.displayName,
-          version: data.tag_name as string,
-          url: `https://github.com/ernie/${r.repo}/releases/latest`,
-          bundled: r.bundled,
-        }))
+        .then(data => {
+          const assets: GitHubAsset[] = Array.isArray(data.assets) ? data.assets : []
+          const matched = r.assetMatcher ? assets.find(r.assetMatcher) : undefined
+          return {
+            repo: r.repo,
+            displayName: r.displayName,
+            version: data.tag_name as string,
+            url: `https://github.com/ernie/${r.repo}/releases/latest`,
+            assetUrl: matched?.browser_download_url,
+            bundled: r.bundled,
+          }
+        })
         .catch(() => ({
           repo: r.repo,
           displayName: r.displayName,

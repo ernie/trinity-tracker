@@ -7069,7 +7069,18 @@ details[open] > .admin-form-toggle .admin-form-toggle__caret {
   color: var(--text-dim);
 }
 
-.about-section ul:last-child {
+.about-section ol {
+  list-style: decimal;
+  padding-left: 1.5em;
+  margin: 0 0 1em 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--text-dim);
+}
+
+.about-section ul:last-child,
+.about-section ol:last-child {
   margin-bottom: 0;
 }
 
@@ -10912,6 +10923,25 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   margin-bottom: 0;
 }
 
+/* Compact inline chip for marking content as platform-specific
+   without the full PlatformNote callout treatment — used in
+   troubleshooting summaries and other places where an item is
+   targeted at a subset of platforms but should still match the
+   surrounding visual register. */
+.docs-platform-chip {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-dim);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
 /* ─── Docs platform badge ─────────────────────────────────────
    Compact rail-top platform indicator. Mirrors the inline-tab
    selection state.
@@ -11289,6 +11319,60 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   outline: none;
 }
 
+/* "You're done" banner shown after the final install step — gives
+   the install flow a clear finish line, distinct from the auxiliary
+   reference sections that follow. Uses the same ember-tint palette
+   as PlatformNote so it lands in the docs' visual vocabulary, but
+   shaped (no chip, larger lead line) as a moment of completion. */
+.install-complete {
+  margin: 16px 0 0;
+  padding: 16px 20px;
+  background: var(--ember-tint-bg);
+  border: 1px solid var(--ember-strong);
+  border-radius: 8px;
+}
+
+.about-section .install-complete p {
+  margin: 0;
+  color: var(--text);
+  line-height: 1.55;
+}
+
+.about-section .install-complete .install-complete__title {
+  margin-bottom: 8px;
+  color: var(--ember-tint-text);
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+/* Small inline external-link icon — paired with new-tab links so
+   the open-in-new-tab behavior reads visually before the click.
+   `vertical-align` nudge lifts the glyph onto the text baseline. */
+.external-link-icon {
+  margin-left: 4px;
+  vertical-align: -1px;
+}
+
+/* "Need a different platform?" hint shown next to the primary
+   install-download-link CTA — small muted line that points at the
+   full release listing for users on builds outside the auto-
+   detected default. */
+.install-download-others {
+  display: inline-block;
+  margin: 0 0 12px;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.install-download-others a {
+  color: inherit;
+  text-decoration: underline;
+}
+
+.install-download-others a:hover {
+  color: var(--ember-strong);
+}
+
 /* Troubleshooting list on /docs/install — collapsible details
    items grouped under Step 5. Tight visual rhythm so scanning
    the summary line is fast. */
@@ -11307,18 +11391,53 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 
 .install-trouble > summary {
   cursor: pointer;
-  padding: 12px 14px;
+  padding: 12px 38px 12px 14px;
   font-weight: 600;
   color: var(--text);
   list-style: none;
+  position: relative;
+  border-radius: 6px;
+  transition: background 120ms ease;
 }
 
 .install-trouble > summary::-webkit-details-marker {
   display: none;
 }
 
+/* Custom chevron — drawn from two borders so it tints with the
+   theme. Right-pointing when collapsed, rotates to point down when
+   open. With border-right + border-bottom, rotate(-45deg) puts the
+   corner of the L (the chevron's tip) at the right; rotate(45deg)
+   puts it at the bottom. */
+.install-trouble > summary::after {
+  content: '';
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--text-dim);
+  border-bottom: 2px solid var(--text-dim);
+  transform: translateY(-50%) rotate(-45deg);
+  transition: transform 150ms ease, border-color 120ms ease;
+}
+
+.install-trouble > summary:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.install-trouble > summary:hover::after {
+  border-color: var(--text);
+}
+
 .install-trouble[open] > summary {
   border-bottom: 1px solid var(--rule);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.install-trouble[open] > summary::after {
+  transform: translateY(-50%) rotate(45deg);
 }
 
 .install-trouble__body {
@@ -11333,4 +11452,13 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 
 .install-trouble__body > p:last-child {
   margin-bottom: 0;
+}
+
+/* Restore list marker space — the global `* { padding: 0 }` reset
+   strips padding-inline-start, which pushes ol numbers outside the
+   body's padded box. Re-add explicit indent so markers sit inside. */
+.install-trouble__body ol,
+.install-trouble__body ul {
+  padding-inline-start: 1.5em;
+  margin: 8px 0;
 }
