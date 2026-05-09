@@ -1,119 +1,120 @@
-import { Link } from "react-router-dom";
-import { useGitHubReleases } from "../../hooks/useGitHubReleases";
-import { DISCORD_INVITE_URL } from "../../constants/discord";
-import { DocsH2 } from "./DocsH2";
+import { useGitHubReleases } from '../../hooks/useGitHubReleases'
+import { DocsH2 } from './DocsH2'
+import { PlatformTabs } from './PlatformTabs'
+import { PlatformNote } from './PlatformNote'
 
-const DOWNLOAD_DESCRIPTIONS: Record<string, string> = {
-  trinity: "Custom Quake 3 mod with Trinity features",
-  "trinity-engine": "Flatscreen engine based on Quake3e",
-  q3vr: "VR engine for PC VR headsets",
-  ioq3quest: "VR engine for Meta Quest (2, 3, or 3S)",
-};
-
-// New /docs/install page — extracted from DocsGettingStarted as part
-// of the Phase 2 IA split. Content is unchanged in this phase; tone
-// + platform-aware variants land in a later phase.
+// /docs/install — five-step install guide. Replaces the Phase 2
+// verbatim lift from the old DocsGettingStarted with verified
+// per-platform content. Each engine's binary is shown via
+// PlatformTabs; small per-platform deviations use PlatformNote.
 export function DocsInstall() {
-  const { releases } = useGitHubReleases();
+  const { releases } = useGitHubReleases()
+
+  // Map releases to platform — release.repo identifies which engine
+  // a binary is for. trinity-engine = flatscreen, q3vr = pcvr,
+  // ioq3quest = quest. The fourth ('trinity') is the mod itself,
+  // bundled with each engine, not a standalone download here.
+  const flatscreen = releases.find((r) => r.repo === 'trinity-engine')
+  const pcvr = releases.find((r) => r.repo === 'q3vr')
+  const quest = releases.find((r) => r.repo === 'ioq3quest')
 
   return (
     <>
       <div className="about-section">
-        <DocsH2 id="install-trinity">Install Trinity</DocsH2>
+        <DocsH2 id="install-trinity">Step 1 — Download Trinity</DocsH2>
         <p>
-          Downloading these builds is the only way to enjoy all Trinity
-          features. All engine downloads include the Trinity mod that was
-          current at time of release. If you own{" "}
-          <a href="https://store.steampowered.com/app/2200/Quake_III_Arena/">
-            Quake 3 Arena on Steam
-          </a>
-          , copy your <code>baseq3</code> and <code>missionpack</code>{" "}
-          <code>.pk3</code> files into the matching folders in your Trinity
-          install — most public servers require the full game assets. Stop by
-          the <a href={DISCORD_INVITE_URL}>Trinity Discord</a>{" "}
-          if you have questions or want to connect.
+          Trinity ships as a custom Quake 3 engine plus the gameplay
+          mod. Each engine targets a different way of playing — pick
+          the one that matches your setup.
         </p>
-        <p>
-          The free Quake 3 demo (evaluation version) is not supported —
-          Trinity targets retail Quake 3 only. Running demo servers or
-          clients against Trinity is entirely on you.
-        </p>
-        <p>
-          Need the 1.32 point-release patch data?{" "}
-          <Link to="/quake3-eula">Read the id Software EULA and download here</Link>.
-        </p>
-        <div className="about-downloads">
-          {releases.map((r) => (
-            <div key={r.repo}>
+
+        <PlatformTabs>
+          <PlatformTabs.Panel platform="flatscreen">
+            <p>
+              <strong>Trinity Engine</strong> is a Quake3e-based
+              build for desktop monitors with keyboard + mouse.
+            </p>
+            {flatscreen && (
               <a
-                href={r.url}
+                href={flatscreen.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="about-download-item"
+                className="install-download-link"
               >
-                <div className="about-download-info">
-                  <span className="about-download-name">
-                    {r.displayName}
-                    {r.bundled && (
-                      <span className="about-download-bundled">
-                        <img
-                          src="/assets/icon-128.png"
-                          alt=""
-                          className="about-download-bundled-icon"
-                        />
-                        Includes Trinity mod
-                      </span>
-                    )}
-                  </span>
-                  <span className="about-download-desc">
-                    {DOWNLOAD_DESCRIPTIONS[r.repo]}
-                  </span>
-                </div>
-                {r.version && (
-                  <span className="about-download-version">{r.version}</span>
-                )}
+                Download Trinity Engine{flatscreen.version ? ` ${flatscreen.version}` : ''} →
               </a>
-              {r.repo === "trinity" && (
-                <div className="about-download-install-note">
-                  Copy <code>pak8t.pk3</code> to your <code>baseq3</code>{" "}
-                  folder and <code>pak3t.pk3</code> to your{" "}
-                  <code>missionpack</code> folder.
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+            )}
+            <p>
+              The download bundles the Trinity mod that was current
+              at release time. The mod itself updates automatically
+              after install (see Step 4).
+            </p>
+          </PlatformTabs.Panel>
+
+          <PlatformTabs.Panel platform="pcvr">
+            <p>
+              <strong>Quake 3 VR</strong> is a PC-tethered VR build
+              based on RippeR37's Q3VR. Runs on any PCVR headset
+              (Index, Vive, Rift, tethered Quest, etc.) via SteamVR.
+            </p>
+            {pcvr && (
+              <a
+                href={pcvr.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="install-download-link"
+              >
+                Download Quake 3 VR{pcvr.version ? ` ${pcvr.version}` : ''} →
+              </a>
+            )}
+          </PlatformTabs.Panel>
+
+          <PlatformTabs.Panel platform="quest">
+            <p>
+              <strong>Quake3Quest</strong> runs natively on Meta
+              Quest 2, 3, and 3S — no PC required. Built on Team
+              Beef's Quake3Quest port.
+            </p>
+            {quest && (
+              <a
+                href={quest.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="install-download-link"
+              >
+                Download Quake3Quest{quest.version ? ` ${quest.version}` : ''} →
+              </a>
+            )}
+            <p>
+              Sideload the <code>.apk</code> using{' '}
+              <a
+                href="https://sidequestvr.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                SideQuest
+              </a>
+              {' '}— the same tool people use for the standard Team
+              Beef ports.
+            </p>
+            <PlatformNote platform="quest">
+              <p>
+                <strong>Already have the Team Beef Quake3Quest
+                installed?</strong> Uninstall it before installing
+                Trinity's build — the two can't coexist on the same
+                headset. While you're uninstalling, take the
+                opportunity to clear any{' '}
+                <code>autoexec.cfg</code> files from your{' '}
+                <code>baseq3</code> and <code>missionpack</code>{' '}
+                folders so Trinity starts with fresh settings.
+              </p>
+            </PlatformNote>
+          </PlatformTabs.Panel>
+        </PlatformTabs>
       </div>
 
-      <div className="about-section">
-        <DocsH2 id="automatic-updates">Automatic Updates</DocsH2>
-        <p>
-          Trinity checks for new releases on startup. When an update
-          is available, an indicator appears on the main menu. From there you
-          can download and apply the update without leaving the game.
-        </p>
-        <p>
-          You can also manage updates from the console:
-        </p>
-        <ul>
-          <li>
-            <code>update</code> — check for updates
-          </li>
-          <li>
-            <code>updatedownload</code> — download an available update
-          </li>
-          <li>
-            <code>updatecancel</code> — cancel an in-progress download
-          </li>
-          <li>
-            <code>updaterestart</code> — apply a downloaded update and restart
-          </li>
-        </ul>
-        <p>
-          To disable the automatic check, set <code>update_check 0</code> in
-          your config.
-        </p>
-      </div>
+      {/* Subsequent tasks (Steps 2-5) will append their about-section
+          blocks here. */}
     </>
-  );
+  )
 }
