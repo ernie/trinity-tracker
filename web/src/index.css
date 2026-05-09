@@ -5640,9 +5640,9 @@ h2 {
 }
 
 .game-type-btn.active {
-  background: var(--ember-strong);
+  background: rgba(255, 110, 60, 0.15);
   border-color: var(--ember-strong);
-  color: var(--bg);
+  color: rgb(255, 145, 95);
 }
 
 /* Category selector — 6 columns so 8–12 categories pack as 2 even rows. */
@@ -5681,8 +5681,8 @@ h2 {
 }
 
 .category-btn.active {
-  background: var(--ember-strong);
-  color: var(--bg);
+  background: rgba(255, 110, 60, 0.15);
+  color: rgb(255, 145, 95);
 }
 
 /* Leaderboard content — wrapper with no chrome of its own. Cards
@@ -6053,7 +6053,7 @@ h2 {
 .mode-filter-btn {
   padding: 4px 10px;
   background: var(--bg-card);
-  border: 1px solid #333;
+  border: var(--rule-strong);
   color: var(--text-dim);
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -6071,9 +6071,9 @@ h2 {
 }
 
 .mode-filter-btn.active {
-  background: var(--ember-strong);
+  background: rgba(255, 110, 60, 0.15);
   border-color: var(--ember-strong);
-  color: var(--bg);
+  color: rgb(255, 145, 95);
 }
 
 .mode-filter-btn.icon-btn {
