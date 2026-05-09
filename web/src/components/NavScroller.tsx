@@ -2,16 +2,22 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 interface NavScrollerProps {
   children: ReactNode
+  // Class applied to the inner scroll container. Each surface (header
+  // page-nav, admin sidebar, etc.) supplies its own so it can hook the
+  // mobile overflow + mask CSS without colliding with siblings. The
+  // `is-scroll-left` / `is-scroll-right` state classes are appended
+  // alongside it.
+  scrollClassName?: string
 }
 
-// Wraps the mobile-scrollable page nav with edge affordances that
+// Wraps a mobile-scrollable nav strip with edge affordances that
 // appear when there's content past the visible edge. Desktop is
-// unchanged — the wrapper is `display: contents` so PageNav still
-// participates directly in the header row layout. On mobile the
-// wrapper becomes a positioned host for the chevron hints; the
+// unchanged — the wrapper is `display: contents` so the nav children
+// still participate directly in the host row/column layout. On mobile
+// the wrapper becomes a positioned host for the chevron hints; the
 // scroll container itself stays where it was so its mask + scroll
 // behavior keep working.
-export function NavScroller({ children }: NavScrollerProps) {
+export function NavScroller({ children, scrollClassName = 'app-header__nav-scroll' }: NavScrollerProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [canScrollLeft, setCanScrollLeft] = useState(false)
   const [canScrollRight, setCanScrollRight] = useState(false)
@@ -48,7 +54,7 @@ export function NavScroller({ children }: NavScrollerProps) {
   }
 
   const scrollClass = [
-    'app-header__nav-scroll',
+    scrollClassName,
     canScrollLeft ? 'is-scroll-left' : '',
     canScrollRight ? 'is-scroll-right' : '',
   ].filter(Boolean).join(' ')

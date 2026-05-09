@@ -1959,7 +1959,9 @@ h2 {
    On mobile, wrapped by .nav-scroller which hosts the edge chevron
    affordances. */
 .nav-scroller,
-.app-header__nav-scroll { display: contents; }
+.app-header__nav-scroll,
+.admin-sidebar__scroll,
+.admin-sidebar__strip { display: contents; }
 .nav-scroller__edge { display: none; }
 
 /* Hide the ⌘K / Ctrl K hint on touch-primary devices. Phones and
@@ -6365,19 +6367,61 @@ h2 {
 
   /* Mobile: rail flattens into a horizontal scroll strip with a bottom
      rule, and the active marker rotates to a bottom-edge indicator. */
+  /* Outer rail flattens; the inner .admin-sidebar__scroll handles
+     horizontal scrolling and the NavScroller wrapper hosts edge
+     chevrons + fade masks. Vertical drag passes through to the page
+     because overflow-y on the scroll container is hidden.
+     min-width: 0 is critical: as a grid item of .admin-layout, the
+     default min-width: auto would let the wide tab strip below push
+     the grid column wider than the viewport, dragging the page body
+     along with it. min-width: 0 lets the column collapse to its
+     allotted 1fr and the scroll container actually clip + scroll. */
   .admin-sidebar {
     flex-direction: row;
-    overflow-x: auto;
     position: static;
     padding: 0;
-    gap: var(--space-1);
     border-right: none;
     border-bottom: var(--rule);
-    scrollbar-width: none;
+    min-width: 0;
   }
 
-  .admin-sidebar::-webkit-scrollbar {
-    display: none;
+  /* Outer scroll container is the overflow host; mirrors the page-nav
+     pattern (.app-header__nav-scroll wraps .page-nav). flex: 1/min-width: 0
+     let it shrink to the available room inside .nav-scroller's flex item. */
+  .admin-sidebar__scroll {
+    display: block;
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .admin-sidebar__scroll::-webkit-scrollbar { display: none; }
+  .admin-sidebar__scroll.is-scroll-left {
+    mask-image: linear-gradient(to right, transparent, black 28px);
+    -webkit-mask-image: linear-gradient(to right, transparent, black 28px);
+  }
+  .admin-sidebar__scroll.is-scroll-right {
+    mask-image: linear-gradient(to left, transparent, black 28px);
+    -webkit-mask-image: linear-gradient(to left, transparent, black 28px);
+  }
+  .admin-sidebar__scroll.is-scroll-left.is-scroll-right {
+    mask-image: linear-gradient(to right, transparent, black 28px, black calc(100% - 28px), transparent);
+    -webkit-mask-image: linear-gradient(to right, transparent, black 28px, black calc(100% - 28px), transparent);
+  }
+  /* width: max-content makes the strip size to its actual content so
+     scrollWidth reflects real overflow rather than the parent's
+     clientWidth. No trailing padding here (unlike .page-nav's 32px):
+     admin's 5 short tabs typically fit at iPhone widths, and any
+     trailing pad would force a tiny chevron-revealing overflow into
+     dead space. When content does overflow, the chevron tap snaps
+     scroll to the end where is-scroll-right (and its right-fade) drop. */
+  .admin-sidebar__strip {
+    display: flex;
+    flex-direction: row;
+    width: max-content;
+    gap: var(--space-1);
   }
 
   .admin-sidebar-link {

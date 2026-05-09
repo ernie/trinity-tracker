@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
+import { NavScroller } from '../NavScroller'
 
 const ADMIN_TABS = [
   { path: 'users', label: 'Users' },
@@ -55,22 +56,33 @@ export function AdminPage() {
       <div className="admin-workspace">
         <div className="admin-layout">
           <nav className="admin-sidebar">
-            {ADMIN_TABS.map((tab) => (
-              <NavLink
-                key={tab.path}
-                to={`/admin/${tab.path}`}
-                className={({ isActive }) =>
-                  `admin-sidebar-link ${isActive ? 'active' : ''}`
-                }
-              >
-                <span>{tab.label}</span>
-                {tab.path === 'sources' && pendingCount > 0 && (
-                  <span className="admin-sidebar-link__badge" title={`${pendingCount} pending requests`}>
-                    {pendingCount}
-                  </span>
-                )}
-              </NavLink>
-            ))}
+            {/* On desktop both NavScroller's wrapper and the strip below
+                are display: contents, so links sit directly in the
+                sidebar's flex column. On mobile the wrapper hosts the
+                edge chevrons (absolute) and the strip becomes a flex
+                row sized to its content (width: max-content), with the
+                outer .admin-sidebar__scroll providing overflow + masks.
+                Same shape as PageNav inside the header NavScroller. */}
+            <NavScroller scrollClassName="admin-sidebar__scroll">
+              <div className="admin-sidebar__strip">
+                {ADMIN_TABS.map((tab) => (
+                  <NavLink
+                    key={tab.path}
+                    to={`/admin/${tab.path}`}
+                    className={({ isActive }) =>
+                      `admin-sidebar-link ${isActive ? 'active' : ''}`
+                    }
+                  >
+                    <span>{tab.label}</span>
+                    {tab.path === 'sources' && pendingCount > 0 && (
+                      <span className="admin-sidebar-link__badge" title={`${pendingCount} pending requests`}>
+                        {pendingCount}
+                      </span>
+                    )}
+                  </NavLink>
+                ))}
+              </div>
+            </NavScroller>
           </nav>
 
           <div className="admin-content">
