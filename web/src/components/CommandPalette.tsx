@@ -36,6 +36,7 @@ const ROUTE_ITEMS = [
 ]
 
 const DOCS_ITEMS = [
+  { path: '/features', label: "What's in Trinity?", hint: 'Showcase · videos' },
   { path: '/docs/getting-started', label: 'Getting started', hint: 'Install · account · updates' },
   { path: '/docs/getting-started#install-trinity', label: 'Install Trinity' },
   { path: '/docs/getting-started#your-account', label: 'Your account' },
@@ -50,7 +51,7 @@ const DOCS_ITEMS = [
   { path: '/docs/server-admin#contributing-stats', label: 'Contributing stats' },
   { path: '/docs/server-admin#server-cvars', label: 'Server cvars' },
   { path: '/docs/server-admin#trinity-handshake', label: 'Trinity handshake' },
-  { path: '/docs/credits', label: 'Credits' },
+  { path: '/credits', label: 'Credits' },
 ]
 
 // Substring + token-prefix scoring. Returns 0 for no match.
