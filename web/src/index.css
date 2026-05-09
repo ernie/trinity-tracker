@@ -10943,3 +10943,60 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 .docs-platform-note__body > p:last-child {
   margin-bottom: 0;
 }
+
+/* ─── Docs platform badge ─────────────────────────────────────
+   Compact rail-top platform indicator. Mirrors the inline-tab
+   selection state.
+   ──────────────────────────────────────────────────────────── */
+
+.docs-platform-badge {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 12px 14px;
+  margin-bottom: 14px;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: var(--bg-elev);
+}
+
+.docs-platform-badge__label {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+
+.docs-platform-badge__strip {
+  display: flex;
+  gap: 4px;
+}
+
+.docs-platform-badge__btn {
+  flex: 1;
+  padding: 6px 4px;
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+
+.docs-platform-badge__btn:hover {
+  color: var(--text);
+  border-color: var(--rule-strong);
+}
+
+.docs-platform-badge__btn.is-active {
+  color: var(--ember-tint-text);
+  background: var(--ember-tint-bg);
+  border-color: var(--ember-strong);
+}
+
+.docs-platform-badge__btn:focus-visible {
+  outline: 2px solid var(--ember-strong);
+  outline-offset: 1px;
+}
