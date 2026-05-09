@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { heartbeatHealth, healthLabel, timeAgo } from '../utils/sourceHealth'
+import { StatusDot } from './StatusDot'
 import type { MySourceEntry } from '../types'
 
 export interface MyServersDrawerProps {
@@ -256,7 +257,7 @@ function SourceCard({ src, onUpdated }: SourceCardProps) {
               <span className="server-key">{s.key}</span>
               <span className="server-addr">{s.address}</span>
               <span className={`server-state ${live ? 'running' : 'idle'}`}>
-                {live ? '● running' : '○ idle'}
+                <StatusDot active={live} /> {live ? 'running' : 'idle'}
               </span>
             </li>
           )

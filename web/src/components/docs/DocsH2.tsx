@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { CheckIcon } from '../CheckIcon'
 
 interface DocsH2Props {
   id: string
@@ -31,7 +32,7 @@ export function DocsH2({ id, children }: DocsH2Props) {
         aria-label={`Copy link to ${typeof children === 'string' ? children : 'this section'}`}
         onClick={copyAnchor}
       >
-        {copied ? '✓' : '#'}
+        {copied ? <CheckIcon /> : '#'}
       </button>
     </h2>
   )

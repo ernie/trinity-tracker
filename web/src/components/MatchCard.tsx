@@ -10,6 +10,7 @@ import { PlayerRows } from './cards/PlayerRows'
 import { SpectatorStrip } from './cards/SpectatorStrip'
 import { classifyScores, awardsFromCounts } from './cards/format'
 import { PlayIcon } from './PlayIcon'
+import { StarIcon } from './StarIcon'
 import { useMapMeta } from '../hooks/useMapMeta'
 import { useSources } from '../hooks/useSources'
 import { useAuth } from '../hooks/useAuth'
@@ -240,11 +241,11 @@ export function MatchCard({
             className={`card__feature-toggle${isFeatured ? ' is-featured' : ''}`}
             onClick={toggleFeatured}
             disabled={featurePending}
-            title={isFeatured ? 'Featured demo — click to unfeature' : 'Feature this demo'}
-            aria-label={isFeatured ? 'Featured demo' : 'Feature this demo'}
+            title={isFeatured ? 'Unfeature this demo' : 'Feature this demo'}
+            aria-label={isFeatured ? 'Unfeature this demo' : 'Feature this demo'}
             aria-pressed={isFeatured}
           >
-            {isFeatured ? '★' : '☆'}
+            <StarIcon filled={isFeatured} size={16} />
           </button>
         )}
         {match.ended_at && (

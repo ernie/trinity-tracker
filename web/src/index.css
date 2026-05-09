@@ -6104,6 +6104,9 @@ h2 {
 }
 
 .match-feature-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-family: 'Barlow', sans-serif;
   font-size: 12px;
   letter-spacing: 0.18em;
@@ -10364,23 +10367,23 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 /* Admin-only: star to feature/unfeature a demo without navigating
    into the match detail page. Sits just left of the timestamp. */
 .card__feature-toggle {
+  display: inline-flex;
+  align-items: center;
   background: transparent;
   border: none;
   color: var(--text-dim);
   cursor: pointer;
-  font-size: 18px;
-  line-height: 1;
   padding: 2px 4px;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   flex-shrink: 0;
   transition: color 0.15s, transform 0.15s;
 }
 .card__feature-toggle:hover:not(:disabled),
 .card__feature-toggle:focus-visible:not(:disabled) {
-  color: gold;
+  color: var(--ember-light);
   outline: none;
 }
-.card__feature-toggle.is-featured { color: gold; }
+.card__feature-toggle.is-featured { color: var(--ember-light); }
 .card__feature-toggle:disabled {
   cursor: progress;
   opacity: 0.6;

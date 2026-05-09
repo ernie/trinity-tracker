@@ -5,6 +5,7 @@ import { Breadcrumbs } from './Breadcrumbs'
 import { useAuth } from '../hooks/useAuth'
 import { useLiveData } from '../contexts/LiveDataContext'
 import { formatExitReason } from './cards/format'
+import { StarIcon } from './StarIcon'
 import type { MatchSummary } from '../types'
 
 export function MatchDetailPage() {
@@ -107,7 +108,8 @@ export function MatchDetailPage() {
                     disabled={featurePending}
                     title="Featured matches surface on the landing page's Watch-a-fight door"
                   >
-                    {match.is_featured ? '★ Featured' : '☆ Feature this demo'}
+                    <StarIcon filled={match.is_featured} />
+                    {match.is_featured ? 'Featured' : 'Feature'}
                   </button>
                 )}
               </div>
