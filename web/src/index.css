@@ -11072,3 +11072,132 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   right: 18px;
   color: var(--ember-tint-text);
 }
+
+/* ─── /features page ──────────────────────────────────────────
+   Top-level showcase. Lifted videos from old DocsFeatures.
+   ──────────────────────────────────────────────────────────── */
+
+.features-page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 32px 20px 64px;
+}
+
+.features-page__hero {
+  margin-bottom: 40px;
+  max-width: 720px;
+}
+
+.features-page__title {
+  font-family: 'Cinzel', serif;
+  font-size: 2.5rem;
+  margin: 0 0 16px;
+  color: var(--text);
+}
+
+.features-page__lead {
+  font-size: 1.0625rem;
+  line-height: 1.65;
+  color: var(--text-dim);
+  margin: 0 0 24px;
+}
+
+.features-page__lead strong {
+  color: var(--ember-tint-text);
+  font-weight: 600;
+}
+
+.features-page__cta-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.features-page__cta {
+  display: inline-block;
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: 1px solid var(--rule-strong);
+  background: var(--bg-card);
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.features-page__cta:hover,
+.features-page__cta:focus-visible {
+  border-color: var(--ember-strong);
+  background: var(--ember-tint-bg);
+  color: var(--ember-tint-text);
+  outline: none;
+}
+
+.features-page__cta--primary {
+  background: var(--ember-tint-bg);
+  border-color: var(--ember-strong);
+  color: var(--ember-tint-text);
+}
+
+.features-page__cta--primary:hover {
+  background: rgba(255, 110, 60, 0.25);
+}
+
+.features-page__grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 720px) {
+  .features-page__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.features-page__card {
+  background: var(--bg-card);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.features-page__card-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.features-page__card-title {
+  font-family: 'Cinzel', serif;
+  font-size: 1.125rem;
+  margin: 0;
+  color: var(--text);
+}
+
+.features-page__card-cvar {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8125rem;
+  color: var(--text-dim);
+  background: var(--bg-elev);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.features-page__card-desc {
+  margin: 0;
+  color: var(--text-dim);
+  line-height: 1.55;
+}
+
+.features-page__card-video {
+  width: 100%;
+  border-radius: 6px;
+  margin-top: 4px;
+}
