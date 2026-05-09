@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useGitHubReleases } from '../../hooks/useGitHubReleases'
 import { DocsH2 } from './DocsH2'
 import { PlatformTabs } from './PlatformTabs'
@@ -113,8 +114,76 @@ export function DocsInstall() {
         </PlatformTabs>
       </div>
 
-      {/* Subsequent tasks (Steps 2-5) will append their about-section
-          blocks here. */}
+      <div className="about-section">
+        <DocsH2 id="copy-pak0">Step 2 — Copy <code>pak0.pk3</code> from your Quake 3 install</DocsH2>
+        <p>
+          Trinity is a mod, not a replacement game — you need a
+          legitimate copy of Quake 3 Arena to play. The{' '}
+          <code>pak0.pk3</code> file contains the original game
+          assets and isn't redistributable, so you bring your own:
+        </p>
+        <ul>
+          <li>
+            Buy{' '}
+            <a
+              href="https://store.steampowered.com/app/2200/Quake_III_Arena/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Quake 3 Arena on Steam
+            </a>
+            {' '}(or use a retail CD install).
+          </li>
+          <li>
+            Locate <code>baseq3/pak0.pk3</code> in your Quake 3 install
+            folder — typically{' '}
+            <code>steamapps/common/Quake 3 Arena/baseq3/</code>.
+          </li>
+          <li>
+            Copy it into Trinity's <code>baseq3</code> folder.
+          </li>
+        </ul>
+        <PlatformNote platform="quest">
+          <p>
+            On Quest, Trinity's <code>baseq3</code> folder lives at{' '}
+            <code>/sdcard/ioquake3Quest/baseq3/</code> on the headset's
+            internal storage. The engine creates this directory on
+            first launch. Use SideQuest's file browser, Android File
+            Transfer, or <code>adb push</code> to copy{' '}
+            <code>pak0.pk3</code> there.
+          </p>
+        </PlatformNote>
+        <p>
+          The 1.32 point-release patches in Step 3 fill in everything
+          else (<code>pak1.pk3</code> through <code>pak8.pk3</code>{' '}
+          plus missionpack patches) — without those, you'll have only
+          the base <code>pak0.pk3</code> and most maps will fail to
+          load.
+        </p>
+      </div>
+
+      <div className="about-section">
+        <DocsH2 id="install-patches">Step 3 — Install the 1.32 point-release patches</DocsH2>
+        <p>
+          The Quake 3 1.32 point release adds <code>pak1.pk3</code>{' '}
+          through <code>pak8.pk3</code> for <code>baseq3</code> plus
+          the missionpack patches.{' '}
+          <strong>This is required, not optional</strong> — most
+          modern Quake 3 servers (Trinity included) need the full
+          1.32 asset set to load maps and missionpack content.
+        </p>
+        <p>
+          The patches ship under id Software's EULA, so we gate the
+          download behind a quick read-and-accept page:{' '}
+          <Link to="/quake3-eula">Read the EULA and download the 1.32 patches</Link>.
+        </p>
+        <p>
+          Drop the resulting <code>pak1.pk3</code> through{' '}
+          <code>pak8.pk3</code> files into your <code>baseq3</code>{' '}
+          folder alongside <code>pak0.pk3</code>. The missionpack
+          patches go into the <code>missionpack</code> folder.
+        </p>
+      </div>
     </>
   )
 }
