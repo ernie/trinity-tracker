@@ -7108,7 +7108,7 @@ details[open] > .admin-form-toggle .admin-form-toggle__caret {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-top: 4px;
+  margin-top: 12px;
 }
 
 .about-download-item {
@@ -7116,69 +7116,50 @@ details[open] > .admin-form-toggle .admin-form-toggle__caret {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 10px 14px;
+  padding: 12px 16px;
   background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--rule);
   border-radius: var(--radius-md);
   color: var(--text);
   text-decoration: none;
-  transition: background 0.15s;
+  transition: border-color 120ms ease, background 120ms ease;
 }
 
-.about-download-item:hover {
-  background: rgba(255, 255, 255, 0.06);
+.about-download-item:hover,
+.about-download-item:focus-visible {
+  background: rgba(255, 110, 60, 0.06);
+  border-color: var(--ember-strong);
+  outline: none;
 }
 
 .about-download-info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   min-width: 0;
 }
 
 .about-download-name {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text);
 }
 
 .about-download-desc {
   color: var(--text-dim);
-  font-size: 0.85em;
+  font-size: 0.85rem;
+  line-height: 1.45;
 }
 
-.about-download-version {
-  color: var(--green);
-  font-family: monospace;
-  font-size: 0.8em;
-  white-space: nowrap;
+.about-download-icon {
   flex-shrink: 0;
-}
-
-.about-download-bundled {
-  display: inline-flex;
+  color: var(--ember-strong);
+  display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 0.75em;
-  font-weight: 400;
-  color: var(--text-dim);
-  background: rgba(255, 255, 255, 0.05);
-  padding: 1px 6px;
-  border-radius: var(--radius-sm);
 }
 
-.about-download-bundled-icon {
-  width: 12px;
-  height: 12px;
-  opacity: 0.7;
-}
-
-.about-download-install-note {
-  padding: 6px 14px 8px;
-  font-size: 0.82em;
-  color: var(--text-dim);
-  line-height: 1.5;
+.about-download-item:hover .about-download-icon,
+.about-download-item:focus-visible .about-download-icon {
+  color: var(--ember-strong);
 }
 
 .about-download-install-note code {
@@ -11317,6 +11298,48 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 .install-download-link:focus-visible {
   background: rgba(255, 110, 60, 0.25);
   outline: none;
+}
+
+/* Cvar reference list — used in Customize sections to enumerate
+   tunables. Each <li> is one cvar with a suggested value plus a
+   one-line description. Card-style background separates it from
+   surrounding prose without becoming a heavy table. */
+.about-section .docs-cvars {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.about-section .docs-cvars > li {
+  padding: 8px 14px;
+  background: rgba(0, 0, 0, 0.22);
+  border-radius: 4px;
+  border-left: 2px solid var(--rule);
+  line-height: 1.55;
+}
+
+.about-section .docs-cvars > li > code:first-child {
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Nested value-list inside a cvar entry — used when a cvar has
+   three or more meaningful values worth enumerating (e.g.
+   cl_tvDownload's 0/1/2). The outer item keeps its card styling;
+   the nested list reads as supporting bullets without competing. */
+.about-section .docs-cvars > li ul {
+  list-style: disc;
+  padding-inline-start: 1.4em;
+  margin: 6px 0 2px;
+}
+
+.about-section .docs-cvars > li ul > li {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--text-dim);
 }
 
 /* Tip callout — generic informational aside used in docs prose
