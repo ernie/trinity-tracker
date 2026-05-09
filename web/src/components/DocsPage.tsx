@@ -63,18 +63,6 @@ export function DocsPage() {
           <main className="docs-layout__content" ref={contentRef}>
             <Outlet />
             <DocsPrevNext />
-
-            <div className="about-section docs-disclaimer">
-              <h2>Please don't sue me.</h2>
-              <p>
-                Trinity is not affiliated, associated, authorized, endorsed by, or
-                in any way officially connected with Bethesda or id Software, or any
-                of its subsidiaries or its affiliates. Quake 3, Quake 3 Arena, id,
-                id Software, id Tech and related logos are registered trademarks or
-                trademarks of id Software LLC in the U.S. and/or other countries.
-                All Rights Reserved.
-              </p>
-            </div>
           </main>
 
           <aside className="docs-layout__right">

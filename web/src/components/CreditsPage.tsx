@@ -45,6 +45,18 @@ export function CreditsPage() {
         If you'd like to connect, stop by the{' '}
         <a href={DISCORD_INVITE_URL}>Trinity Discord</a>.
       </p>
+
+      <section className="credits-page__legal">
+        <h2 className="credits-page__legal-title">Please don't sue me.</h2>
+        <p>
+          Trinity is not affiliated, associated, authorized, endorsed by, or
+          in any way officially connected with Bethesda or id Software, or any
+          of its subsidiaries or its affiliates. Quake 3, Quake 3 Arena, id,
+          id Software, id Tech and related logos are registered trademarks or
+          trademarks of id Software LLC in the U.S. and/or other countries.
+          All Rights Reserved.
+        </p>
+      </section>
     </div>
   )
 }

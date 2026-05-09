@@ -7408,16 +7408,20 @@ details[open] > .admin-form-toggle .admin-form-toggle__caret {
 .docs-toc-rail__item { display: flex; flex-direction: column; }
 
 .docs-toc-rail__tab {
-  padding: var(--space-2) var(--space-1);
+  /* Asymmetric vertical padding nudges the text down 1px to
+     compensate for Cinzel's optical bias — the uppercase cap-height
+     region sits slightly above the line-box geometric center, more
+     noticeably at this small font size. */
+  padding: calc(var(--space-2) + 1px) var(--space-1) calc(var(--space-2) - 1px) var(--space-3);
   font-family: 'Cinzel', serif;
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.12em;
+  line-height: 1;
   text-transform: uppercase;
   color: var(--text-dim);
   text-decoration: none;
   border-left: 2px solid transparent;
-  padding-left: var(--space-3);
   transition: color 0.15s, border-color 0.15s;
 }
 
@@ -7502,10 +7506,11 @@ h2.docs-h2 {
   font-size: 1rem;
   font-weight: 700;
   letter-spacing: 0.18em;
+  line-height: 1;
   text-transform: uppercase;
   color: var(--accent);
   margin: 0 0 var(--space-3);
-  padding: 0 0 var(--space-2) var(--space-3);
+  padding: var(--space-2) 0 var(--space-2) var(--space-3);
   border-left: 3px solid rgb(255, 110, 60);
   border-bottom: 1px solid rgba(208, 200, 184, 0.08);
   scroll-margin-top: var(--space-7);
@@ -7554,24 +7559,6 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 
 .docs-page-v2 .about-section + .about-section {
   margin-top: var(--space-6);
-}
-
-.docs-page-v2 .docs-disclaimer {
-  margin-top: var(--space-6);
-  color: var(--text-dim);
-  font-size: 0.85rem;
-}
-
-.docs-page-v2 .docs-disclaimer h2 {
-  font-family: 'Cinzel', serif;
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-  margin: 0 0 var(--space-2) 0;
-  padding: 0;
-  border: none;
 }
 
 /* ── Prev / next at bottom of each docs subpage ─ */
@@ -7634,25 +7621,6 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--accent);
-}
-
-/* End-of-page disclaimer — small + understated. */
-.docs-disclaimer {
-  opacity: 0.55;
-  font-size: 0.85em;
-  margin-top: var(--space-5);
-}
-
-.docs-disclaimer h2 {
-  font-family: 'Barlow', sans-serif;
-  font-size: 0.85rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: none;
-  color: var(--text-dim);
-  margin: 0 0 var(--space-2);
-  padding: 0;
-  border: none;
 }
 
 /* Docs mode cards */
@@ -11236,6 +11204,29 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 
 .credits-page a {
   color: var(--ember-tint-text);
+}
+
+/* Legal disclaimer at the bottom of /credits — set apart from the
+   warm "thanks to" content with an extra rule, smaller text, and a
+   dimmer color so the legal-tone shift is visually obvious. */
+.credits-page__legal {
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid var(--rule);
+  opacity: 0.75;
+}
+
+.credits-page__legal-title {
+  font-family: 'Cinzel', serif;
+  font-size: 1rem;
+  margin: 0 0 8px;
+  color: var(--text-dim);
+}
+
+.credits-page__legal p {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  margin: 0;
 }
 
 /* ─── Docs TOC rail scroller ──────────────────────────────────
