@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { ActivityLog } from './ActivityLog'
+import { CloseIcon } from './CloseIcon'
 import type { ActivityItem, ServerStatus } from '../types'
 
 interface ActivityDrawerProps {
@@ -31,8 +32,8 @@ export function ActivityDrawer({ activities, servers, onClose, onPlayerClick }: 
       >
         <div className="drawer-header">
           <h2>Activity</h2>
-          <button className="close-btn" onClick={onClose} aria-label="Close activity">
-            &times;
+          <button className="close-btn" onClick={onClose} aria-label="Close">
+            <CloseIcon />
           </button>
         </div>
         <div className="drawer-body activity-drawer__body">

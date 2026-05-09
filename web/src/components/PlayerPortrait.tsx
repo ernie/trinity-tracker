@@ -35,14 +35,26 @@ function getPortraitPath(model: string): string {
   return `/assets/portraits/${modelName}/icon_${skin}.png`
 }
 
-// Simple head-and-shoulders silhouette for players with no known/loadable portrait
-const DEFAULT_PORTRAIT = `data:image/svg+xml,${encodeURIComponent(
-  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">' +
-  '<rect width="128" height="128" rx="4" fill="#2a2a2a"/>' +
-  '<circle cx="64" cy="46" r="28" fill="#555"/>' +
-  '<path d="M64,78 C39,78 16,96 16,110 L16,128 L112,128 L112,110 C112,96 89,78 64,78Z" fill="#555"/>' +
-  '</svg>'
-)}`
+// Head-and-shoulders silhouette shown when no model is provided or the
+// portrait PNG fails to load. Inline SVG (rather than a data URI) so it
+// can pick up theme tokens via var() and react to dark-mode changes.
+function DefaultPortraitSvg() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 128 128"
+      preserveAspectRatio="xMidYMid meet"
+      aria-hidden="true"
+    >
+      <rect width="128" height="128" rx="4" fill="var(--bg-elev)" />
+      <circle cx="64" cy="46" r="28" fill="var(--text-dim)" />
+      <path
+        d="M64,78 C39,78 16,96 16,110 L16,128 L112,128 L112,110 C112,96 89,78 64,78Z"
+        fill="var(--text-dim)"
+      />
+    </svg>
+  )
+}
 
 export function PlayerPortrait({ model, size = 'sm', fallback, className = '' }: PlayerPortraitProps) {
   const [hasError, setHasError] = useState(false)
@@ -58,12 +70,11 @@ export function PlayerPortrait({ model, size = 'sm', fallback, className = '' }:
     }
     return (
       <span className={`player-portrait ${sizeClass} ${className}`}>
-        <img src={DEFAULT_PORTRAIT} alt="unknown" />
+        <DefaultPortraitSvg />
       </span>
     )
   }
 
-  const src = hasError ? DEFAULT_PORTRAIT : getPortraitPath(model)
   const showHoverPreview = size === 'sm' || size === 'md'
 
   const handleMouseEnter = () => {
@@ -80,6 +91,8 @@ export function PlayerPortrait({ model, size = 'sm', fallback, className = '' }:
     setShowPreview(false)
   }
 
+  const portraitSrc = getPortraitPath(model)
+
   return (
     <>
       <span
@@ -88,11 +101,15 @@ export function PlayerPortrait({ model, size = 'sm', fallback, className = '' }:
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-        <img
-          src={src}
-          alt={model}
-          onError={hasError ? undefined : () => setHasError(true)}
-        />
+        {hasError ? (
+          <DefaultPortraitSvg />
+        ) : (
+          <img
+            src={portraitSrc}
+            alt={model}
+            onError={() => setHasError(true)}
+          />
+        )}
       </span>
       {showPreview && createPortal(
         <div
@@ -102,7 +119,11 @@ export function PlayerPortrait({ model, size = 'sm', fallback, className = '' }:
             top: previewPos.y,
           }}
         >
-          <img src={src} alt={model} />
+          {hasError ? (
+            <DefaultPortraitSvg />
+          ) : (
+            <img src={portraitSrc} alt={model} />
+          )}
         </div>,
         document.body
       )}

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo, type FormEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { ColoredText } from './ColoredText'
+import { CloseIcon } from './CloseIcon'
 import type { RconCommand, ServerStatus } from '../types'
 
 interface RconSidebarProps {
@@ -223,7 +224,7 @@ export function RconSidebar({ server, token, onClose }: RconSidebarProps) {
               </>
             )}
           </h2>
-          <button onClick={onClose} className="close-btn" aria-label="Close RCON">&times;</button>
+          <button onClick={onClose} className="close-btn" aria-label="Close"><CloseIcon /></button>
         </div>
 
         <div className="drawer-body rcon-drawer__body">

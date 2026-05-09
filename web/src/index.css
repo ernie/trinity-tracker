@@ -41,6 +41,9 @@
 :root {
   --bg: #0a0a0a;
   --bg-card: #141414;
+  /* One step above --bg-card; used for placeholder/empty surfaces
+     that need to read as a quiet "above the card" plane. */
+  --bg-elev: #2a2a2a;
   --text: #f0ece4;
   --text-dim: #a8a090;
   --accent: #fff8f0;
@@ -1197,27 +1200,34 @@ h2 {
   flex-shrink: 0;
 }
 
-.player-portrait img {
+/* Both <img> portraits and the inline-SVG default fallback get the
+   same sizing/chrome treatment so swapping between them is invisible. */
+.player-portrait img,
+.player-portrait svg {
   border-radius: 2px;
   vertical-align: middle;
 }
 
-.portrait-sm img {
+.portrait-sm img,
+.portrait-sm svg {
   width: 20px;
   height: 20px;
 }
 
-.portrait-md img {
+.portrait-md img,
+.portrait-md svg {
   width: 32px;
   height: 32px;
 }
 
-.portrait-lg img {
+.portrait-lg img,
+.portrait-lg svg {
   width: 48px;
   height: 48px;
 }
 
-.portrait-xl img {
+.portrait-xl img,
+.portrait-xl svg {
   width: 128px;
   height: 128px;
 }
@@ -1236,12 +1246,13 @@ h2 {
   z-index: 1000;
 }
 
-.portrait-preview img {
+.portrait-preview img,
+.portrait-preview svg {
   width: 128px;
   height: 128px;
   background-color: var(--bg);
-  border: 1px solid #444;
-  border-radius: 4px;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-sm);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
 
@@ -3440,13 +3451,19 @@ h2 {
   background: transparent;
   border: none;
   color: var(--text-dim);
-  font-size: 1.5rem;
   cursor: pointer;
-  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-pill);
+  transition: color 0.15s, background 0.15s;
 }
 
 .modal .close-btn:hover {
   color: var(--text);
+  background: rgba(255, 248, 240, 0.06);
 }
 
 .password-change-notice {
@@ -4148,7 +4165,8 @@ h2 {
   overflow: hidden;
 }
 
-.player-hero__portrait .player-portrait img {
+.player-hero__portrait .player-portrait img,
+.player-hero__portrait .player-portrait svg {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -4553,7 +4571,8 @@ h2 {
   border-radius: 50%;
   overflow: hidden;
 }
-.player-card__avatar .player-portrait img {
+.player-card__avatar .player-portrait img,
+.player-card__avatar .player-portrait svg {
   width: 100%;
   height: 100%;
   border-radius: 50%;
@@ -5736,7 +5755,8 @@ h2 {
   border-radius: 50%;
   overflow: hidden;
 }
-.leaderboard-card__avatar .player-portrait img {
+.leaderboard-card__avatar .player-portrait img,
+.leaderboard-card__avatar .player-portrait svg {
   width: 100%;
   height: 100%;
   border-radius: 50%;
@@ -7166,11 +7186,18 @@ details[open] > .admin-form-toggle .admin-form-toggle__caret {
   display: inline-block;
   width: 12px;
   height: 12px;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   flex-shrink: 0;
   margin-top: 0.35em;
   border: 1px solid rgba(255, 255, 255, 0.15);
 }
+/* Channel hues match the in-engine VoIP HUD colors. Slightly
+   desaturated from pure Q3 primaries so they read as "indicators"
+   rather than "fight palette". */
+.voip-channel-swatch--spatial { background: rgb(255, 255, 51); }
+.voip-channel-swatch--team    { background: rgb(51, 255, 255); }
+.voip-channel-swatch--all     { background: rgb(51, 255, 51); }
+.voip-channel-swatch--direct  { background: rgb(255, 51, 255); }
 
 /* ── Docs three-column layout ─────────────────────────────────────── */
 .docs-layout {
@@ -9800,7 +9827,8 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   width: 100%;
   height: 100%;
 }
-.landing-player-card__avatar .player-portrait img {
+.landing-player-card__avatar .player-portrait img,
+.landing-player-card__avatar .player-portrait svg {
   width: 100%;
   height: 100%;
   border-radius: 50%;
@@ -10113,7 +10141,8 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   border-radius: 50%;
   overflow: hidden;
 }
-.duelist__portrait-wrap .player-portrait img {
+.duelist__portrait-wrap .player-portrait img,
+.duelist__portrait-wrap .player-portrait svg {
   width: 100%;
   height: 100%;
   border-radius: 50%;

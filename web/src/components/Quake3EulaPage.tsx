@@ -62,7 +62,7 @@ export function Quake3EulaPage() {
           </p>
           {loadError && (
             <p className="eula-load-error">
-              Failed to load EULA text: {loadError}. Please refresh the page.
+              Failed to load EULA text: {loadError}. Refresh the page.
             </p>
           )}
           <div

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { heartbeatHealth, healthLabel, timeAgo } from '../utils/sourceHealth'
 import { StatusDot } from './StatusDot'
+import { CloseIcon } from './CloseIcon'
 import type { MySourceEntry } from '../types'
 
 export interface MyServersDrawerProps {
@@ -47,8 +48,8 @@ export function MyServersDrawer({
       >
         <div className="drawer-header">
           <h2>{heading}</h2>
-          <button className="close-btn" onClick={onClose} aria-label="close">
-            &times;
+          <button className="close-btn" onClick={onClose} aria-label="Close">
+            <CloseIcon />
           </button>
         </div>
         <div className="drawer-body">

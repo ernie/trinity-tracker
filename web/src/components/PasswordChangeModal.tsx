@@ -1,4 +1,5 @@
 import { useState, FormEvent } from 'react'
+import { CloseIcon } from './CloseIcon'
 
 interface PasswordChangeModalProps {
   required: boolean
@@ -44,7 +45,7 @@ export function PasswordChangeModal({ required, onPasswordChange, onClose }: Pas
         <div className="modal-header">
           <h2>{required ? 'Password Change Required' : 'Change Password'}</h2>
           {!required && onClose && (
-            <button className="close-btn" onClick={onClose}>&times;</button>
+            <button className="close-btn" onClick={onClose} aria-label="Close"><CloseIcon /></button>
           )}
         </div>
         {required && (

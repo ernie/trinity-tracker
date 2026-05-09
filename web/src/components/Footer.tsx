@@ -33,7 +33,7 @@ export function Footer() {
       <div className="app-footer__row">
         <div className="app-footer__left">
           <span className="app-footer__brand">Trinity Tracker</span>
-          {version && <span className="app-footer__version" title="Build version">{version}</span>}
+          {version && <span className="app-footer__version" title="Build">{version}</span>}
         </div>
         <nav className="app-footer__center" aria-label="Footer links">
           <a href={DISCORD_INVITE_URL} target="_blank" rel="noopener noreferrer">Discord</a>

@@ -176,33 +176,21 @@ export function DocsFeatures() {
               </p>
               <ul className="voip-channel-key">
                 <li>
-                  <span
-                    className="voip-channel-swatch"
-                    style={{ background: "rgb(255, 255, 51)" }}
-                  />
+                  <span className="voip-channel-swatch voip-channel-swatch--spatial" />
                   <span>
                     Spatial — nearby players hear you positionally
                   </span>
                 </li>
                 <li>
-                  <span
-                    className="voip-channel-swatch"
-                    style={{ background: "rgb(51, 255, 255)" }}
-                  />
+                  <span className="voip-channel-swatch voip-channel-swatch--team" />
                   <span>Team</span>
                 </li>
                 <li>
-                  <span
-                    className="voip-channel-swatch"
-                    style={{ background: "rgb(51, 255, 51)" }}
-                  />
+                  <span className="voip-channel-swatch voip-channel-swatch--all" />
                   <span>All</span>
                 </li>
                 <li>
-                  <span
-                    className="voip-channel-swatch"
-                    style={{ background: "rgb(255, 51, 255)" }}
-                  />
+                  <span className="voip-channel-swatch voip-channel-swatch--direct" />
                   <span>
                     Direct — private to a specific client. Not part of the{" "}
                     <code>voiptarget</code> cycle; reached by setting{" "}
