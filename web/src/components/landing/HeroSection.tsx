@@ -83,7 +83,7 @@ export function HeroSection() {
         </div>
 
         <div className="landing-hero__cta-row">
-          <Link to="/docs/getting-started" className="landing-cta-primary">Enter the arena</Link>
+          <Link to="/docs" className="landing-cta-primary">Enter the arena</Link>
           <Link to="/leaderboard" className="landing-cta-secondary">See the leaderboard <ArrowIcon direction="right" /></Link>
         </div>
       </div>

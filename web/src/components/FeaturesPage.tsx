@@ -18,7 +18,7 @@ export function FeaturesPage() {
           anywhere.
         </p>
         <div className="features-page__cta-row">
-          <Link to="/docs/getting-started" className="features-page__cta features-page__cta--primary">
+          <Link to="/docs/install" className="features-page__cta features-page__cta--primary">
             Install Trinity
           </Link>
           <Link to="/docs" className="features-page__cta">
