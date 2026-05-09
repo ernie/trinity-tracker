@@ -5,6 +5,7 @@ import { PlayerPortrait } from "./PlayerPortrait";
 import { PlayerBadge } from "./PlayerBadge";
 import { FlagIcon } from "./FlagIcon";
 import { MedalIcon } from "./MedalIcon";
+import { ArrowIcon } from "./ArrowIcon";
 import { PeriodSelector } from "./PeriodSelector";
 
 import { GAME_TYPES, type GameTypeFilter } from "../constants/labels";
@@ -175,9 +176,9 @@ export function LeaderboardPage() {
     <div className="leaderboard-page">
       {asOf && (
         <div className="leaderboard-snapshot-banner">
-          <span>📸 Snapshot · {formatSnapshotTime(asOf)}</span>
+          <span>Snapshot · {formatSnapshotTime(asOf)}</span>
           <button type="button" className="leaderboard-snapshot-exit" onClick={exitSnapshot}>
-            ← back to live
+            <ArrowIcon direction="left" /> Live
           </button>
         </div>
       )}

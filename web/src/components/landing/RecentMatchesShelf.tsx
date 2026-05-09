@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { formatDuration } from '../MatchCard'
 import { PlayIcon } from '../PlayIcon'
+import { ArrowIcon } from '../ArrowIcon'
 import { useMapMeta } from '../../hooks/useMapMeta'
 import type { MatchSummary } from '../../types'
 
@@ -31,7 +32,7 @@ export function RecentMatchesShelf() {
     <section className="landing-section">
       <header className="landing-section__head">
         <h2 className="landing-section__title">THE LAST FEW FIGHTS.</h2>
-        <Link to="/matches" className="landing-section__cta">All matches →</Link>
+        <Link to="/matches" className="landing-section__cta">All matches <ArrowIcon direction="right" /></Link>
       </header>
       <ul className="landing-matches">
         {matches.map((m) => (

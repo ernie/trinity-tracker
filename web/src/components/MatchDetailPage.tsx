@@ -93,14 +93,14 @@ export function MatchDetailPage() {
           <div className="stats-error">{error}</div>
         ) : match ? (
           <>
-            {(match.exit_reason || auth.isAdmin) && (
+            {(match.exit_reason || (auth.isAdmin && match.demo_url)) && (
               <div className="match-detail__meta">
                 {match.exit_reason ? (
                   <p className="match-detail__exit">
                     Match ended: {formatExitReason(match.exit_reason)}
                   </p>
                 ) : <span />}
-                {auth.isAdmin && (
+                {auth.isAdmin && match.demo_url && (
                   <button
                     type="button"
                     className={`match-feature-toggle${match.is_featured ? ' is-featured' : ''}`}

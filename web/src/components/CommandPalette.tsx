@@ -4,6 +4,14 @@ import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { useAuth } from '../hooks/useAuth'
 import type { PlayerProfile } from '../types'
 
+// On Mac the canonical key glyph is ⌘ (the actual key cap symbol);
+// elsewhere we write "Ctrl" so Linux/Windows users see the right
+// modifier name. SSR-safe via the typeof guard.
+const CMD_LABEL =
+  typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent)
+    ? '⌘'
+    : 'Ctrl'
+
 interface CommandPaletteProps {
   open: boolean
   onClose: () => void
@@ -204,7 +212,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="cmdk-input-wrap">
-          <span className="cmdk-prompt" aria-hidden="true">⌘K</span>
+          <span className="cmdk-prompt" aria-hidden="true">{CMD_LABEL}K</span>
           <input
             ref={inputRef}
             className="cmdk-input"

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useLiveData } from '../../contexts/LiveDataContext'
 import { plural, formatFragTime } from './format'
 import { HeroHeader } from './HeroHeader'
+import { ArrowIcon } from '../ArrowIcon'
 
 export function HeroSection() {
   const live = useLiveData()
@@ -83,11 +84,11 @@ export function HeroSection() {
 
         <div className="landing-hero__cta-row">
           <Link to="/docs/getting-started" className="landing-cta-primary">Enter the arena</Link>
-          <Link to="/leaderboard" className="landing-cta-secondary">See the leaderboard →</Link>
+          <Link to="/leaderboard" className="landing-cta-secondary">See the leaderboard <ArrowIcon direction="right" /></Link>
         </div>
       </div>
 
-      <div className="landing-hero__scroll-hint" aria-hidden>Scroll ↓</div>
+      <div className="landing-hero__scroll-hint" aria-hidden>Scroll <ArrowIcon direction="down" /></div>
 
       <div className="landing-hero__wallpaper" tabIndex={0}>
         <span className="landing-hero__wallpaper-trigger">Wallpaper</span>

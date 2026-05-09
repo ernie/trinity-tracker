@@ -4,6 +4,7 @@ import { PeriodSelector } from './PeriodSelector'
 import { PlayerHero } from './PlayerHero'
 import { HonorsPanel } from './HonorsPanel'
 import { PlayerAkaList } from './PlayerAkaList'
+import { ArrowIcon } from './ArrowIcon'
 import { usePlayerStats } from '../hooks/usePlayerStats'
 import { useLiveData } from '../contexts/LiveDataContext'
 import type { TimePeriod, PlayerStatsResponse } from '../types'
@@ -100,7 +101,7 @@ function ModalBody({ stats, fallbackName, period, onPeriodChange, onClose }: Mod
           className="view-profile-link"
           onClick={() => { notifyDrillIn(); onClose() }}
         >
-          View full profile →
+          View full profile <ArrowIcon direction="right" />
         </Link>
       </footer>
     </>

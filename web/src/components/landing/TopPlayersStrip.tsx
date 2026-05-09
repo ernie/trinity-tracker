@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ColoredText } from '../ColoredText'
 import { PlayerPortrait } from '../PlayerPortrait'
+import { ArrowIcon } from '../ArrowIcon'
 import type { LeaderboardEntry, LeaderboardResponse } from '../../types'
 
 export function TopPlayersStrip() {
@@ -27,7 +28,7 @@ export function TopPlayersStrip() {
     <section className="landing-section">
       <header className="landing-section__head">
         <h2 className="landing-section__title">SHARPEST THIS WEEK.</h2>
-        <Link to="/leaderboard" className="landing-section__cta">Full leaderboard →</Link>
+        <Link to="/leaderboard" className="landing-section__cta">Full leaderboard <ArrowIcon direction="right" /></Link>
       </header>
       <div className="landing-shelf-h">
         <div className="landing-shelf-h__scroll landing-players-strip">
