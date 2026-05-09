@@ -52,6 +52,13 @@
      featured chips). Referenced widely; fallback hex used to be inline. */
   --ember-strong: #ff6e3c;
   --ember-light: #ffc78a;
+  /* Tinted-ember chip palette — quiet "active/primary" treatment used
+     by .admin-btn-primary, .admin-btn-warn, .generate-btn, the
+     selected-player chip, and the segmented filter active state.
+     Border on these chips is var(--ember-strong); these two tokens
+     cover the bg and text. */
+  --ember-tint-bg: rgba(255, 110, 60, 0.15);
+  --ember-tint-text: rgb(255, 145, 95);
   --green: #4caf50;
   --blue: #2196f3;
   --red: #e94560;
@@ -2551,7 +2558,7 @@ h2 {
    authenticated, so promote it from ghost to warm-primary affordance. */
 .login-toggle {
   border-color: rgba(255, 110, 60, 0.5);
-  color: rgb(255, 145, 95);
+  color: var(--ember-tint-text);
 }
 
 .login-toggle:hover {
@@ -2598,9 +2605,9 @@ h2 {
 }
 
 .login-form button[type="submit"] {
-  background: rgba(255, 110, 60, 0.15);
+  background: var(--ember-tint-bg);
   border: 1px solid rgba(255, 110, 60, 0.5);
-  color: rgb(255, 145, 95);
+  color: var(--ember-tint-text);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -2679,9 +2686,9 @@ h2 {
    Source, Approve, Save Filters). Used sparingly — at most one per
    action cluster — so its visual weight stays meaningful. */
 .admin-btn-primary {
-  background: rgba(255, 110, 60, 0.15);
+  background: var(--ember-tint-bg);
   border: 1px solid rgba(255, 110, 60, 0.5);
-  color: rgb(255, 145, 95);
+  color: var(--ember-tint-text);
   padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -2713,7 +2720,7 @@ h2 {
    rhythm is preserved. */
 .my-source-btn-pending {
   border-color: rgba(255, 110, 60, 0.5);
-  color: rgb(255, 145, 95);
+  color: var(--ember-tint-text);
 }
 
 .my-source-btn-pending:hover {
@@ -4112,27 +4119,37 @@ h2 {
   .view-profile-link:focus-visible { transform: translateX(2px); }
 }
 
-/* Period selector — sleek pill row. Lives in modal hero strip and full
-   profile, also used elsewhere as a generic time-window switcher. */
+/* Period selector — connected segmented control. Lives in modal hero
+   strip and full profile, also used elsewhere as a generic time-window
+   switcher. Buttons sit flush; first/last get the rounded outer corners
+   via the shared segmented rules below. */
 .period-selector {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
+  display: inline-flex;
+  flex-wrap: nowrap;
+  gap: 0;
   padding: 0;
   border-bottom: none;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
 }
+.period-selector::-webkit-scrollbar { display: none; }
 
 .period-btn {
   padding: 6px 14px;
   background: transparent;
   border: 1px solid rgba(208, 200, 184, 0.18);
   color: var(--text-dim);
-  border-radius: var(--radius-pill);
+  border-radius: 0;
   cursor: pointer;
   font-family: 'Barlow', sans-serif;
   font-size: 0.78rem;
   font-weight: 500;
   letter-spacing: 0.06em;
+  flex-shrink: 0;
+  position: relative;
   transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
 
@@ -4172,7 +4189,7 @@ h2 {
   border-radius: 50%;
   background: linear-gradient(135deg, #2a1f1a 0%, #0a0808 100%);
   border: 1px solid rgba(255, 110, 60, 0.25);
-  box-shadow: 0 0 24px rgba(255, 110, 60, 0.15);
+  box-shadow: 0 0 24px var(--ember-tint-bg);
   display: grid;
   place-items: center;
   flex-shrink: 0;
@@ -5131,7 +5148,7 @@ h2 {
 .account-section .period-btn.active {
   background: rgba(255, 110, 60, 0.12);
   border-color: rgba(255, 110, 60, 0.5);
-  color: rgb(255, 145, 95);
+  color: var(--ember-tint-text);
 }
 
 /* Stats grid in account page */
@@ -5187,9 +5204,9 @@ h2 {
 .view-stats-btn {
   display: inline-block;
   padding: var(--space-2) var(--space-4);
-  background: rgba(255, 110, 60, 0.15);
+  background: var(--ember-tint-bg);
   border: 1px solid rgba(255, 110, 60, 0.5);
-  color: rgb(255, 145, 95);
+  color: var(--ember-tint-text);
   border-radius: var(--radius-sm);
   text-decoration: none;
   font-family: 'Barlow', sans-serif;
@@ -5346,9 +5363,9 @@ h2 {
    actions read consistently across admin and account workspaces. */
 .generate-btn {
   padding: var(--space-2) var(--space-4);
-  background: rgba(255, 110, 60, 0.15);
+  background: var(--ember-tint-bg);
   border: 1px solid rgba(255, 110, 60, 0.5);
-  color: rgb(255, 145, 95);
+  color: var(--ember-tint-text);
   border-radius: var(--radius-sm);
   cursor: pointer;
   font-family: 'Barlow', sans-serif;
@@ -5420,9 +5437,9 @@ h2 {
 .password-form button[type="submit"],
 .change-password-btn {
   padding: var(--space-2) var(--space-4);
-  background: rgba(255, 110, 60, 0.15);
+  background: var(--ember-tint-bg);
   border: 1px solid rgba(255, 110, 60, 0.5);
-  color: rgb(255, 145, 95);
+  color: var(--ember-tint-text);
   border-radius: var(--radius-sm);
   cursor: pointer;
   font-family: 'Barlow', sans-serif;
@@ -5616,22 +5633,35 @@ h2 {
   margin-bottom: 15px;
 }
 
+/* Segmented control container — buttons sit flush, share borders via
+   negative margins, and the strip scrolls horizontally on narrow
+   viewports rather than wrapping (wrapping would break the connected-
+   segments visual since segments in row 2 don't touch row 1). */
 .game-type-selector {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
+  display: inline-flex;
+  align-items: stretch;
+  flex-wrap: nowrap;
+  gap: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
 }
+.game-type-selector::-webkit-scrollbar { display: none; }
 
 .game-type-btn {
   padding: 6px 14px;
   background: var(--bg-card);
   border: var(--rule-strong);
   color: var(--text-dim);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   cursor: pointer;
   font-family: inherit;
   font-size: 0.85rem;
   transition: all 0.2s;
+  flex-shrink: 0;
+  position: relative;
 }
 
 .game-type-btn:hover {
@@ -5640,9 +5670,47 @@ h2 {
 }
 
 .game-type-btn.active {
-  background: rgba(255, 110, 60, 0.15);
+  background: var(--ember-tint-bg);
   border-color: var(--ember-strong);
-  color: rgb(255, 145, 95);
+  color: var(--ember-tint-text);
+}
+
+/* ── Shared segmented-control rules ──────────────────────────────────
+   These three button classes share the connected-segments treatment:
+   first/last in the strip get rounded outer corners; adjacent siblings
+   pull together with margin-left: -1px so each shared border draws
+   once instead of twice; hover/active lift via z-index so the active
+   button's full border outline reads above its neighbors.
+   Applies to .game-type-btn (matches/leaderboard/server filters),
+   .mode-filter-btn (movement & gameplay rows), .period-btn (period
+   switcher). .category-btn opts out — its parent is a 6-col grid. */
+.game-type-btn:first-of-type,
+.mode-filter-btn:first-of-type,
+.period-btn:first-of-type {
+  border-top-left-radius: var(--radius-sm);
+  border-bottom-left-radius: var(--radius-sm);
+}
+.game-type-btn:last-of-type,
+.mode-filter-btn:last-of-type,
+.period-btn:last-of-type {
+  border-top-right-radius: var(--radius-sm);
+  border-bottom-right-radius: var(--radius-sm);
+}
+.game-type-btn + .game-type-btn,
+.mode-filter-btn + .mode-filter-btn,
+.period-btn + .period-btn {
+  margin-left: -1px;
+}
+.game-type-btn:hover,
+.game-type-btn.active,
+.game-type-btn:focus-visible,
+.mode-filter-btn:hover,
+.mode-filter-btn.active,
+.mode-filter-btn:focus-visible,
+.period-btn:hover,
+.period-btn.active,
+.period-btn:focus-visible {
+  z-index: 1;
 }
 
 /* Category selector — 6 columns so 8–12 categories pack as 2 even rows. */
@@ -5681,8 +5749,8 @@ h2 {
 }
 
 .category-btn.active {
-  background: rgba(255, 110, 60, 0.15);
-  color: rgb(255, 145, 95);
+  background: var(--ember-tint-bg);
+  color: var(--ember-tint-text);
 }
 
 /* Leaderboard content — wrapper with no chrome of its own. Cards
@@ -5961,7 +6029,7 @@ h2 {
 .match-filters {
   padding: 15px 20px;
   background: var(--bg-card);
-  border-bottom: 1px solid #333;
+  border-bottom: var(--rule-strong);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -6034,19 +6102,28 @@ h2 {
   margin-bottom: 15px;
 }
 
+/* Segmented control container; same treatment as .game-type-selector
+   but supports an optional .server-filter-label sibling at the head. */
 .server-filter-group {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  gap: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
 }
+.server-filter-group::-webkit-scrollbar { display: none; }
 
 .server-filter-label {
   color: var(--text-dim);
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.05em;
-  margin-right: 2px;
+  margin-right: var(--space-2);
+  flex-shrink: 0;
 }
 
 
@@ -6055,7 +6132,7 @@ h2 {
   background: var(--bg-card);
   border: var(--rule-strong);
   color: var(--text-dim);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   cursor: pointer;
   font-family: inherit;
   font-size: 0.8rem;
@@ -6063,6 +6140,8 @@ h2 {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
+  position: relative;
 }
 
 .mode-filter-btn:hover {
@@ -6071,9 +6150,9 @@ h2 {
 }
 
 .mode-filter-btn.active {
-  background: rgba(255, 110, 60, 0.15);
+  background: var(--ember-tint-bg);
   border-color: var(--ember-strong);
-  color: rgb(255, 145, 95);
+  color: var(--ember-tint-text);
 }
 
 .mode-filter-btn.icon-btn {
@@ -8554,7 +8633,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 .admin-btn-warn {
   background: transparent;
   border: 1px solid rgba(255, 110, 60, 0.5);
-  color: rgb(255, 145, 95);
+  color: var(--ember-tint-text);
   padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -8566,7 +8645,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 }
 
 .admin-btn-warn:hover:not(:disabled) {
-  background: rgba(255, 110, 60, 0.15);
+  background: var(--ember-tint-bg);
   border-color: var(--ember-strong);
   color: rgb(255, 165, 120);
 }
