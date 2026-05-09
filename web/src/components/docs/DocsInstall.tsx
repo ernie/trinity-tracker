@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useGitHubReleases } from '../../hooks/useGitHubReleases'
+import { DISCORD_INVITE_URL } from '../../constants/discord'
 import { DocsH2 } from './DocsH2'
 import { PlatformTabs } from './PlatformTabs'
 import { PlatformNote } from './PlatformNote'
@@ -234,6 +235,131 @@ export function DocsInstall() {
           <code>update_check 0</code> in your config (defaults to{' '}
           <code>1</code> on all engines).
         </p>
+      </div>
+
+      <div className="about-section">
+        <DocsH2 id="troubleshooting">Step 5 — Troubleshooting</DocsH2>
+        <p>
+          The most common install issues, with what to check first.
+        </p>
+        <div className="install-troubleshooting">
+          <details className="install-trouble">
+            <summary>Maps fail to load — "<code>error: cannot find map …</code>"</summary>
+            <div className="install-trouble__body">
+              <p>
+                You're missing the 1.32 point-release patches (Step 3).
+                Without <code>pak1.pk3</code> through <code>pak8.pk3</code>,
+                most maps don't load. Re-run the EULA flow at{' '}
+                <Link to="/quake3-eula">/quake3-eula</Link> and copy the
+                patches into your <code>baseq3</code> folder.
+              </p>
+            </div>
+          </details>
+
+          <details className="install-trouble">
+            <summary>"<code>error: pak0.pk3 not found</code>" or "<code>missing assets</code>"</summary>
+            <div className="install-trouble__body">
+              <p>
+                Trinity needs <code>pak0.pk3</code> from a legitimate
+                Quake 3 install. Re-check Step 2 — the file should be
+                sitting in Trinity's <code>baseq3</code> folder. If you
+                copied it but it's still not found, confirm the case
+                matches exactly (lowercase <code>pak0.pk3</code> on
+                case-sensitive filesystems).
+              </p>
+            </div>
+          </details>
+
+          <PlatformNote platform={['flatscreen', 'pcvr']}>
+            <details className="install-trouble">
+              <summary>Trinity won't launch / Windows SmartScreen or macOS Gatekeeper blocks it</summary>
+              <div className="install-trouble__body">
+                <p>
+                  Unsigned binaries trip SmartScreen (Windows) and
+                  Gatekeeper (macOS) on first run. On Windows, click
+                  "More info" → "Run anyway." On macOS, right-click
+                  the app → Open, then confirm. Subsequent launches
+                  won't prompt.
+                </p>
+              </div>
+            </details>
+          </PlatformNote>
+
+          <PlatformNote platform="quest">
+            <details className="install-trouble">
+              <summary>Quest install fails — "another version is already installed"</summary>
+              <div className="install-trouble__body">
+                <p>
+                  The Team Beef Quake3Quest is already on your
+                  headset. Uninstall it through Quest's app library
+                  before installing Trinity's build (the two can't
+                  coexist — same package name). While you're at it,
+                  clear any <code>autoexec.cfg</code> files from{' '}
+                  <code>baseq3</code> and <code>missionpack</code> so
+                  Trinity starts with fresh settings.
+                </p>
+              </div>
+            </details>
+          </PlatformNote>
+
+          <details className="install-trouble">
+            <summary>Stats aren't showing up on the hub</summary>
+            <div className="install-trouble__body">
+              <p>
+                You're playing — but trinity.run isn't tracking your
+                matches. Two common reasons:
+              </p>
+              <ul>
+                <li>
+                  The server you're on doesn't run the Trinity
+                  collector. Trinity is backwards-compatible with
+                  vanilla servers, but stats only flow from servers
+                  that opted in. Check the server cards on{' '}
+                  <Link to="/servers">/servers</Link> — they're
+                  labeled.
+                </li>
+                <li>
+                  Your client isn't linked to a Trinity account. See{' '}
+                  <Link to="/docs/account">/docs/account</Link> —
+                  claiming an account links your in-game identity to
+                  leaderboard entries automatically.
+                </li>
+              </ul>
+            </div>
+          </details>
+
+          <details className="install-trouble">
+            <summary>I have multiple identities across machines / they aren't merging</summary>
+            <div className="install-trouble__body">
+              <p>
+                Trinity identifies you by your client's{' '}
+                <code>qkey</code> file, which is per-installation by
+                default. Once you sign into a Trinity account, every
+                device you log in from gets linked automatically. See{' '}
+                <Link to="/docs/account#authentication">
+                  Account → Authentication
+                </Link>
+                {' '}for the full link flow.
+              </p>
+            </div>
+          </details>
+
+          <details className="install-trouble">
+            <summary>Voice chat isn't working / I can't hear anyone</summary>
+            <div className="install-trouble__body">
+              <p>
+                Voice chat needs the server to have it enabled, and
+                you need <code>cl_voip 1</code> set in your config.
+                If your config is right and you still can't hear
+                anyone, the server you're on probably doesn't have
+                voice chat turned on — try a different server, or
+                ask in the{' '}
+                <a href={DISCORD_INVITE_URL}>Trinity Discord</a> for
+                server-specific help.
+              </p>
+            </div>
+          </details>
+        </div>
       </div>
     </>
   )

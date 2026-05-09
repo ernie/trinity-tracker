@@ -11266,3 +11266,71 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
     mask-image: linear-gradient(to right, transparent 0, black 32px, black calc(100% - 32px), transparent 100%);
   }
 }
+
+/* Prominent inline download link inside an install step's
+   PlatformTabs panel. Reads as a CTA without competing with the
+   surrounding prose. */
+.install-download-link {
+  display: inline-block;
+  padding: 8px 16px;
+  margin: 8px 0 12px;
+  background: var(--ember-tint-bg);
+  border: 1px solid var(--ember-strong);
+  border-radius: 6px;
+  color: var(--ember-tint-text);
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.install-download-link:hover,
+.install-download-link:focus-visible {
+  background: rgba(255, 110, 60, 0.25);
+  outline: none;
+}
+
+/* Troubleshooting list on /docs/install — collapsible details
+   items grouped under Step 5. Tight visual rhythm so scanning
+   the summary line is fast. */
+.install-troubleshooting {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.install-trouble {
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--bg-card);
+}
+
+.install-trouble > summary {
+  cursor: pointer;
+  padding: 12px 14px;
+  font-weight: 600;
+  color: var(--text);
+  list-style: none;
+}
+
+.install-trouble > summary::-webkit-details-marker {
+  display: none;
+}
+
+.install-trouble[open] > summary {
+  border-bottom: 1px solid var(--rule);
+}
+
+.install-trouble__body {
+  padding: 12px 14px;
+  color: var(--text-dim);
+  line-height: 1.55;
+}
+
+.install-trouble__body > p:first-child {
+  margin-top: 0;
+}
+
+.install-trouble__body > p:last-child {
+  margin-bottom: 0;
+}
