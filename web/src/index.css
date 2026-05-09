@@ -11000,3 +11000,75 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   outline: 2px solid var(--ember-strong);
   outline-offset: 1px;
 }
+
+/* ─── Docs Welcome page ───────────────────────────────────────
+   New /docs index. Hero + three persona cards.
+   ──────────────────────────────────────────────────────────── */
+
+.docs-welcome__title {
+  font-family: 'Cinzel', serif;
+  font-size: 2.25rem;
+  margin: 0 0 12px;
+  color: var(--text);
+}
+
+.docs-welcome__lead {
+  font-size: 1.0625rem;
+  color: var(--text-dim);
+  line-height: 1.6;
+  margin: 0;
+  max-width: 640px;
+}
+
+.docs-welcome__personas {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 720px) {
+  .docs-welcome__personas {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.docs-welcome__persona-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+}
+
+.docs-welcome__persona-card:hover,
+.docs-welcome__persona-card:focus-visible {
+  border-color: var(--ember-strong);
+  background: var(--ember-tint-bg);
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.docs-welcome__persona-title {
+  font-family: 'Cinzel', serif;
+  font-size: 1.125rem;
+  color: var(--text);
+}
+
+.docs-welcome__persona-teaser {
+  color: var(--text-dim);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.docs-welcome__persona-arrow {
+  position: absolute;
+  bottom: 16px;
+  right: 18px;
+  color: var(--ember-tint-text);
+}
