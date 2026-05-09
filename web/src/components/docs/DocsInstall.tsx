@@ -184,6 +184,57 @@ export function DocsInstall() {
           patches go into the <code>missionpack</code> folder.
         </p>
       </div>
+
+      <div className="about-section">
+        <DocsH2 id="automatic-updates">Step 4 — Automatic Updates</DocsH2>
+        <p>
+          Trinity checks for new releases on startup. When an update
+          is available, an indicator appears on the main menu and you
+          can download + apply it without leaving the game.
+        </p>
+        <p>
+          You can also manage updates from the console. The first
+          three commands work the same way on every engine; the
+          command that applies a downloaded update differs per
+          platform — pick your platform below for the specifics.
+        </p>
+        <ul>
+          <li><code>update</code> — check for updates</li>
+          <li><code>updatedownload</code> — download an available update</li>
+          <li><code>updatecancel</code> — cancel an in-progress download</li>
+        </ul>
+
+        <PlatformTabs>
+          <PlatformTabs.Panel platform="flatscreen">
+            <p>
+              <code>updaterestart</code> — apply a downloaded update
+              and restart the game.
+            </p>
+          </PlatformTabs.Panel>
+          <PlatformTabs.Panel platform="pcvr">
+            <p>
+              <code>updaterestart</code> — apply a downloaded update
+              and restart the game.
+            </p>
+          </PlatformTabs.Panel>
+          <PlatformTabs.Panel platform="quest">
+            <p>
+              <code>updateinstall</code> — hand the downloaded update
+              to Android's package manager to install. This replaces
+              the <code>updaterestart</code> command from the desktop
+              engines (the Quest engine ships an <code>.apk</code>{' '}
+              that Android installs through its own UI rather than
+              restarting the game in place).
+            </p>
+          </PlatformTabs.Panel>
+        </PlatformTabs>
+
+        <p>
+          To disable the automatic startup check, set{' '}
+          <code>update_check 0</code> in your config (defaults to{' '}
+          <code>1</code> on all engines).
+        </p>
+      </div>
     </>
   )
 }
