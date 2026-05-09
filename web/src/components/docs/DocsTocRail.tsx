@@ -6,15 +6,16 @@ export interface DocSection {
   label: string
 }
 
-// Credits moved out of the docs IA — now a top-level /credits route.
-// Subsequent rework phases will replace these entries with the
-// finalized 6-tab structure (Welcome / Install / Account / Customize
-// / Server Admin / Reference). For now keep the existing tabs intact
-// so the docs subroutes stay reachable while phase 2+ is in flight.
+// Six-tab docs IA: Welcome (the index) + five subroutes. The Welcome
+// entry uses an empty path because it lives at /docs root; the
+// active-state check below special-cases it.
 export const DOCS_TABS = [
-  { path: 'getting-started', label: 'Getting Started' },
-  { path: 'features', label: 'Features' },
+  { path: '', label: 'Welcome' },
+  { path: 'install', label: 'Install' },
+  { path: 'account', label: 'Account' },
+  { path: 'customize', label: 'Customize' },
   { path: 'server-admin', label: 'Server Admin' },
+  { path: 'reference', label: 'Reference' },
 ] as const
 
 // Left rail: pure tab list across the docs pages. NavScroller wraps
@@ -30,10 +31,12 @@ export function DocsTocRail() {
       <NavScroller scrollClassName="docs-toc-rail__scroll">
         <ul className="docs-toc-rail__list">
           {DOCS_TABS.map((tab) => {
-            const isActive = location.pathname.startsWith(`/docs/${tab.path}`)
+            const isActive = tab.path === ''
+              ? location.pathname === '/docs' || location.pathname === '/docs/'
+              : location.pathname.startsWith(`/docs/${tab.path}`)
             return (
               <li key={tab.path} className={`docs-toc-rail__item ${isActive ? 'docs-toc-rail__item--active' : ''}`}>
-                <NavLink to={`/docs/${tab.path}`} className="docs-toc-rail__tab">
+                <NavLink to={tab.path === '' ? '/docs' : `/docs/${tab.path}`} className="docs-toc-rail__tab">
                   {tab.label}
                 </NavLink>
               </li>
