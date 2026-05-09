@@ -10755,3 +10755,96 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
     linear-gradient(to right, black 70%, rgba(0,0,0,0.4) 100%);
   mask-composite: intersect;
 }
+
+/* ─── Docs platform picker ────────────────────────────────────
+   First-visit blocker. Centered card on desktop, top-aligned
+   full-bleed on narrow viewports per spec.
+   ──────────────────────────────────────────────────────────── */
+
+.docs-platform-picker {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.78);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.docs-platform-picker__card {
+  background: var(--bg-card);
+  border: 1px solid var(--rule-strong);
+  border-radius: 12px;
+  padding: 32px 28px;
+  max-width: 560px;
+  width: 100%;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+}
+
+.docs-platform-picker__title {
+  font-family: 'Cinzel', serif;
+  font-size: 1.625rem;
+  margin: 0 0 12px;
+  color: var(--text);
+}
+
+.docs-platform-picker__lead {
+  margin: 0 0 24px;
+  color: var(--text-dim);
+  line-height: 1.55;
+}
+
+.docs-platform-picker__options {
+  display: grid;
+  gap: 12px;
+}
+
+.docs-platform-picker__option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  background: var(--bg-elev);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  padding: 14px 16px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s;
+  color: var(--text);
+  font-family: inherit;
+}
+
+.docs-platform-picker__option:hover,
+.docs-platform-picker__option:focus-visible {
+  border-color: var(--ember-strong);
+  background: var(--ember-tint-bg);
+  outline: none;
+}
+
+.docs-platform-picker__option-label {
+  font-weight: 600;
+  font-size: 1.0625rem;
+}
+
+.docs-platform-picker__option-desc {
+  color: var(--text-dim);
+  font-size: 0.9375rem;
+}
+
+@media (max-width: 600px) {
+  .docs-platform-picker {
+    align-items: flex-start;
+    padding: 0;
+  }
+  .docs-platform-picker__card {
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    border-top: none;
+    min-height: 100svh;
+    max-width: none;
+    padding: 32px 20px;
+  }
+}
