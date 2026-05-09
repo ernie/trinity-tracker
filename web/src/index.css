@@ -11237,3 +11237,41 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 .credits-page a {
   color: var(--ember-tint-text);
 }
+
+/* ─── Docs TOC rail scroller ──────────────────────────────────
+   On desktop the rail behaves like a flat vertical list (the
+   .docs-toc-rail__list rules are unchanged). On narrow viewports,
+   when entries would overflow, the NavScroller chevrons appear.
+   `display: contents` on desktop preserves the existing layout.
+   ──────────────────────────────────────────────────────────── */
+
+.docs-toc-rail__scroll {
+  display: contents;
+}
+
+@media (max-width: 900px) {
+  .docs-toc-rail__scroll {
+    display: block;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+  .docs-toc-rail__scroll::-webkit-scrollbar {
+    display: none;
+  }
+  .docs-toc-rail__scroll .docs-toc-rail__list {
+    display: flex;
+    flex-direction: row;
+    width: max-content;
+    gap: 8px;
+  }
+  .docs-toc-rail__scroll.is-scroll-left {
+    mask-image: linear-gradient(to right, transparent 0, black 32px, black calc(100% - 32px), black 100%);
+  }
+  .docs-toc-rail__scroll.is-scroll-right {
+    mask-image: linear-gradient(to right, black 0, black calc(100% - 32px), transparent 100%);
+  }
+  .docs-toc-rail__scroll.is-scroll-left.is-scroll-right {
+    mask-image: linear-gradient(to right, transparent 0, black 32px, black calc(100% - 32px), transparent 100%);
+  }
+}
