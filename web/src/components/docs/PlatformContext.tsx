@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useContext, useState, type ReactNode } from 'react'
 import { loadPlatform, savePlatform, type Platform } from './platformStorage'
 
 // Context value is null while the user hasn't picked yet — the
@@ -21,28 +21,20 @@ interface PlatformProviderProps {
   renderPicker: (onPick: (p: Platform) => void) => ReactNode
 }
 
-// Provider hydrates state from localStorage on mount, persists every
-// change, and gates its children behind the picker until a platform
-// is chosen. Consumer components see only non-null platforms via
-// usePlatform().
+// Provider hydrates state from localStorage during the initial render
+// via useState's lazy initializer, persists every change, and gates
+// its children behind the picker until a platform is chosen. Consumer
+// components see only non-null platforms via usePlatform().
 export function PlatformProvider({ children, renderPicker }: PlatformProviderProps) {
-  const [platform, setPlatformState] = useState<Platform | null>(null)
-  const [hydrated, setHydrated] = useState(false)
-
-  useEffect(() => {
-    setPlatformState(loadPlatform())
-    setHydrated(true)
-  }, [])
+  // Lazy initializer reads localStorage synchronously during mount,
+  // so the first committed frame already reflects the stored choice —
+  // no picker flicker, no extra effect-driven render.
+  const [platform, setPlatformState] = useState<Platform | null>(loadPlatform)
 
   const setPlatform = (p: Platform) => {
     savePlatform(p)
     setPlatformState(p)
   }
-
-  // Suppress the picker flicker on first paint — wait until we've
-  // tried to read localStorage. This avoids the picker appearing for
-  // a frame and then disappearing for users who already picked.
-  if (!hydrated) return null
 
   if (platform === null) {
     return <>{renderPicker(setPlatform)}</>
