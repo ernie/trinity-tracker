@@ -28,10 +28,10 @@ The stack:
   missionpack if you want gametypes from Team Arena — One Flag CTF,
   Overload, Harvester). The trinity-engine release bundles the engine
   + the trinity mod, but the retail Quake 3 asset pak isn't
-  redistributable, and the engine refuses to load most maps without
-  it. The wizard handles placement during its pak step (§3); to skip
-  the path prompt entirely, copy your retail pak0(s) into the
-  directory you'll run the installer from, renamed:
+  redistributable, and the engine won't run without it. The wizard
+  handles placement during its pak step (§3); to skip the path prompt
+  entirely, copy your retail pak0(s) into the directory you'll run
+  the installer from, renamed:
   - `q3-pak0.pk3` for baseq3
   - `mp-pak0.pk3` for missionpack (only if you'll run Team Arena)
 

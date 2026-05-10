@@ -148,7 +148,7 @@ export function DocsServerAdmin() {
           </li>
           <li>
             <code>sv_tvDownload 1</code> +{" "}
-            <code>sv_dlURL "http://&lt;your-host&gt;:27970"</code> —
+            <code>sv_dlURL "https://dl.&lt;your-host&gt;"</code> —
             let clients download recorded <code>.tvd</code> files
             (and missing pk3s) straight from your fast-dl vhost.
           </li>
@@ -156,8 +156,11 @@ export function DocsServerAdmin() {
         <div className="docs-tip">
           <p>
             The bundled <code>scripts/bootstrap-nginx.sh</code>{" "}
-            stands up the matching <code>:27970</code> vhost; you
-            still have to point your q3 server at it.
+            stands up the <code>dl.&lt;your-host&gt;</code> vhost
+            with a Let's Encrypt cert (you'll need a{" "}
+            <code>dl.&lt;your-host&gt;</code> A/AAAA record on the
+            same box). The install wizard fills in{" "}
+            <code>sv_dlURL</code> for you.
           </p>
         </div>
       </div>

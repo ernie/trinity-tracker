@@ -11421,6 +11421,210 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   border-color: var(--rule-strong);
 }
 
+/* Reference page — sticky search input pinned to the top of the
+   docs content area. Filters cvar tables and glossary in real time;
+   "/" focuses it (handled in ReferenceSearch.tsx). */
+.docs-reference-search {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  margin: 0 0 24px;
+  padding: 12px 0;
+  background: var(--bg);
+  border-bottom: 1px solid var(--rule);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.docs-reference-search input[type="search"] {
+  flex: 1;
+  padding: 8px 12px;
+  background: var(--bg-elev);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.95rem;
+  font-family: inherit;
+}
+
+.docs-reference-search input[type="search"]:focus {
+  outline: none;
+  border-color: var(--ember-strong);
+}
+
+.docs-reference-search__clear {
+  width: 32px;
+  height: 32px;
+  background: var(--bg-card);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  color: var(--text-dim);
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.docs-reference-search__clear:hover {
+  color: var(--text);
+  border-color: var(--rule-strong);
+}
+
+/* Platform-filter toggle in the sticky bar — flips between "Show all
+   platforms" (currently filtered to one) and "Filter to <Platform>"
+   (currently showing all). Label always describes the action the
+   click will perform. */
+.docs-reference-search__platform-toggle {
+  padding: 8px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.docs-reference-search__platform-toggle:hover {
+  color: var(--text);
+  border-color: var(--rule-strong);
+}
+
+/* Context note rendered just under the sticky bar when the platform
+   filter is active. Reminds the reader they're seeing a filtered
+   view and where to widen it. */
+.docs-reference__platform-note {
+  margin: 0 0 16px;
+  padding: 8px 12px;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  background: var(--bg-elev);
+  border: 1px dashed var(--rule);
+  border-radius: 6px;
+}
+
+/* Inline "(N matching)" annotation in section headings while the
+   filter is active. Dim relative to the heading text so it reads as
+   metadata, not the heading itself. */
+.docs-reference__count {
+  color: var(--text-dim);
+  font-weight: 400;
+  font-size: 0.85em;
+}
+
+/* "No matches" placeholder shown inside an empty section when the
+   filter excludes everything in that bucket. */
+.docs-reference__empty {
+  color: var(--text-dim);
+  font-style: italic;
+  margin: 12px 0;
+}
+
+/* Cvar list — each entry is a card with a head row (name + default
+   + platform chips) and a description body. */
+.cvar-list {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cvar-entry {
+  padding: 12px 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  border-left: 3px solid var(--rule-strong);
+}
+
+.cvar-entry__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.cvar-entry__name {
+  /* Override the .about-section code styling — this is the cvar's
+     headline reference and deserves its own stronger treatment. */
+  font-size: 1rem;
+  padding: 3px 8px;
+  font-weight: 700;
+}
+
+.cvar-entry__default {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+
+.cvar-entry__description {
+  margin: 6px 0 0;
+  line-height: 1.55;
+}
+
+.cvar-entry__values {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0 0 0 16px;
+  border-left: 2px solid var(--rule);
+}
+
+.cvar-entry__values > li {
+  padding: 2px 0;
+  color: var(--text-dim);
+  font-size: 0.9em;
+}
+
+.cvar-entry__values > li > code {
+  /* Tighten the inline-code chrome so the value enumeration reads
+     as a compact list rather than a stack of buttons. */
+  padding: 1px 5px;
+}
+
+.cvar-entry__notes {
+  margin: 8px 0 0;
+  color: var(--text-dim);
+  font-size: 0.9em;
+  font-style: italic;
+}
+
+/* Glossary list — same card pattern as cvars but with a term head
+   and definition body. */
+.glossary-list {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.glossary-entry {
+  padding: 12px 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  border-left: 3px solid var(--ember-strong);
+}
+
+.glossary-entry__term {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.glossary-entry__definition {
+  margin: 0;
+  line-height: 1.55;
+}
+
 /* "You're done" banner shown after the final install step — gives
    the install flow a clear finish line, distinct from the auxiliary
    reference sections that follow. Uses the same ember-tint palette

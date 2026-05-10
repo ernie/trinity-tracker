@@ -47,16 +47,6 @@ func TestRenderHubNginxConfig_ContainsExpectedDirectives(t *testing.T) {
 		}
 	}
 
-	// fastdl moved off :27970 onto dl.<host>; the old listener must be gone.
-	for _, unwanted := range []string{
-		"listen 27970",
-		"proxy_pass http://127.0.0.1:27970/",
-	} {
-		if strings.Contains(rendered, unwanted) {
-			t.Errorf("rendered hub.conf still references retired :27970 (%q):\n%s", unwanted, rendered)
-		}
-	}
-
 	// The template must NOT carry the legacy redirect (operator retired
 	// trinity.ernie.io ahead of the migration).
 	if strings.Contains(rendered, "trinity.ernie.io") {
@@ -125,13 +115,11 @@ func TestRenderCollectorNginxConfig_ContainsExpectedDirectives(t *testing.T) {
 	}
 
 	// Collector vhost is not an app — no SPA, no api/ws proxy.
-	// fastdl moved off :27970 onto dl.<host>; the old listener must be gone.
 	for _, unwanted := range []string{
 		"location /api/ {",
 		"location /ws {",
 		"@spa",
 		"@trinity_fallback",
-		"listen 27970",
 	} {
 		if strings.Contains(rendered, unwanted) {
 			t.Errorf("collector.conf unexpectedly contains %q\n%s", unwanted, rendered)

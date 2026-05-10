@@ -52,8 +52,10 @@ const DOCS_ITEMS = [
   { path: '/docs/server-admin#set-up-a-collector', label: 'Set up a collector' },
   { path: '/docs/server-admin#required-server-cvars', label: 'Required server cvars' },
   { path: '/docs/reference', label: 'Reference', hint: 'cvars · glossary' },
-  { path: '/docs/reference#server-cvars', label: 'Server cvars' },
   { path: '/docs/reference#glossary', label: 'Glossary' },
+  { path: '/docs/reference#player-cvars', label: 'Player cvars' },
+  { path: '/docs/reference#vr-cvars', label: 'VR cvars' },
+  { path: '/docs/reference#server-cvars', label: 'Server cvars' },
 ]
 
 // Substring + token-prefix scoring. Returns 0 for no match.
