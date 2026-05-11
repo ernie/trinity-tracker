@@ -57,7 +57,7 @@ export function HeroSection() {
             /assets/landing/wallpaper-2880.webp 2880w"
           sizes="100vw"
         />
-        <img src="/assets/landing/wallpaper.png" alt="" fetchPriority="high" />
+        <img src="/assets/landing/wallpaper-wqhd.png" alt="" fetchPriority="high" />
       </picture>
 
       <HeroHeader />
@@ -97,7 +97,25 @@ export function HeroSection() {
           <a
             className="landing-hero__wallpaper-link"
             role="menuitem"
-            href="/assets/landing/wallpaper.png"
+            href="/assets/landing/wallpaper-qhd.png"
+            download="trinity-wallpaper-2560x1440.png"
+          >
+            <span>QHD</span>
+            <span className="landing-hero__wallpaper-link-meta">2560 × 1440</span>
+          </a>
+          <a
+            className="landing-hero__wallpaper-link"
+            role="menuitem"
+            href="/assets/landing/wallpaper-4k.png"
+            download="trinity-wallpaper-3840x2160.png"
+          >
+            <span>4K</span>
+            <span className="landing-hero__wallpaper-link-meta">3840 × 2160</span>
+          </a>
+          <a
+            className="landing-hero__wallpaper-link"
+            role="menuitem"
+            href="/assets/landing/wallpaper-wqhd.png"
             download="trinity-wallpaper-3440x1440.png"
           >
             <span>Ultrawide</span>
@@ -106,11 +124,20 @@ export function HeroSection() {
           <a
             className="landing-hero__wallpaper-link"
             role="menuitem"
-            href="/assets/landing/wallpaper-qhd.png"
-            download="trinity-wallpaper-2560x1440.png"
+            href="/assets/landing/wallpaper-uw5k.png"
+            download="trinity-wallpaper-5160x2160.png"
           >
-            <span>QHD</span>
-            <span className="landing-hero__wallpaper-link-meta">2560 × 1440</span>
+            <span>5K Ultrawide</span>
+            <span className="landing-hero__wallpaper-link-meta">5160 × 2160</span>
+          </a>
+          <a
+            className="landing-hero__wallpaper-link"
+            role="menuitem"
+            href="/assets/landing/wallpaper-iphone.png"
+            download="trinity-wallpaper-1320x2868.png"
+          >
+            <span>iPhone</span>
+            <span className="landing-hero__wallpaper-link-meta">1320 × 2868</span>
           </a>
         </div>
       </div>

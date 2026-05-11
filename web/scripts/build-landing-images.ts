@@ -7,7 +7,7 @@ import { mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const ROOT = resolve(import.meta.dir, '..')
-const SRC = resolve(ROOT, 'public/assets/landing/wallpaper.png')
+const SRC = resolve(ROOT, 'public/assets/landing/wallpaper-wqhd.png')
 const OUT_DIR = resolve(ROOT, 'public/assets/landing')
 
 mkdirSync(OUT_DIR, { recursive: true })

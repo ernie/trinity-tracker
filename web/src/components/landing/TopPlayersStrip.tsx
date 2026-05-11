@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { ColoredText } from '../ColoredText'
 import { PlayerPortrait } from '../PlayerPortrait'
 import { ArrowIcon } from '../ArrowIcon'
+import { NavScroller } from '../NavScroller'
 import type { LeaderboardEntry, LeaderboardResponse } from '../../types'
 
 export function TopPlayersStrip() {
@@ -31,7 +32,7 @@ export function TopPlayersStrip() {
         <Link to="/leaderboard" className="landing-section__cta">Full leaderboard <ArrowIcon direction="right" /></Link>
       </header>
       <div className="landing-shelf-h">
-        <div className="landing-shelf-h__scroll landing-players-strip">
+        <NavScroller scrollClassName="landing-shelf-h__scroll landing-players-strip">
           {entries.map((p) => {
             const isTop = p.rank <= 3
             const cleanInitial = (p.player.clean_name || p.player.name || '').replace(/\^./g, '').charAt(0).toLowerCase() || '?'
@@ -53,7 +54,7 @@ export function TopPlayersStrip() {
               </Link>
             )
           })}
-        </div>
+        </NavScroller>
       </div>
     </section>
   )

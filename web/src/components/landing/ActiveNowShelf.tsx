@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { useLiveData } from '../../contexts/LiveDataContext'
 import { ServerCard } from '../ServerCard'
 import { ArrowIcon } from '../ArrowIcon'
+import { NavScroller } from '../NavScroller'
 
 export function ActiveNowShelf() {
   const live = useLiveData()
@@ -22,7 +23,7 @@ export function ActiveNowShelf() {
       </header>
       {activeServers.length > 0 ? (
         <div className="landing-shelf-h">
-          <div className="landing-shelf-h__scroll">
+          <NavScroller scrollClassName="landing-shelf-h__scroll">
             {activeServers.map((server) => (
               <div key={server.server_id} className="landing-shelf-h__slot">
                 <ServerCard
@@ -33,7 +34,7 @@ export function ActiveNowShelf() {
                 />
               </div>
             ))}
-          </div>
+          </NavScroller>
         </div>
       ) : (
         <div className="landing-quiet">
