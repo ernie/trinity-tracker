@@ -1268,7 +1268,12 @@ h2 {
   width: 128px;
   height: 128px;
   background-color: var(--bg);
-  border: 1px solid var(--rule-strong);
+  /* Ember border at the door-hover tone so this hover popup reads as
+     part of the same UI vocabulary as the rest of the ember accents.
+     (Was `1px solid var(--rule-strong)` — invalid shorthand because
+     --rule-strong already includes "1px solid", so the browser dropped
+     the border entirely.) */
+  border: 1px solid rgba(255, 110, 60, 0.55);
   border-radius: var(--radius-sm);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
@@ -10679,7 +10684,9 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   background-size: cover;
   background-position: center;
   background-color: var(--bg);
-  border: 1px solid #444;
+  /* Ember border — same tone as the portrait popup so the two hover
+     popups share one visual vocabulary (door-hover ember at 55%). */
+  border: 1px solid rgba(255, 110, 60, 0.55);
   border-radius: var(--radius-sm);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
   opacity: 0;
