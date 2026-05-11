@@ -1,14 +1,25 @@
 import type React from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveData } from '../../contexts/LiveDataContext'
 import { plural, formatFragTime } from './format'
 import { HeroHeader } from './HeroHeader'
 import { ArrowIcon } from '../ArrowIcon'
+import { pickHeroVariant } from './heroVariants'
+
+// Preserve the non-breaking-space treatment the static headline used
+// (`WELCOME&nbsp;BACK&nbsp;TO`) so dynamic headline lines don't wrap
+// mid-phrase on narrow viewports.
+const nbsp = (s: string) => s.replace(/ /g, ' ')
 
 export function HeroSection() {
   const live = useLiveData()
   const humans = live.activeHumanPlayersCount
   const arenas = live.activeServersCount
+  // Pick once per mount; useState lazy-init means the random roll is
+  // stable across re-renders. Route navigation that unmounts and remounts
+  // the landing will pick a fresh variant — matches "random per visit".
+  const [variant] = useState(pickHeroVariant)
 
   // Pulse line 1: busy / quiet / pre-WS variants.
   let pulse: React.ReactNode
@@ -65,16 +76,16 @@ export function HeroSection() {
       <div className="landing-hero__main">
         <div className="landing-hero__kicker">
           <span className="landing-hero__rule" aria-hidden />
-          <span>EST. 2026 · TRINITY</span>
+          <span>EST. 2026 · TRINITY · QUAKE III</span>
           <span className="landing-hero__rule" aria-hidden />
         </div>
 
         <h1 className="landing-hero__headline">
-          WELCOME&nbsp;BACK&nbsp;TO<br />QUAKE&nbsp;III
+          {nbsp(variant.headline1)}<br />{nbsp(variant.headline2)}
         </h1>
 
         <p className="landing-hero__subhead">
-          still the best arena shooter ever made.
+          {variant.subhead}
         </p>
 
         <div className="landing-hero__pulse" aria-live="polite">
