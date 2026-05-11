@@ -19,22 +19,14 @@ const (
 // Watermark is the publisher's persisted progress marker.
 //
 // LastSeq is the global monotonic sequence number for this source's
-// publisher — used to resume seq numbering across restart, not for
-// replay censoring. It advances on every successful publish.
-//
-// LastTS is the aggregate timestamp of the most recently published
-// event. Retained for backward compat with watermark files written
-// by the pre-(per-server-cutoff) binary and as a fallback cutoff for
-// servers absent from PerServer.
+// publisher — used to resume seq numbering across restart.
 //
 // PerServer records (LastSeq, LastTS) per RemoteServerID. The
 // collector's manager uses these as per-tailer replay cutoffs so an
 // event on server A at second T can't censor an unprocessed
-// same-second event on server B during next-boot recovery (the bug
-// fixed by this field's introduction).
+// same-second event on server B during next-boot recovery.
 type Watermark struct {
 	LastSeq   uint64                    `json:"last_seq"`
-	LastTS    time.Time                 `json:"last_ts"`
 	PerServer map[int64]ServerWatermark `json:"per_server,omitempty"`
 }
 
@@ -46,10 +38,10 @@ type ServerWatermark struct {
 }
 
 // IsZero reports whether the watermark holds no state. Used in place
-// of `wm == (Watermark{})` since the struct now contains a map and
-// is no longer directly comparable.
+// of `wm == (Watermark{})` since the struct contains a map and is
+// no longer directly comparable.
 func (w Watermark) IsZero() bool {
-	return w.LastSeq == 0 && w.LastTS.IsZero() && len(w.PerServer) == 0
+	return w.LastSeq == 0 && len(w.PerServer) == 0
 }
 
 // LoadWatermark returns the stored watermark or a zero value on
@@ -152,7 +144,6 @@ func (t *WatermarkTracker) Update(serverID int64, seq uint64, ts time.Time) erro
 		t.current.PerServer[serverID] = ServerWatermark{LastSeq: seq, LastTS: ts.UTC()}
 	}
 	t.current.LastSeq = seq
-	t.current.LastTS = ts.UTC()
 	t.updatesSince++
 	now := time.Now()
 	shouldFlush := t.updatesSince >= WatermarkFlushEvery || now.Sub(t.lastFlush) >= WatermarkFlushInterval

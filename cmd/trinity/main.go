@@ -455,23 +455,21 @@ func cmdServe(args []string) {
 		manager.SetLivePublisher(livePublisher)
 	}
 
-	// Replay cutoff: the collector's NATS publisher watermark says
-	// "I have already published everything up to this seq/ts; treat
-	// older log events as silent state-rebuild only." We pass the
-	// per-server cutoffs (the seq/ts of the last event published for
-	// each RemoteServerID) so that a server-A event at second T can't
-	// censor an unprocessed same-second event on server B during
-	// next-boot replay (Bug 1). LastTS is supplied as a fallback for
-	// servers not present in PerServer (e.g., a legacy watermark file
-	// from before this field existed, or a server added since the
-	// last watermark write).
+	// Replay cutoff: the collector's NATS publisher watermark says,
+	// per RemoteServerID, "I have already published events on this
+	// server up to this seq/ts; treat older log entries as silent
+	// state-rebuild only." Per-server (not global) so a server-A
+	// event at second T can't censor an unprocessed same-second
+	// event on server B during next-boot recovery (Bug 1). Servers
+	// without a PerServer entry fall through to LastMatchEndedAt
+	// in the manager's cutoffFor.
 	if collectorWatermark != nil {
 		if wm := collectorWatermark.Current(); !wm.IsZero() {
 			perServer := make(map[int64]time.Time, len(wm.PerServer))
 			for id, sw := range wm.PerServer {
 				perServer[id] = sw.LastTS
 			}
-			manager.SetReplayCutoffs(perServer, wm.LastTS)
+			manager.SetReplayCutoffs(perServer)
 		}
 	}
 

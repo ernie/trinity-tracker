@@ -19,7 +19,7 @@ func TestLoadWatermarkMissingReturnsZero(t *testing.T) {
 
 func TestSaveLoadWatermarkRoundTrip(t *testing.T) {
 	dir := t.TempDir()
-	wm := Watermark{LastSeq: 12345, LastTS: time.Date(2026, 4, 19, 12, 0, 0, 0, time.UTC)}
+	wm := Watermark{LastSeq: 12345}
 	if err := SaveWatermark(dir, wm); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
@@ -27,7 +27,7 @@ func TestSaveLoadWatermarkRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if got.LastSeq != wm.LastSeq || !got.LastTS.Equal(wm.LastTS) {
+	if got.LastSeq != wm.LastSeq {
 		t.Errorf("round trip mismatch: got=%+v want=%+v", got, wm)
 	}
 }
@@ -113,32 +113,10 @@ func TestWatermarkTrackerTracksPerServer(t *testing.T) {
 	}
 }
 
-func TestWatermarkBackCompatLoadsLegacyFormat(t *testing.T) {
-	// A watermark file written by the pre-(per-server) binary has only
-	// {last_seq, last_ts}; no per_server key. Loading must succeed and
-	// leave PerServer nil (the manager falls back to LastTS).
-	dir := t.TempDir()
-	legacy := []byte(`{"last_seq":42,"last_ts":"2026-05-11T17:12:08Z"}`)
-	if err := os.WriteFile(filepath.Join(dir, WatermarkFilename), legacy, 0o644); err != nil {
-		t.Fatalf("seed legacy: %v", err)
-	}
-	wm, err := LoadWatermark(dir)
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-	if wm.LastSeq != 42 {
-		t.Errorf("LastSeq = %d, want 42", wm.LastSeq)
-	}
-	if wm.PerServer != nil {
-		t.Errorf("PerServer should be nil on legacy load, got %+v", wm.PerServer)
-	}
-}
-
 func TestWatermarkPerServerRoundTrips(t *testing.T) {
 	dir := t.TempDir()
 	wm := Watermark{
 		LastSeq: 200,
-		LastTS:  time.Date(2026, 5, 11, 17, 12, 8, 0, time.UTC),
 		PerServer: map[int64]ServerWatermark{
 			2: {LastSeq: 100, LastTS: time.Date(2026, 5, 11, 17, 11, 58, 0, time.UTC)},
 			4: {LastSeq: 200, LastTS: time.Date(2026, 5, 11, 17, 12, 8, 0, time.UTC)},
