@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "build:landing-images": "bun scripts/build-landing-images.ts",
-    "build": "tsc -b && bun run build.ts",
-    "lint": "eslint ."
+    "build": "bun run lint && tsc -b && bun run build.ts",
+    "lint": "eslint --max-warnings 0 ."
   },
   "dependencies": {
     "react": "^19.2.0",

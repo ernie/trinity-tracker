@@ -25,6 +25,10 @@ export function ZoomableImage({ src, alt }: ZoomableImageProps) {
   // three are torn down together when zoomed flips back to false.
   useEffect(() => {
     if (!zoomed) return
+    // Snapshot the trigger at setup so cleanup restores focus to the
+    // button this effect "saw," not whatever the ref later points at
+    // (react-hooks/exhaustive-deps).
+    const triggerEl = triggerRef.current
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setZoomed(false)
     }
@@ -35,7 +39,7 @@ export function ZoomableImage({ src, alt }: ZoomableImageProps) {
     return () => {
       document.removeEventListener('keydown', onKey)
       document.body.style.overflow = prevOverflow
-      triggerRef.current?.focus()
+      triggerEl?.focus()
     }
   }, [zoomed])
 

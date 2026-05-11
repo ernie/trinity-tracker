@@ -119,6 +119,10 @@ export function CalloutImage({ src, alt, callouts }: CalloutImageProps) {
   // backdrop — focus is on body).
   useEffect(() => {
     if (!zoomed) return
+    // Snapshot the trigger at effect setup so cleanup restores focus
+    // to *this* render's button, not whatever the ref happens to be
+    // pointing at later (react-hooks/exhaustive-deps).
+    const triggerEl = triggerRef.current
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && activeN === null) {
         setZoomed(false)
@@ -131,7 +135,7 @@ export function CalloutImage({ src, alt, callouts }: CalloutImageProps) {
     return () => {
       document.removeEventListener('keydown', onKey)
       document.body.style.overflow = prevOverflow
-      triggerRef.current?.focus()
+      triggerEl?.focus()
     }
   }, [zoomed, activeN])
 
