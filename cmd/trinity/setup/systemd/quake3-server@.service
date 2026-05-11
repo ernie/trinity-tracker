@@ -10,8 +10,17 @@ User=quake
 WorkingDirectory=/usr/lib/quake3
 EnvironmentFile=-/etc/trinity/%i.env
 ExecStart=/usr/bin/screen -Dm -S quake3-%i /usr/lib/quake3/trinity.ded +set fs_homepath /usr/lib/quake3 +set com_hunkmegs 256 +set g_botsfile scripts/trinity-bots.txt +set g_log "logs/%i.log" $SERVER_OPTS
-ExecStop=/usr/bin/screen -S quake3-%i -X stuff "quit\n"
-TimeoutStopSec=10
+# SIGTERM straight to the q3 process: linux_signals.c routes it to
+# SV_Shutdown, which writes ShutdownGame: to g_log and exits cleanly.
+# Anchored at "^/usr/lib/quake3/trinity.ded" so we don't also hit the
+# parent "SCREEN -Dm ... /usr/lib/quake3/trinity.ded ..." — sending
+# SIGTERM to both lets screen exit first, which delivers SIGHUP to q3
+# mid-SV_Shutdown and trips q3's DOUBLE-SIGNAL-FAULT path (Sys_Exit(1)
+# before ShutdownGame: hits disk).
+# Leading "-" tolerates "no process matched" (Restart=on-failure may
+# have already restarted the process under a new pid).
+ExecStop=-/usr/bin/pkill --signal TERM -f ^/usr/lib/quake3/trinity\.ded.*logs/%i\.log
+TimeoutStopSec=30
 Restart=on-failure
 
 [Install]
