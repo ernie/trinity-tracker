@@ -16,6 +16,12 @@ export function CreditsPage() {
       </p>
       <ul>
         <li>
+          <a href="https://www.idsoftware.com/">id Software</a>:{' '}
+          <a href="https://github.com/id-Software/Quake-III-Arena">
+            Quake III Arena
+          </a>
+        </li>
+        <li>
           Team Beef:{' '}
           <a href="https://github.com/Team-Beef-Studios/ioq3quest">
             Quake3Quest
