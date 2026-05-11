@@ -10,17 +10,40 @@ User=quake
 WorkingDirectory=/usr/lib/quake3
 EnvironmentFile=-/etc/trinity/%i.env
 ExecStart=/usr/bin/screen -Dm -S quake3-%i /usr/lib/quake3/trinity.ded +set fs_homepath /usr/lib/quake3 +set com_hunkmegs 256 +set g_botsfile scripts/trinity-bots.txt +set g_log "logs/%i.log" $SERVER_OPTS
-# SIGTERM straight to the q3 process: linux_signals.c routes it to
-# SV_Shutdown, which writes ShutdownGame: to g_log and exits cleanly.
+# SIGTERM straight to the q3 process: trinity-engine's
+# linux_signals.c queues the signal via signal_handler_async, and
+# Sys_CheckPendingSignal runs SV_Shutdown from main-loop context on
+# the next frame boundary. G_ShutdownGame writes ShutdownGame: to
+# g_log and exits cleanly with 0.
+#
 # Anchored at "^/usr/lib/quake3/trinity.ded" so we don't also hit the
 # parent "SCREEN -Dm ... /usr/lib/quake3/trinity.ded ..." — sending
-# SIGTERM to both lets screen exit first, which delivers SIGHUP to q3
-# mid-SV_Shutdown and trips q3's DOUBLE-SIGNAL-FAULT path (Sys_Exit(1)
-# before ShutdownGame: hits disk).
+# SIGTERM to both lets screen catch one and exit non-zero, which
+# systemd records as ExecMainStatus=1/FAILURE even though q3 itself
+# exited cleanly.
+#
 # Leading "-" tolerates "no process matched" (Restart=on-failure may
 # have already restarted the process under a new pid).
 ExecStop=-/usr/bin/pkill --signal TERM -f ^/usr/lib/quake3/trinity\.ded.*logs/%i\.log
 TimeoutStopSec=30
+
+# KillMode=none disables systemd's own post-ExecStop signaling. The
+# default (control-group) would SIGTERM every process in the cgroup
+# after ExecStop returns — including the screen wrapper. screen
+# catches that SIGTERM and exits 1, even though q3 itself exited 0
+# via the engine's deferred-signal path. That non-zero exit gets
+# recorded as the unit's main status (screen IS the main process)
+# and the unit lands in "failed" state on every clean stop.
+#
+# With KillMode=none, screen sees its child die naturally and exits
+# with 0, leaving the unit in "inactive" as intended. The trade-off
+# is no SIGKILL safety net: if q3 ever hangs in a way that prevents
+# Sys_CheckPendingSignal from running, `systemctl stop` will hang
+# in "deactivating" indefinitely. The reboot path is unaffected —
+# the system-level kill phase (DefaultTimeoutStopSec then SIGKILL)
+# still wins over any per-unit KillMode.
+KillMode=none
+
 Restart=on-failure
 
 [Install]
