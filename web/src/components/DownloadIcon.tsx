@@ -2,6 +2,12 @@
 // surfaces — the top-nav install link, the demo download button on
 // match cards. Stroke weight matches PlayIcon / ArrowIcon so the
 // action vocabulary reads as one set.
+//
+// Note: the 16-unit viewBox + thin-stroke design has more internal
+// whitespace than PlayIcon's 12-unit triangle, so when paired with
+// PlayIcon at the same `size` the download reads visually smaller.
+// Callers in tight icon+label pairings (e.g. MatchCard's demo-action
+// row) should pass a slightly larger `size` to compensate.
 export function DownloadIcon({
   size = 12,
   className,

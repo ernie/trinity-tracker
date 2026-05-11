@@ -196,7 +196,10 @@ export function MatchCard({
         Watch
       </Link>
       <a href={match.demo_url} download={demoFilename(match)} className="demo-action download">
-        <DownloadIcon size={10} />
+        {/* size 14 here vs PlayIcon's 10: the download glyph has more
+            internal whitespace than the play triangle, so a size bump
+            brings their visual mass to parity. */}
+        <DownloadIcon size={14} />
         Download
       </a>
     </span>
