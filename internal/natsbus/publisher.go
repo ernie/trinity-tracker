@@ -87,7 +87,11 @@ func (p *Publisher) Publish(e domain.FactEvent) error {
 		return fmt.Errorf("natsbus: publish %s seq=%d: %w", e.Type, seq, err)
 	}
 	if p.watermark != nil {
-		if err := p.watermark.Update(seq, env.Timestamp); err != nil {
+		// Per-server bucket lets the collector's tailer-per-server use
+		// its own replay cutoff on restart, instead of every server
+		// sharing the publisher's global LastTS (which censors
+		// same-second cross-server events on next-boot recovery).
+		if err := p.watermark.Update(env.RemoteServerID, seq, env.Timestamp); err != nil {
 			return fmt.Errorf("natsbus: watermark update seq=%d: %w", seq, err)
 		}
 	}

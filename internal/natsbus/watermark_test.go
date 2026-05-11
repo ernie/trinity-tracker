@@ -12,7 +12,7 @@ func TestLoadWatermarkMissingReturnsZero(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadWatermark: %v", err)
 	}
-	if wm != (Watermark{}) {
+	if !wm.IsZero() {
 		t.Errorf("want zero, got %+v", wm)
 	}
 }
@@ -51,10 +51,10 @@ func TestWatermarkTrackerUpdateIsMonotonic(t *testing.T) {
 	}
 
 	ts := time.Now().UTC()
-	if err := tr.Update(10, ts); err != nil {
+	if err := tr.Update(1, 10, ts); err != nil {
 		t.Fatalf("update 10: %v", err)
 	}
-	if err := tr.Update(5, ts); err != nil {
+	if err := tr.Update(1, 5, ts); err != nil {
 		t.Fatalf("update 5 (should no-op): %v", err)
 	}
 	if got := tr.Current(); got.LastSeq != 10 {
@@ -70,7 +70,7 @@ func TestWatermarkTrackerFlushForcesDisk(t *testing.T) {
 	}
 	// Single Update shouldn't cross the 50-batch threshold but may be
 	// recent enough to skip the 250ms interval.
-	if err := tr.Update(1, time.Now().UTC()); err != nil {
+	if err := tr.Update(1, 1, time.Now().UTC()); err != nil {
 		t.Fatalf("update: %v", err)
 	}
 	if err := tr.Flush(); err != nil {
@@ -85,6 +85,83 @@ func TestWatermarkTrackerFlushForcesDisk(t *testing.T) {
 	}
 }
 
+func TestWatermarkTrackerTracksPerServer(t *testing.T) {
+	tr, err := NewWatermarkTracker(t.TempDir())
+	if err != nil {
+		t.Fatalf("tracker: %v", err)
+	}
+	ts1 := time.Date(2026, 5, 11, 17, 11, 58, 0, time.UTC)
+	ts2 := time.Date(2026, 5, 11, 17, 12, 8, 0, time.UTC)
+	// 1v1 (server 2) publishes at 17:11:58, then ctf-ta (server 4) at 17:12:08.
+	// Without per-server tracking, both would share a single LastTS, and a
+	// 1v1 event at 17:12:08 would be censored by ctf-ta's advance.
+	if err := tr.Update(2, 100, ts1); err != nil {
+		t.Fatalf("update server 2: %v", err)
+	}
+	if err := tr.Update(4, 101, ts2); err != nil {
+		t.Fatalf("update server 4: %v", err)
+	}
+	got := tr.Current()
+	if got.PerServer[2].LastTS != ts1 {
+		t.Errorf("PerServer[2].LastTS = %v, want %v", got.PerServer[2].LastTS, ts1)
+	}
+	if got.PerServer[4].LastTS != ts2 {
+		t.Errorf("PerServer[4].LastTS = %v, want %v", got.PerServer[4].LastTS, ts2)
+	}
+	if got.LastSeq != 101 {
+		t.Errorf("global LastSeq = %d, want 101", got.LastSeq)
+	}
+}
+
+func TestWatermarkBackCompatLoadsLegacyFormat(t *testing.T) {
+	// A watermark file written by the pre-(per-server) binary has only
+	// {last_seq, last_ts}; no per_server key. Loading must succeed and
+	// leave PerServer nil (the manager falls back to LastTS).
+	dir := t.TempDir()
+	legacy := []byte(`{"last_seq":42,"last_ts":"2026-05-11T17:12:08Z"}`)
+	if err := os.WriteFile(filepath.Join(dir, WatermarkFilename), legacy, 0o644); err != nil {
+		t.Fatalf("seed legacy: %v", err)
+	}
+	wm, err := LoadWatermark(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if wm.LastSeq != 42 {
+		t.Errorf("LastSeq = %d, want 42", wm.LastSeq)
+	}
+	if wm.PerServer != nil {
+		t.Errorf("PerServer should be nil on legacy load, got %+v", wm.PerServer)
+	}
+}
+
+func TestWatermarkPerServerRoundTrips(t *testing.T) {
+	dir := t.TempDir()
+	wm := Watermark{
+		LastSeq: 200,
+		LastTS:  time.Date(2026, 5, 11, 17, 12, 8, 0, time.UTC),
+		PerServer: map[int64]ServerWatermark{
+			2: {LastSeq: 100, LastTS: time.Date(2026, 5, 11, 17, 11, 58, 0, time.UTC)},
+			4: {LastSeq: 200, LastTS: time.Date(2026, 5, 11, 17, 12, 8, 0, time.UTC)},
+		},
+	}
+	if err := SaveWatermark(dir, wm); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	got, err := LoadWatermark(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if len(got.PerServer) != 2 {
+		t.Fatalf("PerServer len = %d, want 2", len(got.PerServer))
+	}
+	if got.PerServer[2].LastSeq != 100 || !got.PerServer[2].LastTS.Equal(wm.PerServer[2].LastTS) {
+		t.Errorf("server 2 round-trip mismatch: got %+v", got.PerServer[2])
+	}
+	if got.PerServer[4].LastSeq != 200 || !got.PerServer[4].LastTS.Equal(wm.PerServer[4].LastTS) {
+		t.Errorf("server 4 round-trip mismatch: got %+v", got.PerServer[4])
+	}
+}
+
 func TestWatermarkTrackerBatchFlushTripsAtThreshold(t *testing.T) {
 	dir := t.TempDir()
 	tr, err := NewWatermarkTracker(dir)
@@ -94,7 +171,7 @@ func TestWatermarkTrackerBatchFlushTripsAtThreshold(t *testing.T) {
 	// Push WatermarkFlushEvery updates — the last one must trigger
 	// the flush.
 	for i := 1; i <= WatermarkFlushEvery; i++ {
-		if err := tr.Update(uint64(i), time.Now().UTC()); err != nil {
+		if err := tr.Update(1, uint64(i), time.Now().UTC()); err != nil {
 			t.Fatalf("update %d: %v", i, err)
 		}
 	}

@@ -25,11 +25,19 @@ type ServerManager struct {
 	q3client *Q3Client
 	events   chan domain.Event
 
-	// replayCutoff overrides the per-server LastMatchEndedAt boundary
-	// between replay and live events, so a collector restart in
-	// distributed mode doesn't republish history already past the
-	// hub's watermark.
+	// replayCutoff is the global aggregate cutoff used as a fallback
+	// when there's no per-server entry in replayCutoffs (e.g., a
+	// freshly-added server, or a watermark file written by the
+	// pre-(per-server) binary).
 	replayCutoff time.Time
+
+	// replayCutoffs holds the per-RemoteServerID replay/live boundary.
+	// Set from the publisher's persisted Watermark.PerServer on
+	// startup so each tailer compares its log events against the
+	// last event published for THAT server — not the latest event
+	// published for any server (which censored same-second cross-
+	// server events on next-boot recovery, per Bug 1).
+	replayCutoffs map[int64]time.Time
 
 	mu              sync.RWMutex
 	servers         map[int64]*serverState
@@ -129,6 +137,21 @@ func (m *ServerManager) SetLivePublisher(p hub.LiveEventPublisher) {
 	m.livePub = p
 }
 
+// SetReplayCutoffs pins per-server replay/live boundaries. Each
+// tailer compares its log events against the cutoff for its own
+// RemoteServerID, so an event published on server A at second T
+// can't censor a not-yet-published same-second event on server B
+// during next-boot recovery. The fallback time.Time is used when
+// the publisher's persisted watermark has no per-server entry.
+func (m *ServerManager) SetReplayCutoffs(perServer map[int64]time.Time, fallback time.Time) {
+	cuts := make(map[int64]time.Time, len(perServer))
+	for id, ts := range perServer {
+		cuts[id] = ts.UTC()
+	}
+	m.replayCutoffs = cuts
+	m.replayCutoff = fallback.UTC()
+}
+
 // SetReplayCutoff pins the replay/live boundary for every tailed
 // server. Must be called before Start. Zero uses each server's
 // LastMatchEndedAt.
@@ -193,12 +216,20 @@ func (m *ServerManager) Start(ctx context.Context) error {
 const freshLogThreshold = 10 << 20 // 10 MB
 
 // cutoffFor picks the replay cutoff for one server. Precedence:
-//   1. Global m.replayCutoff (NATS publisher watermark) when set —
-//      authoritative because it says "the hub already has up to this".
-//   2. fullSrv.LastMatchEndedAt — hub-side per-server watermark.
-//   3. File-size heuristic: small log = fresh, replay everything;
-//      large log = retrofit, skip history (cutoff = now()).
+//  1. Per-server m.replayCutoffs[id] — what the publisher's
+//     watermark says was last published FOR THIS SERVER.
+//     Authoritative because it can't be moved forward by activity
+//     on another server (the Bug 1 censoring path).
+//  2. Global m.replayCutoff — fallback for servers not yet in the
+//     per-server map (legacy watermark file, or a server added
+//     after the last watermark write).
+//  3. fullSrv.LastMatchEndedAt — hub-side per-server watermark.
+//  4. File-size heuristic: small log = fresh, replay everything;
+//     large log = retrofit, skip history (cutoff = now()).
 func (m *ServerManager) cutoffFor(srvCfg *config.Q3Server, fullSrv *domain.Server) time.Time {
+	if ts, ok := m.replayCutoffs[fullSrv.ID]; ok && !ts.IsZero() {
+		return ts
+	}
 	if !m.replayCutoff.IsZero() {
 		return m.replayCutoff
 	}

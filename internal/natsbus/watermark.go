@@ -16,12 +16,40 @@ const (
 	WatermarkFlushEvery    = 50
 )
 
-// Watermark is the publisher's persisted progress marker. On restart
-// the collector replays logs up to LastTS silently and resumes at
-// LastSeq+1.
+// Watermark is the publisher's persisted progress marker.
+//
+// LastSeq is the global monotonic sequence number for this source's
+// publisher — used to resume seq numbering across restart, not for
+// replay censoring. It advances on every successful publish.
+//
+// LastTS is the aggregate timestamp of the most recently published
+// event. Retained for backward compat with watermark files written
+// by the pre-(per-server-cutoff) binary and as a fallback cutoff for
+// servers absent from PerServer.
+//
+// PerServer records (LastSeq, LastTS) per RemoteServerID. The
+// collector's manager uses these as per-tailer replay cutoffs so an
+// event on server A at second T can't censor an unprocessed
+// same-second event on server B during next-boot recovery (the bug
+// fixed by this field's introduction).
 type Watermark struct {
+	LastSeq   uint64                    `json:"last_seq"`
+	LastTS    time.Time                 `json:"last_ts"`
+	PerServer map[int64]ServerWatermark `json:"per_server,omitempty"`
+}
+
+// ServerWatermark holds the (seq, ts) of the last event published
+// for a single RemoteServerID.
+type ServerWatermark struct {
 	LastSeq uint64    `json:"last_seq"`
 	LastTS  time.Time `json:"last_ts"`
+}
+
+// IsZero reports whether the watermark holds no state. Used in place
+// of `wm == (Watermark{})` since the struct now contains a map and
+// is no longer directly comparable.
+func (w Watermark) IsZero() bool {
+	return w.LastSeq == 0 && w.LastTS.IsZero() && len(w.PerServer) == 0
 }
 
 // LoadWatermark returns the stored watermark or a zero value on
@@ -105,14 +133,26 @@ func (t *WatermarkTracker) Current() Watermark {
 	return t.current
 }
 
-// Update records a monotonically-increasing Seq/TS pair; older seqs are ignored.
-func (t *WatermarkTracker) Update(seq uint64, ts time.Time) error {
+// Update records a monotonically-increasing Seq/TS pair for one
+// RemoteServerID; older seqs are ignored (the global seq guard
+// suffices since publisher seqs are monotonic across all servers).
+// serverID==0 is treated as "no per-server bucket" — the global
+// LastSeq/LastTS still advance, so non-server-scoped events still
+// participate in seq continuity.
+func (t *WatermarkTracker) Update(serverID int64, seq uint64, ts time.Time) error {
 	t.mu.Lock()
 	if seq <= t.current.LastSeq {
 		t.mu.Unlock()
 		return nil
 	}
-	t.current = Watermark{LastSeq: seq, LastTS: ts.UTC()}
+	if serverID != 0 {
+		if t.current.PerServer == nil {
+			t.current.PerServer = make(map[int64]ServerWatermark)
+		}
+		t.current.PerServer[serverID] = ServerWatermark{LastSeq: seq, LastTS: ts.UTC()}
+	}
+	t.current.LastSeq = seq
+	t.current.LastTS = ts.UTC()
 	t.updatesSince++
 	now := time.Now()
 	shouldFlush := t.updatesSince >= WatermarkFlushEvery || now.Sub(t.lastFlush) >= WatermarkFlushInterval
@@ -140,7 +180,7 @@ func (t *WatermarkTracker) Flush() error {
 	t.mu.Lock()
 	wm := t.current
 	t.mu.Unlock()
-	if wm == (Watermark{}) {
+	if wm.IsZero() {
 		return nil
 	}
 	if err := SaveWatermark(t.dataDir, wm); err != nil {
