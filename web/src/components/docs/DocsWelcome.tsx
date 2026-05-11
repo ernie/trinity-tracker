@@ -42,29 +42,29 @@ export function DocsWelcome() {
       <div className="about-section">
         <DocsH2 id="where-to-start">Where to start</DocsH2>
         <div className="docs-welcome__personas">
-          <Link to="/features" className="docs-welcome__persona-card">
-            <span className="docs-welcome__persona-title">What's in Trinity?</span>
-            <span className="docs-welcome__persona-teaser">
-              Watch the features in action — VR tracking, voice chat,
-              demo playback, and more.
-            </span>
-            <ArrowIcon direction="right" size={14} className="docs-welcome__persona-arrow" />
-          </Link>
-
           <Link to="/docs/install" className="docs-welcome__persona-card">
-            <span className="docs-welcome__persona-title">I'm ready to install</span>
+            <span className="docs-welcome__persona-title">How to Install</span>
             <span className="docs-welcome__persona-teaser">
-              Download an engine, set up your config, claim a Trinity
-              account, and start playing.
+              Pick your platform, grab the engine, drop in your Quake 3
+              assets, and get to a working install.
             </span>
             <ArrowIcon direction="right" size={14} className="docs-welcome__persona-arrow" />
           </Link>
 
-          <Link to="/docs/server-admin" className="docs-welcome__persona-card">
-            <span className="docs-welcome__persona-title">I run a Q3 server</span>
+          <Link to="/docs/play" className="docs-welcome__persona-card">
+            <span className="docs-welcome__persona-title">How to Play</span>
             <span className="docs-welcome__persona-teaser">
-              Set up the Trinity collector and configure your server to
-              participate in the network.
+              A tour of what Trinity adds — visual feedback,
+              spectating, voice chat, persistent accounts, and VR.
+            </span>
+            <ArrowIcon direction="right" size={14} className="docs-welcome__persona-arrow" />
+          </Link>
+
+          <Link to="/docs/admin" className="docs-welcome__persona-card">
+            <span className="docs-welcome__persona-title">Running a Server</span>
+            <span className="docs-welcome__persona-teaser">
+              Set up the Trinity collector and configure your Quake 3
+              server to participate in the network.
             </span>
             <ArrowIcon direction="right" size={14} className="docs-welcome__persona-arrow" />
           </Link>

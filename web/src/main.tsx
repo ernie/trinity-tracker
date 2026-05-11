@@ -7,10 +7,10 @@ import { Quake3EulaPage } from './components/Quake3EulaPage'
 import { DocsServerAdmin } from './components/docs/DocsServerAdmin'
 import { DocsWelcome } from './components/docs/DocsWelcome'
 import { DocsInstall } from './components/docs/DocsInstall'
+import { DocsPlay } from './components/docs/DocsPlay'
 import { DocsAccount } from './components/docs/DocsAccount'
 import { DocsCustomize } from './components/docs/DocsCustomize'
 import { DocsReference } from './components/docs/DocsReference'
-import { FeaturesPage } from './components/FeaturesPage'
 import { CreditsPage } from './components/CreditsPage'
 import { AdminPage } from './components/admin/AdminPage'
 import { AdminUsers } from './components/admin/AdminUsers'
@@ -50,12 +50,12 @@ createRoot(document.getElementById('root')!).render(
                 <Route path="/docs" element={<DocsPage />}>
                   <Route index element={<DocsWelcome />} />
                   <Route path="install" element={<DocsInstall />} />
+                  <Route path="play" element={<DocsPlay />} />
                   <Route path="account" element={<DocsAccount />} />
                   <Route path="customize" element={<DocsCustomize />} />
-                  <Route path="server-admin" element={<DocsServerAdmin />} />
+                  <Route path="admin" element={<DocsServerAdmin />} />
                   <Route path="reference" element={<DocsReference />} />
                 </Route>
-                <Route path="/features" element={<FeaturesPage />} />
                 <Route path="/credits" element={<CreditsPage />} />
                 <Route path="/admin" element={<AdminPage />}>
                   <Route index element={<Navigate to="/admin/users" replace />} />

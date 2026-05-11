@@ -7300,13 +7300,13 @@ details[open] > .admin-form-toggle .admin-form-toggle__caret {
   border-radius: var(--radius-md);
 }
 
-.voip-channel-key {
+.about-section .voip-channel-key {
   list-style: none;
   padding: 0;
   margin: 0 0 10px 0;
 }
 
-.voip-channel-key li {
+.about-section .voip-channel-key li {
   display: flex;
   align-items: flex-start;
   gap: 8px;
@@ -7378,6 +7378,12 @@ details[open] > .admin-form-toggle .admin-form-toggle__caret {
     position: static;
     max-height: none;
     overflow: visible;
+    /* Default min-width on a grid item is auto (= min-content), which
+       lets a child with width: max-content (the rail's mobile-flex
+       row) expand the column past the viewport. Force min-width: 0
+       so the column respects its 1fr logical size and the rail's
+       overflow-x: auto can actually clip + scroll. */
+    min-width: 0;
   }
 }
 
@@ -7620,12 +7626,22 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   color: var(--accent);
 }
 
-/* Docs mode cards */
+/* Docs mode cards — fixed 2x2 grid so Quake Live and Quake
+   Live Turbo (movement-only profile) sit together on the
+   second row, visually separating them from the two profiles
+   that have both movement + gameplay variants. Collapses to a
+   single column on narrow viewports. */
 .docs-modes {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   gap: 10px;
   margin-top: 10px;
+}
+
+@media (max-width: 480px) {
+  .docs-modes {
+    grid-template-columns: 1fr;
+  }
 }
 
 .docs-mode-item {
@@ -11057,134 +11073,534 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   color: var(--ember-tint-text);
 }
 
-/* ─── /features page ──────────────────────────────────────────
-   Top-level showcase. Lifted videos from old DocsFeatures.
+/* ─── /docs/play (Player's Guide) ─────────────────────────────
+   Tour of what Trinity adds to Quake 3, organized as themed
+   sections with prose + media (videos, icons). Hero pattern
+   matches /docs/welcome's variant of .about-section.
    ──────────────────────────────────────────────────────────── */
 
-.features-page {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 32px 20px 64px;
+.docs-play__title {
+  font-family: 'Cinzel', serif;
+  font-size: 2.25rem;
+  margin: 0 0 12px;
+  color: var(--text);
 }
 
-.features-page__hero {
-  margin-bottom: 40px;
+.docs-play__lead {
+  font-size: 1.0625rem;
+  color: var(--text-dim);
+  line-height: 1.6;
+  margin: 0;
   max-width: 720px;
 }
 
-.features-page__title {
+/* Per-feature heading inside a themed section. h3 sits on its own
+   line; the trailing inline <code> shows the cvar to enable the
+   feature, slightly dimmer than the heading text so the name reads
+   first. */
+.docs-play__feature-title {
   font-family: 'Cinzel', serif;
-  font-size: 2.5rem;
-  margin: 0 0 16px;
+  font-size: 1.125rem;
   color: var(--text);
-}
-
-.features-page__lead {
-  font-size: 1.0625rem;
-  line-height: 1.65;
-  color: var(--text-dim);
-  margin: 0 0 24px;
-}
-
-.features-page__lead strong {
-  color: var(--ember-tint-text);
-  font-weight: 600;
-}
-
-.features-page__cta-row {
+  margin: 24px 0 8px;
   display: flex;
-  gap: 12px;
   flex-wrap: wrap;
-}
-
-.features-page__cta {
-  display: inline-block;
-  padding: 10px 20px;
-  border-radius: 8px;
-  border: 1px solid var(--rule-strong);
-  background: var(--bg-card);
-  color: var(--text);
-  text-decoration: none;
-  font-weight: 600;
-  font-size: 0.9375rem;
-  transition: border-color 0.15s, background 0.15s, color 0.15s;
-}
-
-.features-page__cta:hover,
-.features-page__cta:focus-visible {
-  border-color: var(--ember-strong);
-  background: var(--ember-tint-bg);
-  color: var(--ember-tint-text);
-  outline: none;
-}
-
-.features-page__cta--primary {
-  background: var(--ember-tint-bg);
-  border-color: var(--ember-strong);
-  color: var(--ember-tint-text);
-}
-
-.features-page__cta--primary:hover {
-  background: rgba(255, 110, 60, 0.25);
-}
-
-.features-page__grid {
-  display: grid;
-  gap: 20px;
-  grid-template-columns: 1fr;
-}
-
-@media (min-width: 720px) {
-  .features-page__grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-.features-page__card {
-  background: var(--bg-card);
-  border: 1px solid var(--rule);
-  border-radius: 10px;
-  padding: 18px 20px;
-  display: flex;
-  flex-direction: column;
+  align-items: baseline;
   gap: 10px;
 }
 
-.features-page__card-header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
+.docs-play__feature-title > code {
+  font-size: 0.875rem;
+  color: var(--text-dim);
 }
 
-.features-page__card-title {
-  font-family: 'Cinzel', serif;
-  font-size: 1.125rem;
-  margin: 0;
+/* ─── Docs mode tabs (baseq3 / Team Arena) ────────────────────
+   Local-state segmented control — visually echoes
+   .docs-platform-tabs but each instance owns its own state.
+   Used in HUD / scoreboard sections where the relevant
+   divergence is asset folder, not the user's client.
+   ──────────────────────────────────────────────────────────── */
+
+.docs-mode-tabs {
+  margin: 16px 0 20px;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.docs-mode-tabs__strip {
+  display: flex;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--rule);
+}
+
+.docs-mode-tabs__tab {
+  flex: 1;
+  background: transparent;
+  border: none;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.9375rem;
+  color: var(--text-dim);
+  transition: color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+
+.docs-mode-tabs__tab:hover {
   color: var(--text);
 }
 
-.features-page__card-cvar {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.8125rem;
-  color: var(--text-dim);
-  background: var(--bg-elev);
-  padding: 2px 8px;
-  border-radius: 4px;
+.docs-mode-tabs__tab.is-active {
+  color: var(--ember-tint-text);
+  background: var(--ember-tint-bg);
+  box-shadow: inset 0 -2px 0 var(--ember-strong);
 }
 
-.features-page__card-desc {
+.docs-mode-tabs__tab:focus-visible {
+  outline: 2px solid var(--ember-strong);
+  outline-offset: -2px;
+}
+
+.docs-mode-tabs__panel {
+  padding: 16px 18px;
+  background: var(--bg-card);
+}
+
+/* ─── Annotated screenshot figure + legend ────────────────────
+   Pattern for HUD / scoreboard walkthroughs. The screenshot is
+   pre-annotated with numbered yellow boxes; the legend below
+   uses an ordered list whose <li> indices line up with the
+   callouts on the image. Keep <li>s in callout order — the
+   browser does the numbering, so renumbering means reordering.
+   ──────────────────────────────────────────────────────────── */
+
+.docs-hud-figure {
+  margin: 0 0 16px;
+}
+
+.docs-hud-figure img,
+.docs-hud-figure video {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 6px;
+  border: 1px solid var(--rule);
+}
+
+/* ─── Zoomable image (annotated screenshots) ──────────────────
+   Click-to-expand for the HUD / scoreboard walkthroughs. The
+   trigger is a button wrapping an img, so it inherits keyboard
+   accessibility for free. Overlay locks body scroll and uses
+   role=dialog with aria-modal for screen-readers; Escape and
+   click-outside both dismiss.
+   ──────────────────────────────────────────────────────────── */
+
+.docs-zoomable-image__trigger {
+  background: none;
+  border: none;
+  padding: 0;
   margin: 0;
+  display: block;
+  width: 100%;
+  cursor: zoom-in;
+}
+
+.docs-zoomable-image__trigger img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 6px;
+  border: 1px solid var(--rule);
+  transition: border-color 0.15s;
+}
+
+.docs-zoomable-image__trigger:hover img,
+.docs-zoomable-image__trigger:focus-visible img {
+  border-color: var(--ember-strong);
+}
+
+.docs-zoomable-image__trigger:focus-visible {
+  outline: none;
+}
+
+.docs-zoomable-image__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: zoom-out;
+  padding: 32px;
+}
+
+.docs-zoomable-image__full {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  border-radius: 8px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+}
+
+.docs-zoomable-image__close {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  width: 40px;
+  height: 40px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid var(--rule-strong);
+  border-radius: 50%;
+  color: var(--text);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.docs-zoomable-image__close:hover,
+.docs-zoomable-image__close:focus-visible {
+  background: rgba(0, 0, 0, 0.85);
+  border-color: var(--ember-strong);
+  outline: none;
+}
+
+@media (max-width: 600px) {
+  .docs-zoomable-image__overlay {
+    padding: 12px;
+  }
+}
+
+/* ─── Callout image (hover/focus/tap tooltips on screenshots) ──
+   CalloutImage composes ZoomableImage with an absolutely
+   positioned overlay of invisible hotspot buttons. The overlay
+   container itself is pointer-events:none so click-to-zoom keeps
+   working everywhere except inside a hotspot.
+   ──────────────────────────────────────────────────────────── */
+
+.docs-callout-image {
+  position: relative;
+  margin: 0;
+}
+
+/* Inline trigger — wraps the screenshot in a button so the click-
+   to-zoom affordance gets keyboard accessibility for free, mirroring
+   ZoomableImage's trigger pattern but local to CalloutImage so it
+   can host its own overlay + zoom modal. */
+.docs-callout-image__trigger {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  display: block;
+  width: 100%;
+  cursor: zoom-in;
+}
+
+.docs-callout-image__trigger img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 6px;
+  border: 1px solid var(--rule);
+  transition: border-color 0.15s;
+}
+
+.docs-callout-image__trigger:hover img,
+.docs-callout-image__trigger:focus-visible img {
+  border-color: var(--ember-strong);
+}
+
+.docs-callout-image__trigger:focus-visible {
+  outline: none;
+}
+
+/* Zoom modal — full-viewport backdrop with the image centered.
+   Stage div wraps the image so the overlay can be inset:0 over it.
+   Stage stops click propagation so clicking the image area doesn't
+   dismiss the modal — only the dark backdrop or close button do. */
+.docs-callout-image__zoom {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: zoom-out;
+  padding: 32px;
+}
+
+.docs-callout-image__zoom-stage {
+  position: relative;
+  display: inline-block;
+  cursor: default;
+}
+
+.docs-callout-image__zoom-img {
+  display: block;
+  max-width: calc(100vw - 64px);
+  max-height: calc(100vh - 64px);
+  width: auto;
+  height: auto;
+  border-radius: 8px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+}
+
+.docs-callout-image__zoom-close {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  width: 40px;
+  height: 40px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid var(--rule-strong);
+  border-radius: 50%;
+  color: var(--text);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.docs-callout-image__zoom-close:hover,
+.docs-callout-image__zoom-close:focus-visible {
+  background: rgba(0, 0, 0, 0.85);
+  border-color: var(--ember-strong);
+  outline: none;
+}
+
+@media (max-width: 600px) {
+  .docs-callout-image__zoom {
+    padding: 12px;
+  }
+  .docs-callout-image__zoom-img {
+    max-width: calc(100vw - 24px);
+    max-height: calc(100vh - 24px);
+  }
+}
+
+.docs-callout-image__overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.docs-callout-image__hotspot {
+  position: absolute;
+  background: transparent;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  padding: 0;
+  cursor: help;
+  pointer-events: auto;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.docs-callout-image__hotspot:hover,
+.docs-callout-image__hotspot:focus-visible,
+.docs-callout-image__hotspot.is-active {
+  background: rgba(255, 200, 0, 0.18);
+  border-color: rgba(255, 200, 0, 0.7);
+  outline: none;
+}
+
+.docs-callout-image__tooltip {
+  position: absolute;
+  background: var(--bg-card);
+  border: 1px solid var(--ember-strong);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--text);
+  max-width: min(320px, 80vw);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  pointer-events: auto;
+  z-index: 10;
+}
+
+.docs-callout-image__tooltip strong {
+  color: var(--ember-tint-text);
+}
+
+.docs-callout-image__tooltip code {
+  /* The body inherits .about-section code styling (bold, dark bg);
+     scale it down inside the tooltip so it doesn't dominate the
+     smaller font-size. */
+  font-size: 0.85em;
+  padding: 1px 5px;
+}
+
+.docs-hud-figure figcaption {
+  margin-top: 6px;
+  font-size: 0.85rem;
   color: var(--text-dim);
+  font-style: italic;
+}
+
+.about-section ol.docs-hud-legend {
+  /* Override the default .about-section ol styling so the
+     numbers align with the callout boxes' numeric reference,
+     and the rows are roomier than a generic list. Bottom
+     margin matches the rhythm of paragraphs around it so the
+     legend doesn't jam up against any prose that follows. */
+  margin: 12px 0 1em;
+  padding-left: 1.8em;
+  gap: 8px;
+}
+
+.about-section ol.docs-hud-legend > li {
   line-height: 1.55;
 }
 
-.features-page__card-video {
-  width: 100%;
-  border-radius: 6px;
-  margin-top: 4px;
+.about-section ol.docs-hud-legend > li::marker {
+  color: var(--ember-strong);
+  font-weight: 700;
 }
+
+/* Collapsed-by-default disclosure that wraps a CalloutLegend.
+   Default browser <details> markers vary visually across
+   engines and don't read well against the dark surface, so the
+   default marker is hidden and a custom CSS chevron is rendered
+   in its place — right-pointing when collapsed, rotated 90°
+   down when open. The summary row gets the same card-on-tint
+   treatment as .docs-cvars and .docs-color-table for visual
+   continuity across docs reference surfaces. */
+.about-section .docs-callout-legend {
+  margin: 12px 0;
+}
+
+.about-section .docs-callout-legend > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: rgba(0, 0, 0, 0.22);
+  border-radius: 4px;
+  border-left: 2px solid var(--rule);
+  font-size: 0.95rem;
+  color: var(--text-dim);
+  transition: background 0.12s, color 0.12s;
+}
+
+/* Older WebKit needs the vendor-prefixed marker pseudo-element
+   hidden separately for the custom chevron to take over cleanly. */
+.about-section .docs-callout-legend > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Disclosure caret matching the established convention at
+   .activity-filters-toggle::before — two perpendicular borders
+   (top + right) forming an L, rotated 45° → right-pointing
+   chevron when closed, 135° → down-pointing when open. Avoids
+   the Unicode triangle glyph (renders as color emoji on
+   iOS / Android), and matches the line-weight of ArrowIcon and
+   the rest of the chrome SVGs. */
+.about-section .docs-callout-legend > summary::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-top: 1.4px solid var(--ember-strong);
+  border-right: 1.4px solid var(--ember-strong);
+  position: relative;
+  top: -1px;
+  transform: rotate(45deg);
+  transition: transform 0.15s;
+  flex-shrink: 0;
+}
+
+.about-section .docs-callout-legend[open] > summary::before {
+  transform: rotate(135deg);
+}
+
+.about-section .docs-callout-legend > summary:hover,
+.about-section .docs-callout-legend > summary:focus-visible {
+  background: rgba(0, 0, 0, 0.32);
+  color: var(--text);
+  outline: none;
+}
+
+/* When open, scoot the inner ol so it doesn't crowd the
+   summary's bottom edge; when closed, the ol isn't rendered. */
+.about-section .docs-callout-legend[open] > .docs-hud-legend {
+  margin-top: 10px;
+}
+
+/* Section-level collapsible — used for the optional Quake 3
+   basics primer that newcomers expand and vets skip. Same
+   custom-chevron disclosure mechanics as .docs-callout-legend
+   but heftier visual weight (full-width, larger padding,
+   normal-weight body text) so it reads as a real section
+   choice rather than a small inline detail. */
+.about-section .docs-q3-basics {
+  margin: 0;
+}
+
+.about-section .docs-q3-basics > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.22);
+  border-radius: 4px;
+  border-left: 2px solid var(--rule);
+  font-size: 1rem;
+  color: var(--text-dim);
+  transition: background 0.12s, color 0.12s;
+}
+
+.about-section .docs-q3-basics > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Same border-corner caret as .docs-callout-legend; see notes there. */
+.about-section .docs-q3-basics > summary::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-top: 1.6px solid var(--ember-strong);
+  border-right: 1.6px solid var(--ember-strong);
+  position: relative;
+  top: -1px;
+  transform: rotate(45deg);
+  transition: transform 0.15s;
+  flex-shrink: 0;
+}
+
+.about-section .docs-q3-basics[open] > summary::before {
+  transform: rotate(135deg);
+}
+
+.about-section .docs-q3-basics > summary:hover,
+.about-section .docs-q3-basics > summary:focus-visible {
+  background: rgba(0, 0, 0, 0.32);
+  color: var(--text);
+  outline: none;
+}
+
+/* Add breathing room above the first h3 once expanded so
+   the primer reads as content, not a continuation of the
+   summary bar. */
+.about-section .docs-q3-basics[open] > h3:first-of-type {
+  margin-top: 18px;
+}
+
 
 /* ─── /credits page ───────────────────────────────────────────
    Simple top-level credits, outside docs chrome.
@@ -11281,6 +11697,19 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   .docs-toc-rail__scroll.is-scroll-left.is-scroll-right {
     mask-image: linear-gradient(to right, transparent 0, black 32px, black calc(100% - 32px), transparent 100%);
   }
+
+  /* In the horizontal mobile layout, the desktop left-border accent
+     reads as an arbitrary vertical stripe between tabs. Swap it for
+     a bottom underline that aligns with the row's flow direction. */
+  .docs-toc-rail__scroll .docs-toc-rail__tab {
+    border-left: none;
+    border-bottom: 2px solid transparent;
+    padding: var(--space-2) var(--space-3);
+  }
+  .docs-toc-rail__scroll .docs-toc-rail__item--active .docs-toc-rail__tab {
+    border-left-color: transparent;
+    border-bottom-color: rgb(255, 110, 60);
+  }
 }
 
 /* Prominent inline download link inside an install step's
@@ -11345,6 +11774,150 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   font-size: 0.9rem;
   line-height: 1.5;
   color: var(--text-dim);
+}
+
+/* Wrapper that lets a wide reference table scroll horizontally
+   on narrow viewports instead of forcing the surrounding flex
+   parent to widen (which would shrink the docs sidebar / chrome
+   on mobile). The inner <table> stays a real table so column
+   alignment is preserved; the wrapper just contains overflow. */
+.docs-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  /* Smooth flick-scroll on iOS without dragging the page sideways. */
+  -webkit-overflow-scrolling: touch;
+  /* Reserve the same vertical rhythm the bare table had. */
+  margin: 12px 0;
+}
+
+.docs-table-scroll > .docs-color-table {
+  /* The wrapper handles the spacing; reset table margin to avoid
+     double-stacking. */
+  margin: 0;
+}
+
+/* Compact reference table — used in Reference · Color codes for the
+   side-by-side digit/bits/color decoder rings. Same card-on-tint
+   visual vocabulary as .docs-cvars so the page reads as one
+   coherent reference surface, not an assortment of widgets. */
+.about-section .docs-color-table {
+  width: auto;
+  margin: 12px 0;
+  border-collapse: collapse;
+  background: rgba(0, 0, 0, 0.22);
+  border-radius: 4px;
+  border-left: 2px solid var(--rule);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.about-section .docs-color-table th,
+.about-section .docs-color-table td {
+  padding: 6px 14px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.about-section .docs-color-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.about-section .docs-color-table th {
+  font-weight: 600;
+  color: var(--text);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.about-section .docs-color-table td {
+  color: var(--text-dim);
+}
+
+.about-section .docs-color-table td code {
+  color: var(--text);
+}
+
+/* Tiny inline icon embedded in docs prose (e.g. the VR badge
+   shown next to "Trinity puts a VR icon (•) in the handicap
+   slot"). Sized to text height + a touch, vertically aligned
+   to the cap so it sits with the line, with a small gap from
+   surrounding punctuation. */
+.docs-inline-icon {
+  display: inline-block;
+  height: 1.4em;
+  width: 1.4em;
+  vertical-align: -0.35em;
+  margin: 0 1px;
+}
+
+/* Hit-sound preview list — pairs a damage-range label with a
+   compact play-button + volume-slider widget. Native
+   <audio controls> is too wide for an inline preview list
+   and includes a useless progress bar for sub-second clips,
+   so HitSoundPreview renders our own minimal surface. */
+.about-section .docs-hitsounds {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.about-section .docs-hitsounds > li {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.about-section .docs-hitsounds__label {
+  font-weight: 600;
+  color: var(--text);
+  min-width: 60px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Compact play + volume widget — 24×24 button followed by a
+   short range slider. Sits in the dark-on-dark card vocabulary
+   the rest of the docs reference surfaces use. */
+.hitsound-preview {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hitsound-preview__play {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.12s, border-color 0.12s, background 0.12s;
+}
+
+.hitsound-preview__play:hover,
+.hitsound-preview__play:focus-visible {
+  color: var(--ember-strong);
+  border-color: var(--ember-strong);
+  background: rgba(0, 0, 0, 0.32);
+  outline: none;
+}
+
+.hitsound-preview__play:active {
+  background: rgba(0, 0, 0, 0.42);
+}
+
+.hitsound-preview__volume {
+  width: 90px;
+  cursor: pointer;
+  accent-color: var(--ember-strong);
 }
 
 /* Tip callout — generic informational aside used in docs prose
@@ -11525,7 +12098,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 
 /* Cvar list — each entry is a card with a head row (name + default
    + platform chips) and a description body. */
-.cvar-list {
+.about-section .cvar-list {
   list-style: none;
   margin: 16px 0 0;
   padding: 0;
@@ -11568,14 +12141,14 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   line-height: 1.55;
 }
 
-.cvar-entry__values {
+.about-section .cvar-entry__values {
   list-style: none;
   margin: 8px 0 0;
   padding: 0 0 0 16px;
   border-left: 2px solid var(--rule);
 }
 
-.cvar-entry__values > li {
+.about-section .cvar-entry__values > li {
   padding: 2px 0;
   color: var(--text-dim);
   font-size: 0.9em;
@@ -11596,7 +12169,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 
 /* Glossary list — same card pattern as cvars but with a term head
    and definition body. */
-.glossary-list {
+.about-section .glossary-list {
   list-style: none;
   margin: 16px 0 0;
   padding: 0;

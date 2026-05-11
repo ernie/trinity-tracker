@@ -327,19 +327,24 @@ export function DocsCustomize() {
             disables.
           </li>
           <li>
-            <code>cg_enemyColors "333"</code> — three-digit color
-            string for enemy head, torso, and legs.
+            <code>cg_enemyColors "333"</code> — up to five
+            characters: head, body, legs,{' '}
+            <code>color1</code> (rail core / weapon glow),{' '}
+            <code>color2</code> (rail spiral). A 3-char string
+            sets only the model tints; positions 4 and 5 inherit
+            the enemy's own rail colors if omitted.
             <ul>
-              <li><code>1</code> red</li>
+              <li><code>1</code> blue</li>
               <li><code>2</code> green</li>
-              <li><code>3</code> yellow</li>
-              <li><code>4</code> blue</li>
-              <li><code>5</code> cyan</li>
-              <li><code>6</code> magenta</li>
+              <li><code>3</code> cyan</li>
+              <li><code>4</code> red</li>
+              <li><code>5</code> magenta</li>
+              <li><code>6</code> yellow</li>
               <li><code>7</code> white</li>
               <li>
-                <code>?</code> resolves to the team's color (red
-                on red team, blue on blue, white on no-team)
+                <code>?</code> in any position becomes the
+                player's team color — red, blue, or white (in
+                FFA).
               </li>
             </ul>
           </li>
@@ -360,9 +365,8 @@ export function DocsCustomize() {
 
       <PlatformOnly platform={['pcvr', 'quest']}>
         <div className="about-section">
-          <DocsH2 id="vr">
+          <DocsH2 id="vr" platforms={['pcvr', 'quest']}>
             VR comfort &amp; controllers
-            <PlatformChip platform={['pcvr', 'quest']} />
           </DocsH2>
           <p>
             VR-specific cvars. Controller bindings live in your

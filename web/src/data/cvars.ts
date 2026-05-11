@@ -10,8 +10,12 @@ import type { Platform } from '../components/docs/platformStorage'
 // platforms, and behavior reflect what the code actually does — no
 // invented cvars, no hallucinated defaults. ROM/internal cvars
 // (cl_trinityLoginStatus, cg_tvTime, cg_tvDuration, cg_tvdOffer) are
-// excluded since users can't set them. Upstream ioquake3 / Quake3e /
-// VR-base cvars are excluded — Trinity additions only.
+// excluded since users can't set them.
+//
+// Mostly Trinity additions, with a small handful of Quake3e-inherited
+// renderer cvars (r_greyscale, r_mapGreyScale) included because they
+// are genuinely player-facing visibility aids and surface in the
+// player's guide alongside Trinity-introduced toggles.
 
 export interface CvarValueDoc {
   value: string
@@ -73,16 +77,16 @@ export const PLAYER_CVARS: CvarEntry[] = [
     default: '',
     platforms: ALL_PLATFORMS,
     description:
-      'Three-digit color string for forced enemy models (head, torso, legs). Used with cg_enemyModel.',
+      'Up to five-digit color string for forced enemy models: head, body, legs, color1 (rail core / weapon glow), color2 (rail spiral). Shorter strings stop early — head/body/legs default to white if omitted; color1/color2 inherit from the enemy\'s own settings if omitted. Uses the same digit→color mapping as the player-settings color slider. See Reference · Color codes for the full mapping picture.',
     values: [
-      { value: '1', meaning: 'red' },
+      { value: '1', meaning: 'blue' },
       { value: '2', meaning: 'green' },
-      { value: '3', meaning: 'yellow' },
-      { value: '4', meaning: 'blue' },
-      { value: '5', meaning: 'cyan' },
-      { value: '6', meaning: 'magenta' },
+      { value: '3', meaning: 'cyan' },
+      { value: '4', meaning: 'red' },
+      { value: '5', meaning: 'magenta' },
+      { value: '6', meaning: 'yellow' },
       { value: '7', meaning: 'white' },
-      { value: '?', meaning: "the team's color (red on red team, blue on blue, white on no-team)" },
+      { value: '?', meaning: "becomes the player's team color (red, blue, or white in FFA)" },
     ],
   },
   {
@@ -126,7 +130,7 @@ export const PLAYER_CVARS: CvarEntry[] = [
     default: '',
     platforms: ALL_PLATFORMS,
     description:
-      'Three-digit color string for forced teammate models (head, torso, legs). See cg_enemyColors for the value list.',
+      'Up to five-digit color string for forced teammate models: head, body, legs, color1, color2. See cg_enemyColors for the value list and the bail-early behavior.',
   },
   {
     name: 'cg_teamModel',
@@ -197,6 +201,21 @@ export const PLAYER_CVARS: CvarEntry[] = [
       { value: '1', meaning: 'prompt; defaults to decline if no response' },
       { value: '2', meaning: 'prompt; defaults to accept if no response' },
     ],
+  },
+  {
+    name: 'r_greyscale',
+    default: '0',
+    platforms: ALL_PLATFORMS,
+    description:
+      'Desaturate the entire rendered frame, entities included. Range -1 to 1; 1 is full greyscale, 0 is full color. Requires r_fbo 1. Inherited from Quake3e — useful as a screenshot / aesthetic option, or paired with r_mapGreyScale.',
+  },
+  {
+    name: 'r_mapGreyScale',
+    default: '0',
+    platforms: ALL_PLATFORMS,
+    description:
+      'Desaturate world map textures only — entities (players, weapons, items, projectiles, explosions) stay in full color. Practical visibility aid: enemies and powerups pop against grey walls. Range -1 to 1; positive values desaturate textures and lightmaps, negative values desaturate only lightmaps. Inherited from Quake3e.',
+    notes: 'Latched — requires vid_restart (or set in autoexec.cfg before launch) to take effect.',
   },
   {
     name: 'ui_trinitySigil',
