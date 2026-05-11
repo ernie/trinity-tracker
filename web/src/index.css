@@ -1,6 +1,14 @@
 @font-face {
   font-family: 'Cinzel';
   font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/assets/fonts/cinzel-regular.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Cinzel';
+  font-style: normal;
   font-weight: 700;
   font-display: swap;
   src: url('/assets/fonts/cinzel-bold.woff2') format('woff2');
@@ -10646,7 +10654,11 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   letter-spacing: 0.22em; color: var(--text-dim); text-transform: uppercase;
 }
 .card__map-long {
-  font-family: 'Barlow', sans-serif; font-weight: 700; font-size: 17px;
+  /* Cinzel regular treats map longnames as the card's ceremonial
+     headline rather than tabular data. Lighter than the other Cinzel
+     uses (which are 700 uppercase) because these run mixed-case at
+     body size and need to stay scannable. */
+  font-family: 'Cinzel', serif; font-weight: 400; font-size: 17px;
   color: var(--text);
   display: block;
   white-space: nowrap;

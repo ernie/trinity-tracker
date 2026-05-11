@@ -265,7 +265,12 @@ export function MatchCard({
 
       <div className="card__header">
         <div className="card__map">
-          {meta.longName && <span className="card__map-short">{meta.shortName}</span>}
+          {/* Both rows always render even when displayName falls back to
+              the short id — the small tracked-uppercase code label and
+              the Cinzel headline are visually distinct, and keeping the
+              slot present makes cards line up across the grid regardless
+              of whether maps.json has a longname entry. */}
+          <span className="card__map-short">{meta.shortName}</span>
           <span className="card__map-long">{meta.displayName}</span>
         </div>
       </div>

@@ -340,7 +340,12 @@ export function ServerCard({ server, isSelected, onSelect, onPlayerClick, livene
 
       <div className="card__header">
         <div className="card__map">
-          {meta.longName && <span className="card__map-short">{meta.shortName}</span>}
+          {/* Both rows always render; the small tracked-uppercase code
+              label and the Cinzel headline are visually distinct, so
+              keeping the slot present makes cards line up across the
+              grid regardless of whether maps.json has a longname. Same
+              fallback chain on both so empty-map states stay symmetric. */}
+          <span className="card__map-short">{meta.shortName || server.map || 'Unknown'}</span>
           <span className="card__map-long">{meta.displayName || server.map || 'Unknown'}</span>
         </div>
         {(scoreLimit || timeLimit || gameTimeMs > 0 || displayTime.isWarmup) && (
