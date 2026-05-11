@@ -10078,9 +10078,36 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 .landing-door:hover .landing-door__arrow { color: var(--ember-light); }
 .landing-door:hover .landing-door__arrow svg { transform: translateX(4px); }
 
+/* Ember-shifted in-game glyph, anchored bottom-right. Echoes the
+   .stat-item-bg-icon "medal whisper" — same -20° rotation, scaled to
+   door size, layered *under* the hover bloom (::before, z-index 1)
+   so hovering feels like the icon catches fire. Image URL arrives
+   via --glyph-url on the parent door. */
+.landing-door__glyph {
+  position: absolute;
+  bottom: -22px;
+  right: -22px;
+  width: 220px;
+  height: 220px;
+  background: var(--glyph-url) no-repeat center / contain;
+  opacity: var(--glyph-opacity, 0.22);
+  pointer-events: none;
+  transform: rotate(-20deg);
+  transition: opacity 0.3s ease;
+  z-index: 0;
+}
+.landing-door::before { z-index: 1; }
+.landing-door__title,
+.landing-door__desc,
+.landing-door__arrow { position: relative; z-index: 2; }
+/* Hover delta stays constant (+0.10) regardless of per-glyph base
+   so the "catches fire" feel is the same across all doors. */
+.landing-door:hover .landing-door__glyph { opacity: calc(var(--glyph-opacity, 0.22) + 0.10); }
+
 @media (max-width: 720px) {
   .landing-doors { padding: 56px 20px 80px; }
   .landing-doors__grid { grid-template-columns: 1fr; }
+  .landing-door__glyph { width: 160px; height: 160px; bottom: -16px; right: -16px; }
 }
 
 /* ── Rich chip — compound identifier ───────────────────── */
@@ -10791,7 +10818,12 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   letter-spacing: 0.06em;
   color: var(--text-dim);
   margin: -20px 0 28px;
-  max-width: 60ch;
+  /* 80ch keeps a readable cap while comfortably fitting the current
+     single-sentence leads on desktop without wrap. `ch` measures the
+     un-tracked advance of "0"; our 0.06em letter-spacing makes each
+     character wider, so 80ch fits ~70 visible chars — enough headroom
+     for the longest current copy. */
+  max-width: 80ch;
   /* text-wrap: pretty avoids orphan words on the final line (e.g.
      "required." alone), which the default greedy algorithm produces
      at narrow viewports. Falls back gracefully to default wrapping on
