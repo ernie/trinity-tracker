@@ -52,6 +52,13 @@ export const HERO_VARIANTS: readonly HeroVariant[] = [
     headline2: "QUAKE III",
     subhead: "the arena missed your footsteps.",
   },
+  // Direct quote of the Q3 campaign announcer's opening line (1999);
+  // subhead references q3dm0 ("Introduction"), the map where it played.
+  {
+    headline1: "WELCOME TO",
+    headline2: "QUAKE III ARENA",
+    subhead: "you're as welcome here as you were in q3dm0.",
+  },
   {
     headline1: "NO LOADOUTS AND",
     headline2: "NO COOLDOWNS",

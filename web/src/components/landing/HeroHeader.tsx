@@ -4,11 +4,17 @@ import { Link } from 'react-router-dom'
 import { useLiveData } from '../../contexts/LiveDataContext'
 
 export function HeroHeader() {
-  const { activeHumanPlayersCount, activeServersCount } = useLiveData()
+  const { activeHumanPlayersCount, isConnected } = useLiveData()
   const live = activeHumanPlayersCount > 0
-  const label = live
-    ? `${activeHumanPlayersCount} · ${activeServersCount} LIVE`
-    : 'ALL QUIET'
+  // Three states mirror StatusPill: live (humans fragging), quiet (hub up,
+  // arena empty), offline (hub feed lost). Class name `quiet` is kept as
+  // an internal CSS hook even though the visible label is now "STANDING BY".
+  const stateClass = !isConnected ? 'offline' : live ? 'live' : 'quiet'
+  const label = !isConnected
+    ? 'OFFLINE'
+    : live
+      ? `${activeHumanPlayersCount} LIVE`
+      : 'STANDING BY'
 
   return (
     <header className="hero__header">
@@ -27,7 +33,7 @@ export function HeroHeader() {
         <Link to="/docs">Docs</Link>
       </nav>
 
-      <span className={`hero__pill ${live ? 'live' : 'quiet'}`} aria-live="polite">
+      <span className={`hero__pill ${stateClass}`} aria-live="polite">
         <span className="dot" aria-hidden />
         {label}
       </span>

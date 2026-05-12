@@ -39,10 +39,10 @@ export function ActiveNowShelf() {
       ) : (
         <div className="landing-quiet">
           <span className="landing-quiet__dot" aria-hidden />
-          <p className="landing-quiet__title">ALL QUIET</p>
+          <p className="landing-quiet__title">STANDING BY</p>
           <p className="landing-quiet__sub">
-            No live matches right now.
-            {totalOnline > 0 ? ` ${totalOnline} server${totalOnline === 1 ? '' : 's'} online and waiting.` : ''}
+            No live matches right now — the arena is yours if you want it.
+            {totalOnline > 0 ? ` ${totalOnline} server${totalOnline === 1 ? '' : 's'} standing by.` : ''}
           </p>
           <Link to="/servers" className="landing-quiet__cta">Browse servers <ArrowIcon direction="right" /></Link>
         </div>

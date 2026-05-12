@@ -11,8 +11,8 @@ interface StatusPillProps {
 export function StatusPill({ humansOnline, activeServers, isConnected, open, onToggle }: StatusPillProps) {
   const live = humansOnline > 0
   const label = live
-    ? `${humansOnline} · ${activeServers} LIVE`
-    : 'ALL QUIET'
+    ? `${humansOnline} LIVE`
+    : 'STANDING BY'
   const stateClass = !isConnected ? 'offline' : live ? 'live' : 'quiet'
 
   return (

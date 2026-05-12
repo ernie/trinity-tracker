@@ -9190,6 +9190,15 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   box-shadow: none;
 }
 
+/* Offline: hub feed lost. No pulse, slightly dimmer dot — mirrors StatusPill. */
+.hero__pill.offline { color: var(--text-dim); }
+.hero__pill.offline .dot {
+  background: var(--text-dim);
+  box-shadow: none;
+  animation: none;
+  opacity: 0.5;
+}
+
 /* Inline-but-narrow viewports (landscape phone, small tablet). Drop
    the grid in favor of flex so the nav sits in the gap between
    brand and pill via auto-margins — not at viewport center, where
@@ -9769,7 +9778,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   vertical-align: middle;
   animation: landing-hero-pulse 1.6s ease-in-out infinite;
 }
-/* "All quiet" placeholder for the Active Now shelf when no live matches. */
+/* "Standing by" placeholder for the Active Now shelf when no live matches. */
 .landing-quiet {
   display: flex;
   flex-direction: column;
