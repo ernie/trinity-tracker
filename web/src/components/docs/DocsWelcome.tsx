@@ -43,28 +43,25 @@ export function DocsWelcome() {
         <DocsH2 id="where-to-start">Where to start</DocsH2>
         <div className="docs-welcome__personas">
           <Link to="/docs/install" className="docs-welcome__persona-card">
-            <span className="docs-welcome__persona-title">How to Install</span>
+            <span className="docs-welcome__persona-title">Install</span>
             <span className="docs-welcome__persona-teaser">
-              Pick your platform, grab the engine, drop in your Quake 3
-              assets, and get to a working install.
+              You're just 3 steps away from playing Trinity.
             </span>
             <ArrowIcon direction="right" size={14} className="docs-welcome__persona-arrow" />
           </Link>
 
           <Link to="/docs/play" className="docs-welcome__persona-card">
-            <span className="docs-welcome__persona-title">How to Play</span>
+            <span className="docs-welcome__persona-title">Play</span>
             <span className="docs-welcome__persona-teaser">
-              A tour of what Trinity adds — visual feedback,
-              spectating, voice chat, persistent accounts, and VR.
+              What you'll want to know to get the most out of Trinity.
             </span>
             <ArrowIcon direction="right" size={14} className="docs-welcome__persona-arrow" />
           </Link>
 
           <Link to="/docs/admin" className="docs-welcome__persona-card">
-            <span className="docs-welcome__persona-title">Running a Server</span>
+            <span className="docs-welcome__persona-title">Host</span>
             <span className="docs-welcome__persona-teaser">
-              Set up the Trinity collector and configure your Quake 3
-              server to participate in the network.
+              Connect your Trinity server to the tracker network.
             </span>
             <ArrowIcon direction="right" size={14} className="docs-welcome__persona-arrow" />
           </Link>
@@ -72,7 +69,7 @@ export function DocsWelcome() {
       </div>
 
       <div className="about-section">
-        <DocsH2 id="watch-featured">Watch a featured Trinity match</DocsH2>
+        <DocsH2 id="watch-featured">Watch a featured match</DocsH2>
         <p>
           Curious before you commit?{' '}
           <a href="/matches" onClick={handleWatchFeatured}>
