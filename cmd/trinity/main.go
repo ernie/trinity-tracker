@@ -23,6 +23,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -781,6 +782,11 @@ func cmdStatus(args []string) {
 		printLiveServerTable(*configPath, *url)
 	}
 
+	if isCollector && len(cfg.Q3Servers) > 0 {
+		fmt.Println()
+		printLocalServerTable(cfg)
+	}
+
 	if failures > 0 {
 		os.Exit(1)
 	}
@@ -845,6 +851,78 @@ func printLiveServerTable(configPath, urlOverride string) {
 		statusCol.cells = append(statusCol.cells, statusStr)
 	}
 	renderTable(os.Stdout, []column{nameCol, mapCol, playersCol, humansCol, statusCol})
+}
+
+// printLocalServerTable UDP-polls each configured Q3 server in
+// parallel and renders the same 5-column table as the hub-side flow.
+// Used on collector installs where there is no local HTTP API to ask
+// — we go straight to the wire via getstatus.
+//
+// Unlike the hub flow, bot/human counts here are inferred from
+// ping==0 rather than log-tracked GUIDs (see localStatusCells). That
+// heuristic is wrong only for true-zero-ping LAN humans, which is
+// vanishingly rare on a public collector.
+func printLocalServerTable(cfg *config.Config) {
+	type pollResult struct {
+		status *domain.ServerStatus
+		err    error
+	}
+
+	results := make([]pollResult, len(cfg.Q3Servers))
+	var wg sync.WaitGroup
+	client := collector.NewQ3Client()
+	for i, srv := range cfg.Q3Servers {
+		wg.Add(1)
+		go func(i int, address string) {
+			defer wg.Done()
+			status, err := client.QueryStatus(address)
+			results[i] = pollResult{status: status, err: err}
+		}(i, srv.Address)
+	}
+	wg.Wait()
+
+	nameCol := column{header: "SERVER"}
+	mapCol := column{header: "MAP"}
+	playersCol := column{header: "PLAYERS", align: alignRight}
+	humansCol := column{header: "HUMANS", align: alignRight}
+	statusCol := column{header: "STATUS"}
+	for i, srv := range cfg.Q3Servers {
+		name, mapName, players, humans, statusStr := localStatusCells(srv, results[i].status, results[i].err)
+		nameCol.cells = append(nameCol.cells, name)
+		mapCol.cells = append(mapCol.cells, mapName)
+		playersCol.cells = append(playersCol.cells, players)
+		humansCol.cells = append(humansCol.cells, humans)
+		statusCol.cells = append(statusCol.cells, statusStr)
+	}
+	renderTable(os.Stdout, []column{nameCol, mapCol, playersCol, humansCol, statusCol})
+}
+
+// localStatusCells turns a single config server + UDP-poll result
+// into the five rendered cells for one row of the status table. This
+// is where the collector-side bot heuristic lives: without manager
+// context we have no GUIDs, so ping > 0 stands in for "human" and
+// ping == 0 is counted as a bot. Cell conventions (placeholders,
+// colors) match printLiveServerTable so both tables read the same.
+func localStatusCells(srv config.Q3Server, status *domain.ServerStatus, err error) (name, mapName, players, humans, statusStr string) {
+	name = srv.Key
+	if err != nil || status == nil {
+		return name, dim("-"), dim("-"), dim("-"), red("OFFLINE")
+	}
+	mapName = status.Map
+	if mapName == "" {
+		mapName = "-"
+	}
+	humanCount := 0
+	for _, p := range status.Players {
+		if p.Ping > 0 {
+			humanCount++
+		}
+	}
+	statusStr = green("ONLINE")
+	if !status.Online {
+		statusStr = red("OFFLINE")
+	}
+	return name, mapName, fmt.Sprintf("%d", len(status.Players)), fmt.Sprintf("%d", humanCount), statusStr
 }
 
 // jsonString safely pulls a string field from a decoded JSON map.
