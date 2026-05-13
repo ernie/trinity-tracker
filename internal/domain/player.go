@@ -100,14 +100,16 @@ type LeaderboardEntry struct {
 	CompletedMatches   int64   `json:"completed_matches"`
 	UncompletedMatches int64   `json:"uncompleted_matches"`
 	KDRatio            float64 `json:"kd_ratio"`
-	Captures     int64   `json:"captures"`
-	FlagReturns  int64   `json:"flag_returns"`
-	Assists      int64   `json:"assists"`
-	Impressives  int64   `json:"impressives"`
-	Excellents   int64   `json:"excellents"`
-	Humiliations int64   `json:"humiliations"`
-	Defends      int64   `json:"defends"`
-	Victories    int64   `json:"victories"`
+	Captures          int64   `json:"captures"`
+	FlagReturns       int64   `json:"flag_returns"`
+	Assists           int64   `json:"assists"`
+	Impressives       int64   `json:"impressives"`
+	Excellents        int64   `json:"excellents"`
+	Humiliations      int64   `json:"humiliations"`
+	Defends           int64   `json:"defends"`
+	SkullsDelivered   int64   `json:"skulls_delivered"`
+	ObelisksDestroyed int64   `json:"obelisks_destroyed"`
+	Victories         int64   `json:"victories"`
 }
 
 // LeaderboardResponse is the API response for leaderboard data
@@ -142,6 +144,8 @@ type AggregatedStats struct {
 	Excellents         int64   `json:"excellents"`
 	Humiliations       int64   `json:"humiliations"`
 	Defends            int64   `json:"defends"`
+	SkullsDelivered    int64   `json:"skulls_delivered"`
+	ObelisksDestroyed  int64   `json:"obelisks_destroyed"`
 	Victories          int64   `json:"victories"`
 }
 

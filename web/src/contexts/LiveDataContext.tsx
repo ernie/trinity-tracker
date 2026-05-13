@@ -10,9 +10,14 @@ import type {
   Server, ServerStatus, ActivityItem, ActivityPlayer, ActivityType, WSEvent,
   PlayerJoinData, PlayerLeaveData, MatchStartData,
   FlagCaptureData, FlagTakenData, FlagReturnData, FlagDropData,
-  ObeliskDestroyData, SkullScoreData, TeamChangeData,
+  ObeliskDestroyData, ObeliskDamageData, SkullScoreData, SkullPickupData, TeamChangeData,
   SayData, SayTeamData, TellData, SayRconData, AwardData,
 } from '../types'
+
+// Backstop only — the collector emits explicit stop events; this
+// catches the rare case where one is lost (e.g. collector restart).
+const OBELISK_ATTACK_DECAY_MS = 30_000
+const OBELISK_ATTACK_PRUNE_INTERVAL_MS = 1000
 
 const COLOR_RESET = '^7'
 const cleanQ3Name = (name: string) => name.replace(/\^[0-9]/g, '')
@@ -31,6 +36,8 @@ interface LiveDataValue {
   newPlayers: Set<string>
   loading: boolean
   isConnected: boolean
+  // serverId → client_nums currently attacking that server's obelisk.
+  obeliskAttackersByServer: Map<number, Set<number>>
 
   // Derived counts (fed into the StatusPill).
   activeHumanPlayersCount: number
@@ -84,6 +91,10 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
   const [selectedPlayer, setSelectedPlayer] = useState<SelectedPlayer | null>(null)
   const [showPasswordChange, setShowPasswordChange] = useState(false)
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
+
+  // Ref holds per-slot expiry timestamps; state mirrors live membership.
+  const obeliskAttackersExpiryRef = useRef<Map<number, Map<number, number>>>(new Map())
+  const [obeliskAttackersByServer, setObeliskAttackersByServer] = useState<Map<number, Set<number>>>(new Map())
 
   // visibleServerIdsRef gates WebSocket server_update events: RemotePoller
   // keeps polling every active+handshake server (it doesn't know about
@@ -140,6 +151,39 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
   const getServerGameType = useCallback((serverId: number): string | undefined => {
     return serversRef.current.get(serverId)?.game_type
   }, [])
+
+  // Prune expired entries and republish the slot snapshot. Only
+  // commits a new Map when membership actually changes.
+  const refreshObeliskAttackerState = useCallback(() => {
+    const now = Date.now()
+    setObeliskAttackersByServer((prev) => {
+      const next = new Map<number, Set<number>>()
+      let changed = false
+      for (const [serverId, expiryMap] of obeliskAttackersExpiryRef.current.entries()) {
+        const live = new Set<number>()
+        for (const [clientNum, expiresAt] of expiryMap.entries()) {
+          if (expiresAt > now) live.add(clientNum)
+          else expiryMap.delete(clientNum)
+        }
+        if (expiryMap.size === 0) {
+          obeliskAttackersExpiryRef.current.delete(serverId)
+        }
+        if (live.size === 0) continue
+        next.set(serverId, live)
+        const prevSet = prev.get(serverId)
+        if (!prevSet || prevSet.size !== live.size) { changed = true; continue }
+        for (const cn of live) if (!prevSet.has(cn)) { changed = true; break }
+      }
+      // A server falling off the map (last attacker decayed) is also a change.
+      if (!changed) for (const serverId of prev.keys()) if (!next.has(serverId)) { changed = true; break }
+      return changed ? next : prev
+    })
+  }, [])
+
+  useEffect(() => {
+    const id = setInterval(refreshObeliskAttackerState, OBELISK_ATTACK_PRUNE_INTERVAL_MS)
+    return () => clearInterval(id)
+  }, [refreshObeliskAttackerState])
 
   const addActivity = useCallback(
     (
@@ -300,6 +344,58 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
         addActivity('info', `${data.attacker_name}${COLOR_RESET} destroyed the ${teamName} obelisk!`, {
           player, serverId: event.server_id, serverName, activityType: 'obelisk_destroy', team: data.team,
         })
+        // Clear any lingering attacker indicator; destroy is terminal.
+        // Best-effort lookup by clean_name (destroy event has no client_num).
+        if (data.player_id !== undefined) {
+          const expiryMap = obeliskAttackersExpiryRef.current.get(event.server_id)
+          if (expiryMap) {
+            const status = serversRef.current.get(event.server_id)
+            const slot = status?.players?.find((p) => p.clean_name === cleanName)?.client_num
+            if (slot !== undefined && expiryMap.delete(slot)) refreshObeliskAttackerState()
+          }
+        }
+        break
+      }
+      case 'obelisk_damage': {
+        const data = event.data as ObeliskDamageData
+        // Log only the start; stop events would just be noise.
+        if (data.active) {
+          const serverName = getServerName(event.server_id)
+          const teamName = data.team === 1 ? 'Red' : 'Blue'
+          const cleanName = cleanQ3Name(data.attacker_name)
+          const botInfo = getPlayerBotInfo(event.server_id, cleanName)
+          const player = { name: data.attacker_name, cleanName, playerId: data.player_id, ...botInfo }
+          addActivity('info', `${data.attacker_name}${COLOR_RESET} is attacking the ${teamName} obelisk`, {
+            player, serverId: event.server_id, serverName, activityType: 'obelisk_damage', team: data.team,
+          })
+        }
+        // Expiry is the backstop; the matching stop event is the path.
+        if (data.client_num >= 0) {
+          let expiryMap = obeliskAttackersExpiryRef.current.get(event.server_id)
+          if (data.active) {
+            if (!expiryMap) {
+              expiryMap = new Map()
+              obeliskAttackersExpiryRef.current.set(event.server_id, expiryMap)
+            }
+            expiryMap.set(data.client_num, Date.now() + OBELISK_ATTACK_DECAY_MS)
+          } else if (expiryMap) {
+            expiryMap.delete(data.client_num)
+          }
+          refreshObeliskAttackerState()
+        }
+        break
+      }
+      case 'skull_pickup': {
+        const data = event.data as SkullPickupData
+        const serverName = getServerName(event.server_id)
+        const enemyName = data.team === 1 ? 'Blue' : 'Red'
+        const cleanName = cleanQ3Name(data.player_name)
+        const botInfo = getPlayerBotInfo(event.server_id, cleanName)
+        const player = { name: data.player_name, cleanName, playerId: data.player_id, ...botInfo }
+        const carryWord = data.count === 1 ? 'skull' : 'skulls'
+        addActivity('info', `${data.player_name}${COLOR_RESET} picked up a ${enemyName} skull (carrying ${data.count} ${carryWord})`, {
+          player, serverId: event.server_id, serverName, activityType: 'skull_pickup', team: data.team,
+        })
         break
       }
       case 'skull_score': {
@@ -408,7 +504,7 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
         break
       }
     }
-  }, [addActivity, getServerName, getServerGameType, getPlayerBotInfo])
+  }, [addActivity, getServerName, getServerGameType, getPlayerBotInfo, refreshObeliskAttackerState])
 
   const wsUrl = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws`
   const { isConnected, send: wsSend } = useWebSocket(wsUrl, handleEvent)
@@ -509,6 +605,7 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<LiveDataValue>(() => ({
     servers, liveness, manageable, activities, newPlayers, loading, isConnected,
+    obeliskAttackersByServer,
     activeHumanPlayersCount, activeServersCount,
     activityDrawerOpen, setActivityDrawerOpen, toggleActivityDrawer,
     selectedPlayer, showPlayer, closePlayer,
@@ -517,6 +614,7 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
     commandPaletteOpen, setCommandPaletteOpen,
   }), [
     servers, liveness, manageable, activities, newPlayers, loading, isConnected,
+    obeliskAttackersByServer,
     activeHumanPlayersCount, activeServersCount,
     activityDrawerOpen, toggleActivityDrawer,
     selectedPlayer, showPlayer, closePlayer,

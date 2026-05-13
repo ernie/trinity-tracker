@@ -148,12 +148,13 @@ func parseStatusResponse(address string, data []byte) (*domain.ServerStatus, err
 		}
 	}
 
-	// Extract flag status for CTF
-	// New format: "<red_status>:<red_carrier>,<blue_status>:<blue_carrier>"
-	// Example: "1:5,0:-1" = red flag taken by client 5, blue flag at base
-	// Legacy format: "XY" where X=red status, Y=blue status
-	if flagStatus := vars["g_flagstatus"]; flagStatus != "" {
-		status.FlagStatus = parseFlagStatus(flagStatus)
+	var objTail map[int]int
+	if objStatus := vars["g_objstatus"]; objStatus != "" {
+		status.ObjStatus, objTail = parseObjStatus(objStatus, status.GameType)
+	}
+
+	if hp, ok := parseIntVar(vars, "g_obeliskhealth"); ok {
+		status.ObeliskHealthMax = hp
 	}
 
 	// Extract match state (from enhanced game logging)
@@ -189,6 +190,23 @@ func parseStatusResponse(address string, data []byte) (*domain.ServerStatus, err
 			status.BotCount++
 		} else {
 			status.HumanCount++
+		}
+	}
+
+	// Overlay g_objStatus tail onto matching players (tail meaning is
+	// gametype-specific). Unmatched cn (slot churn) drops silently.
+	if len(objTail) > 0 {
+		for i := range status.Players {
+			count, ok := objTail[status.Players[i].ClientNum]
+			if !ok {
+				continue
+			}
+			switch status.GameType {
+			case "harvester":
+				status.Players[i].SkullsCarrying = count
+			case "overload":
+				status.Players[i].ObelisksDestroyed = count
+			}
 		}
 	}
 
@@ -284,63 +302,138 @@ func parseIntVar(vars map[string]string, names ...string) (int, bool) {
 	return 0, false
 }
 
-// parseFlagStatus parses the g_flagStatus cvar.
-// CTF format:   "<red_status>:<red_carrier>,<blue_status>:<blue_carrier>"
-//   Example: "1:5,0:-1" = red flag taken by client 5, blue flag at base
-// 1FCTF format: "<status>:<carrier>" (single neutral flag)
-//   Example: "2:7" = neutral flag carried by red player, client 7
-// The legacy two-char form "00" (engine default before any update) is
-// rejected — it carries no usable state.
-func parseFlagStatus(s string) *domain.FlagStatus {
-	parts := strings.Split(s, ",")
-	switch len(parts) {
-	case 1:
-		segment := strings.Split(parts[0], ":")
-		if len(segment) != 2 {
-			return nil
-		}
-		status, err1 := strconv.Atoi(segment[0])
-		carrier, err2 := strconv.Atoi(segment[1])
-		if err1 != nil || err2 != nil {
-			return nil
-		}
-		// Engine leaves the carrier slot pointing at the last carrier
-		// across at-base (0) and dropped (4) — normalize to -1 so the UI
-		// can't pin a stale carry indicator on that player.
-		if status != 2 && status != 3 {
-			carrier = -1
-		}
-		return &domain.FlagStatus{
-			Mode:           "1fctf",
-			Neutral:        status,
-			NeutralCarrier: carrier,
-			// RedCarrier/BlueCarrier aren't meaningful in 1FCTF, but the
-			// JSON tags lack omitempty, so a zero value would falsely
-			// match client_num 0 in the UI's carrier lookup.
-			RedCarrier:  -1,
-			BlueCarrier: -1,
-		}
-	case 2:
-		redParts := strings.Split(parts[0], ":")
-		blueParts := strings.Split(parts[1], ":")
-		if len(redParts) != 2 || len(blueParts) != 2 {
-			return nil
-		}
-		redStatus, err1 := strconv.Atoi(redParts[0])
-		redCarrier, err2 := strconv.Atoi(redParts[1])
-		blueStatus, err3 := strconv.Atoi(blueParts[0])
-		blueCarrier, err4 := strconv.Atoi(blueParts[1])
-		if err1 != nil || err2 != nil || err3 != nil || err4 != nil {
-			return nil
-		}
-		return &domain.FlagStatus{
-			Mode:        "ctf",
-			Red:         redStatus,
-			RedCarrier:  redCarrier,
-			Blue:        blueStatus,
-			BlueCarrier: blueCarrier,
-		}
+// parseObjStatus parses g_objStatus dispatched by gametype, plus the
+// optional "cn:count,..." pipe-tail. Grammar contract:
+// trinity/code/game/g_main.c at the cvar registration site.
+func parseObjStatus(s, gameType string) (*domain.ObjStatus, map[int]int) {
+	var teamPart, tailPart string
+	if idx := strings.Index(s, "|"); idx >= 0 {
+		teamPart = s[:idx]
+		tailPart = s[idx+1:]
+	} else {
+		teamPart = s
+	}
+
+	tail := parseClientCountTail(tailPart)
+
+	switch gameType {
+	case "ctf":
+		return parseCTFTeamSection(teamPart), tail
+	case "1fctf":
+		return parse1FCTFTeamSection(teamPart), tail
+	case "overload":
+		return parseOverloadTeamSection(teamPart), tail
+	case "harvester":
+		return parseHarvesterTeamSection(teamPart), tail
 	default:
+		return nil, nil
+	}
+}
+
+func parseCTFTeamSection(s string) *domain.ObjStatus {
+	parts := strings.Split(s, ",")
+	if len(parts) != 2 {
 		return nil
 	}
+	redParts := strings.Split(parts[0], ":")
+	blueParts := strings.Split(parts[1], ":")
+	if len(redParts) != 2 || len(blueParts) != 2 {
+		return nil
+	}
+	redStatus, err1 := strconv.Atoi(redParts[0])
+	redCarrier, err2 := strconv.Atoi(redParts[1])
+	blueStatus, err3 := strconv.Atoi(blueParts[0])
+	blueCarrier, err4 := strconv.Atoi(blueParts[1])
+	if err1 != nil || err2 != nil || err3 != nil || err4 != nil {
+		return nil
+	}
+	return &domain.ObjStatus{
+		Mode:        "ctf",
+		Red:         redStatus,
+		RedCarrier:  redCarrier,
+		Blue:        blueStatus,
+		BlueCarrier: blueCarrier,
+	}
+}
+
+func parse1FCTFTeamSection(s string) *domain.ObjStatus {
+	segment := strings.Split(s, ":")
+	if len(segment) != 2 {
+		return nil
+	}
+	status, err1 := strconv.Atoi(segment[0])
+	carrier, err2 := strconv.Atoi(segment[1])
+	if err1 != nil || err2 != nil {
+		return nil
+	}
+	// Normalize stale carrier slot to -1 except when flag is actively held/dropped.
+	if status != 2 && status != 3 {
+		carrier = -1
+	}
+	return &domain.ObjStatus{
+		Mode:           "1fctf",
+		Neutral:        status,
+		NeutralCarrier: carrier,
+		RedCarrier:     -1, // -1 not 0 so UI per-player lookup can't match cn=0
+		BlueCarrier:    -1,
+	}
+}
+
+func parseOverloadTeamSection(s string) *domain.ObjStatus {
+	parts := strings.Split(s, ",")
+	if len(parts) != 2 {
+		return nil
+	}
+	redHP, err1 := strconv.Atoi(parts[0])
+	blueHP, err2 := strconv.Atoi(parts[1])
+	if err1 != nil || err2 != nil {
+		return nil
+	}
+	return &domain.ObjStatus{
+		Mode:          "overload",
+		RedObeliskHP:  redHP,
+		BlueObeliskHP: blueHP,
+	}
+}
+
+func parseHarvesterTeamSection(s string) *domain.ObjStatus {
+	parts := strings.Split(s, ",")
+	if len(parts) != 2 {
+		return nil
+	}
+	red, err1 := strconv.Atoi(parts[0])
+	blue, err2 := strconv.Atoi(parts[1])
+	if err1 != nil || err2 != nil {
+		return nil
+	}
+	return &domain.ObjStatus{
+		Mode:       "harvester",
+		RedSkulls:  red,
+		BlueSkulls: blue,
+	}
+}
+
+// parseClientCountTail parses "cn:count,cn:count,..." into a map.
+// Malformed entries skip; empty input returns nil.
+func parseClientCountTail(s string) map[int]int {
+	if s == "" {
+		return nil
+	}
+	out := make(map[int]int)
+	for _, pair := range strings.Split(s, ",") {
+		colon := strings.IndexByte(pair, ':')
+		if colon < 0 {
+			continue
+		}
+		cn, err1 := strconv.Atoi(pair[:colon])
+		count, err2 := strconv.Atoi(pair[colon+1:])
+		if err1 != nil || err2 != nil {
+			continue
+		}
+		out[cn] = count
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }

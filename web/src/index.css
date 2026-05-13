@@ -4383,8 +4383,15 @@ h2 {
   margin: 0;
 }
 
+/* Player profile honors grid: 10 cells in 5x2 — Skulls and Obelisks
+   joined the original 8 medals when Harvester/Overload stats landed. */
+.player-panel .stats-grid {
+  grid-template-columns: repeat(5, 1fr);
+}
+
 @media (max-width: 600px) {
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .player-panel .stats-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
 .stat-item {
@@ -10490,6 +10497,108 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 .player-row .pname-cell .row-carrier .flag-icon img {
   width: 14px;
   height: 14px;
+}
+/* Harvester skull-carry — count as corner badge (cf. .medal-count). */
+.player-row .pname-cell .row-carrier--skulls {
+  position: relative;
+}
+.player-row .pname-cell .row-carrier--skulls .row-carrier__count {
+  position: absolute;
+  bottom: -3px;
+  right: -3px;
+  font-size: 0.6rem;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 0 0 2px #000;
+  line-height: 1;
+}
+
+/* Overload "actively attacking" — pulsing team-colored reticle. */
+.player-row .pname-cell .row-carrier--obelisk-attacker {
+  animation: row-carrier-attack-pulse 1.2s ease-in-out infinite;
+}
+.reticle-icon {
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;
+}
+@keyframes row-carrier-attack-pulse {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
+}
+
+/* Overload obelisk HP bar — sits in the Scoreboard team-indicator slot. */
+.obelisk-hp {
+  display: inline-flex;
+  align-items: center;
+  width: 48px;
+  height: 6px;
+  margin-left: 4px;
+}
+.obelisk-hp__bar {
+  position: relative;
+  flex: 1;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.obelisk-hp__fill {
+  display: block;
+  height: 100%;
+  transition: width 0.4s ease-out;
+}
+.obelisk-hp--red .obelisk-hp__fill  { background: #d2493a; }
+.obelisk-hp--blue .obelisk-hp__fill { background: #4076c8; }
+/* Destroyed obelisk pulses while waiting for respawn (~10s default). */
+.obelisk-hp--destroyed .obelisk-hp__bar {
+  animation: obelisk-hp-pulse 1.2s ease-in-out infinite;
+}
+.obelisk-hp--red.obelisk-hp--destroyed  .obelisk-hp__bar { --pulse: 210, 73, 58; }
+.obelisk-hp--blue.obelisk-hp--destroyed .obelisk-hp__bar { --pulse: 64, 118, 200; }
+@keyframes obelisk-hp-pulse {
+  0%, 100% {
+    background: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 0 0 0 rgba(var(--pulse, 210, 73, 58), 0);
+  }
+  50% {
+    background: rgba(var(--pulse, 210, 73, 58), 0.25);
+    box-shadow: 0 0 6px 1px rgba(var(--pulse, 210, 73, 58), 0.6);
+  }
+}
+
+/* Harvester skulls-in-play counter next to the team score header.
+   Icon at flag-icon-md (24px) matches CTF; count floats absolutely
+   below the icon so it doesn't inflate the score-line grid row. */
+.harvester-skulls {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+}
+.harvester-skulls__count {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 0 0 2px #000;
+  line-height: 1;
+}
+/* Per-team accents on the harvester-skulls header count. */
+.harvester-skulls--red .harvester-skulls__count {
+  text-shadow: 0 0 3px rgba(255, 80, 80, 0.9), 0 0 2px #000;
+}
+.harvester-skulls--blue .harvester-skulls__count {
+  text-shadow: 0 0 3px rgba(80, 150, 255, 0.9), 0 0 2px #000;
+}
+
+/* Dimmed medal — transient events that reuse a cumulative-award glyph. */
+.medal-icon--dim {
+  opacity: 0.5;
+  filter: saturate(0.6);
 }
 /* Clickable rows / duelists (humans only). Whole row is the target. */
 .player-row.clickable { cursor: pointer; transition: background 0.15s ease; }

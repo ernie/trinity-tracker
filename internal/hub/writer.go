@@ -350,6 +350,7 @@ func (w *Writer) handleMatchEnd(ctx context.Context, data domain.MatchEndData) {
 		if err := w.store.FlushMatchPlayerStats(ctx, match.ID, pg.ID, p.ClientID,
 			p.Frags, p.Deaths, p.Completed, p.Score, p.Team, p.Model, p.Skill, p.Victory,
 			p.Captures, p.FlagReturns, p.Assists, p.Impressives, p.Excellents, p.Humiliations, p.Defends,
+			p.SkullsDelivered, p.ObelisksDestroyed,
 			p.IsBot, p.JoinedLate, p.JoinedAt, p.IsVR); err != nil {
 			log.Printf("hub: FlushMatchPlayerStats for GUID %s: %v", p.GUID, err)
 			continue
@@ -414,17 +415,18 @@ func (w *Writer) handleMatchCrashed(ctx context.Context, data domain.MatchCrashe
 // on the original join.
 func (w *Writer) handlePresenceSnapshot(serverID int64, data domain.PresenceSnapshotData) {
 	w.presence.RecordJoin(serverID, data.ClientNum, PresenceEntry{
-		GUID:         data.GUID,
-		Model:        data.Model,
-		IsBot:        data.IsBot,
-		IsVR:         data.IsVR,
-		Skill:        data.Skill,
-		Impressives:  data.Impressives,
-		Excellents:   data.Excellents,
-		Humiliations: data.Humiliations,
-		Defends:      data.Defends,
-		Captures:     data.Captures,
-		Assists:      data.Assists,
+		GUID:            data.GUID,
+		Model:           data.Model,
+		IsBot:           data.IsBot,
+		IsVR:            data.IsVR,
+		Skill:           data.Skill,
+		Impressives:     data.Impressives,
+		Excellents:      data.Excellents,
+		Humiliations:    data.Humiliations,
+		Defends:         data.Defends,
+		Captures:        data.Captures,
+		Assists:         data.Assists,
+		SkullsDelivered: data.SkullsDelivered,
 	})
 }
 
@@ -825,8 +827,16 @@ func (w *Writer) EnrichEvent(ctx context.Context, event domain.Event) domain.Eve
 	case domain.ObeliskDestroyEvent:
 		d.PlayerID = resolve(d.GUID)
 		event.Data = d
+	case domain.ObeliskDamageEvent:
+		d.PlayerID = resolve(d.GUID)
+		event.Data = d
+	case domain.SkullPickupEvent:
+		d.PlayerID = resolve(d.GUID)
+		event.Data = d
 	case domain.SkullScoreEvent:
 		d.PlayerID = resolve(d.GUID)
+		// d.Skulls may be > 1 (multi-skull delivery).
+		w.presence.IncrementByGUIDBy(event.ServerID, d.GUID, AwardSkullDelivered, d.Skulls)
 		event.Data = d
 	case domain.TeamChangeEvent:
 		d.PlayerID = resolve(d.GUID)

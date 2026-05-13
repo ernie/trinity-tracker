@@ -1015,7 +1015,7 @@ func (s *Store) GetActiveMatch(ctx context.Context, serverID int64) (*domain.Mat
 // For humans: one row per player per match, updates client_id on reconnect
 func (s *Store) FlushMatchPlayerStats(ctx context.Context, matchID, playerGUIDID int64, clientID int,
 	frags, deaths int, completed bool, score *int, team *int, model string, skill float64, victory bool,
-	captures, flagReturns, assists, impressives, excellents, humiliations, defends int,
+	captures, flagReturns, assists, impressives, excellents, humiliations, defends, skullsDelivered, obelisksDestroyed int,
 	isBot bool, joinedLate bool, joinedAt time.Time, isVR bool) error {
 
 	if isBot {
@@ -1024,8 +1024,9 @@ func (s *Store) FlushMatchPlayerStats(ctx context.Context, matchID, playerGUIDID
 			INSERT INTO match_player_stats (
 				match_id, player_guid_id, client_id, frags, deaths, completed, score, team,
 				model, skill, victories, captures, flag_returns, assists, impressives,
-				excellents, humiliations, defends, joined_late, joined_at, is_vr
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				excellents, humiliations, defends, skulls_delivered, obelisks_destroyed,
+				joined_late, joined_at, is_vr
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(match_id, player_guid_id, client_id) DO UPDATE SET
 				frags = frags + excluded.frags,
 				deaths = deaths + excluded.deaths,
@@ -1042,10 +1043,13 @@ func (s *Store) FlushMatchPlayerStats(ctx context.Context, matchID, playerGUIDID
 				excellents = excellents + excluded.excellents,
 				humiliations = humiliations + excluded.humiliations,
 				defends = defends + excluded.defends,
+				skulls_delivered = skulls_delivered + excluded.skulls_delivered,
+				obelisks_destroyed = obelisks_destroyed + excluded.obelisks_destroyed,
 				is_vr = is_vr OR excluded.is_vr
 		`, matchID, playerGUIDID, clientID, frags, deaths, completed, score, team,
 			model, skill, boolToInt(victory), captures, flagReturns, assists, impressives,
-			excellents, humiliations, defends, joinedLate, formatTimestamp(joinedAt), isVR)
+			excellents, humiliations, defends, skullsDelivered, obelisksDestroyed,
+			joinedLate, formatTimestamp(joinedAt), isVR)
 		return err
 	}
 
@@ -1069,10 +1073,13 @@ func (s *Store) FlushMatchPlayerStats(ctx context.Context, matchID, playerGUIDID
 			excellents = excellents + ?,
 			humiliations = humiliations + ?,
 			defends = defends + ?,
+			skulls_delivered = skulls_delivered + ?,
+			obelisks_destroyed = obelisks_destroyed + ?,
 			is_vr = is_vr OR ?
 		WHERE match_id = ? AND player_guid_id = ?
 	`, clientID, frags, deaths, completed, score, team, model, skill, boolToInt(victory),
 		captures, flagReturns, assists, impressives, excellents, humiliations, defends,
+		skullsDelivered, obelisksDestroyed,
 		isVR, matchID, playerGUIDID)
 	if err != nil {
 		return err
@@ -1086,11 +1093,13 @@ func (s *Store) FlushMatchPlayerStats(ctx context.Context, matchID, playerGUIDID
 		INSERT INTO match_player_stats (
 			match_id, player_guid_id, client_id, frags, deaths, completed, score, team,
 			model, skill, victories, captures, flag_returns, assists, impressives,
-			excellents, humiliations, defends, joined_late, joined_at, is_vr
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			excellents, humiliations, defends, skulls_delivered, obelisks_destroyed,
+			joined_late, joined_at, is_vr
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, matchID, playerGUIDID, clientID, frags, deaths, completed, score, team,
 		model, skill, boolToInt(victory), captures, flagReturns, assists, impressives,
-		excellents, humiliations, defends, joinedLate, formatTimestamp(joinedAt), isVR)
+		excellents, humiliations, defends, skullsDelivered, obelisksDestroyed,
+		joinedLate, formatTimestamp(joinedAt), isVR)
 	if err != nil {
 		return err
 	}
@@ -1157,6 +1166,10 @@ func (s *Store) GetLeaderboard(ctx context.Context, category, period string, lim
 		orderBy = "total_defends DESC"
 	case "flag_returns":
 		orderBy = "total_flag_returns DESC"
+	case "skulls_delivered":
+		orderBy = "total_skulls_delivered DESC"
+	case "obelisks_destroyed":
+		orderBy = "total_obelisks_destroyed DESC"
 	case "victories":
 		orderBy = "total_victories DESC"
 	default: // "frags"
@@ -1196,6 +1209,8 @@ func (s *Store) GetLeaderboard(ctx context.Context, category, period string, lim
 				COALESCE(SUM(mps.excellents), 0) as total_excellents,
 				COALESCE(SUM(mps.humiliations), 0) as total_humiliations,
 				COALESCE(SUM(mps.defends), 0) as total_defends,
+				COALESCE(SUM(mps.skulls_delivered), 0) as total_skulls_delivered,
+				COALESCE(SUM(mps.obelisks_destroyed), 0) as total_obelisks_destroyed,
 				COALESCE(SUM(mps.victories), 0) as total_victories,
 				CASE WHEN SUM(mps.deaths) > 0
 					THEN CAST(SUM(mps.frags) AS REAL) / SUM(mps.deaths)
@@ -1260,6 +1275,8 @@ func (s *Store) GetLeaderboard(ctx context.Context, category, period string, lim
 				COALESCE(SUM(mps.excellents), 0) as total_excellents,
 				COALESCE(SUM(mps.humiliations), 0) as total_humiliations,
 				COALESCE(SUM(mps.defends), 0) as total_defends,
+				COALESCE(SUM(mps.skulls_delivered), 0) as total_skulls_delivered,
+				COALESCE(SUM(mps.obelisks_destroyed), 0) as total_obelisks_destroyed,
 				COALESCE(SUM(mps.victories), 0) as total_victories,
 				CASE WHEN SUM(mps.deaths) > 0
 					THEN CAST(SUM(mps.frags) AS REAL) / SUM(mps.deaths)
@@ -1305,7 +1322,7 @@ func (s *Store) GetLeaderboard(ctx context.Context, category, period string, lim
 			&e.Player.IsVerified, &e.Player.IsAdmin,
 			&e.TotalFrags, &e.TotalDeaths, &e.TotalMatches, &e.CompletedMatches, &e.UncompletedMatches,
 			&e.Captures, &e.FlagReturns, &e.Assists, &e.Impressives, &e.Excellents,
-			&e.Humiliations, &e.Defends, &e.Victories,
+			&e.Humiliations, &e.Defends, &e.SkullsDelivered, &e.ObelisksDestroyed, &e.Victories,
 			&e.KDRatio, &model, &skill,
 		); err != nil {
 			return nil, err
@@ -1395,6 +1412,8 @@ func (s *Store) getPlayerStats(ctx context.Context, playerID int64, period strin
 				COALESCE(SUM(mps.excellents), 0) as excellents,
 				COALESCE(SUM(mps.humiliations), 0) as humiliations,
 				COALESCE(SUM(mps.defends), 0) as defends,
+				COALESCE(SUM(mps.skulls_delivered), 0) as skulls_delivered,
+				COALESCE(SUM(mps.obelisks_destroyed), 0) as obelisks_destroyed,
 				COALESCE(SUM(mps.victories), 0) as victories
 			FROM match_player_stats mps
 			JOIN player_guids pg ON mps.player_guid_id = pg.id
@@ -1416,6 +1435,8 @@ func (s *Store) getPlayerStats(ctx context.Context, playerID int64, period strin
 				COALESCE(SUM(mps.excellents), 0) as excellents,
 				COALESCE(SUM(mps.humiliations), 0) as humiliations,
 				COALESCE(SUM(mps.defends), 0) as defends,
+				COALESCE(SUM(mps.skulls_delivered), 0) as skulls_delivered,
+				COALESCE(SUM(mps.obelisks_destroyed), 0) as obelisks_destroyed,
 				COALESCE(SUM(mps.victories), 0) as victories
 			FROM match_player_stats mps
 			JOIN player_guids pg ON mps.player_guid_id = pg.id
@@ -1432,7 +1453,9 @@ func (s *Store) getPlayerStats(ctx context.Context, playerID int64, period strin
 		&stats.Frags, &stats.Deaths,
 		&stats.Captures, &stats.FlagReturns, &stats.Assists,
 		&stats.Impressives, &stats.Excellents,
-		&stats.Humiliations, &stats.Defends, &stats.Victories,
+		&stats.Humiliations, &stats.Defends,
+		&stats.SkullsDelivered, &stats.ObelisksDestroyed,
+		&stats.Victories,
 	)
 	if err != nil {
 		return nil, err
@@ -1722,7 +1745,7 @@ func (s *Store) attachPlayersToMatches(ctx context.Context, matches []domain.Mat
 
 	// Get player stats for all matches
 	playerRows, err := s.db.QueryContext(ctx, `
-		SELECT mps.match_id, p.id, pg.name, pg.clean_name, mps.frags, mps.deaths, mps.completed, p.is_bot, mps.skill, mps.score, mps.team, mps.model, mps.impressives, mps.excellents, mps.humiliations, mps.defends, mps.victories, mps.captures, mps.assists, mps.is_vr,
+		SELECT mps.match_id, p.id, pg.name, pg.clean_name, mps.frags, mps.deaths, mps.completed, p.is_bot, mps.skill, mps.score, mps.team, mps.model, mps.impressives, mps.excellents, mps.humiliations, mps.defends, mps.victories, mps.captures, mps.assists, mps.skulls_delivered, mps.obelisks_destroyed, mps.is_vr,
 			CASE WHEN u.id IS NOT NULL THEN 1 ELSE 0 END as is_verified,
 			COALESCE(u.is_admin, 0) as is_admin
 		FROM match_player_stats mps
@@ -2144,7 +2167,7 @@ func (s *Store) GetMatchSummaryByID(ctx context.Context, matchID int64) (*domain
 
 	// Get player stats for this match
 	playerRows, err := s.db.QueryContext(ctx, `
-		SELECT p.id, pg.name, pg.clean_name, mps.frags, mps.deaths, mps.completed, p.is_bot, mps.skill, mps.score, mps.team, mps.model, mps.impressives, mps.excellents, mps.humiliations, mps.defends, mps.victories, mps.captures, mps.assists, mps.is_vr,
+		SELECT p.id, pg.name, pg.clean_name, mps.frags, mps.deaths, mps.completed, p.is_bot, mps.skill, mps.score, mps.team, mps.model, mps.impressives, mps.excellents, mps.humiliations, mps.defends, mps.victories, mps.captures, mps.assists, mps.skulls_delivered, mps.obelisks_destroyed, mps.is_vr,
 			CASE WHEN u.id IS NOT NULL THEN 1 ELSE 0 END as is_verified,
 			COALESCE(u.is_admin, 0) as is_admin
 		FROM match_player_stats mps

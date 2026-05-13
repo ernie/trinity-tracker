@@ -57,7 +57,8 @@ type ServerStatus struct {
 	LastSeenAt      *time.Time        `json:"last_seen_at,omitempty"`
 	ServerVars      map[string]string `json:"server_vars,omitempty"`
 	TeamScores      *TeamScores       `json:"team_scores,omitempty"`
-	FlagStatus      *FlagStatus       `json:"flag_status,omitempty"`
+	ObjStatus       *ObjStatus        `json:"obj_status,omitempty"`
+	ObeliskHealthMax int             `json:"obelisk_health_max,omitempty"` // g_obeliskHealth; HP-bar denominator for Overload
 	MatchState      string            `json:"match_state,omitempty"`       // "waiting", "warmup", "active", "overtime", "intermission"
 	WarmupRemaining int               `json:"warmup_remaining,omitempty"` // milliseconds remaining in warmup
 }
@@ -68,19 +69,23 @@ type TeamScores struct {
 	BlueScore int `json:"blue"`
 }
 
-// FlagStatus represents CTF / 1FCTF flag states. Mode disambiguates
-// which fields are meaningful. CTF status values: 0=at base, 1=taken,
-// 2=dropped. 1FCTF status values (neutral flag only): 0=at base,
-// 2=carried by red, 3=carried by blue, 4=dropped. Carrier values are
-// client_num of the carrier, or -1 if not carried.
-type FlagStatus struct {
-	Mode           string `json:"mode,omitempty"` // "ctf" | "1fctf"
-	Red            int    `json:"red"`
-	RedCarrier     int    `json:"red_carrier"`
-	Blue           int    `json:"blue"`
-	BlueCarrier    int    `json:"blue_carrier"`
-	Neutral        int    `json:"neutral,omitempty"`
-	NeutralCarrier int    `json:"neutral_carrier,omitempty"`
+// ObjStatus is the parsed g_objStatus cvar. Mode discriminates which
+// fields are populated. Grammar contract: trinity/code/game/g_main.c
+// at the cvar registration site.
+type ObjStatus struct {
+	Mode string `json:"mode,omitempty"` // "ctf" | "1fctf" | "overload" | "harvester"
+	// No omitempty on flag-state / HP fields — clientNum=0 carrier and
+	// 0=at-base / 0HP=destroyed are all meaningful values to the UI.
+	Red             int `json:"red"`
+	RedCarrier      int `json:"red_carrier"`
+	Blue            int `json:"blue"`
+	BlueCarrier     int `json:"blue_carrier"`
+	Neutral         int `json:"neutral"`
+	NeutralCarrier  int `json:"neutral_carrier"`
+	RedObeliskHP    int `json:"red_obelisk_hp"`
+	BlueObeliskHP   int `json:"blue_obelisk_hp"`
+	RedSkulls     int `json:"red_skulls,omitempty"`
+	BlueSkulls    int `json:"blue_skulls,omitempty"`
 }
 
 // PlayerStatus represents a player's current state on a server
@@ -102,6 +107,9 @@ type PlayerStatus struct {
 	Defends      int       `json:"defends,omitempty"`      // defend awards this match
 	Captures     int       `json:"captures,omitempty"`     // flag captures this match
 	Assists      int       `json:"assists,omitempty"`      // assist awards this match
+	SkullsDelivered   int `json:"skulls_delivered,omitempty"`   // Harvester: cumulative this match (from Presence)
+	ObelisksDestroyed int `json:"obelisks_destroyed,omitempty"`  // Overload: cumulative this match (from g_objStatus tail)
+	SkullsCarrying    int `json:"skulls_carrying,omitempty"`     // Harvester: transient carry count
 	PlayerID     *int64    `json:"player_id,omitempty"`    // database player ID if known
 	IsVerified   bool      `json:"is_verified"`
 	IsAdmin      bool      `json:"is_admin"`

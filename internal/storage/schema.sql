@@ -158,6 +158,8 @@ CREATE TABLE IF NOT EXISTS match_player_stats (
     excellents INTEGER DEFAULT 0,
     humiliations INTEGER DEFAULT 0,
     defends INTEGER DEFAULT 0,
+    skulls_delivered INTEGER DEFAULT 0,
+    obelisks_destroyed INTEGER DEFAULT 0,
     victories INTEGER DEFAULT 0,
     score INTEGER,
     team INTEGER,

@@ -15,7 +15,9 @@ const (
 	EventFlagReturn    = "flag_return"
 	EventFlagDrop      = "flag_drop"
 	EventObeliskDestroy = "obelisk_destroy"
-	EventSkullScore    = "skull_score"
+	EventObeliskDamage  = "obelisk_damage"
+	EventSkullPickup    = "skull_pickup"
+	EventSkullScore     = "skull_score"
 	EventTeamChange    = "team_change"
 	EventSay           = "say"
 	EventSayTeam       = "say_team"
@@ -131,6 +133,28 @@ type SkullScoreEvent struct {
 	Skulls     int    `json:"skulls"`
 	GUID       string `json:"guid,omitempty"`
 	PlayerID   *int64 `json:"player_id,omitempty"`
+}
+
+// SkullPickupEvent is sent when a player picks up an enemy skull (Harvester)
+type SkullPickupEvent struct {
+	ClientNum  int    `json:"client_num"`
+	PlayerName string `json:"player_name"`
+	Team       int    `json:"team"`        // picker's team
+	Count      int    `json:"count"`       // skulls held after pickup
+	GUID       string `json:"guid,omitempty"`
+	PlayerID   *int64 `json:"player_id,omitempty"`
+}
+
+// ObeliskDamageEvent signals start/stop of "actively attacking an
+// obelisk". The collector coalesces per-hit log lines; see the
+// sweeper in collector/manager.go for the timing. Live-only.
+type ObeliskDamageEvent struct {
+	ClientNum    int    `json:"client_num"`
+	AttackerName string `json:"attacker_name"`
+	Team         int    `json:"team"`
+	Active       bool   `json:"active"`
+	GUID         string `json:"guid,omitempty"`
+	PlayerID     *int64 `json:"player_id,omitempty"`
 }
 
 // TeamChangeEvent is sent when a player changes teams

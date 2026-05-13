@@ -109,6 +109,9 @@ type clientState struct {
 	captures           int             // flag captures this match
 	flagReturns        int             // flag returns this match
 	assists            int             // assist awards this match
+	skullsDelivered    int             // Harvester: skulls deposited at enemy obelisk this match (persisted + live)
+	obelisksDestroyed  int             // Overload: obelisks destroyed this match (persisted + live)
+	skullsCarrying     int             // Harvester: skulls currently held (live only, not persisted)
 	score              *int            // final score from score event at match end (nil if left early)
 	lastGauntletVictim *gauntletVictim // last gauntlet kill victim (for humiliation award)
 }
@@ -257,20 +260,21 @@ func (m *ServerManager) bootstrapServerPresence(serverID int64) {
 		pending = append(pending, pendingSnapshot{
 			ts: client.joinedAt,
 			data: domain.PresenceSnapshotData{
-				GUID:         client.guid,
-				Name:         client.name,
-				CleanName:    client.cleanName,
-				Model:        client.model,
-				IsBot:        client.isBot,
-				IsVR:         client.isVR,
-				Skill:        client.skill,
-				ClientNum:    client.clientID,
-				Impressives:  client.impressives,
-				Excellents:   client.excellents,
-				Humiliations: client.humiliations,
-				Defends:      client.defends,
-				Captures:     client.captures,
-				Assists:      client.assists,
+				GUID:            client.guid,
+				Name:            client.name,
+				CleanName:       client.cleanName,
+				Model:           client.model,
+				IsBot:           client.isBot,
+				IsVR:            client.isVR,
+				Skill:           client.skill,
+				ClientNum:       client.clientID,
+				Impressives:     client.impressives,
+				Excellents:      client.excellents,
+				Humiliations:    client.humiliations,
+				Defends:         client.defends,
+				Captures:        client.captures,
+				Assists:         client.assists,
+				SkullsDelivered: client.skullsDelivered,
 			},
 		})
 	}
@@ -737,14 +741,21 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 						ServerID:  serverID,
 						Timestamp: event.Timestamp,
 						Data: domain.PresenceSnapshotData{
-							GUID:      client.guid,
-							Name:      client.name,
-							CleanName: client.cleanName,
-							Model:     client.model,
-							IsBot:     client.isBot,
-							IsVR:      client.isVR,
-							Skill:     client.skill,
-							ClientNum: data.ClientID,
+							GUID:            client.guid,
+							Name:            client.name,
+							CleanName:       client.cleanName,
+							Model:           client.model,
+							IsBot:           client.isBot,
+							IsVR:            client.isVR,
+							Skill:           client.skill,
+							ClientNum:       data.ClientID,
+							Impressives:     client.impressives,
+							Excellents:      client.excellents,
+							Humiliations:    client.humiliations,
+							Defends:         client.defends,
+							Captures:        client.captures,
+							Assists:         client.assists,
+							SkullsDelivered: client.skullsDelivered,
 						},
 					})
 				} else {
@@ -1092,11 +1103,18 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 
 	case EventTypeObeliskDestroy:
 		data := event.Data.(ObeliskDestroyData)
-		// Skip events in replay mode
+		// Skip world/self destructs (no player to credit).
+		if data.AttackerID >= 0 {
+			if client, ok := state.clients[data.AttackerID]; ok {
+				client.obelisksDestroyed++
+			}
+		}
 		if !replayMode {
 			var guid string
-			if client, ok := state.clients[data.AttackerID]; ok {
-				guid = client.guid
+			if data.AttackerID >= 0 {
+				if client, ok := state.clients[data.AttackerID]; ok {
+					guid = client.guid
+				}
 			}
 			m.emitEvent(domain.Event{
 				Type:      domain.EventObeliskDestroy,
@@ -1110,9 +1128,61 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 			})
 		}
 
+	case EventTypeObeliskDamage:
+		data := event.Data.(ObeliskDamageData)
+		// Mod-side coalescing: one Start, one Stop per attack burst.
+		if replayMode || data.AttackerID < 0 {
+			break
+		}
+		var guid string
+		if client, ok := state.clients[data.AttackerID]; ok {
+			guid = client.guid
+		}
+		m.emitEvent(domain.Event{
+			Type:      domain.EventObeliskDamage,
+			ServerID:  serverID,
+			Timestamp: event.Timestamp,
+			Data: domain.ObeliskDamageEvent{
+				ClientNum:    data.AttackerID,
+				AttackerName: data.Attacker,
+				Team:         data.Team,
+				Active:       data.Active,
+				GUID:         guid,
+			},
+		})
+
+	case EventTypeSkullPickup:
+		data := event.Data.(SkullPickupData)
+		// data.Count is the running post-pickup total, not a delta.
+		if client, ok := state.clients[data.ClientID]; ok {
+			client.skullsCarrying = data.Count
+		}
+		if !replayMode {
+			var guid string
+			if client, ok := state.clients[data.ClientID]; ok {
+				guid = client.guid
+			}
+			m.emitEvent(domain.Event{
+				Type:      domain.EventSkullPickup,
+				ServerID:  serverID,
+				Timestamp: event.Timestamp,
+				Data: domain.SkullPickupEvent{
+					ClientNum:  data.ClientID,
+					PlayerName: data.Name,
+					Team:       data.Team,
+					Count:      data.Count,
+					GUID:       guid,
+				},
+			})
+		}
+
 	case EventTypeSkullScore:
 		data := event.Data.(SkullScoreData)
-		// Skip events in replay mode
+		// data.Skulls = tokens delivered in this trip; clears live carry.
+		if client, ok := state.clients[data.ClientID]; ok {
+			client.skullsDelivered += data.Skulls
+			client.skullsCarrying = 0
+		}
 		if !replayMode {
 			var guid string
 			if client, ok := state.clients[data.ClientID]; ok {
@@ -1526,6 +1596,8 @@ func (state *serverState) savePreviousClient(client *clientState) {
 		prev.excellents += client.excellents
 		prev.humiliations += client.humiliations
 		prev.defends += client.defends
+		prev.skullsDelivered += client.skullsDelivered
+		prev.obelisksDestroyed += client.obelisksDestroyed
 		prev.clientID = client.clientID
 		prev.team = client.team
 		prev.model = client.model
@@ -1559,29 +1631,31 @@ func (m *ServerManager) buildMatchEndPlayers(state *serverState, computeVictory 
 		}
 		joinedLate := state.match != nil && client.joinedAt.After(state.match.StartedAt)
 		players = append(players, domain.MatchEndPlayer{
-			GUID:         client.guid,
-			ClientID:     client.clientID,
-			Name:         client.name,
-			CleanName:    client.cleanName,
-			Frags:        client.frags,
-			Deaths:       client.deaths,
-			Completed:    false,
-			Score:        client.score,
-			Team:         team,
-			Model:        client.model,
-			Skill:        client.skill,
-			Victory:      false,
-			Captures:     client.captures,
-			FlagReturns:  client.flagReturns,
-			Assists:      client.assists,
-			Impressives:  client.impressives,
-			Excellents:   client.excellents,
-			Humiliations: client.humiliations,
-			Defends:      client.defends,
-			IsBot:        client.isBot,
-			JoinedLate:   joinedLate,
-			JoinedAt:     client.joinedAt,
-			IsVR:         client.isVR,
+			GUID:              client.guid,
+			ClientID:          client.clientID,
+			Name:              client.name,
+			CleanName:         client.cleanName,
+			Frags:             client.frags,
+			Deaths:            client.deaths,
+			Completed:         false,
+			Score:             client.score,
+			Team:              team,
+			Model:             client.model,
+			Skill:             client.skill,
+			Victory:           false,
+			Captures:          client.captures,
+			FlagReturns:       client.flagReturns,
+			Assists:           client.assists,
+			Impressives:       client.impressives,
+			Excellents:        client.excellents,
+			Humiliations:      client.humiliations,
+			Defends:           client.defends,
+			SkullsDelivered:   client.skullsDelivered,
+			ObelisksDestroyed: client.obelisksDestroyed,
+			IsBot:             client.isBot,
+			JoinedLate:        joinedLate,
+			JoinedAt:          client.joinedAt,
+			IsVR:              client.isVR,
 		})
 	}
 
@@ -1600,29 +1674,31 @@ func (m *ServerManager) buildMatchEndPlayers(state *serverState, computeVictory 
 		}
 		joinedLate := state.match != nil && client.joinedAt.After(state.match.StartedAt)
 		players = append(players, domain.MatchEndPlayer{
-			GUID:         client.guid,
-			ClientID:     clientID,
-			Name:         client.name,
-			CleanName:    client.cleanName,
-			Frags:        client.frags,
-			Deaths:       client.deaths,
-			Completed:    true,
-			Score:        client.score,
-			Team:         team,
-			Model:        client.model,
-			Skill:        client.skill,
-			Victory:      victory,
-			Captures:     client.captures,
-			FlagReturns:  client.flagReturns,
-			Assists:      client.assists,
-			Impressives:  client.impressives,
-			Excellents:   client.excellents,
-			Humiliations: client.humiliations,
-			Defends:      client.defends,
-			IsBot:        client.isBot,
-			JoinedLate:   joinedLate,
-			JoinedAt:     client.joinedAt,
-			IsVR:         client.isVR,
+			GUID:              client.guid,
+			ClientID:          clientID,
+			Name:              client.name,
+			CleanName:         client.cleanName,
+			Frags:             client.frags,
+			Deaths:            client.deaths,
+			Completed:         true,
+			Score:             client.score,
+			Team:              team,
+			Model:             client.model,
+			Skill:             client.skill,
+			Victory:           victory,
+			Captures:          client.captures,
+			FlagReturns:       client.flagReturns,
+			Assists:           client.assists,
+			Impressives:       client.impressives,
+			Excellents:        client.excellents,
+			Humiliations:      client.humiliations,
+			Defends:           client.defends,
+			SkullsDelivered:   client.skullsDelivered,
+			ObelisksDestroyed: client.obelisksDestroyed,
+			IsBot:             client.isBot,
+			JoinedLate:        joinedLate,
+			JoinedAt:          client.joinedAt,
+			IsVR:              client.isVR,
 		})
 	}
 

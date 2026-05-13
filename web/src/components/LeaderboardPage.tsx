@@ -26,7 +26,9 @@ type MedalType =
   | "capture"
   | "assist"
   | "defend"
-  | "victory";
+  | "victory"
+  | "skull"
+  | "obelisk";
 
 const CATEGORY_MEDAL: Partial<Record<LeaderboardCategory, MedalType>> = {
   excellents: "excellent",
@@ -36,6 +38,8 @@ const CATEGORY_MEDAL: Partial<Record<LeaderboardCategory, MedalType>> = {
   assists: "assist",
   defends: "defend",
   victories: "victory",
+  skulls_delivered: "skull",
+  obelisks_destroyed: "obelisk",
 };
 
 function CategoryIcon({ category }: { category: LeaderboardCategory }) {
@@ -62,6 +66,8 @@ const CATEGORY_LABELS: Record<LeaderboardCategory, string> = {
   flag_returns: "Returns",
   assists: "Assists",
   defends: "Defense",
+  skulls_delivered: "Skulls",
+  obelisks_destroyed: "Obelisks",
 };
 
 // Base categories available for all game types
@@ -91,11 +97,8 @@ const ONE_FLAG_CTF_CATEGORIES: LeaderboardCategory[] = [
   "defends",
 ];
 
-// Overload categories (defense only)
-const OVERLOAD_CATEGORIES: LeaderboardCategory[] = ["defends"];
-
-// Harvester categories (assists + defense)
-const HARVESTER_CATEGORIES: LeaderboardCategory[] = ["assists", "defends"];
+const OVERLOAD_CATEGORIES: LeaderboardCategory[] = ["obelisks_destroyed", "defends"];
+const HARVESTER_CATEGORIES: LeaderboardCategory[] = ["skulls_delivered", "assists", "defends"];
 
 function getCategoriesForGameType(
   gameType: GameTypeFilter,
@@ -110,9 +113,9 @@ function getCategoriesForGameType(
     case "harvester":
       return [...BASE_CATEGORIES, ...HARVESTER_CATEGORIES];
     default:
-      // For 'all', show everything; for non-CTF modes, just base categories
+      // 'all' aggregates every objective-mode category.
       return gameType === "all"
-        ? [...BASE_CATEGORIES, ...CTF_CATEGORIES]
+        ? [...BASE_CATEGORIES, ...CTF_CATEGORIES, "skulls_delivered", "obelisks_destroyed"]
         : BASE_CATEGORIES;
   }
 }

@@ -14,6 +14,9 @@ export interface Player {
   defends?: number
   captures?: number
   assists?: number
+  skulls_carrying?: number      // Harvester: transient carry (row indicator)
+  skulls_delivered?: number     // Harvester: cumulative this match (medal strip)
+  obelisks_destroyed?: number   // Overload: cumulative this match (medal strip)
   player_id?: number
   model?: string
   is_vr?: boolean
@@ -26,16 +29,22 @@ export interface TeamScores {
   blue: number
 }
 
-export interface FlagStatus {
-  mode?: 'ctf' | '1fctf'
-  red: number         // 0=at base, 1=taken, 2=dropped
-  red_carrier: number // client_num of carrier, or -1
-  blue: number
-  blue_carrier: number
-  // 1FCTF only — single neutral flag.
-  // Status values: 0=at base, 2=carried by red, 3=carried by blue, 4=dropped.
-  neutral?: number
+// Parsed g_objStatus, dispatched by `mode`. Grammar in the mod at
+// ../trinity/code/game/g_main.c (the cvar registration site).
+// CTF red/blue: 0=base, 1=taken, 2=dropped (mod-normalized).
+// 1FCTF neutral: 0=base, 2=red-carry, 3=blue-carry, 4=dropped.
+export interface ObjStatus {
+  mode?: 'ctf' | '1fctf' | 'overload' | 'harvester'
+  red?: 0 | 1 | 2
+  red_carrier?: number
+  blue?: 0 | 1 | 2
+  blue_carrier?: number
+  neutral?: 0 | 2 | 3 | 4
   neutral_carrier?: number
+  red_obelisk_hp?: number
+  blue_obelisk_hp?: number
+  red_skulls?: number
+  blue_skulls?: number
 }
 
 export interface ServerStatus {
@@ -53,7 +62,8 @@ export interface ServerStatus {
   online: boolean
   last_updated: string
   team_scores?: TeamScores
-  flag_status?: FlagStatus
+  obj_status?: ObjStatus
+  obelisk_health_max?: number  // g_obeliskHealth, denominator for the HP bar
   server_vars?: Record<string, string>
   match_state?: 'waiting' | 'warmup' | 'active' | 'overtime' | 'intermission'
   warmup_remaining?: number // milliseconds remaining in warmup
@@ -88,6 +98,8 @@ export type EventType =
   | 'flag_return'
   | 'flag_drop'
   | 'obelisk_destroy'
+  | 'obelisk_damage'
+  | 'skull_pickup'
   | 'skull_score'
   | 'team_change'
   | 'say'
@@ -152,10 +164,29 @@ export interface ObeliskDestroyData {
   player_id?: number
 }
 
+// Start/stop transitions for "actively damaging an obelisk". The
+// collector coalesces per-hit log lines; see ObeliskDamageEvent in Go.
+export interface ObeliskDamageData {
+  client_num: number
+  attacker_name: string
+  team: number
+  active: boolean
+  player_id?: number
+}
+
 export interface SkullScoreData {
   player_name: string
   team: number
   skulls: number
+  player_id?: number
+}
+
+// Harvester skull pickup. count is total held after this pickup.
+export interface SkullPickupData {
+  client_num: number
+  player_name: string
+  team: number      // picker's team (skull is the opposing color)
+  count: number
   player_id?: number
 }
 
@@ -223,6 +254,8 @@ export type ActivityType =
   | 'award'
   | 'match_start'
   | 'obelisk_destroy'
+  | 'obelisk_damage'
+  | 'skull_pickup'
   | 'skull_score'
   | 'team_change'
 
@@ -263,6 +296,8 @@ export interface MatchPlayerSummary {
   victories?: number
   captures?: number
   assists?: number
+  skulls_delivered?: number   // Harvester (skulls deposited at enemy obelisk)
+  obelisks_destroyed?: number // Overload
 }
 
 export interface MatchSummary {
@@ -340,6 +375,8 @@ export interface AggregatedStats {
   excellents: number
   humiliations: number
   defends: number
+  skulls_delivered: number
+  obelisks_destroyed: number
   victories: number
 }
 
@@ -429,6 +466,8 @@ export type LeaderboardCategory =
   | 'excellents'
   | 'humiliations'
   | 'defends'
+  | 'skulls_delivered'
+  | 'obelisks_destroyed'
   | 'victories'
 
 export interface LeaderboardEntry {
@@ -447,6 +486,8 @@ export interface LeaderboardEntry {
   excellents: number
   humiliations: number
   defends: number
+  skulls_delivered: number
+  obelisks_destroyed: number
   victories: number
 }
 

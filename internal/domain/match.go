@@ -68,13 +68,15 @@ type MatchPlayerSummary struct {
 	Score        *int     `json:"score,omitempty"`
 	Team         *int     `json:"team,omitempty"`
 	Model        string   `json:"model,omitempty"`
-	Impressives  int      `json:"impressives,omitempty"`
-	Excellents   int      `json:"excellents,omitempty"`
-	Humiliations int      `json:"humiliations,omitempty"`
-	Defends      int      `json:"defends,omitempty"`
-	Victories    int      `json:"victories,omitempty"`
-	Captures     int      `json:"captures,omitempty"`
-	Assists      int      `json:"assists,omitempty"`
+	Impressives       int `json:"impressives,omitempty"`
+	Excellents        int `json:"excellents,omitempty"`
+	Humiliations      int `json:"humiliations,omitempty"`
+	Defends           int `json:"defends,omitempty"`
+	Victories         int `json:"victories,omitempty"`
+	Captures          int `json:"captures,omitempty"`
+	Assists           int `json:"assists,omitempty"`
+	SkullsDelivered   int `json:"skulls_delivered,omitempty"`
+	ObelisksDestroyed int `json:"obelisks_destroyed,omitempty"`
 }
 
 // MatchSummary represents a match with server and player info.

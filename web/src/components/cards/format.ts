@@ -30,7 +30,7 @@ export function classifyScores(left: number, right: number): ScoreState {
   return left > right ? 'left' : 'right'
 }
 
-export type MedalType = 'impressive' | 'excellent' | 'humiliation' | 'capture' | 'assist' | 'defend' | 'victory'
+export type MedalType = 'impressive' | 'excellent' | 'humiliation' | 'capture' | 'assist' | 'defend' | 'victory' | 'skull' | 'obelisk'
 
 export interface AwardEntry {
   type: MedalType
@@ -45,9 +45,13 @@ export interface PlayerAwardCounts {
   assists?: number
   defends?: number
   victories?: number
+  skulls_delivered?: number
+  obelisks_destroyed?: number
 }
 
-/** Player medal counts → ordered AwardEntry list. Zero/absent dropped. */
+/** Player medal counts → ordered AwardEntry list. Zero/absent dropped.
+ *  Order: combat awards (excellence chain) first, then objective awards
+ *  (mode-specific scoring/destruction), then assist-class. */
 export function awardsFromCounts(p: PlayerAwardCounts): AwardEntry[] {
   const order: Array<[MedalType, number | undefined]> = [
     ['excellent', p.excellents],
@@ -55,6 +59,8 @@ export function awardsFromCounts(p: PlayerAwardCounts): AwardEntry[] {
     ['humiliation', p.humiliations],
     ['victory', p.victories],
     ['capture', p.captures],
+    ['skull', p.skulls_delivered],
+    ['obelisk', p.obelisks_destroyed],
     ['defend', p.defends],
     ['assist', p.assists],
   ]

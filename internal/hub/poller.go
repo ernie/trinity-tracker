@@ -331,6 +331,7 @@ func (p *RemotePoller) enrichPlayers(ctx context.Context, serverID int64, humanC
 		ps.Defends = entry.Defends
 		ps.Captures = entry.Captures
 		ps.Assists = entry.Assists
+		ps.SkullsDelivered = entry.SkullsDelivered
 		if p.identity == nil {
 			continue
 		}

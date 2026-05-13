@@ -7,6 +7,8 @@ import { PlayerBadge } from '../PlayerBadge'
 import { BotBadge } from '../BotBadge'
 import { MedalIcon } from '../MedalIcon'
 import { FlagIcon } from '../FlagIcon'
+import { SkullIcon } from '../SkullIcon'
+import { TargetReticleIcon } from '../TargetReticleIcon'
 import type { AwardEntry } from './format'
 
 export interface PlayerRowData {
@@ -31,6 +33,10 @@ export interface PlayerRowData {
   playerId?: number
   /** Active CTF / 1FCTF flag this player is carrying, if any. */
   flagCarrier?: 'red' | 'blue' | 'neutral'
+  /** Harvester live: enemy skulls this player is currently carrying. */
+  skullsCarrying?: number
+  /** Overload live: true while actively damaging the enemy obelisk. */
+  attackingObelisk?: boolean
   /** Finished matches: false ⇒ dropped before the match ended,
    *  rendered with a gray team-dot regardless of team. */
   completed?: boolean
@@ -97,6 +103,21 @@ export function PlayerRows({ players, mode, onPlayerClick }: PlayerRowsProps) {
                   <FlagIcon team={p.flagCarrier} status="base" size="sm" />
                 </span>
               )}
+              {/* Harvester live carry — opposing-team skull (CTF flag-carrier convention). */}
+              {p.skullsCarrying ? (
+                <span className="row-carrier row-carrier--skulls" aria-hidden>
+                  <SkullIcon team={p.team === 2 ? 'red' : 'blue'} size="sm" />
+                  <span className="row-carrier__count">{p.skullsCarrying}</span>
+                </span>
+              ) : null}
+              {/* Overload live attack — reticle in the targeted obelisk's color. */}
+              {p.attackingObelisk ? (
+                <span className="row-carrier row-carrier--obelisk-attacker">
+                  <TargetReticleIcon team={p.team === 2 ? 'red' : 'blue'} size="sm" title="Attacking obelisk" />
+                </span>
+              ) : null}
+              {/* Cumulative awards (captures, skulls/obelisks delivered,
+                  impressives, etc.) — never row-carrier, always medal-strip. */}
               {p.awards && p.awards.length > 0 && (
                 <span className="row-awards">
                   {p.awards.map((a) => (

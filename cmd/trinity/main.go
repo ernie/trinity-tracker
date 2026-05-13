@@ -86,8 +86,8 @@ func main() {
 		cmdMedals(os.Args[2:])
 	case "skills":
 		cmdSkills(os.Args[2:])
-	case "flags":
-		cmdFlags(os.Args[2:])
+	case "objectives":
+		cmdObjectives(os.Args[2:])
 	case "arenas":
 		cmdArenas(os.Args[2:])
 	case "assets":
@@ -134,9 +134,9 @@ func printUsage() {
 	fmt.Println("  portraits [path]                    Extract player portraits from pk3 file(s)")
 	fmt.Println("  medals [path]                       Extract medal icons from pk3 file(s)")
 	fmt.Println("  skills [path]                       Extract skill icons from pk3 file(s)")
-	fmt.Println("  flags [path]                        Extract CTF flag-status icons from pk3 file(s)")
+	fmt.Println("  objectives [path]                   Extract objective-state icons (CTF flags, Harvester skulls) from pk3 file(s)")
 	fmt.Println("  arenas [path]                       Extract map longnames into maps.json")
-	fmt.Println("  assets [path]                       Extract all assets (portraits, medals, skills, flags, levelshots)")
+	fmt.Println("  assets [path]                       Extract all assets (portraits, medals, skills, objectives, levelshots)")
 	fmt.Println("  demobake [path]                     Build baseline pk3, map pk3s, and manifest for web demo playback")
 	fmt.Println("  maps [--mode <mode>] [path]         Scan pk3s and report which game modes each map supports")
 	fmt.Println("  version                             Show version")
@@ -2073,16 +2073,20 @@ var flagTeamColors = map[string]color.NRGBA{
 }
 
 // flagSourceStates lists the missionpack pak0 statusbar TGA stems that
-// FlagIcon.tsx renders. Each one is emitted twice — once per team color.
+// FlagIcon.tsx renders. Each one is emitted three times — once per team color.
 var flagSourceStates = []string{"flag_in_base", "flag_capture", "flag_missing"}
 
-// cmdFlags extracts CTF flag-status icons from pk3 files. Source assets
-// are 32x32 GrayscaleAlpha TGAs at ui/assets/statusbar/flag_*.tga in the
-// missionpack pak0; the extractor recolors the white silhouette to red
-// or blue, scales to 128x128 with Catmull-Rom, and emits one PNG per
-// (state, team) pair into <static_dir>/assets/flags/.
-func cmdFlags(args []string) {
-	fs := flag.NewFlagSet("flags", flag.ExitOnError)
+// Harvester per-player carrier icons (already team-colored at source).
+var skullSourceFiles = []string{"skull_red.tga", "skull_blue.tga"}
+
+// cmdObjectives extracts objective-state silhouettes, mirroring each
+// source's in-game path:
+//   - ui/assets/statusbar/flag_*.tga → <static>/assets/flags/   (tinted per team)
+//   - icons/skull_{red,blue}.tga     → <static>/assets/icons/   (color-preserving)
+//
+// Medal art (medal_skull, medal_obelisk) is `trinity medals`, not this command.
+func cmdObjectives(args []string) {
+	fs := flag.NewFlagSet("objectives", flag.ExitOnError)
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
 	fs.Parse(args)
 
@@ -2103,10 +2107,13 @@ func cmdFlags(args []string) {
 		inputPath = remaining[0]
 	}
 
-	outputDir := filepath.Join(cfg.Server.StaticDir, "assets", "flags")
-	if err := os.MkdirAll(outputDir, 0755); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to create output directory: %v\n", err)
-		os.Exit(1)
+	flagsDir := filepath.Join(cfg.Server.StaticDir, "assets", "flags")
+	iconsDir := filepath.Join(cfg.Server.StaticDir, "assets", "icons")
+	for _, d := range []string{flagsDir, iconsDir} {
+		if err := os.MkdirAll(d, 0755); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: failed to create output directory %s: %v\n", d, err)
+			os.Exit(1)
+		}
 	}
 
 	pk3Files := collectPk3FilesOrdered(inputPath)
@@ -2118,7 +2125,7 @@ func cmdFlags(args []string) {
 	var totalExtracted int
 	for _, pk3Path := range pk3Files {
 		displayPath := pk3DisplayPath(pk3Path, inputPath)
-		n, err := extractFlagsFromPk3(pk3Path, outputDir, displayPath)
+		n, err := extractObjectivesFromPk3(pk3Path, flagsDir, iconsDir, displayPath)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "  Warning: %s: %v\n", displayPath, err)
 			continue
@@ -2126,13 +2133,12 @@ func cmdFlags(args []string) {
 		totalExtracted += n
 	}
 
-	fmt.Printf("Flags: %d extracted\n", totalExtracted)
+	fmt.Printf("Objectives: %d extracted\n", totalExtracted)
 }
 
-// extractFlagsFromPk3 looks for ui/assets/statusbar/flag_{state}.tga
-// inside the pk3 and writes one tinted, upscaled PNG per (state, team)
-// pair to outputDir.
-func extractFlagsFromPk3(pk3Path, outputDir, displayPath string) (int, error) {
+// extractObjectivesFromPk3 walks one pk3; flag silhouettes → flagsDir,
+// skull HUD icons → iconsDir. See cmdObjectives for the path contract.
+func extractObjectivesFromPk3(pk3Path, flagsDir, iconsDir, displayPath string) (int, error) {
 	r, err := zip.OpenReader(pk3Path)
 	if err != nil {
 		return 0, fmt.Errorf("failed to open pk3: %w", err)
@@ -2142,38 +2148,89 @@ func extractFlagsFromPk3(pk3Path, outputDir, displayPath string) (int, error) {
 	extracted := 0
 	for _, f := range r.File {
 		lowerName := strings.ToLower(f.Name)
-		if !strings.HasPrefix(lowerName, "ui/assets/statusbar/") {
-			continue
-		}
 		base := strings.ToLower(filepath.Base(f.Name))
-		stem := strings.TrimSuffix(base, ".tga")
 		if !strings.HasSuffix(base, ".tga") {
 			continue
 		}
-		matched := false
-		for _, want := range flagSourceStates {
-			if stem == want {
-				matched = true
-				break
+
+		// Flag silhouettes — one tinted PNG per team.
+		if strings.HasPrefix(lowerName, "ui/assets/statusbar/") {
+			stem := strings.TrimSuffix(base, ".tga")
+			matched := false
+			for _, want := range flagSourceStates {
+				if stem == want {
+					matched = true
+					break
+				}
 			}
-		}
-		if !matched {
+			if !matched {
+				continue
+			}
+			for _, team := range []string{"red", "blue", "neutral"} {
+				outputName := stem + "_" + team + ".png"
+				outputPath := filepath.Join(flagsDir, outputName)
+				if err := extractFlagToPng(f, outputPath, flagTeamColors[team], 128); err != nil {
+					fmt.Fprintf(os.Stderr, "  Warning: failed to extract %s as %s: %v\n", f.Name, team, err)
+					continue
+				}
+				fmt.Printf("  %s: %s\n", displayPath, outputName)
+				extracted++
+			}
 			continue
 		}
 
-		for _, team := range []string{"red", "blue", "neutral"} {
-			outputName := stem + "_" + team + ".png"
-			outputPath := filepath.Join(outputDir, outputName)
-			if err := extractFlagToPng(f, outputPath, flagTeamColors[team], 128); err != nil {
-				fmt.Fprintf(os.Stderr, "  Warning: failed to extract %s as %s: %v\n", f.Name, team, err)
+		// Harvester skull icons — already team-colored, just upscale.
+		if strings.HasPrefix(lowerName, "icons/") {
+			matched := false
+			for _, want := range skullSourceFiles {
+				if base == want {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				continue
+			}
+			outputName := strings.TrimSuffix(base, ".tga") + ".png"
+			outputPath := filepath.Join(iconsDir, outputName)
+			if err := extractIconToPng(f, outputPath, 128); err != nil {
+				fmt.Fprintf(os.Stderr, "  Warning: failed to extract %s: %v\n", f.Name, err)
 				continue
 			}
 			fmt.Printf("  %s: %s\n", displayPath, outputName)
 			extracted++
+			continue
 		}
 	}
 
 	return extracted, nil
+}
+
+// extractIconToPng decodes a TGA preserving source colors and writes
+// a PNG upscaled to targetSize via Catmull-Rom. Used for already-tinted
+// icons (e.g. icons/skull_red.tga) where the flag-style luminance recolor
+// would destroy the source palette.
+func extractIconToPng(f *zip.File, outputPath string, targetSize int) error {
+	rc, err := f.Open()
+	if err != nil {
+		return err
+	}
+	defer rc.Close()
+
+	src, err := tga.Decode(rc)
+	if err != nil {
+		return fmt.Errorf("decode TGA: %w", err)
+	}
+
+	scaled := image.NewNRGBA(image.Rect(0, 0, targetSize, targetSize))
+	draw.CatmullRom.Scale(scaled, scaled.Bounds(), src, src.Bounds(), draw.Over, nil)
+
+	out, err := os.Create(outputPath)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	return png.Encode(out, scaled)
 }
 
 // extractFlagToPng decodes the source statusbar TGA (32-bit RGBA where
@@ -2258,8 +2315,8 @@ func cmdAssets(args []string) {
 	cmdSkills(subArgs)
 	fmt.Println()
 
-	fmt.Println("=== Extracting Flags ===")
-	cmdFlags(subArgs)
+	fmt.Println("=== Extracting Objectives ===")
+	cmdObjectives(subArgs)
 	fmt.Println()
 
 	fmt.Println("=== Extracting Map Names ===")

@@ -5,6 +5,8 @@ import { ColoredText } from './ColoredText'
 import { PlayerBadge } from './PlayerBadge'
 import { FlagIcon } from './FlagIcon'
 import { MedalIcon } from './MedalIcon'
+import { SkullIcon } from './SkullIcon'
+import { TargetReticleIcon } from './TargetReticleIcon'
 import { PlayerItem } from './PlayerItem'
 import {
   ActivityFilters,
@@ -237,6 +239,25 @@ function getActivityIcon(activity: ActivityItem): React.ReactNode {
       case 'defend': return <MedalIcon type="defend" showCount={false} />
       case 'assist': return <MedalIcon type="assist" showCount={false} />
     }
+  }
+
+  // Transient pickup uses the carrier silhouette; medal disc is reserved
+  // for the cumulative score event. Skull color is the carrier's enemy.
+  if (activityType === 'skull_pickup' && team !== undefined) {
+    const skullTeam = team === 1 ? 'blue' : 'red'
+    return <SkullIcon team={skullTeam} title="Skull picked up" />
+  }
+  if (activityType === 'skull_score') {
+    return <MedalIcon type="skull" showCount={false} />
+  }
+  // Transient damage gets the attacker glyph; destroy keeps the medal disc.
+  // event.team is the obelisk being hit, which is also the reticle color.
+  if (activityType === 'obelisk_damage' && team !== undefined) {
+    const obeliskTeam = team === 1 ? 'red' : 'blue'
+    return <TargetReticleIcon team={obeliskTeam} size="sm" title="Attacking obelisk" />
+  }
+  if (activityType === 'obelisk_destroy') {
+    return <MedalIcon type="obelisk" showCount={false} />
   }
 
   return null

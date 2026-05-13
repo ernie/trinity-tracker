@@ -39,6 +39,7 @@ const (
 	EventTypeFlagReturn       = "flag_return"
 	EventTypeFlagDrop         = "flag_drop"
 	EventTypeObeliskDestroy   = "obelisk_destroy"
+	EventTypeObeliskDamage    = "obelisk_damage"
 	EventTypeSkullPickup      = "skull_pickup"
 	EventTypeSkullScore       = "skull_score"
 	EventTypeTeamChange       = "team_change"
@@ -183,6 +184,13 @@ type ObeliskDestroyData struct {
 	Attacker   string
 }
 
+type ObeliskDamageData struct {
+	Team       int    // 1=red, 2=blue (the obelisk's team)
+	AttackerID int    // attacker clientNum
+	Attacker   string // attacker name
+	Active     bool   // true=start, false=stop
+}
+
 type SkullPickupData struct {
 	ClientID int
 	Team     int
@@ -292,6 +300,9 @@ var (
 	flagReturnRegex       = regexp.MustCompile(`^FlagReturn: (-?\d+) (\d+): (.*)$`)
 	flagDropRegex         = regexp.MustCompile(`^FlagDrop: (\d+) (\d+): (.*)$`)
 	obeliskDestroyRegex   = regexp.MustCompile(`^ObeliskDestroy: (\d+) (-?\d+): (.*)$`)
+	// Mod emits Start on off→on transition, Stop after a quiet window
+	// (Team_CheckObeliskAttacks in g_team.c). One log line per transition.
+	obeliskDamageRegex    = regexp.MustCompile(`^ObeliskDamage(Start|Stop): (\d+) (\d+): (.*)$`)
 	skullPickupRegex      = regexp.MustCompile(`^SkullPickup: (\d+) (\d+) (\d+): (.+)$`)
 	skullScoreRegex       = regexp.MustCompile(`^SkullScore: (\d+) (\d+) (\d+): (.+)$`)
 	teamChangeRegex       = regexp.MustCompile(`^TeamChange: (\d+) (\d+) (\d+): (.+)$`)
@@ -786,6 +797,19 @@ func ParseLine(line string) (*LogEvent, error) {
 			Team:       team,
 			AttackerID: attackerID,
 			Attacker:   match[3],
+		}
+		return event, nil
+	}
+
+	if match := obeliskDamageRegex.FindStringSubmatch(content); match != nil {
+		team, _ := strconv.Atoi(match[2])
+		attackerID, _ := strconv.Atoi(match[3])
+		event.Type = EventTypeObeliskDamage
+		event.Data = ObeliskDamageData{
+			Team:       team,
+			AttackerID: attackerID,
+			Attacker:   match[4],
+			Active:     match[1] == "Start",
 		}
 		return event, nil
 	}

@@ -76,15 +76,17 @@ type MatchEndPlayer struct {
 	Team         *int      `json:"team,omitempty"`
 	Model        string    `json:"model,omitempty"`
 	Skill        float64   `json:"skill,omitempty"`
-	Victory      bool      `json:"victory"`
-	Captures     int       `json:"captures"`
-	FlagReturns  int       `json:"flag_returns"`
-	Assists      int       `json:"assists"`
-	Impressives  int       `json:"impressives"`
-	Excellents   int       `json:"excellents"`
-	Humiliations int       `json:"humiliations"`
-	Defends      int       `json:"defends"`
-	IsBot        bool      `json:"is_bot"`
+	Victory           bool      `json:"victory"`
+	Captures          int       `json:"captures"`
+	FlagReturns       int       `json:"flag_returns"`
+	Assists           int       `json:"assists"`
+	Impressives       int       `json:"impressives"`
+	Excellents        int       `json:"excellents"`
+	Humiliations      int       `json:"humiliations"`
+	Defends           int       `json:"defends"`
+	SkullsDelivered   int       `json:"skulls_delivered"`   // Harvester (skulls deposited at enemy obelisk)
+	ObelisksDestroyed int       `json:"obelisks_destroyed"` // Overload
+	IsBot             bool      `json:"is_bot"`
 	JoinedLate   bool      `json:"joined_late"`
 	JoinedAt     time.Time `json:"joined_at"`
 	IsVR         bool      `json:"is_vr"`
@@ -146,12 +148,13 @@ type PresenceSnapshotData struct {
 	IsVR         bool    `json:"is_vr"`
 	Skill        float64 `json:"skill,omitempty"`
 	ClientNum    int     `json:"client_num"`
-	Impressives  int     `json:"impressives,omitempty"`
-	Excellents   int     `json:"excellents,omitempty"`
-	Humiliations int     `json:"humiliations,omitempty"`
-	Defends      int     `json:"defends,omitempty"`
-	Captures     int     `json:"captures,omitempty"`
-	Assists      int     `json:"assists,omitempty"`
+	Impressives     int `json:"impressives,omitempty"`
+	Excellents      int `json:"excellents,omitempty"`
+	Humiliations    int `json:"humiliations,omitempty"`
+	Defends         int `json:"defends,omitempty"`
+	Captures        int `json:"captures,omitempty"`
+	Assists         int `json:"assists,omitempty"`
+	SkullsDelivered int `json:"skulls_delivered,omitempty"`
 }
 
 // PlayerLeaveData is emitted on ClientDisconnect. DurationSeconds is

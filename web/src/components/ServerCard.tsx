@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import type { ServerStatus, Player } from '../types'
 import { FlagIcon } from './FlagIcon'
+import { SkullIcon } from './SkullIcon'
+import { useLiveData } from '../contexts/LiveDataContext'
 import { useSources } from '../hooks/useSources'
 import { formatGameType } from './MatchCard'
 import { useMapMeta } from '../hooks/useMapMeta'
@@ -264,6 +266,8 @@ export function ModeIcons({ movement, gameplay }: { movement?: string, gameplay?
 
 export function ServerCard({ server, isSelected, onSelect, onPlayerClick, liveness }: ServerCardProps) {
   const { hasMultiple: hasMultipleSources } = useSources()
+  const { obeliskAttackersByServer } = useLiveData()
+  const attackingSlots = obeliskAttackersByServer.get(server.server_id)
   const meta = useMapMeta(server.map)
   const showTeamScores = isTeamGame(server.game_type) && server.team_scores
   const scoreLimit = getScoreLimit(server.game_type, server.server_vars)
@@ -360,31 +364,57 @@ export function ServerCard({ server, isSelected, onSelect, onPlayerClick, livene
 
       {showTeamScores && server.team_scores && (() => {
         // CTF/1FCTF feed flag icons into Scoreboard slots; other team modes leave them empty.
-        const flag = server.flag_status
-        const redInd = flag?.mode === 'ctf' ? (() => {
-          const i = getFlagIndicator(flag.red)
+        const obj = server.obj_status
+        const redInd = obj?.mode === 'ctf' ? (() => {
+          const i = getFlagIndicator(obj.red ?? 0)
           return (
             <span className={`flag-indicator ${i.className}`}>
               <FlagIcon team="red" status={i.status} size="md" title={`Red flag: ${i.title}`} />
             </span>
           )
         })() : undefined
-        const blueInd = flag?.mode === 'ctf' ? (() => {
-          const i = getFlagIndicator(flag.blue)
+        const blueInd = obj?.mode === 'ctf' ? (() => {
+          const i = getFlagIndicator(obj.blue ?? 0)
           return (
             <span className={`flag-indicator ${i.className}`}>
               <FlagIcon team="blue" status={i.status} size="md" title={`Blue flag: ${i.title}`} />
             </span>
           )
         })() : undefined
-        const centerInd = flag?.mode === '1fctf' ? (() => {
-          const i = getNeutralFlagIndicator(flag.neutral ?? 0)
+        const centerInd = obj?.mode === '1fctf' ? (() => {
+          const i = getNeutralFlagIndicator(obj.neutral ?? 0)
           return (
             <span className={`flag-indicator ${i.drift}`}>
               <FlagIcon team="neutral" status={i.status} size="md" title={i.title} />
             </span>
           )
         })() : undefined
+        // Overload HP bars in the indicator slots.
+        const maxHP = server.obelisk_health_max && server.obelisk_health_max > 0
+          ? server.obelisk_health_max
+          : 2500
+        const overloadInd = (team: 'red' | 'blue', hp: number) => (
+          <ObeliskHPIndicator team={team} hp={hp} maxHP={maxHP} />
+        )
+        // Gate on `!== undefined` so a still-empty cvar (pre-spawn) skips
+        // render, while a real HP=0 (destroyed) renders the empty bar.
+        const overloadRed  = obj?.mode === 'overload' && obj.red_obelisk_hp  !== undefined
+          ? overloadInd('red',  obj.red_obelisk_hp)
+          : undefined
+        const overloadBlue = obj?.mode === 'overload' && obj.blue_obelisk_hp !== undefined
+          ? overloadInd('blue', obj.blue_obelisk_hp)
+          : undefined
+        // Harvester live carry tally. Icon is OPPOSING team's color
+        // (red carrier holds blue skulls), matching the CTF flag-carrier
+        // convention. MedalIcon is reserved for cumulative awards.
+        const harvestInd = (team: 'red' | 'blue', skulls: number) => (
+          <span className={`harvester-skulls harvester-skulls--${team}`} title={`${skulls} enemy skull${skulls === 1 ? '' : 's'} carried by ${team}`}>
+            <SkullIcon team={team === 'red' ? 'blue' : 'red'} size="md" />
+            <span className="harvester-skulls__count">{skulls}</span>
+          </span>
+        )
+        const harvestRed  = obj?.mode === 'harvester' ? harvestInd('red',  obj.red_skulls  ?? 0) : undefined
+        const harvestBlue = obj?.mode === 'harvester' ? harvestInd('blue', obj.blue_skulls ?? 0) : undefined
         return (
           <Scoreboard
             redLabel={server.server_vars?.g_redteam ?? 'Red'}
@@ -393,8 +423,8 @@ export function ServerCard({ server, isSelected, onSelect, onPlayerClick, livene
             blueScore={server.team_scores.blue}
             state={classifyScores(server.team_scores.red, server.team_scores.blue)}
             live
-            redIndicator={redInd}
-            blueIndicator={blueInd}
+            redIndicator={redInd ?? overloadRed ?? harvestRed}
+            blueIndicator={blueInd ?? overloadBlue ?? harvestBlue}
             centerIndicator={centerInd}
           />
         )
@@ -425,7 +455,9 @@ export function ServerCard({ server, isSelected, onSelect, onPlayerClick, livene
             ping: p.ping,
             awards: awardsFromCounts(p),
             playerId: p.player_id,
-            flagCarrier: flagCarrierForClient(server.flag_status, p.client_num),
+            flagCarrier: flagCarrierForClient(server.obj_status, p.client_num),
+            skullsCarrying: p.skulls_carrying,
+            attackingObelisk: attackingSlots?.has(p.client_num) ?? false,
           }))}
           mode="live"
           onPlayerClick={onPlayerClick}
@@ -461,17 +493,41 @@ function duelistFromLivePlayer(p: Player | undefined): DuelistData {
   }
 }
 
-// Maps client_num → carried flag (if any).
+// ObeliskHPIndicator renders an Overload obelisk's HP bar. At HP=0 the
+// bar stays present (empty + pulsing) to signal "respawning".
+function ObeliskHPIndicator({ team, hp, maxHP }: { team: 'red' | 'blue'; hp: number; maxHP: number }) {
+  const pct = Math.max(0, Math.min(100, (hp / maxHP) * 100))
+  const destroyed = hp <= 0
+  const label = destroyed
+    ? `${team} obelisk destroyed — respawning…`
+    : `${team} obelisk: ${hp} / ${maxHP} HP`
+  return (
+    <span
+      className={`obelisk-hp obelisk-hp--${team}${destroyed ? ' obelisk-hp--destroyed' : ''}`}
+      title={label}
+      role="img"
+      aria-label={label}
+    >
+      <span className="obelisk-hp__bar">
+        <span className="obelisk-hp__fill" style={{ width: `${pct}%` }} />
+      </span>
+    </span>
+  )
+}
+
+// Maps client_num → carried flag (if any). Only meaningful for CTF / 1FCTF;
+// returns undefined for other gametypes (their objective state is not
+// flag-carrier shaped — see SkullsCarrying / ObelisksDestroyed on Player).
 function flagCarrierForClient(
-  flag: import('../types').FlagStatus | undefined,
+  obj: import('../types').ObjStatus | undefined,
   clientNum: number,
 ): 'red' | 'blue' | 'neutral' | undefined {
-  if (!flag) return undefined
-  if (flag.mode === 'ctf') {
-    if (flag.red_carrier === clientNum && flag.red === 1) return 'red'
-    if (flag.blue_carrier === clientNum && flag.blue === 1) return 'blue'
+  if (!obj) return undefined
+  if (obj.mode === 'ctf') {
+    if (obj.red_carrier === clientNum && obj.red === 1) return 'red'
+    if (obj.blue_carrier === clientNum && obj.blue === 1) return 'blue'
   }
-  if (flag.mode === '1fctf' && flag.neutral_carrier === clientNum) {
+  if (obj.mode === '1fctf' && obj.neutral_carrier === clientNum) {
     return 'neutral'
   }
   return undefined

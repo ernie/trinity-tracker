@@ -13,12 +13,13 @@ type PresenceEntry struct {
 	IsVR  bool
 	Skill float64
 
-	Impressives  int
-	Excellents   int
-	Humiliations int
-	Defends      int
-	Captures     int
-	Assists      int
+	Impressives     int
+	Excellents      int
+	Humiliations    int
+	Defends         int
+	Captures        int
+	Assists         int
+	SkullsDelivered int // Harvester: cumulative deliveries this match (drives the live skull medal)
 }
 
 // Presence maps (serverID, clientNum) → entry, fed by
@@ -120,6 +121,7 @@ func (p *Presence) ResetCounters(serverID int64) {
 		v.Defends = 0
 		v.Captures = 0
 		v.Assists = 0
+		v.SkullsDelivered = 0
 		p.bySlot[k] = v
 	}
 }
@@ -134,14 +136,19 @@ const (
 	AwardDefend
 	AwardCapture
 	AwardAssist
+	AwardSkullDelivered
 )
 
-// IncrementByGUID bumps the named counter on whichever slot on
-// serverID currently holds guid. No-op if no entry matches (e.g. the
-// event arrived before the corresponding player_join, or for the
-// server-level no-killer victim in some award variants).
+// IncrementByGUID bumps the named counter by 1 on whichever slot on
+// serverID currently holds guid. No-op if no slot matches.
 func (p *Presence) IncrementByGUID(serverID int64, guid string, award Award) {
-	if guid == "" {
+	p.IncrementByGUIDBy(serverID, guid, award, 1)
+}
+
+// IncrementByGUIDBy is IncrementByGUID with an explicit count, for
+// multi-award events like a multi-skull SkullScore.
+func (p *Presence) IncrementByGUIDBy(serverID int64, guid string, award Award, count int) {
+	if guid == "" || count <= 0 {
 		return
 	}
 	p.mu.Lock()
@@ -152,17 +159,19 @@ func (p *Presence) IncrementByGUID(serverID int64, guid string, award Award) {
 		}
 		switch award {
 		case AwardImpressive:
-			v.Impressives++
+			v.Impressives += count
 		case AwardExcellent:
-			v.Excellents++
+			v.Excellents += count
 		case AwardHumiliation:
-			v.Humiliations++
+			v.Humiliations += count
 		case AwardDefend:
-			v.Defends++
+			v.Defends += count
 		case AwardCapture:
-			v.Captures++
+			v.Captures += count
 		case AwardAssist:
-			v.Assists++
+			v.Assists += count
+		case AwardSkullDelivered:
+			v.SkullsDelivered += count
 		}
 		p.bySlot[k] = v
 		return

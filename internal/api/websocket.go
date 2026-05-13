@@ -22,12 +22,15 @@ const (
 	categoryActivity = "activity"
 )
 
-// categoryOf returns the broadcast category for an event type. "server"
-// covers events that drive the live server-card display; "activity"
-// covers joins/leaves/chat/awards and everything else the activity
-// drawer renders.
+// categoryOf routes an event to "server" (drives live card state) or
+// "activity" (drawer feed). The transient events here aren't part of
+// the server_update snapshot but still light row indicators, so they
+// ride "server" — otherwise they'd require the drawer to be open.
 func categoryOf(eventType string) string {
-	if eventType == domain.EventServerUpdate {
+	switch eventType {
+	case domain.EventServerUpdate,
+		domain.EventObeliskDamage,
+		domain.EventSkullPickup:
 		return categoryServer
 	}
 	return categoryActivity

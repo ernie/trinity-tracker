@@ -6,9 +6,7 @@ interface HonorsPanelProps {
   stats: PlayerStatsResponse['stats']
 }
 
-// "Honors" panel — 8 medal cells (Victory + 4 arena + 3 CTF) with the
-// rotated medal as a background icon. Definitions come from the HONORS
-// constant so adding/reordering a stat is a one-line edit.
+// "Honors" panel — medal-grid driven by the HONORS constant.
 export function HonorsPanel({ stats }: HonorsPanelProps) {
   return (
     <section className="player-panel">

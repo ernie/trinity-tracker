@@ -10,7 +10,9 @@ export type ActivityFilterKey =
   | 'flag_capture'
   | 'flag_movement'
   | 'obelisk_destroy'
+  | 'obelisk_damage'
   | 'skull_score'
+  | 'skull_pickup'
   | 'award_impressive'
   | 'award_excellent'
   | 'award_humiliation'
@@ -54,7 +56,9 @@ export const ACTIVITY_FILTER_CATEGORIES: ActivityFilterCategory[] = [
       { key: 'flag_capture', label: 'Flag captures' },
       { key: 'flag_movement', label: 'Flag taken / dropped / returned' },
       { key: 'obelisk_destroy', label: 'Obelisk destroyed' },
+      { key: 'obelisk_damage', label: 'Obelisk damage' },
       { key: 'skull_score', label: 'Skulls scored' },
+      { key: 'skull_pickup', label: 'Skulls picked up' },
     ],
   },
   {
@@ -108,7 +112,9 @@ export function classifyActivity(a: ActivityItem): ActivityFilterKey | undefined
     case 'flag_return':
       return 'flag_movement'
     case 'obelisk_destroy': return 'obelisk_destroy'
+    case 'obelisk_damage': return 'obelisk_damage'
     case 'skull_score': return 'skull_score'
+    case 'skull_pickup': return 'skull_pickup'
     case 'team_change': return 'team_change'
     case 'award':
       switch (a.awardType) {
