@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import type { ServerStatus, Player } from '../types'
 import { FlagIcon } from './FlagIcon'
 import { SkullIcon } from './SkullIcon'
+import { CloseIcon } from './CloseIcon'
 import { useLiveData } from '../contexts/LiveDataContext'
 import { useSources } from '../hooks/useSources'
 import { formatGameType } from './MatchCard'
@@ -509,7 +510,10 @@ function ObeliskHPIndicator({ team, hp, maxHP }: { team: 'red' | 'blue'; hp: num
       aria-label={label}
     >
       <span className="obelisk-hp__bar">
-        <span className="obelisk-hp__fill" style={{ width: `${pct}%` }} />
+        <span className="obelisk-hp__fill" style={{ height: `${pct}%` }} />
+      </span>
+      <span className="obelisk-hp__pct" aria-hidden="true">
+        {destroyed ? <CloseIcon size={9} /> : `${Math.round(pct)}%`}
       </span>
     </span>
   )

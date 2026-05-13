@@ -10236,7 +10236,14 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   line-height: 1;
 }
 .scoreboard__score-line > .scoreboard__score { grid-column: 2; justify-self: center; }
-.scoreboard__indicator { display: inline-flex; align-items: center; }
+/* `relative` + `stretch`: anchor + full-row height for the
+   absolutely-positioned obelisk HP bar (see .obelisk-hp). */
+.scoreboard__indicator {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+  align-self: stretch;
+}
 /* Red: indicator goes to the right of the score (column 3),
    anchored to the inside edge so it sits 8px off the score. */
 .scoreboard__side--red .scoreboard__indicator {
@@ -10527,26 +10534,56 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   50%      { opacity: 1; }
 }
 
-/* Overload obelisk HP bar — sits in the Scoreboard team-indicator slot. */
+/* Overload obelisk HP bar — absolute so it doesn't grow the row;
+   47px reaches from row bottom up to the "RED"/"BLUE" cap line. */
 .obelisk-hp {
-  display: inline-flex;
-  align-items: center;
-  width: 48px;
-  height: 6px;
-  margin-left: 4px;
+  position: absolute;
+  bottom: 0;
+  width: 7px;
+  height: 47px;
 }
+/* Wider than the shared 8px slot gap — keeps CTF flag indicator tight. */
+.scoreboard__side--red  .obelisk-hp { left:  14px; }
+.scoreboard__side--blue .obelisk-hp { right: 14px; }
 .obelisk-hp__bar {
+  display: block;
   position: relative;
-  flex: 1;
+  width: 100%;
   height: 100%;
   background: rgba(255, 255, 255, 0.12);
   border-radius: 2px;
   overflow: hidden;
 }
 .obelisk-hp__fill {
-  display: block;
-  height: 100%;
-  transition: width 0.4s ease-out;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  transition: height 0.4s ease-out;
+}
+/* 3px right-nudge centers the digit block (not the trailing %) on
+   the bar's axis; tabular-nums keeps it stable across 5%–100%. */
+.obelisk-hp__pct {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translateX(calc(-50% + 3px));
+  margin-top: 3px;
+  font-family: 'Barlow', sans-serif;
+  font-weight: 500;
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  pointer-events: none;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+}
+/* CloseIcon is symmetric — drop the nudge. */
+.obelisk-hp--destroyed .obelisk-hp__pct {
+  transform: translateX(-50%);
 }
 .obelisk-hp--red .obelisk-hp__fill  { background: #d2493a; }
 .obelisk-hp--blue .obelisk-hp__fill { background: #4076c8; }
