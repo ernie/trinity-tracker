@@ -392,8 +392,7 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
         const cleanName = cleanQ3Name(data.player_name)
         const botInfo = getPlayerBotInfo(event.server_id, cleanName)
         const player = { name: data.player_name, cleanName, playerId: data.player_id, ...botInfo }
-        const carryWord = data.count === 1 ? 'skull' : 'skulls'
-        addActivity('info', `${data.player_name}${COLOR_RESET} picked up a ${enemyName} skull (carrying ${data.count} ${carryWord})`, {
+        addActivity('info', `${data.player_name}${COLOR_RESET} picked up a ${enemyName} skull (${data.count})`, {
           player, serverId: event.server_id, serverName, activityType: 'skull_pickup', team: data.team,
         })
         break

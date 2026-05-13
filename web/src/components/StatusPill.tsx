@@ -10,10 +10,12 @@ interface StatusPillProps {
 // Top-right live signal across non-landing routes. Mirrors .hero__pill.
 export function StatusPill({ humansOnline, activeServers, isConnected, open, onToggle }: StatusPillProps) {
   const live = humansOnline > 0
-  const label = live
-    ? `${humansOnline} LIVE`
-    : 'STANDING BY'
   const stateClass = !isConnected ? 'offline' : live ? 'live' : 'quiet'
+  const label = !isConnected
+    ? 'OFFLINE'
+    : live
+      ? `${humansOnline} LIVE`
+      : 'STANDING BY'
 
   return (
     <button

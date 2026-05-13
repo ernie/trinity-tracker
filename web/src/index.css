@@ -1375,10 +1375,30 @@ h2 {
   z-index: 1;
 }
 
+/* Activity-feed icons + badges: 16px content + 8px internal gutter
+   (padding so the slot owns its footprint). Flag/skull silhouettes
+   sit a bit low in their PNG frames; everything else sits a bit high. */
 .activity-message .medal-icon,
-.activity-message .flag-icon {
+.activity-message .flag-icon,
+.activity-message .reticle-icon,
+.activity-message .player-badge,
+.activity-message .bot-badge {
+  margin: 0;
+  padding: 0 8px 0 0;
   position: relative;
-  top: 2px;
+}
+.activity-message .flag-icon { top: -1px; }
+.activity-message .medal-icon,
+.activity-message .reticle-icon,
+.activity-message .player-badge,
+.activity-message .bot-badge {
+  top: 3px;
+}
+.activity-message .medal-icon img,
+.activity-message .flag-icon img,
+.activity-message .reticle-icon svg {
+  width: 16px;
+  height: 16px;
 }
 
 .activity-server-watermark {

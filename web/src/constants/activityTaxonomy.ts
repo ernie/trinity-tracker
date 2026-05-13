@@ -43,20 +43,13 @@ export const ACTIVITY_FILTER_CATEGORIES: ActivityFilterCategory[] = [
     ],
   },
   {
-    id: 'match',
-    label: 'Match events',
+    id: 'gameplay',
+    label: 'Gameplay',
     entries: [
-      { key: 'match_start', label: 'Match start' },
-    ],
-  },
-  {
-    id: 'combat',
-    label: 'Combat',
-    entries: [
-      { key: 'flag_capture', label: 'Flag captures' },
-      { key: 'flag_movement', label: 'Flag taken / dropped / returned' },
+      { key: 'flag_capture', label: 'Flag captured' },
+      { key: 'flag_movement', label: 'Flag status changed' },
       { key: 'obelisk_destroy', label: 'Obelisk destroyed' },
-      { key: 'obelisk_damage', label: 'Obelisk damage' },
+      { key: 'obelisk_damage', label: 'Obelisk attacked' },
       { key: 'skull_score', label: 'Skulls scored' },
       { key: 'skull_pickup', label: 'Skulls picked up' },
     ],
@@ -76,6 +69,7 @@ export const ACTIVITY_FILTER_CATEGORIES: ActivityFilterCategory[] = [
     id: 'misc',
     label: 'Misc',
     entries: [
+      { key: 'match_start', label: 'Match start' },
       { key: 'chat', label: 'Chat' },
       { key: 'team_change', label: 'Team changes' },
     ],
