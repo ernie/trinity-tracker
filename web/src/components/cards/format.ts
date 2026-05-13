@@ -50,19 +50,27 @@ export interface PlayerAwardCounts {
 }
 
 /** Player medal counts → ordered AwardEntry list. Zero/absent dropped.
- *  Order: combat awards (excellence chain) first, then objective awards
- *  (mode-specific scoring/destruction), then assist-class. */
+ *  Order is scoring-relevance ascending: combat-skill medals first
+ *  (least directly tied to score), then support, then mode-specific
+ *  objective medals, with `victory` last as the match-outcome capstone.
+ *  In row-based layouts the strip sits left of the score column, so
+ *  the LAST medal renders adjacent to the score — the medal closest
+ *  to the score is the one most directly responsible for it. */
 export function awardsFromCounts(p: PlayerAwardCounts): AwardEntry[] {
   const order: Array<[MedalType, number | undefined]> = [
-    ['excellent', p.excellents],
-    ['impressive', p.impressives],
+    // Combat-skill medals (least direct contribution to score)
     ['humiliation', p.humiliations],
-    ['victory', p.victories],
+    ['impressive', p.impressives],
+    ['excellent', p.excellents],
+    // Support (helping teammates score)
+    ['assist', p.assists],
+    ['defend', p.defends],
+    // Mode-specific objective points (direct score contribution)
     ['capture', p.captures],
     ['skull', p.skulls_delivered],
     ['obelisk', p.obelisks_destroyed],
-    ['defend', p.defends],
-    ['assist', p.assists],
+    // Outcome (the match win itself)
+    ['victory', p.victories],
   ]
   return order
     .filter((entry): entry is [MedalType, number] => typeof entry[1] === 'number' && entry[1] > 0)

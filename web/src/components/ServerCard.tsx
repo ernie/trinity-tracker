@@ -390,12 +390,23 @@ export function ServerCard({ server, isSelected, onSelect, onPlayerClick, livene
             </span>
           )
         })() : undefined
-        // Overload HP bars in the indicator slots.
+        // Overload HP bars in the indicator slots. An obelisk is "under
+        // attack" when any player on the OPPOSING team is currently
+        // damaging it (mirrors the attacker reticle on player rows).
         const maxHP = server.obelisk_health_max && server.obelisk_health_max > 0
           ? server.obelisk_health_max
           : 2500
+        const obeliskUnderAttack = { red: false, blue: false }
+        if (attackingSlots && attackingSlots.size > 0) {
+          for (const p of server.players ?? []) {
+            if (!attackingSlots.has(p.client_num)) continue
+            // Player on team N attacks the OPPOSING obelisk.
+            if (p.team === 1) obeliskUnderAttack.blue = true
+            else if (p.team === 2) obeliskUnderAttack.red = true
+          }
+        }
         const overloadInd = (team: 'red' | 'blue', hp: number) => (
-          <ObeliskHPIndicator team={team} hp={hp} maxHP={maxHP} />
+          <ObeliskHPIndicator team={team} hp={hp} maxHP={maxHP} underAttack={obeliskUnderAttack[team]} />
         )
         // Gate on `!== undefined` so a still-empty cvar (pre-spawn) skips
         // render, while a real HP=0 (destroyed) renders the empty bar.
@@ -495,16 +506,21 @@ function duelistFromLivePlayer(p: Player | undefined): DuelistData {
 }
 
 // ObeliskHPIndicator renders an Overload obelisk's HP bar. At HP=0 the
-// bar stays present (empty + pulsing) to signal "respawning".
-function ObeliskHPIndicator({ team, hp, maxHP }: { team: 'red' | 'blue'; hp: number; maxHP: number }) {
+// bar stays present (empty + pulsing) to signal "respawning". When
+// `underAttack` is true (and not destroyed), a team-colored glow
+// pulses on the bar to mirror the attacker reticle on the row.
+function ObeliskHPIndicator({ team, hp, maxHP, underAttack }: { team: 'red' | 'blue'; hp: number; maxHP: number; underAttack?: boolean }) {
   const pct = Math.max(0, Math.min(100, (hp / maxHP) * 100))
   const destroyed = hp <= 0
+  const attacked = !!underAttack && !destroyed
   const label = destroyed
     ? `${team} obelisk destroyed — respawning…`
-    : `${team} obelisk: ${hp} / ${maxHP} HP`
+    : attacked
+      ? `${team} obelisk under attack: ${hp} / ${maxHP} HP`
+      : `${team} obelisk: ${hp} / ${maxHP} HP`
   return (
     <span
-      className={`obelisk-hp obelisk-hp--${team}${destroyed ? ' obelisk-hp--destroyed' : ''}`}
+      className={`obelisk-hp obelisk-hp--${team}${destroyed ? ' obelisk-hp--destroyed' : ''}${attacked ? ' obelisk-hp--under-attack' : ''}`}
       title={label}
       role="img"
       aria-label={label}

@@ -110,10 +110,12 @@ export function Duelists({ left, right, state, live, onPlayerClick }: DuelistsPr
     <>
       {banner}
       <div className="duelists">
-        <DuelistAwards awards={left.awards} side="left" />
         <Duelist data={left} side="left" winnerSide={winnerSide} onClick={onPlayerClick} />
         <span className="scoreboard__vs">vs</span>
         <Duelist data={right} side="right" winnerSide={winnerSide} onClick={onPlayerClick} />
+        {/* Awards sit on row 2 directly below each duelist — grid
+            placement is in CSS via .duelist-awards / .duelist-awards.right. */}
+        <DuelistAwards awards={left.awards} side="left" />
         <DuelistAwards awards={right.awards} side="right" />
       </div>
     </>

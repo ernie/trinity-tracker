@@ -3,6 +3,8 @@ import { ColoredText } from './ColoredText'
 import { PlayerPortrait } from './PlayerPortrait'
 import { PlayerBadge } from './PlayerBadge'
 import { HeadlineStat } from './HeadlineStat'
+import { StatItem } from './StatItem'
+import { HONORS } from '../constants/honors'
 import { displayPlayerName } from '../utils'
 import { formatDate, formatDuration } from '../utils/formatters'
 import type { PlayerStatsResponse } from '../types'
@@ -20,27 +22,41 @@ interface PlayerHeroProps {
   fallbackName?: string
 }
 
-// Player hero: portrait + badge + name + meta line + 4-up headline
-// strip (Matches · K/D · Frags · Deaths). Shared between
-// PlayerStatsModal (modal variant) and PlayersPage (page variant).
+// Player hero: portrait + featured-honor card paired at the top,
+// name + meta line, then a 4-up headline strip (Matches · K/D · Frags ·
+// Deaths). The featured honor is Victory by default; Phase 2 will let
+// the player select a different honor via the account page. Shared
+// between PlayerStatsModal (modal variant) and PlayersPage (page variant).
 export function PlayerHero({ player, stats, variant, fallbackName }: PlayerHeroProps) {
   const heroName = displayPlayerName(player) || fallbackName || ''
   const NameTag = variant === 'modal' ? 'h3' : 'h2'
+  // HONORS[0] is Victory by convention (see constants/honors.ts).
+  // Phase 2 hook: replace with `HONORS.find((h) => h.key === featuredKey)`.
+  const featured = HONORS[0]
 
   return (
     <header className={`player-hero player-hero--${variant}`}>
-      <div className="player-hero__portrait">
-        <PlayerPortrait model={player.model} size="lg" />
-        {player.is_bot ? (
-          <BotBadge isBot skill={5} size={variant === 'page' ? 'lg' : 'md'} />
-        ) : (
-          <PlayerBadge
-            isVerified={player.is_verified}
-            isAdmin={player.is_admin}
-            isVR={player.is_vr}
-            size={variant === 'page' ? 'lg' : 'md'}
+      <div className="player-hero__top">
+        <div className="player-hero__portrait">
+          <PlayerPortrait model={player.model} size="lg" />
+          {player.is_bot ? (
+            <BotBadge isBot skill={5} size={variant === 'page' ? 'lg' : 'md'} />
+          ) : (
+            <PlayerBadge
+              isVerified={player.is_verified}
+              isAdmin={player.is_admin}
+              isVR={player.is_vr}
+              size={variant === 'page' ? 'lg' : 'md'}
+            />
+          )}
+        </div>
+        <div className="player-hero__featured">
+          <StatItem
+            label={featured.label}
+            value={featured.value(stats)}
+            backgroundIcon={featured.icon}
           />
-        )}
+        </div>
       </div>
 
       <NameTag className="player-hero__name">

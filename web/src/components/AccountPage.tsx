@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef, FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ColoredText } from './ColoredText'
-import { PlayerPortrait } from './PlayerPortrait'
+import { PlayerHero } from './PlayerHero'
+import { HonorsPanel } from './HonorsPanel'
 import { PlayerRecentMatches } from './PlayerRecentMatches'
-import { StatItem } from './StatItem'
 import { PeriodSelector } from './PeriodSelector'
 import { useAuth } from '../hooks/useAuth'
 import { usePlayerStats } from '../hooks/usePlayerStats'
-import { formatDate, formatDateTime, formatDuration } from '../utils/formatters'
+import { formatDate, formatDateTime } from '../utils/formatters'
 import type { AccountProfile, TimePeriod } from '../types'
 
 export function AccountPage() {
@@ -293,49 +293,20 @@ export function AccountPage() {
             <section className="account-section account-profile">
               <h2>Player Profile</h2>
               {profile.player ? (
-                <div className="player-profile-inline">
-                  <div className="player-name-row">
-                    <PlayerPortrait model={profile.player.model} size="xl" />
-                    <div className="player-name-info">
-                      <div className="player-name-large">
-                        <ColoredText text={profile.player.name} />
-                      </div>
-                      <div className="player-dates">
-                        <div>Playing since {formatDate(profile.player.first_seen)}</div>
-                        {profile.player.total_playtime_seconds > 0 && (
-                          <div>{formatDuration(profile.player.total_playtime_seconds)} played</div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Period selector */}
-                  <PeriodSelector period={period} onChange={setPeriod} />
-
-                  {/* Stats grid */}
-                  {stats && (
-                    <div className="stats-grid">
-                      <StatItem
-                        label="Matches"
-                        value={stats.stats.completed_matches}
-                        title={stats.stats.uncompleted_matches > 0
-                          ? `${stats.stats.completed_matches} completed, ${stats.stats.uncompleted_matches} incomplete`
-                          : undefined}
-                      />
-                      <StatItem label="K/D" value={stats.stats.kd_ratio.toFixed(2)} />
-                      <StatItem label="Frags" value={stats.stats.frags} className="frags" />
-                      <StatItem label="Deaths" value={stats.stats.deaths} className="deaths" />
-                      <StatItem label="Victories" value={stats.stats.victories} backgroundIcon="/assets/medals/medal_victory.png" />
-                      <StatItem label="Excellent" value={stats.stats.excellents} backgroundIcon="/assets/medals/medal_excellent.png" />
-                      <StatItem label="Impressive" value={stats.stats.impressives} backgroundIcon="/assets/medals/medal_impressive.png" />
-                      <StatItem label="Humiliation" value={stats.stats.humiliations} backgroundIcon="/assets/medals/medal_gauntlet.png" />
-                      <StatItem label="Captures" value={stats.stats.captures} backgroundIcon="/assets/medals/medal_capture.png" />
-                      <StatItem label="Returns" value={stats.stats.flag_returns} backgroundIcon="/assets/flags/flag_in_base_red.png" />
-                      <StatItem label="Assists" value={stats.stats.assists} backgroundIcon="/assets/medals/medal_assist.png" />
-                      <StatItem label="Defense" value={stats.stats.defends} backgroundIcon="/assets/medals/medal_defend.png" />
-                    </div>
+                <>
+                  {/* Use the same triad (PlayerHero → PeriodSelector →
+                      HonorsPanel) as PlayersPage and PlayerStatsModal so
+                      this view stays in lockstep with the others. */}
+                  {stats ? (
+                    <>
+                      <PlayerHero player={stats.player} stats={stats.stats} variant="page" />
+                      <PeriodSelector period={period} onChange={setPeriod} />
+                      <HonorsPanel stats={stats.stats} />
+                    </>
+                  ) : (
+                    <PeriodSelector period={period} onChange={setPeriod} />
                   )}
-                </div>
+                </>
               ) : (
                 <p className="no-player">No player profile linked to this account.</p>
               )}

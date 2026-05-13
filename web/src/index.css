@@ -888,10 +888,6 @@ h2 {
   align-items: center;
 }
 
-.flag-indicator.flag-base {
-  opacity: 0.6;
-}
-
 /* 1FCTF center-slot neutral flag. Reuses the .team-score column
  * structure so the flag-indicator inside .score-row aligns the same
  * way as red/blue flag indicators do in CTF. The team-label and
@@ -2289,14 +2285,18 @@ h2 {
     display: flex;
   }
 
-  /* Children inside the popup get full-width, vertical layout. */
+  /* Children inside the popup get full-width, vertical layout.
+     Community icons right-align (matches the hamburger button's right
+     edge above) — the base .community-cluster is inline-flex, so we
+     also need display:flex here to make justify-content take effect. */
   .hamburger__popup .community-cluster {
     margin: 0;
     padding: 0 0 var(--space-2);
     border-left: none;
     border-bottom: var(--rule);
     height: auto;
-    justify-content: flex-start;
+    display: flex;
+    justify-content: flex-end;
   }
 
   .hamburger__popup .auth-section {
@@ -4250,6 +4250,25 @@ h2 {
   padding: var(--space-6) var(--space-5) var(--space-5);
 }
 
+/* Top row: portrait stays centered (over the name) with the featured
+   honor card offset to its right. `1fr auto 1fr` keeps the portrait
+   mathematically centered regardless of featured-card width — the two
+   1fr tracks balance, and the empty left track mirrors the right one
+   that holds the featured card. */
+.player-hero__top {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-3);
+  width: 100%;
+}
+.player-hero__top .player-hero__portrait { grid-column: 2; }
+.player-hero__top .player-hero__featured {
+  grid-column: 3;
+  justify-self: start;
+}
+
 .player-hero__portrait {
   /* 96px ringed portrait — same DNA as .leaderboard-card__avatar but a
      size up. Badge / bot-badge overlays bottom-right. */
@@ -4263,7 +4282,17 @@ h2 {
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  margin-bottom: var(--space-3);
+}
+
+/* Featured-honor card: a regular StatItem rendered at portrait scale
+   alongside the portrait. Width tracks portrait dims via the variant
+   modifiers below. */
+.player-hero__featured {
+  width: 96px;
+  flex-shrink: 0;
+}
+.player-hero__featured .stat-item {
+  width: 100%;
 }
 
 .player-hero__portrait .player-portrait {
@@ -4291,7 +4320,11 @@ h2 {
 }
 
 .player-hero__name {
-  font-family: 'Barlow', sans-serif;
+  /* Cinzel matches the page H1 / brand-title family — the hero name is
+     the player-profile equivalent of those page headings. No
+     text-transform since player names carry meaningful casing (and
+     color codes via ColoredText). */
+  font-family: 'Cinzel', serif;
   font-weight: 700;
   font-size: 26px;
   letter-spacing: 0.04em;
@@ -4376,6 +4409,7 @@ h2 {
 /* Modal scale — already-compact 96px portrait stays, name/value
    slightly tightened so the hero leaves room for medals + AKAs. */
 .player-hero--modal .player-hero__portrait { width: 80px; height: 80px; }
+.player-hero--modal .player-hero__featured { width: 80px; }
 .player-hero--modal .player-hero__name { font-size: 22px; }
 .player-hero--modal .headline-stat__value { font-size: 20px; }
 
@@ -4384,6 +4418,7 @@ h2 {
   padding: var(--space-7) var(--space-5) var(--space-5);
 }
 .player-hero--page .player-hero__portrait { width: 120px; height: 120px; }
+.player-hero--page .player-hero__featured { width: 120px; }
 .player-hero--page .player-hero__name { font-size: 32px; }
 .player-hero--page .headline-stat__value { font-size: 32px; }
 .player-hero--page .headline-stat__label { font-size: 0.7rem; }
@@ -4392,6 +4427,18 @@ h2 {
   .player-hero__headline {
     grid-template-columns: repeat(2, 1fr);
     gap: var(--space-3) var(--space-4);
+  }
+  /* Stack the top row at narrow widths: 1fr-auto-1fr can't accommodate
+     a portrait + featured side-by-side once each track drops below the
+     featured card's width. Falls back to a single centered column. */
+  .player-hero__top {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+  .player-hero__top .player-hero__portrait,
+  .player-hero__top .player-hero__featured {
+    grid-column: 1;
+    justify-self: center;
   }
 }
 
@@ -4403,15 +4450,20 @@ h2 {
   margin: 0;
 }
 
-/* Player profile honors grid: 10 cells in 5x2 — Skulls and Obelisks
-   joined the original 8 medals when Harvester/Overload stats landed. */
-.player-panel .stats-grid {
-  grid-template-columns: repeat(5, 1fr);
-}
-
 @media (max-width: 600px) {
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
-  .player-panel .stats-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* Honors grid: flat 3x3 of the nine non-featured medals. The featured
+   honor (Victory by default; user-selectable in Phase 2) lives in the
+   hero alongside the portrait, so the grid renders exactly 9 cells —
+   no trailing gap. Three columns at every width keeps medal labels
+   (HUMILIATION, IMPRESSIVE, OBELISKS) readable. */
+.honors-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+  margin: 0;
 }
 
 .stat-item {
@@ -4708,11 +4760,13 @@ h2 {
 }
 
 .player-card__name {
-  font-family: 'Barlow', sans-serif;
-  font-weight: 700;
+  /* Cinzel regular — same "ceremonial headline at body size" treatment
+     as .card__map-long. Lighter than the hero's Cinzel 700 because
+     mixed-case Cinzel reads better at a lighter weight when small. */
+  font-family: 'Cinzel', serif;
+  font-weight: 500;
   font-size: 18px;
   color: var(--text);
-  letter-spacing: 0.04em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -10230,6 +10284,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 
 /* ── Scoreboard (team) and Duelists (1v1) — share styles ─ */
 .scoreboard {
+  position: relative;  /* anchor for the absolutely-positioned 1FCTF `vs` */
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
@@ -10264,6 +10319,15 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   position: relative;
   align-self: stretch;
 }
+/* Flag/skull glyphs visually sit slightly below the Cinzel score's
+   optical center — nudge them up to align. Scoped to the scoreboard
+   slots (team-side + 1FCTF center) so activity-feed / player-row uses
+   are unaffected. */
+.scoreboard__indicator .flag-icon,
+.scoreboard__center-indicator .flag-icon {
+  position: relative;
+  top: -2px;
+}
 /* Red: indicator goes to the right of the score (column 3),
    anchored to the inside edge so it sits 8px off the score. */
 .scoreboard__side--red .scoreboard__indicator {
@@ -10287,13 +10351,33 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   color: #facc15;
   text-shadow: 0 0 12px rgba(250, 204, 21, 0.35);
 }
-/* Center stacks `vs` over an optional indicator (1FCTF neutral drift). */
+/* Center holds `vs` (most modes) OR the neutral-flag indicator
+   (1FCTF) — never both. In 1FCTF the flag IS the connector (it
+   shows which team is carrying the objective), so `vs` becomes
+   redundant and is hidden. The column is also shifted down to align
+   the flag with the team score-line (see `:has()` rule below). */
 .scoreboard__center {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
   min-width: 36px;
+}
+/* 1FCTF: shift the column down so the flag's center lands at the
+   score-line region (rather than the side's geometric center which
+   sits higher between label + score). 15px = label height (10px) +
+   gap (2px) + a few extra px to push the flag's optical center down
+   onto the score numbers' visual midline (Cinzel digits read low). */
+.scoreboard:has(.scoreboard__center-indicator) .scoreboard__center {
+  padding-top: 15px;
+}
+/* `vs` floats to the top of the entire scoreboard (label-row Y),
+   between the team labels — keeps the flourish visible without
+   pushing the flag down or being covered by it. */
+.scoreboard:has(.scoreboard__center-indicator) .scoreboard__vs {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
 }
 .scoreboard__center-indicator { display: inline-flex; align-items: center; }
 /* 1FCTF neutral flag drifts toward whichever side currently carries
@@ -10310,7 +10394,35 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 }
 .scoreboard__vs {
   font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: 0.3em;
-  color: var(--text-dim); text-transform: uppercase;
+  color: var(--ember-light); text-transform: uppercase;
+  /* inline-flex keeps the ember rules + text on one line in narrow
+     containers (default `inline` would let inline content wrap inside
+     a tight grid track). */
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+/* Small ember rules flanking the `vs` connector — typographic flourish
+   that gives it presence. TIE / NO CONTEST states keep their solid
+   block treatment without rules (already visually heavier). */
+.scoreboard__vs:not(:has(.scoreboard__state))::before,
+.scoreboard__vs:not(:has(.scoreboard__state))::after {
+  content: '';
+  display: inline-block;
+  width: 14px;
+  height: 1px;
+  background: var(--ember-strong);
+  opacity: 0.5;
+  margin: 0 6px;
+  vertical-align: middle;
+}
+/* `letter-spacing: 0.3em` on `vs` adds 0.3em of trailing space after
+   the last character, so the right gap to the rule reads 0.3em wider
+   than the left gap. Pulling the right rule in by 0.3em rebalances
+   the layout — the visual center of "vs" then lands exactly between
+   the two rules and the auto-column centers symmetrically in the grid. */
+.scoreboard__vs:not(:has(.scoreboard__state))::after {
+  margin-left: calc(6px - 0.3em);
 }
 .scoreboard__state.tie { color: var(--ember-light); letter-spacing: 0.4em; }
 .scoreboard__state.nc {
@@ -10339,21 +10451,41 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 
 /* 1v1 cards have only two players, so the body has more vertical and
    horizontal room than FFA/team. Sized up: bigger portraits + score
-   numerals, more breathing room around the awards strip. */
+   numerals. Two-row 3-col grid: row 1 = portraits + VS (same column
+   structure as the team .scoreboard), row 2 = awards centered under
+   each duelist. */
 .duelists {
   display: grid;
-  grid-template-columns: 64px 1fr auto 1fr 64px;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  gap: 14px;
+  gap: 8px 14px;  /* row gap | column gap */
   margin-bottom: 18px;
   padding: 8px 0 4px;
 }
+/* Awards lean OUTWARD (toward the card edges) on each side — keeps
+   the spacing between the two clusters constant regardless of medal
+   count. `awardsFromCounts()` returns medals in scoring-relevance
+   ascending order (combat-skill first, victory last), so the LAST
+   medal in the array is the most directly tied to score. The cluster
+   layout places that LAST medal at the INNERMOST edge (closest to the
+   centered score above) — matching the same "closest-to-score" rule
+   used by row-based layouts where the strip sits left of the score
+   column and the last medal renders adjacent to it. */
 .duelist-awards {
   display: flex; flex-wrap: wrap; gap: 5px;
-  justify-content: flex-end; align-items: flex-start; align-content: flex-start;
-  height: 100%; padding-top: 8px;
+  grid-row: 2;
+  grid-column: 1;
+  /* defaults: flex-direction row + justify-content flex-start →
+     cluster anchored at the LEFT edge (outward), LAST DOM medal at
+     the right of the cluster (innermost, score-adjacent). */
 }
-.duelist-awards.right { justify-content: flex-start; }
+.duelist-awards.right {
+  grid-column: 3;
+  /* row-reverse: cluster anchored at the RIGHT edge (outward via the
+     reversed axis's flex-start), LAST DOM medal at the left of the
+     cluster (innermost, score-adjacent). */
+  flex-direction: row-reverse;
+}
 .duelist-awards .medal-icon { margin: 0; }
 .duelist-awards .medal-icon-sm img { width: 18px; height: 18px; }
 /* Legacy stub-mockup color hooks — production uses MedalIcon imgs. */
@@ -10362,6 +10494,13 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 .medal-humiliation { color: var(--red); }
 .medal-gauntlet { color: var(--ember-strong); }
 
+/* Push the duelist portraits apart by widening the VS auto-track —
+   the ember rules need horizontal breathing room and the unscoped
+   .duelists `gap: 14px` alone leaves them too close to the score
+   numerals on either side. */
+.duelists .scoreboard__vs {
+  margin: 0 8px;
+}
 .duelist { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .duelist__portrait-wrap {
   position: relative;
@@ -10540,18 +10679,51 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   line-height: 1;
 }
 
-/* Overload "actively attacking" — pulsing team-colored reticle. */
+/* Shared "attack pulse" clock — drives the attacker reticle AND the
+   under-attack obelisk glow from a single root-level animation so they
+   pulse in unison regardless of when each element entered its attack
+   state. @property registers the custom properties as interpolatable
+   (otherwise CSS variables jump instantly at each keyframe boundary
+   rather than tweening smoothly). */
+@property --attack-glow-blur {
+  syntax: '<length>';
+  initial-value: 0px;
+  inherits: true;
+}
+@property --attack-glow-alpha {
+  syntax: '<number>';
+  initial-value: 0;
+  inherits: true;
+}
+@property --attack-reticle-opacity {
+  syntax: '<number>';
+  initial-value: 0.55;
+  inherits: true;
+}
+:root {
+  animation: attack-pulse-clock 1.2s ease-in-out infinite;
+}
+@keyframes attack-pulse-clock {
+  0%, 100% {
+    --attack-glow-blur: 0px;
+    --attack-glow-alpha: 0;
+    --attack-reticle-opacity: 0.55;
+  }
+  50% {
+    --attack-glow-blur: 5px;
+    --attack-glow-alpha: 0.9;
+    --attack-reticle-opacity: 1;
+  }
+}
+
+/* Overload "actively attacking" — opacity driven by the shared clock. */
 .player-row .pname-cell .row-carrier--obelisk-attacker {
-  animation: row-carrier-attack-pulse 1.2s ease-in-out infinite;
+  opacity: var(--attack-reticle-opacity);
 }
 .reticle-icon {
   display: inline-flex;
   align-items: center;
   line-height: 0;
-}
-@keyframes row-carrier-attack-pulse {
-  0%, 100% { opacity: 0.55; }
-  50%      { opacity: 1; }
 }
 
 /* Overload obelisk HP bar — absolute so it doesn't grow the row;
@@ -10607,6 +10779,17 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 }
 .obelisk-hp--red .obelisk-hp__fill  { background: #d2493a; }
 .obelisk-hp--blue .obelisk-hp__fill { background: #4076c8; }
+/* Under-attack glow — pulses a team-colored drop-shadow around the
+   obelisk bar. Reads the shared --attack-glow-* variables from the
+   attack-pulse-clock so it stays in lockstep with the attacker reticle
+   on the player row — coordinated alert system: attacker reticle
+   pulses on the player; matching glow pulses on the obelisk under fire. */
+.obelisk-hp--red.obelisk-hp--under-attack {
+  filter: drop-shadow(0 0 var(--attack-glow-blur) rgba(210, 73, 58, var(--attack-glow-alpha)));
+}
+.obelisk-hp--blue.obelisk-hp--under-attack {
+  filter: drop-shadow(0 0 var(--attack-glow-blur) rgba(64, 118, 200, var(--attack-glow-alpha)));
+}
 /* Destroyed obelisk pulses while waiting for respawn (~10s default). */
 .obelisk-hp--destroyed .obelisk-hp__bar {
   animation: obelisk-hp-pulse 1.2s ease-in-out infinite;

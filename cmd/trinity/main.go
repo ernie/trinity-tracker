@@ -2076,15 +2076,14 @@ var flagTeamColors = map[string]color.NRGBA{
 // FlagIcon.tsx renders. Each one is emitted three times — once per team color.
 var flagSourceStates = []string{"flag_in_base", "flag_capture", "flag_missing"}
 
-// Harvester per-player carrier icons (already team-colored at source).
-var skullSourceFiles = []string{"skull_red.tga", "skull_blue.tga"}
-
 // cmdObjectives extracts objective-state silhouettes, mirroring each
 // source's in-game path:
 //   - ui/assets/statusbar/flag_*.tga → <static>/assets/flags/   (tinted per team)
-//   - icons/skull_{red,blue}.tga     → <static>/assets/icons/   (color-preserving)
+//   - icons/skull_{red,blue}.tga     → <static>/assets/icons/   (tinted per team)
 //
-// Medal art (medal_skull, medal_obelisk) is `trinity medals`, not this command.
+// Both pass through the same flagTeamColors palette so the skull and
+// flag indicators read as visually consistent. Medal art (medal_skull,
+// medal_obelisk) is `trinity medals`, not this command.
 func cmdObjectives(args []string) {
 	fs := flag.NewFlagSet("objectives", flag.ExitOnError)
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
@@ -2179,21 +2178,22 @@ func extractObjectivesFromPk3(pk3Path, flagsDir, iconsDir, displayPath string) (
 			continue
 		}
 
-		// Harvester skull icons — already team-colored, just upscale.
+		// Harvester skull icons — tinted with the same team palette as
+		// the flag silhouettes so the two indicators read as visually
+		// consistent (raw missionpack source is too saturated).
 		if strings.HasPrefix(lowerName, "icons/") {
-			matched := false
-			for _, want := range skullSourceFiles {
-				if base == want {
-					matched = true
-					break
-				}
-			}
-			if !matched {
+			var team string
+			switch base {
+			case "skull_red.tga":
+				team = "red"
+			case "skull_blue.tga":
+				team = "blue"
+			default:
 				continue
 			}
 			outputName := strings.TrimSuffix(base, ".tga") + ".png"
 			outputPath := filepath.Join(iconsDir, outputName)
-			if err := extractIconToPng(f, outputPath, 128); err != nil {
+			if err := extractSkullToPng(f, outputPath, flagTeamColors[team], 128); err != nil {
 				fmt.Fprintf(os.Stderr, "  Warning: failed to extract %s: %v\n", f.Name, err)
 				continue
 			}
@@ -2206,11 +2206,16 @@ func extractObjectivesFromPk3(pk3Path, flagsDir, iconsDir, displayPath string) (
 	return extracted, nil
 }
 
-// extractIconToPng decodes a TGA preserving source colors and writes
-// a PNG upscaled to targetSize via Catmull-Rom. Used for already-tinted
-// icons (e.g. icons/skull_red.tga) where the flag-style luminance recolor
-// would destroy the source palette.
-func extractIconToPng(f *zip.File, outputPath string, targetSize int) error {
+// extractSkullToPng decodes a colored skull TGA and recolors it with
+// the team tint (matching the desaturated flagTeamColors palette)
+// while preserving source alpha for the transparent background.
+// Uses max(R,G,B) as the intensity signal — generalizes the flag's
+// "R alone" approach to work with colored sources (red skull, blue
+// skull). For a grayscale source this equals R; for a fully-red
+// pixel max=R; for a fully-blue pixel max=B. Either way the silhouette
+// brightness reaches 255 where the source is fully on, so the tint
+// renders at full saturation rather than dimming by Rec. 601 weighting.
+func extractSkullToPng(f *zip.File, outputPath string, tint color.NRGBA, targetSize int) error {
 	rc, err := f.Open()
 	if err != nil {
 		return err
@@ -2222,15 +2227,37 @@ func extractIconToPng(f *zip.File, outputPath string, targetSize int) error {
 		return fmt.Errorf("decode TGA: %w", err)
 	}
 
-	scaled := image.NewNRGBA(image.Rect(0, 0, targetSize, targetSize))
-	draw.CatmullRom.Scale(scaled, scaled.Bounds(), src, src.Bounds(), draw.Over, nil)
+	bounds := src.Bounds()
+	tinted := image.NewNRGBA(bounds)
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			r, g, b, a := src.At(x, y).RGBA()
+			maxChan := r
+			if g > maxChan {
+				maxChan = g
+			}
+			if b > maxChan {
+				maxChan = b
+			}
+			intensity := maxChan >> 8 // 0-255
+			tinted.SetNRGBA(x, y, color.NRGBA{
+				R: uint8(uint32(tint.R) * intensity / 255),
+				G: uint8(uint32(tint.G) * intensity / 255),
+				B: uint8(uint32(tint.B) * intensity / 255),
+				A: uint8(a >> 8),
+			})
+		}
+	}
+
+	dst := image.NewNRGBA(image.Rect(0, 0, targetSize, targetSize))
+	draw.CatmullRom.Scale(dst, dst.Bounds(), tinted, bounds, draw.Over, nil)
 
 	out, err := os.Create(outputPath)
 	if err != nil {
 		return err
 	}
 	defer out.Close()
-	return png.Encode(out, scaled)
+	return png.Encode(out, dst)
 }
 
 // extractFlagToPng decodes the source statusbar TGA (32-bit RGBA where
