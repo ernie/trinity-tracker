@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import { formatNumber } from "../utils"
 
 export interface StatItemProps {
@@ -6,7 +7,12 @@ export interface StatItemProps {
   className?: string
   subscript?: number
   title?: string
-  backgroundIcon?: string
+  /** Background "whisper" icon at the lower-right of the cell. Pass a
+   *  URL string for the common single-image case, or any ReactNode
+   *  (e.g. a <FlagPair />) for composed emblems. Falls back to a faint
+   *  "#" glyph when omitted. The wrapper carries the rotate/opacity
+   *  treatment, so the inner content inherits it automatically. */
+  backgroundIcon?: string | ReactNode
 }
 
 export function StatItem({ label, value, className, subscript, title, backgroundIcon }: StatItemProps) {
@@ -15,8 +21,10 @@ export function StatItem({ label, value, className, subscript, title, background
 
   return (
     <div className="stat-item" title={title}>
-      {backgroundIcon ? (
+      {typeof backgroundIcon === 'string' ? (
         <img className="stat-item-bg-icon" src={backgroundIcon} alt="" />
+      ) : backgroundIcon ? (
+        <span className="stat-item-bg-icon">{backgroundIcon}</span>
       ) : (
         <span className="stat-item-bg-icon stat-item-bg-hash">#</span>
       )}

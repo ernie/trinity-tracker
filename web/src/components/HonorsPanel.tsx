@@ -35,7 +35,7 @@ export function HonorsPanel({ stats, featuredKey, isOwner, onFeaturedChange }: H
             <StatItem
               label={honor.label}
               value={honor.value(stats)}
-              backgroundIcon={honor.icon}
+              backgroundIcon={honor.iconElement ?? honor.icon}
             />
             {isOwner && onFeaturedChange && (
               <button

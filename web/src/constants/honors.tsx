@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react'
+import { FlagPair } from '../components/FlagPair'
 import type { PlayerStatsResponse } from '../types'
 
 type StatsNumbers = PlayerStatsResponse['stats']
@@ -16,7 +18,14 @@ type StatsNumbers = PlayerStatsResponse['stats']
 export interface HonorEntry {
   key: string
   label: string
+  /** URL used as the simple <img> source. Always set so we have a sane
+   *  default for share-cards / future contexts; `iconElement` overrides
+   *  it in surfaces that want the richer composed treatment. */
   icon: string
+  /** Optional composed-emblem override (e.g. crossed-flag pair for
+   *  flag_returns). When present, HonorsPanel and PlayerHero render
+   *  this element in place of an <img src={icon}>. */
+  iconElement?: ReactNode
   value: (s: StatsNumbers) => number
 }
 
@@ -28,7 +37,7 @@ export const HONORS: readonly HonorEntry[] = [
   { key: 'captures',           label: 'Captures',    icon: '/assets/medals/medal_capture.png',    value: (s) => s.captures },
   { key: 'skulls_delivered',   label: 'Skulls',      icon: '/assets/medals/medal_skull.png',      value: (s) => s.skulls_delivered },
   { key: 'obelisks_destroyed', label: 'Obelisks',    icon: '/assets/medals/medal_obelisk.png',    value: (s) => s.obelisks_destroyed },
-  { key: 'flag_returns',       label: 'Returns',     icon: '/assets/flags/flag_in_base_red.png',  value: (s) => s.flag_returns },
+  { key: 'flag_returns',       label: 'Returns',     icon: '/assets/flags/flag_in_base_red.png',  iconElement: <FlagPair />, value: (s) => s.flag_returns },
   { key: 'assists',            label: 'Assists',     icon: '/assets/medals/medal_assist.png',     value: (s) => s.assists },
   { key: 'defends',            label: 'Defense',     icon: '/assets/medals/medal_defend.png',     value: (s) => s.defends },
 ] as const

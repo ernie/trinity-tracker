@@ -52,7 +52,16 @@ export function PlayerHero({ player, stats, variant, fallbackName }: PlayerHeroP
           )}
         </div>
         <div className="player-hero__featured" title={featured.label}>
-          <img className="player-hero__featured-medal" src={featured.icon} alt={featured.label} />
+          {/* iconElement (e.g. <FlagPair /> for flag_returns) takes the
+              full medal slot when present, so composed emblems render
+              the same here as in the leaderboard banner. The wrapper
+              span carries the same .player-hero__featured-medal sizing
+              so the count chip below docks at the right height. */}
+          {featured.iconElement ? (
+            <span className="player-hero__featured-medal">{featured.iconElement}</span>
+          ) : (
+            <img className="player-hero__featured-medal" src={featured.icon} alt={featured.label} />
+          )}
           <span className="player-hero__featured-count">{featured.value(stats)}</span>
         </div>
       </div>

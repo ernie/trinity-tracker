@@ -6166,28 +6166,31 @@ h2 {
   object-fit: contain;
   filter: drop-shadow(0 2px 12px rgba(255, 110, 60, 0.5));
 }
-/* Crossed-banner pair for flag_returns: blue behind, red in front,
-   each tilted at opposing angles. The two squares overlap to read as
-   a single composed emblem rather than two icons sitting side by side. */
-.leaderboard-standard__flagpair {
+/* Crossed-banner pair: blue behind, red in front, each tilted at opposing
+   angles so the two squares read as a single composed emblem rather than
+   two icons sitting side by side. Sized to fill its container — drop
+   into a square parent for a balanced silhouette. Used by the leaderboard
+   banner's flag_returns category and by the flag_returns honor cell +
+   PlayerHero featured-medal slot. */
+.flag-pair {
   position: relative;
   display: block;
   width: 100%;
   height: 100%;
 }
-.leaderboard-standard__flagpair img {
+.flag-pair img {
   position: absolute;
   width: 78%;
   height: 78%;
   object-fit: contain;
   filter: drop-shadow(0 2px 10px rgba(255, 110, 60, 0.45));
 }
-.leaderboard-standard__flagpair-blue {
+.flag-pair__blue {
   top: 4%; left: 4%;
   transform: rotate(-14deg);
   opacity: 0.75;
 }
-.leaderboard-standard__flagpair-red {
+.flag-pair__red {
   top: 18%; left: 22%;
   transform: rotate(12deg);
 }
@@ -6270,6 +6273,15 @@ h2 {
   }
   .leaderboard-standard__text {
     grid-column: 1;
+  }
+}
+
+/* Desktop: align the banner's top with the sidebar's top. The base
+   margin-top exists for mobile, where the horizontal category strip
+   sits above the banner and needs breathing room. */
+@media (min-width: 900px) {
+  .leaderboard-standard {
+    margin-top: 0;
   }
 }
 

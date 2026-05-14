@@ -4,6 +4,7 @@ import { ColoredText } from "./ColoredText";
 import { PlayerPortrait } from "./PlayerPortrait";
 import { PlayerBadge } from "./PlayerBadge";
 import { ArrowIcon } from "./ArrowIcon";
+import { FlagPair } from "./FlagPair";
 import { NavScroller } from "./NavScroller";
 import { PeriodSelector } from "./PeriodSelector";
 
@@ -42,7 +43,7 @@ const CATEGORY_MEDAL: Partial<Record<LeaderboardCategory, MedalType>> = {
 
 const CATEGORY_LABELS: Record<LeaderboardCategory, string> = {
   matches: "Matches",
-  kd_ratio: "K/D",
+  kd_ratio: "K/D Ratio",
   frags: "Frags",
   deaths: "Deaths",
   victories: "Victories",
@@ -57,24 +58,25 @@ const CATEGORY_LABELS: Record<LeaderboardCategory, string> = {
   obelisks_destroyed: "Obelisks",
 };
 
-// Headline-scale titles for the dramatic standard. Bigger, more
-// codex-like than the small-tab CATEGORY_LABELS — e.g. the tab says
-// "K/D" but the standard says "FRAG/DEATH" so the headline has weight.
+// Headline-scale titles for the dramatic standard. Uppercase ceremonial
+// register; mostly mirrors CATEGORY_LABELS but a few entries (e.g. SKULLS
+// DELIVERED, OBELISKS DESTROYED) spell out the full action so the banner
+// reads as a sentence-fragment rather than a single noun.
 const CATEGORY_TITLE: Record<LeaderboardCategory, string> = {
   matches:            'MATCHES',
-  kd_ratio:           'FRAG/DEATH',
+  kd_ratio:           'K/D RATIO',
   frags:              'FRAGS',
   deaths:             'DEATHS',
   victories:          'VICTORIES',
-  excellents:         'EXCELLENCE',
+  excellents:         'EXCELLENT',
   impressives:        'IMPRESSIVE',
   humiliations:       'HUMILIATION',
   captures:           'CAPTURES',
   flag_returns:       'RETURNS',
   assists:            'ASSISTS',
   defends:            'DEFENSE',
-  skulls_delivered:   'SKULLS',
-  obelisks_destroyed: 'OBELISKS',
+  skulls_delivered:   'SKULLS DELIVERED',
+  obelisks_destroyed: 'OBELISKS DESTROYED',
 };
 
 // Per-category eyebrow descriptors — what other regulars whisper about
@@ -83,27 +85,30 @@ const CATEGORY_TITLE: Record<LeaderboardCategory, string> = {
 // matches the landing-page voice ("the railgun waits, still humming").
 const CATEGORY_EYEBROW: Record<LeaderboardCategory, string> = {
   matches:            'THE ARENA IS THEIR HOME',
-  kd_ratio:           'THEY GIVE MORE THAN THEY TAKE',
+  kd_ratio:           'MORE GIVEN THAN TAKEN',
   frags:              'STOPPED COUNTING LONG AGO',
   deaths:             'NEVER LEARNED TO RETREAT',
   victories:          'DEFEAT IS NOT AN OPTION',
   excellents:         'ONE IS NEVER ENOUGH',
-  impressives:        'EVERY SHOT FINDS A HOME',
-  humiliations:       "YOU AREN'T WORTH THEIR BULLETS",
-  captures:           'THEY CARRY HOME WHAT MATTERS',
+  impressives:        'EVERY SHOT FINDS ITS MARK',
+  humiliations:       "YOU AREN'T WORTH A BULLET",
+  captures:           'THEY BEAR THE BURDEN HOME',
   flag_returns:       "THEY WON'T LET A BANNER LIE",
   assists:            'SHARED THE GLORY GLADLY',
-  defends:            'WHERE THEY STAND, NOTHING PASSES',
+  defends:            'THEY DO NOT GIVE GROUND',
   skulls_delivered:   'BONES, COLLECTED AND CAST',
-  obelisks_destroyed: 'THE WATCHER FALLS BY THEIR HAND',
+  obelisks_destroyed: 'PROLIFIC DEMOLITIONISTS',
 };
 
+// Banner tagline labels. Spell out the rolling window so visitors aren't
+// left guessing whether "Today" means "since midnight" (it doesn't —
+// the backend computes asOf - 24h; see storage/sqlite.go getTimePeriodBounds).
 const PERIOD_DISPLAY: Record<TimePeriod, string> = {
   all: 'ALL-TIME',
-  year: 'THIS YEAR',
-  month: 'THIS MONTH',
-  week: 'THIS WEEK',
-  day: 'TODAY',
+  year: 'PAST YEAR',
+  month: 'PAST 30 DAYS',
+  week: 'PAST 7 DAYS',
+  day: 'PAST 24 HOURS',
 };
 
 // Renders the big emblem for the dramatic standard. Three variants:
@@ -120,13 +125,9 @@ function StandardEmblem({ category }: { category: LeaderboardCategory }) {
   if (category === 'flag_returns') {
     // Crossed banners: red + blue overlapped at angles. The R+B duality
     // mirrors the obelisk medal's red+blue rings — both TA-mode emblems
-    // share the "two teams' colors clashing" motif.
-    return (
-      <span className="leaderboard-standard__flagpair" aria-hidden>
-        <img className="leaderboard-standard__flagpair-blue" src="/assets/flags/flag_in_base_blue.png" alt="" />
-        <img className="leaderboard-standard__flagpair-red"  src="/assets/flags/flag_in_base_red.png"  alt="" />
-      </span>
-    );
+    // share the "two teams' colors clashing" motif. Same emblem also
+    // marks the flag_returns honor in the honors panel + featured slot.
+    return <FlagPair />;
   }
   // matches, kd_ratio, frags, deaths — the Quake-fundamentals, no medal.
   // Uses the flat Q3 brand silhouette as a heraldic emblem.
