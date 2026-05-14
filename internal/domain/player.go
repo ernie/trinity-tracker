@@ -19,6 +19,10 @@ type Player struct {
 	Skill                float64      `json:"skill,omitempty"`  // bot skill level (1-5), 0 if human
 	IsVerified           bool         `json:"is_verified"`
 	IsAdmin              bool         `json:"is_admin"`
+	// FeaturedHonor is the linked user's chosen honor key (e.g. "victories",
+	// "captures") for the profile hero card. nil = no linked user, or linked
+	// user hasn't chosen — the frontend falls back to 'victories'.
+	FeaturedHonor        *string      `json:"featured_honor,omitempty"`
 	GUIDs                []PlayerGUID `json:"guids,omitempty"`  // populated when fetching with details
 }
 

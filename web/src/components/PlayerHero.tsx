@@ -3,8 +3,7 @@ import { ColoredText } from './ColoredText'
 import { PlayerPortrait } from './PlayerPortrait'
 import { PlayerBadge } from './PlayerBadge'
 import { HeadlineStat } from './HeadlineStat'
-import { StatItem } from './StatItem'
-import { HONORS } from '../constants/honors'
+import { HONORS, DEFAULT_FEATURED_HONOR_KEY } from '../constants/honors'
 import { displayPlayerName } from '../utils'
 import { formatDate, formatDuration } from '../utils/formatters'
 import type { PlayerStatsResponse } from '../types'
@@ -24,15 +23,17 @@ interface PlayerHeroProps {
 
 // Player hero: portrait + featured-honor card paired at the top,
 // name + meta line, then a 4-up headline strip (Matches · K/D · Frags ·
-// Deaths). The featured honor is Victory by default; Phase 2 will let
-// the player select a different honor via the account page. Shared
+// Deaths). The featured honor defaults to Victory; the owning user can
+// promote any other honor via the star buttons in HonorsPanel. Shared
 // between PlayerStatsModal (modal variant) and PlayersPage (page variant).
 export function PlayerHero({ player, stats, variant, fallbackName }: PlayerHeroProps) {
   const heroName = displayPlayerName(player) || fallbackName || ''
   const NameTag = variant === 'modal' ? 'h3' : 'h2'
-  // HONORS[0] is Victory by convention (see constants/honors.ts).
-  // Phase 2 hook: replace with `HONORS.find((h) => h.key === featuredKey)`.
-  const featured = HONORS[0]
+  // Resolve featured honor by key, falling back to Victory if the linked
+  // user hasn't chosen, there's no linked user, or the stored key drifted
+  // out of HONORS (e.g. a key was retired without a data backfill).
+  const featuredKey = player.featured_honor ?? DEFAULT_FEATURED_HONOR_KEY
+  const featured = HONORS.find((h) => h.key === featuredKey) ?? HONORS[0]
 
   return (
     <header className={`player-hero player-hero--${variant}`}>
@@ -50,12 +51,9 @@ export function PlayerHero({ player, stats, variant, fallbackName }: PlayerHeroP
             />
           )}
         </div>
-        <div className="player-hero__featured">
-          <StatItem
-            label={featured.label}
-            value={featured.value(stats)}
-            backgroundIcon={featured.icon}
-          />
+        <div className="player-hero__featured" title={featured.label}>
+          <img className="player-hero__featured-medal" src={featured.icon} alt={featured.label} />
+          <span className="player-hero__featured-count">{featured.value(stats)}</span>
         </div>
       </div>
 

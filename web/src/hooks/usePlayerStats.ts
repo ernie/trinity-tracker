@@ -6,6 +6,10 @@ interface UsePlayerStatsResult {
   loading: boolean
   error: string | null
   refetch: () => void
+  /** Optimistically update the featured honor and PATCH the server.
+   *  Reverts the local state if the request fails. Token must be passed
+   *  in by the caller (the hook itself doesn't know about auth). */
+  setFeaturedHonor: (key: string, token: string) => Promise<void>
 }
 
 export function usePlayerStats(playerId: number | undefined, period: TimePeriod): UsePlayerStatsResult {
@@ -49,8 +53,36 @@ export function usePlayerStats(playerId: number | undefined, period: TimePeriod)
     return () => ctrl.abort()
   }, [playerId, period, refetchKey])
 
+  const setFeaturedHonor = useCallback(async (key: string, token: string) => {
+    // Optimistic local update — capture the prior value so we can revert
+    // cleanly if the PATCH fails. Read from the closure-current stats so
+    // a rapid second click can still see the just-applied value.
+    let priorKey: string | undefined
+    setStats((prev) => {
+      if (!prev) return prev
+      priorKey = prev.player.featured_honor
+      return { ...prev, player: { ...prev.player, featured_honor: key } }
+    })
+    try {
+      const res = await fetch('/api/account/featured-honor', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ key }),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    } catch {
+      // Revert. If the user toggled again between optimistic update and
+      // failure, this puts them back to whatever was on the server — a
+      // refetch would be safer but the flash is worse than the rare race.
+      setStats((prev) => prev ? { ...prev, player: { ...prev.player, featured_honor: priorKey } } : prev)
+    }
+  }, [])
+
   // Loading is derived: nothing yet AND no error to show. During a
   // period swap, `stats` retains the previous values so the panel
   // stays mounted; the new values just slot in when the fetch lands.
-  return { stats, loading: !stats && !error, error, refetch }
+  return { stats, loading: !stats && !error, error, refetch, setFeaturedHonor }
 }

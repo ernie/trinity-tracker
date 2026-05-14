@@ -386,6 +386,7 @@ func (s *Store) GetPlayerGUIDs(ctx context.Context, playerID int64) ([]domain.Pl
 // GetPlayerByID finds a player by their ID (includes GUIDs)
 func (s *Store) GetPlayerByID(ctx context.Context, id int64) (*domain.Player, error) {
 	var p domain.Player
+	var featuredHonor sql.NullString
 	err := s.db.QueryRowContext(ctx, `
 		SELECT
 			p.id, p.name, p.clean_name, p.first_seen, p.last_seen,
@@ -397,13 +398,17 @@ func (s *Store) GetPlayerByID(ctx context.Context, id int64) (*domain.Player, er
 			), 0) as total_playtime_seconds,
 			p.is_bot, p.is_vr,
 			CASE WHEN u.id IS NOT NULL THEN 1 ELSE 0 END as is_verified,
-			COALESCE(u.is_admin, 0) as is_admin
+			COALESCE(u.is_admin, 0) as is_admin,
+			u.featured_honor
 		FROM players p
 		LEFT JOIN users u ON u.player_id = p.id
 		WHERE p.id = ?
-	`, id).Scan(&p.ID, &p.Name, &p.CleanName, &p.FirstSeen, &p.LastSeen, &p.TotalPlaytimeSeconds, &p.IsBot, &p.IsVR, &p.IsVerified, &p.IsAdmin)
+	`, id).Scan(&p.ID, &p.Name, &p.CleanName, &p.FirstSeen, &p.LastSeen, &p.TotalPlaytimeSeconds, &p.IsBot, &p.IsVR, &p.IsVerified, &p.IsAdmin, &featuredHonor)
 	if err != nil {
 		return nil, err
+	}
+	if featuredHonor.Valid {
+		p.FeaturedHonor = &featuredHonor.String
 	}
 
 	// Get most recent model and skill from match_player_stats
@@ -1726,6 +1731,16 @@ func (s *Store) UpdateUserAdmin(ctx context.Context, userID int64, isAdmin bool)
 	_, err := s.db.ExecContext(ctx, `
 		UPDATE users SET is_admin = ? WHERE id = ?
 	`, isAdmin, userID)
+	return err
+}
+
+// SetUserFeaturedHonor updates which honor key the user wants featured on
+// their player profile hero. Caller must validate `key` against the allowed
+// set (see api/featured_honor.go) before calling.
+func (s *Store) SetUserFeaturedHonor(ctx context.Context, userID int64, key string) error {
+	_, err := s.db.ExecContext(ctx, `
+		UPDATE users SET featured_honor = ? WHERE id = ?
+	`, key, userID)
 	return err
 }
 

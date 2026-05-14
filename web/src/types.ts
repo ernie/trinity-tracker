@@ -441,6 +441,10 @@ export interface PlayerProfile {
   model?: string
   skill?: number
   guids?: PlayerGUID[]
+  /** Owning user's chosen honor key (e.g. 'victories', 'captures'). Undefined
+   *  when there's no linked user, or the user hasn't picked one — callers
+   *  fall back to 'victories' for display. Mirrors users.featured_honor. */
+  featured_honor?: string
 }
 
 export interface PlayerStatsResponse {

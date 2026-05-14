@@ -4284,15 +4284,46 @@ h2 {
   flex-shrink: 0;
 }
 
-/* Featured-honor card: a regular StatItem rendered at portrait scale
-   alongside the portrait. Width tracks portrait dims via the variant
-   modifiers below. */
+/* Featured-honor slot: bare medal alongside the portrait, sized smaller
+   than it (~75%). No circle/border chrome — just the medal silhouette
+   with the lifetime count framed in ember at the bottom edge. Width
+   tracks portrait dims via the variant modifiers below. */
 .player-hero__featured {
-  width: 96px;
+  position: relative;
+  width: 72px;
+  height: 72px;
   flex-shrink: 0;
 }
-.player-hero__featured .stat-item {
+.player-hero__featured-medal {
   width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+.player-hero__featured-count {
+  /* Count chip sitting just below the medal's bottom edge — a hair of
+     overlap so the medal silhouette stays readable. Dark fill + ember
+     text only (no hard border); the --ember-light numerals carry the
+     "value callout" signal without loud chrome around them. */
+  position: absolute;
+  top: 100%;
+  /* Percentage margin keeps overlap proportional across modal/page variants.
+     The parent is square (width = height), so % of parent width is the same
+     fraction of badge height — all variants get the same visual overlap. */
+  margin-top: -7%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 1px 8px;
+  background: rgba(0, 0, 0, 0.78);
+  border-radius: var(--radius-sm);
+  color: var(--ember-light);
+  font-family: 'Barlow', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
 .player-hero__portrait .player-portrait {
@@ -4409,7 +4440,8 @@ h2 {
 /* Modal scale — already-compact 96px portrait stays, name/value
    slightly tightened so the hero leaves room for medals + AKAs. */
 .player-hero--modal .player-hero__portrait { width: 80px; height: 80px; }
-.player-hero--modal .player-hero__featured { width: 80px; }
+.player-hero--modal .player-hero__featured { width: 60px; height: 60px; }
+.player-hero--modal .player-hero__featured-count { font-size: 11px; padding: 1px 6px; }
 .player-hero--modal .player-hero__name { font-size: 22px; }
 .player-hero--modal .headline-stat__value { font-size: 20px; }
 
@@ -4418,27 +4450,36 @@ h2 {
   padding: var(--space-7) var(--space-5) var(--space-5);
 }
 .player-hero--page .player-hero__portrait { width: 120px; height: 120px; }
-.player-hero--page .player-hero__featured { width: 120px; }
+.player-hero--page .player-hero__featured { width: 90px; height: 90px; }
+.player-hero--page .player-hero__featured-count { font-size: 15px; padding: 2px 10px; }
 .player-hero--page .player-hero__name { font-size: 32px; }
 .player-hero--page .headline-stat__value { font-size: 32px; }
 .player-hero--page .headline-stat__label { font-size: 0.7rem; }
+/* Cluster the four headline stats in the middle while keeping the
+   strip itself full-width so its ::before hairline spans the full
+   hero. Content-sized columns + justify-content: center packs the
+   stats; the gap controls how spread they are. */
+.player-hero--page .player-hero__headline {
+  grid-template-columns: repeat(4, auto);
+  justify-content: center;
+  gap: var(--space-7);
+}
 
 @media (max-width: 520px) {
   .player-hero__headline {
     grid-template-columns: repeat(2, 1fr);
     gap: var(--space-3) var(--space-4);
   }
-  /* Stack the top row at narrow widths: 1fr-auto-1fr can't accommodate
-     a portrait + featured side-by-side once each track drops below the
-     featured card's width. Falls back to a single centered column. */
+  /* Pack portrait + featured side-by-side at narrow widths instead of
+     stacking. Strict portrait-centering is dropped here — the pair
+     centers as one unit — but both items stay on the same row, which
+     reads better than a vertical stack when there's room (modern
+     phones at 375px+ have plenty). */
   .player-hero__top {
-    grid-template-columns: 1fr;
-    justify-items: center;
-  }
-  .player-hero__top .player-hero__portrait,
-  .player-hero__top .player-hero__featured {
-    grid-column: 1;
-    justify-self: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: var(--space-4);
   }
 }
 
@@ -4464,6 +4505,43 @@ h2 {
   grid-template-columns: repeat(3, 1fr);
   gap: var(--space-2);
   margin: 0;
+}
+
+.honor-cell {
+  /* Wraps a StatItem so the optional star button can anchor to the cell
+     without modifying StatItem's internals (StatItem stays shared/pure).
+     Becomes the grid item; StatItem fills it. */
+  position: relative;
+}
+.honor-cell > .stat-item {
+  /* StatItem already has position: relative for its bg-icon; keep it
+     filling the cell so layout stays identical to pre-Phase-2. */
+  height: 100%;
+}
+.honor-feature-toggle {
+  /* Owner-only affordance: click the star to promote this honor to
+     featured. Same visual language as .card__feature-toggle on match
+     cards — transparent, no border, text-dim at rest, ember-light on
+     hover/focus. Always visible so the action is discoverable without
+     hovering. Anchored to the cell's top-right corner. */
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s;
+}
+.honor-feature-toggle:hover,
+.honor-feature-toggle:focus-visible {
+  color: var(--ember-light);
+  outline: none;
 }
 
 .stat-item {
@@ -5736,11 +5814,6 @@ h2 {
   text-decoration: underline;
 }
 
-/* Game type filter */
-.filter-row {
-  margin-bottom: 15px;
-}
-
 /* Outer flex container that hosts a NavScroller inside. The actual
    overflow/mask/scroll behavior lives on .filter-chips__scroll
    (NavScroller's inner element); this wrapper just provides a
@@ -5802,55 +5875,417 @@ h2 {
   margin-left: -1px;
 }
 .game-type-btn:hover,
-.game-type-btn.active,
 .game-type-btn:focus-visible,
 .mode-filter-btn:hover,
-.mode-filter-btn.active,
 .mode-filter-btn:focus-visible,
 .period-btn:hover,
-.period-btn.active,
 .period-btn:focus-visible {
   z-index: 1;
 }
-
-/* Category selector — 6 columns so 8–12 categories pack as 2 even rows. */
-.category-selector {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 4px;
-  margin-bottom: 15px;
-  background: var(--bg-card);
-  border-radius: var(--radius-md);
-  padding: 8px;
+/* Active wins over a hovered neighbor — without the higher z-index, the
+   neighbor's hover left-border would overlap the active button's ember
+   right-border (DOM order decides on z-index ties). */
+.game-type-btn.active,
+.mode-filter-btn.active,
+.period-btn.active {
+  z-index: 2;
 }
 
-.category-btn {
+/* ── Leaderboard filter row: game-type left, period right on desktop;
+   stacks on mobile so the period drops below instead of cramping the
+   game-type's NavScroller. ────────────────────────────────────────── */
+.leaderboard-filters {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+.leaderboard-filters__game-type {
+  flex: 1 1 auto;
+  min-width: 0;  /* lets the NavScroller's overflow:hidden actually clip */
+}
+.leaderboard-filters__period {
+  flex: 0 0 auto;
+}
+@media (max-width: 720px) {
+  .leaderboard-filters {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
+  }
+  .leaderboard-filters__period {
+    align-self: flex-start;
+  }
+}
+
+/* ── Category strip: thin Cinzel small-caps tabs in a horizontal scroller.
+   Active gets an ember underline marker that lands on the strip's
+   bottom hairline rule. Replaces the old .category-selector grid.
+   Same scroll/overflow recipe as .filter-chips__scroll — without it
+   the strip's max-content width pushes the whole page wider. */
+.category-strip__scroll {
+  display: block;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+/* Category strip needs the scroller chrome on desktop too — unlike the
+   header nav (which never overflows at desktop widths), the leaderboard's
+   variable category list often pushes past the viewport at narrow
+   desktops. :has() opts this scroller out of the global display:contents
+   behavior so the chevron buttons can be absolutely positioned over it. */
+.nav-scroller:has(.category-strip__scroll) {
+  display: block;
+  position: relative;
+  min-width: 0;
+}
+.nav-scroller:has(.category-strip__scroll) .nav-scroller__edge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
+  justify-content: center;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 36px;
+  color: var(--accent);
   background: transparent;
   border: none;
-  color: var(--text-dim);
-  border-radius: var(--radius-sm);
+  padding: 0;
   cursor: pointer;
-  font-family: inherit;
-  font-size: 0.9rem;
-  transition: all 0.2s;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  z-index: 1;
+}
+.nav-scroller:has(.category-strip__scroll) .nav-scroller__edge.is-shown {
+  opacity: 0.85;
+  pointer-events: auto;
+}
+.nav-scroller:has(.category-strip__scroll) .nav-scroller__edge--left  { left: 0; }
+.nav-scroller:has(.category-strip__scroll) .nav-scroller__edge--right { right: 0; }
+.nav-scroller:has(.category-strip__scroll) .nav-scroller__edge:hover,
+.nav-scroller:has(.category-strip__scroll) .nav-scroller__edge:focus-visible {
+  opacity: 1;
+  color: var(--ember-strong);
+  outline: none;
 }
 
-.category-btn .medal-icon {
+/* ── Desktop layout: vertical sticky sidebar of categories alongside the
+   main content. The same DOM/markup that scrolls horizontally on mobile
+   flips to a column at >=900px, with the active tab gaining an ember
+   bar on the left and a tinted background. Sticky position keeps the
+   sidebar in view while the user scrolls through the leaderboard. ─── */
+@media (min-width: 900px) {
+  .leaderboard-body {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    column-gap: var(--space-6);
+    align-items: start;
+  }
+  /* (Desktop margin-left override moved below the .leaderboard-standard
+     base rule — see the @media block at the bottom of the standard's
+     section. CSS cascade: equal-specificity rules need source-order to
+     win, and the base rule is declared later in this file.) */
+  .nav-scroller:has(.category-strip__scroll) {
+    position: sticky;
+    top: var(--space-4);
+    /* Hide chevrons on desktop — vertical column always fits. */
+  }
+  .nav-scroller:has(.category-strip__scroll) .nav-scroller__edge {
+    display: none;
+  }
+  .category-strip__scroll {
+    overflow: visible;  /* no horizontal scroll needed in vertical mode */
+  }
+  .category-strip {
+    flex-direction: column;
+    width: auto;
+    min-width: 0;
+    gap: 2px;
+    padding: 0;
+    border-bottom: none;
+  }
+  .category-tab {
+    text-align: right;
+    padding: var(--space-2) var(--space-4) var(--space-2) var(--space-3);
+    border-right: 2px solid transparent;
+    border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+    transition: color 0.15s, background 0.15s, border-color 0.15s;
+  }
+  .category-tab:hover {
+    background: rgba(255, 110, 60, 0.04);
+  }
+  .category-tab.active {
+    background: rgba(255, 110, 60, 0.08);
+    border-right-color: var(--ember-strong);
+    box-shadow: 1px 0 8px rgba(255, 110, 60, 0.25);
+  }
+  /* Suppress the underline marker — vertical mode uses the left bar. */
+  .category-tab.active::after {
+    display: none;
+  }
+}
+.category-strip__scroll::-webkit-scrollbar { display: none; }
+.category-strip__scroll.is-scroll-left {
+  mask-image: linear-gradient(to right, transparent, black 28px);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 28px);
+}
+.category-strip__scroll.is-scroll-right {
+  mask-image: linear-gradient(to left, transparent, black 28px);
+  -webkit-mask-image: linear-gradient(to left, transparent, black 28px);
+}
+.category-strip__scroll.is-scroll-left.is-scroll-right {
+  mask-image: linear-gradient(to right, transparent, black 28px, black calc(100% - 28px), transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 28px, black calc(100% - 28px), transparent);
+}
+.category-strip {
+  display: flex;
+  gap: var(--space-5);
+  padding: var(--space-3) var(--space-1) calc(var(--space-3) + 2px);
+  border-bottom: 1px solid rgba(255, 110, 60, 0.12);
+  width: max-content;
+  min-width: 100%;
+}
+.category-tab {
+  flex: 0 0 auto;
+  background: transparent;
+  border: none;
+  padding: 4px 2px;
+  position: relative;
+
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.category-tab:hover { color: var(--text); }
+.category-tab:focus-visible { outline: none; color: var(--ember-light); }
+.category-tab.active { color: var(--ember-light); }
+.category-tab.active::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0;
+  bottom: -7px;
+  height: 2px;
+  background: var(--ember-strong);
+  box-shadow: 0 0 8px rgba(255, 110, 60, 0.6);
+}
+
+/* ── The Standard: dramatic active-category header. Wide block with a
+   medal/flag emblem on the left, eyebrow + title + tagline on the
+   right. Vertical ember ribbon on the left edge plays the "banner
+   pole" role. Soft pulsing halo behind the emblem. Hairlines top + bottom.
+   When there's no emblem (matches/K/D/frags/deaths), the text takes
+   center stage via .leaderboard-standard--no-emblem. ─────────────── */
+.leaderboard-standard {
+  position: relative;
+  /* 1fr/auto/1fr keeps the text in column 2 mathematically centered
+     regardless of whether column 1 holds an emblem — same trick as
+     .player-hero__top. The empty column 3 mirrors column 1's slack. */
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  column-gap: var(--space-6);
+
+  /* Right edge only: negative margin-right escapes .leaderboard-page's
+     20px padding so the banner extends to the page's right edge. Left
+     stays aligned to the page padding (mobile) or the sidebar column
+     start (desktop). Doesn't widen the readable content — the emblem +
+     text stay inside the standard's own padding; only the background
+     and border stretch. */
+  margin-top: var(--space-5);
+  margin-right: -20px;
+  margin-bottom: var(--space-5);
+  margin-left: 0;
+  padding: var(--space-6) var(--space-6) var(--space-6) var(--space-7);
+
+  border-top: 1px solid rgba(255, 110, 60, 0.18);
+  border-bottom: 1px solid rgba(255, 110, 60, 0.18);
+  background:
+    radial-gradient(ellipse 50% 100% at 12% 50%, rgba(255, 110, 60, 0.06), transparent 70%),
+    linear-gradient(180deg, rgba(20, 14, 10, 0.6), rgba(8, 6, 5, 0.6));
+
+  overflow: hidden;
+  /* Reveal animation when the category remounts (key=effectiveCategory) */
+  animation: standard-rise 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* Vertical ember ribbon on the left edge — the "banner pole". */
+.leaderboard-standard__ribbon {
+  position: absolute;
+  top: 0; bottom: 0; left: 0;
+  width: 4px;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 110, 60, 0) 0%,
+    var(--ember-strong) 20%,
+    var(--ember-strong) 80%,
+    rgba(255, 110, 60, 0) 100%
+  );
+  box-shadow: 0 0 12px rgba(255, 110, 60, 0.4);
+}
+
+.leaderboard-standard__emblem {
+  position: relative;
+  grid-column: 1;
+  justify-self: end;  /* sits at the right edge of column 1, near text */
+  width: 128px;
+  height: 128px;
+  display: grid;
+  place-items: center;
+}
+
+/* Soft ember halo radiating from behind the emblem — slow pulse. */
+.leaderboard-standard__halo {
+  position: absolute;
+  inset: -25%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 110, 60, 0.28) 0%,
+    rgba(255, 110, 60, 0.08) 35%,
+    transparent 65%
+  );
+  filter: blur(8px);
+  pointer-events: none;
+  animation: halo-pulse 6s ease-in-out infinite;
+}
+
+.leaderboard-standard__medal-img {
+  position: relative;  /* sits above the halo */
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 12px rgba(255, 110, 60, 0.5));
+}
+/* Crossed-banner pair for flag_returns: blue behind, red in front,
+   each tilted at opposing angles. The two squares overlap to read as
+   a single composed emblem rather than two icons sitting side by side. */
+.leaderboard-standard__flagpair {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.leaderboard-standard__flagpair img {
+  position: absolute;
+  width: 78%;
+  height: 78%;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 10px rgba(255, 110, 60, 0.45));
+}
+.leaderboard-standard__flagpair-blue {
+  top: 4%; left: 4%;
+  transform: rotate(-14deg);
+  opacity: 0.75;
+}
+.leaderboard-standard__flagpair-red {
+  top: 18%; left: 22%;
+  transform: rotate(12deg);
+}
+
+.leaderboard-standard__text {
+  position: relative;
+  grid-column: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;  /* centers the inline-flex eyebrow span */
+  gap: var(--space-2);
+  min-width: 0;
+  text-align: center;
+}
+
+.leaderboard-standard__eyebrow {
   margin: 0;
+  /* Block-level p so the parent flex column treats it normally; the
+     inner inline-flex span renders the text + flanking hairlines
+     and shrinks to content so it picks up the parent's text-align. */
 }
-
-.category-btn:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text);
-}
-
-.category-btn.active {
-  background: var(--ember-tint-bg);
+.leaderboard-standard__eyebrow > span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
   color: var(--ember-tint-text);
+}
+.leaderboard-standard__eyebrow > span::before,
+.leaderboard-standard__eyebrow > span::after {
+  content: '';
+  width: 28px;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.55;
+  flex-shrink: 0;
+}
+
+.leaderboard-standard__title {
+  margin: 0;
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: clamp(36px, 5vw, 64px);
+  line-height: 1.05;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ember-light);
+  text-shadow:
+    0 2px 24px rgba(255, 110, 60, 0.35),
+    0 0 1px rgba(255, 199, 138, 0.5);
+}
+
+.leaderboard-standard__tagline {
+  margin: 0;
+  font-family: 'Barlow', sans-serif;
+  font-weight: 500;
+  font-size: 13px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+/* Mobile: collapse to single column, stack emblem above text. */
+@media (max-width: 720px) {
+  .leaderboard-standard {
+    grid-template-columns: 1fr;
+    row-gap: var(--space-4);
+    column-gap: 0;
+    padding: var(--space-5) var(--space-4) var(--space-5) var(--space-5);
+  }
+  .leaderboard-standard__emblem {
+    grid-column: 1;
+    justify-self: center;
+    width: 96px;
+    height: 96px;
+  }
+  .leaderboard-standard__text {
+    grid-column: 1;
+  }
+}
+
+@keyframes standard-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes halo-pulse {
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50%      { opacity: 1.0; transform: scale(1.08); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .leaderboard-standard,
+  .leaderboard-standard__halo {
+    animation: none;
+  }
 }
 
 /* Leaderboard content — wrapper with no chrome of its own. Cards
@@ -6023,16 +6458,6 @@ h2 {
 .leaderboard-card.top-2 .leaderboard-card__rank { color: silver; }
 .leaderboard-card.top-3 .leaderboard-card__rank { color: #cd7f32; }
 
-@media (max-width: 768px) {
-  .category-selector {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .category-btn {
-    font-size: 0.8rem;
-    padding: 6px 12px;
-  }
-}
 
 .leaderboard-table td sub {
   font-size: 0.45em;

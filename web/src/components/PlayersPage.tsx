@@ -212,7 +212,10 @@ export function PlayersPage() {
 
                   <PeriodSelector period={period} onChange={setPeriod} />
 
-                  <HonorsPanel stats={stats.stats} />
+                  <HonorsPanel
+                    stats={stats.stats}
+                    featuredKey={stats.player.featured_honor}
+                  />
 
                   <PlayerAkaList names={stats.names} primaryName={stats.player.name} max={12} />
 

@@ -91,7 +91,10 @@ function ModalBody({ stats, fallbackName, period, onPeriodChange, onClose }: Mod
 
       <PeriodSelector period={period} onChange={onPeriodChange} />
 
-      <HonorsPanel stats={stats.stats} />
+      <HonorsPanel
+        stats={stats.stats}
+        featuredKey={stats.player.featured_honor}
+      />
 
       <PlayerAkaList names={stats.names} primaryName={stats.player.name} max={6} />
 

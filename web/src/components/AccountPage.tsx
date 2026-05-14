@@ -18,7 +18,7 @@ export function AccountPage() {
   const [period, setPeriod] = useState<TimePeriod>('all')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const { stats } = usePlayerStats(profile?.player?.id, period)
+  const { stats, setFeaturedHonor } = usePlayerStats(profile?.player?.id, period)
 
   // Link code state
   const [linkCode, setLinkCode] = useState<string | null>(null)
@@ -301,7 +301,12 @@ export function AccountPage() {
                     <>
                       <PlayerHero player={stats.player} stats={stats.stats} variant="page" />
                       <PeriodSelector period={period} onChange={setPeriod} />
-                      <HonorsPanel stats={stats.stats} />
+                      <HonorsPanel
+                        stats={stats.stats}
+                        featuredKey={stats.player.featured_honor}
+                        isOwner
+                        onFeaturedChange={(key) => { if (auth.token) void setFeaturedHonor(key, auth.token) }}
+                      />
                     </>
                   ) : (
                     <PeriodSelector period={period} onChange={setPeriod} />

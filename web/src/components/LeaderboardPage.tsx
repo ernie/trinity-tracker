@@ -3,8 +3,6 @@ import { Link, useSearchParams } from "react-router-dom";
 import { ColoredText } from "./ColoredText";
 import { PlayerPortrait } from "./PlayerPortrait";
 import { PlayerBadge } from "./PlayerBadge";
-import { FlagIcon } from "./FlagIcon";
-import { MedalIcon } from "./MedalIcon";
 import { ArrowIcon } from "./ArrowIcon";
 import { NavScroller } from "./NavScroller";
 import { PeriodSelector } from "./PeriodSelector";
@@ -42,17 +40,6 @@ const CATEGORY_MEDAL: Partial<Record<LeaderboardCategory, MedalType>> = {
   obelisks_destroyed: "obelisk",
 };
 
-function CategoryIcon({ category }: { category: LeaderboardCategory }) {
-  const medalType = CATEGORY_MEDAL[category];
-  if (medalType) {
-    return <MedalIcon type={medalType} showCount={false} />;
-  }
-  if (category === "flag_returns") {
-    return <FlagIcon team="red" status="base" size="sm" />;
-  }
-  return null;
-}
-
 const CATEGORY_LABELS: Record<LeaderboardCategory, string> = {
   matches: "Matches",
   kd_ratio: "K/D",
@@ -69,6 +56,82 @@ const CATEGORY_LABELS: Record<LeaderboardCategory, string> = {
   skulls_delivered: "Skulls",
   obelisks_destroyed: "Obelisks",
 };
+
+// Headline-scale titles for the dramatic standard. Bigger, more
+// codex-like than the small-tab CATEGORY_LABELS — e.g. the tab says
+// "K/D" but the standard says "FRAG/DEATH" so the headline has weight.
+const CATEGORY_TITLE: Record<LeaderboardCategory, string> = {
+  matches:            'MATCHES',
+  kd_ratio:           'FRAG/DEATH',
+  frags:              'FRAGS',
+  deaths:             'DEATHS',
+  victories:          'VICTORIES',
+  excellents:         'EXCELLENCE',
+  impressives:        'IMPRESSIVE',
+  humiliations:       'HUMILIATION',
+  captures:           'CAPTURES',
+  flag_returns:       'RETURNS',
+  assists:            'ASSISTS',
+  defends:            'DEFENSE',
+  skulls_delivered:   'SKULLS',
+  obelisks_destroyed: 'OBELISKS',
+};
+
+// Per-category eyebrow descriptors — what other regulars whisper about
+// the warrior who leads this stat. Drives the small-caps line above the
+// title in the standard. Tone: lyrical, ceremonial, slightly elliptical;
+// matches the landing-page voice ("the railgun waits, still humming").
+const CATEGORY_EYEBROW: Record<LeaderboardCategory, string> = {
+  matches:            'THE ARENA IS THEIR HOME',
+  kd_ratio:           'THEY GIVE MORE THAN THEY TAKE',
+  frags:              'STOPPED COUNTING LONG AGO',
+  deaths:             'NEVER LEARNED TO RETREAT',
+  victories:          'DEFEAT IS NOT AN OPTION',
+  excellents:         'ONE IS NEVER ENOUGH',
+  impressives:        'EVERY SHOT FINDS A HOME',
+  humiliations:       "YOU AREN'T WORTH THEIR BULLETS",
+  captures:           'THEY CARRY HOME WHAT MATTERS',
+  flag_returns:       "THEY WON'T LET A BANNER LIE",
+  assists:            'SHARED THE GLORY GLADLY',
+  defends:            'WHERE THEY STAND, NOTHING PASSES',
+  skulls_delivered:   'BONES, COLLECTED AND CAST',
+  obelisks_destroyed: 'THE WATCHER FALLS BY THEIR HAND',
+};
+
+const PERIOD_DISPLAY: Record<TimePeriod, string> = {
+  all: 'ALL-TIME',
+  year: 'THIS YEAR',
+  month: 'THIS MONTH',
+  week: 'THIS WEEK',
+  day: 'TODAY',
+};
+
+// Renders the big emblem for the dramatic standard. Three variants:
+//   - medal categories → the corresponding medal PNG
+//   - flag_returns    → crossed red+blue base flags (heraldic banners)
+//   - matches/K/D/frags/deaths → the Q3 brand mark (skill4.png), since
+//     those are the quintessential Quake stats, not gametype-specific
+function StandardEmblem({ category }: { category: LeaderboardCategory }) {
+  const medalType = CATEGORY_MEDAL[category];
+  if (medalType) {
+    const src = `/assets/medals/medal_${medalType === 'humiliation' ? 'gauntlet' : medalType}.png`;
+    return <img className="leaderboard-standard__medal-img" src={src} alt="" />;
+  }
+  if (category === 'flag_returns') {
+    // Crossed banners: red + blue overlapped at angles. The R+B duality
+    // mirrors the obelisk medal's red+blue rings — both TA-mode emblems
+    // share the "two teams' colors clashing" motif.
+    return (
+      <span className="leaderboard-standard__flagpair" aria-hidden>
+        <img className="leaderboard-standard__flagpair-blue" src="/assets/flags/flag_in_base_blue.png" alt="" />
+        <img className="leaderboard-standard__flagpair-red"  src="/assets/flags/flag_in_base_red.png"  alt="" />
+      </span>
+    );
+  }
+  // matches, kd_ratio, frags, deaths — the Quake-fundamentals, no medal.
+  // Uses the flat Q3 brand silhouette as a heraldic emblem.
+  return <img className="leaderboard-standard__medal-img" src="/assets/q3-logo.png" alt="" />;
+}
 
 // Base categories available for all game types
 const BASE_CATEGORIES: LeaderboardCategory[] = [
@@ -187,8 +250,8 @@ export function LeaderboardPage() {
         </div>
       )}
 
-      <div className="filter-row">
-        <div className="game-type-selector">
+      <div className="leaderboard-filters">
+        <div className="leaderboard-filters__game-type">
           <NavScroller scrollClassName="filter-chips__scroll">
             <div className="filter-chips__strip">
               <button
@@ -210,38 +273,63 @@ export function LeaderboardPage() {
             </div>
           </NavScroller>
         </div>
+        <div className="leaderboard-filters__period">
+          <PeriodSelector period={period} onChange={setPeriod} />
+        </div>
       </div>
 
-      <div className="category-selector">
-        {availableCategories.map((cat) => (
-          <button
-            key={cat}
-            className={`category-btn ${effectiveCategory === cat ? "active" : ""}`}
-            onClick={() => setCategory(cat)}
-          >
-            <CategoryIcon category={cat} />
-            {CATEGORY_LABELS[cat]}
-          </button>
-        ))}
-      </div>
+      <div className="leaderboard-body">
+        <NavScroller scrollClassName="category-strip__scroll">
+          <nav className="category-strip">
+            {availableCategories.map((cat) => (
+              <button
+                key={cat}
+                className={`category-tab ${effectiveCategory === cat ? "active" : ""}`}
+                onClick={() => setCategory(cat)}
+              >
+                {CATEGORY_LABELS[cat]}
+              </button>
+            ))}
+          </nav>
+        </NavScroller>
 
-      <PeriodSelector period={period} onChange={setPeriod} />
+        <div className="leaderboard-main">
+          <header key={effectiveCategory} className="leaderboard-standard">
+        <div className="leaderboard-standard__ribbon" aria-hidden />
+        <div className="leaderboard-standard__emblem">
+          <div className="leaderboard-standard__halo" aria-hidden />
+          <StandardEmblem category={effectiveCategory} />
+        </div>
+        <div className="leaderboard-standard__text">
+          <p className="leaderboard-standard__eyebrow">
+            <span>{CATEGORY_EYEBROW[effectiveCategory]}</span>
+          </p>
+          <h2 className="leaderboard-standard__title">
+            {CATEGORY_TITLE[effectiveCategory]}
+          </h2>
+          <p className="leaderboard-standard__tagline">
+            {PERIOD_DISPLAY[period]} · {gameType === "all" ? "ALL MODES" : formatGameType(gameType).toUpperCase()}
+          </p>
+        </div>
+      </header>
 
-      <div className="leaderboard-content">
-        {loading ? (
-          <div className="stats-loading">Loading leaderboard...</div>
-        ) : error ? (
-          <div className="stats-error">{error}</div>
-        ) : data && data.entries && data.entries.length > 0 ? (
-          <LeaderboardGrid
-            entries={data.entries}
-            category={effectiveCategory}
-          />
-        ) : (
-          <div className="leaderboard-empty">
-            No data available for this selection
+          <div className="leaderboard-content">
+            {loading ? (
+              <div className="stats-loading">Loading leaderboard...</div>
+            ) : error ? (
+              <div className="stats-error">{error}</div>
+            ) : data && data.entries && data.entries.length > 0 ? (
+              <LeaderboardGrid
+                entries={data.entries}
+                category={effectiveCategory}
+              />
+            ) : (
+              <div className="leaderboard-empty">
+                No data available for this selection
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
     </div>
@@ -277,6 +365,8 @@ function getPrimary(entry: LeaderboardEntry, category: LeaderboardCategory): str
     case "flag_returns": return formatNumber(entry.flag_returns);
     case "assists": return formatNumber(entry.assists);
     case "defends": return formatNumber(entry.defends);
+    case "skulls_delivered": return formatNumber(entry.skulls_delivered);
+    case "obelisks_destroyed": return formatNumber(entry.obelisks_destroyed);
     default: return "";
   }
 }

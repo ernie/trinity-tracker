@@ -183,7 +183,10 @@ CREATE TABLE IF NOT EXISTS users (
     password_change_required BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_login TIMESTAMP,
-    game_token TEXT NOT NULL DEFAULT ''
+    game_token TEXT NOT NULL DEFAULT '',
+    -- NULL = no explicit choice; frontend falls back to 'victories'.
+    -- See migrations/2026-05-13-users-featured-honor.sql.
+    featured_honor TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
