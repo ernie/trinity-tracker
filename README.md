@@ -87,6 +87,63 @@ bun install --cwd web
 make
 ```
 
+### Deploying from source
+
+For maintainers iterating on a source checkout (rather than the
+prebuilt-release upgrade path above), the Makefile has three deploy
+targets:
+
+```bash
+make deploy            # build, then deploy both frontend and backend
+make deploy-frontend   # build, then rsync web/dist/ to the live web root
+make deploy-backend    # build, then install the binary and restart service
+```
+
+Run plain `make deploy` — **not** `sudo make deploy`. The build step
+needs `go` and `bun` on PATH (typically via mise or similar); sudo
+strips that and the build fails with `go: not found`. The targets
+`sudo` only the file moves and the service restart, so you'll be
+prompted for those.
+
+Overridable env vars: `DEPLOY_USER` (default `quake`), `DEPLOY_WEB`
+(default `/var/lib/trinity/web`), `SERVICE` (default `trinity`),
+`BINDIR` (default `/usr/local/bin`).
+
+#### What `deploy-frontend` does
+
+```
+sudo rsync -a --chown=$DEPLOY_USER:$DEPLOY_USER web/dist/ $DEPLOY_WEB/
+# then, for each main-*.{js,css} in the live assets dir that isn't in
+# web/dist/assets/, sudo rm it (purge stale content-hashed bundles).
+```
+
+- **No `--delete`.** The webroot also holds runtime-extracted assets
+  from `trinity assets` (`levelshots/`, `portraits/`, `skills/`,
+  `maps.json`, and the extracted PNGs inside `medals/`, `flags/`,
+  `icons/`) that don't exist anywhere in `web/dist/`. A blind
+  `--delete` would wipe them. Only the hashed bundles need explicit
+  purging, so the recipe does that targeted cleanup in a second pass.
+- `--chown` gives fresh files to the service user so no post-hoc
+  `chown -R` is needed.
+- rsync writes to a temp file then renames, so a partial failure
+  can't take the site down the way a `rm` then `cp` sequence could.
+
+If you rename or remove a non-hashed bundled asset (e.g., a file under
+`web/public/assets/`), the old copy will linger in the webroot until
+manually swept — it's not in `web/dist/` anymore but isn't a
+content-hashed bundle either. Rare enough to handle by hand.
+
+#### What `deploy-backend` does
+
+```
+sudo install -m 755 bin/trinity $BINDIR/
+sudo systemctl restart $SERVICE
+```
+
+Restart is unconditional — a new binary is inert until the service
+picks it up. If you need to defer the restart, run the install line
+manually instead of `make deploy-backend`.
+
 ## Usage
 
 Trinity provides a single binary with subcommands for both the server and CLI operations.
