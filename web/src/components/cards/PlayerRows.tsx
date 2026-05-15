@@ -58,9 +58,9 @@ const TEAM_DOT_HELP = `Team marker.
 • Red / Blue — team in TDM, CTF, Overload, Harvester
 • Green — no team (FFA, Tournament)
 • Gray — player dropped before the match ended (completed matches only)`
-const SCORE_HELP = `Score for this match.
+export const SCORE_HELP = `Score for this match.
 FFA / 1v1 / TDM use frags; objective modes (CTF, 1FCTF, Overload, Harvester) use the engine's composite score (caps, defends, returns, frags, plus mode-specific events).`
-const PING_HELP = `Round-trip latency to the server, in milliseconds. Bots are always 0.`
+export const PING_HELP = `Round-trip latency to the server, in milliseconds. Bots are always 0.`
 
 export function PlayerRows({ players, mode, onPlayerClick }: PlayerRowsProps) {
   return (

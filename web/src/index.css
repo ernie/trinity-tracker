@@ -11062,6 +11062,91 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   display: flex; gap: 8px;
 }
 
+/* ── FFA hero strip ─────────────────────────────────────── */
+/* "King of the hill" featured player in free-for-all. Outer grid is
+   2-col (portrait | identity); the identity column stacks name →
+   score → (medals + ping) so the name has the full width to itself
+   and doesn't get clipped at typical card widths. Re-uses
+   .duelist__portrait-wrap so the 88px framed portrait + badge
+   overlap is identical to 1v1. */
+.ffa-hero {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 14px;
+  padding: 0 4px 10px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 248, 240, 0.08);
+}
+.ffa-hero__identity {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    "name   name"
+    "score  score"
+    "medals sub";
+  row-gap: 4px;
+  column-gap: 10px;
+  align-items: end;
+  min-width: 0; /* enables ellipsis on the name */
+}
+.ffa-hero__name {
+  grid-area: name;
+  font-family: 'Cinzel', serif; font-weight: 600; font-size: 20px;
+  letter-spacing: 0.04em; line-height: 1.15;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ffa-hero__score {
+  grid-area: score;
+  font-family: 'Cinzel', serif; font-weight: 700; font-size: 38px;
+  color: var(--accent); line-height: 1; letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  justify-self: start;
+}
+.ffa-hero__score.winner {
+  color: #facc15;
+  text-shadow: 0 0 12px rgba(250, 204, 21, 0.35);
+}
+.ffa-hero__medals {
+  grid-area: medals;
+  display: flex; flex-direction: row; gap: 6px; flex-wrap: wrap;
+  align-items: center;
+}
+.ffa-hero__medals .medal-icon { margin: 0; }
+.ffa-hero__medals .medal-icon-sm img { width: 18px; height: 18px; }
+.ffa-hero__sub {
+  grid-area: sub;
+  font-family: 'Barlow', sans-serif; font-size: 11px;
+  letter-spacing: 0.16em; color: var(--text-dim); text-transform: uppercase;
+  justify-self: end;
+  display: flex; gap: 8px;
+}
+/* Placeholder rendered between match-start and first-frag so the
+   strip's vertical footprint never shifts when the king appears. */
+.ffa-hero--placeholder .ffa-hero__name {
+  color: var(--text-dim);
+  font-style: italic;
+  letter-spacing: 0.08em;
+  /* Override the ellipsis rule used for real names — the caption
+     should wrap onto a second line on narrow cards rather than clip. */
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.25;
+}
+.ffa-hero__placeholder-icon {
+  width: 64px; height: 64px;
+  object-fit: contain;
+  opacity: 0.35;
+  filter: grayscale(1);
+}
+.ffa-hero.clickable { cursor: pointer; transition: opacity 0.15s ease; }
+.ffa-hero.clickable:hover,
+.ffa-hero.clickable:focus-visible {
+  outline: none;
+  opacity: 0.85;
+}
+
 /* ── Player rows ────────────────────────────────────────── */
 .player-rows {
   display: grid;

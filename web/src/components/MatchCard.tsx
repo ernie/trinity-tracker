@@ -6,6 +6,7 @@ import { ModeIcons } from './ServerCard'
 import { RichChip } from './cards/RichChip'
 import { Scoreboard } from './cards/Scoreboard'
 import { Duelists, type DuelistData } from './cards/Duelists'
+import { FfaHero, useFfaHero, type FfaHeroPlayer } from './cards/FfaHero'
 import { PlayerRows } from './cards/PlayerRows'
 import { SpectatorStrip } from './cards/SpectatorStrip'
 import { classifyScores, awardsFromCounts } from './cards/format'
@@ -170,11 +171,36 @@ export function MatchCard({
   }
   const isTeam = isTeamGame(match.game_type)
   const isDuel = match.game_type === '1v1'
+  const isFfa = !isTeam && !isDuel
   const players = match.players ?? []
   const activeTeams = sortMatchPlayers(
     players.filter((p) => !isSpectator(p)),
     isTeam,
   )
+  // FFA hero: top scorer on this finished match. Gild only if the
+  // top scorer is unique (no tie at the top). Key on player_id —
+  // the match-summary primary key, which is unique even when two
+  // players share an identical name.
+  const ffaPlayerData: FfaHeroPlayer[] = activeTeams.map((p) => ({
+    key: p.player_id,
+    name: p.name,
+    cleanName: p.clean_name,
+    model: p.model,
+    isBot: p.is_bot,
+    skill: p.skill,
+    isVR: p.is_vr,
+    isVerified: p.is_verified,
+    isAdmin: p.is_admin,
+    score: p.frags ?? 0,
+    sub: <span>{p.frags ?? 0} K · {p.deaths ?? 0} D</span>,
+    awards: awardsFromCounts(p),
+    playerId: p.player_id,
+  }))
+  const ffaHero = useFfaHero(ffaPlayerData)
+  const heroKey = isFfa && ffaHero ? ffaHero.key : null
+  const topScore = ffaPlayerData.reduce((m, p) => Math.max(m, p.score), 0)
+  const topCount = topScore > 0 ? ffaPlayerData.filter((p) => p.score === topScore).length : 0
+  const ffaGild = isFfa && topCount === 1
   const spectators = players.filter(isSpectator).map((p) => ({ name: p.name }))
 
   const redScore = match.red_score ?? 0
@@ -205,23 +231,25 @@ export function MatchCard({
     </span>
   ) : null
 
-  const rowData = activeTeams.map((p) => ({
-    name: p.name,
-    cleanName: p.clean_name,
-    model: p.model,
-    team: p.team as 1 | 2 | 3 | undefined,
-    isBot: p.is_bot,
-    skill: p.skill,
-    isVR: p.is_vr,
-    isVerified: p.is_verified,
-    isAdmin: p.is_admin,
-    frags: p.frags,
-    deaths: p.deaths,
-    score: p.score,
-    awards: awardsFromCounts(p),
-    playerId: p.player_id,
-    completed: p.completed,
-  }))
+  const rowData = activeTeams
+    .filter((p) => !(heroKey != null && p.player_id === heroKey))
+    .map((p) => ({
+      name: p.name,
+      cleanName: p.clean_name,
+      model: p.model,
+      team: p.team as 1 | 2 | 3 | undefined,
+      isBot: p.is_bot,
+      skill: p.skill,
+      isVR: p.is_vr,
+      isVerified: p.is_verified,
+      isAdmin: p.is_admin,
+      frags: p.frags,
+      deaths: p.deaths,
+      score: p.score,
+      awards: awardsFromCounts(p),
+      playerId: p.player_id,
+      completed: p.completed,
+    }))
 
   return (
     <article
@@ -294,6 +322,13 @@ export function MatchCard({
               blueLabel="Blue"
               blueScore={blueScore}
               state={scoreState}
+            />
+          )}
+          {isFfa && ffaHero && (
+            <FfaHero
+              player={ffaHero}
+              gildScore={ffaGild}
+              onPlayerClick={onPlayerClick}
             />
           )}
           <PlayerRows players={rowData} mode="finished" onPlayerClick={onPlayerClick} />

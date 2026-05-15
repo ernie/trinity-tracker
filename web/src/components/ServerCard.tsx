@@ -11,7 +11,8 @@ import { RichChip } from './cards/RichChip'
 import { Scoreboard } from './cards/Scoreboard'
 import { Duelists, type DuelistData } from './cards/Duelists'
 import { classifyScores, awardsFromCounts } from './cards/format'
-import { PlayerRows } from './cards/PlayerRows'
+import { FfaHero, useFfaHero, type FfaHeroPlayer } from './cards/FfaHero'
+import { PlayerRows, PING_HELP } from './cards/PlayerRows'
 import { SpectatorStrip } from './cards/SpectatorStrip'
 
 interface ServerCardProps {
@@ -67,6 +68,12 @@ Frags spawn skulls at the central skull generator. Deliver enemy skulls to the e
 function isTeamGame(gameType: string): boolean {
   const teamModes = ['team deathmatch', 'tdm', 'capture the flag', 'ctf', 'one flag ctf', '1fctf', 'overload', 'harvester']
   return teamModes.includes(gameType.toLowerCase())
+}
+
+// Free-for-all = neither team mode nor 1v1 tournament.
+function isFreeForAll(gameType: string): boolean {
+  const gt = gameType?.toLowerCase()
+  return gt === 'free for all' || gt === 'ffa'
 }
 
 // Check if this is CTF mode
@@ -374,6 +381,30 @@ const ServerCardImpl = memo(function ServerCardImpl({ server, isSelected, onSele
   )
   const spectators = (server.players ?? []).filter(p => p.team === 3)
 
+  // FFA hero strip: king-of-the-hill featured player. Computed for
+  // every render (hook must be unconditional) but only rendered when
+  // the gametype is actually FFA — non-FFA cards just discard the
+  // result. Key on client_num (stable for the duration of a server
+  // session — names aren't unique in Q3).
+  const ffaPlayerData: FfaHeroPlayer[] = activePlayers.map(p => ({
+    key: p.client_num,
+    name: p.name,
+    cleanName: p.clean_name,
+    model: p.model,
+    isBot: p.is_bot,
+    skill: p.skill,
+    isVR: p.is_vr,
+    isVerified: p.is_verified,
+    isAdmin: p.is_admin,
+    score: p.score ?? 0,
+    sub: <span data-help={PING_HELP}>{p.ping ?? 0} ping</span>,
+    awards: awardsFromCounts(p),
+    playerId: p.player_id,
+  }))
+  const ffaHero = useFfaHero(ffaPlayerData)
+  const isFfa = isFreeForAll(server.game_type)
+  const heroKey = isFfa && ffaHero ? ffaHero.key : null
+
   return (
     <div
       className={`card server-card ${isSelected ? 'selected' : ''} ${onSelect ? 'selectable' : ''} ${isDegraded ? 'degraded' : ''}`}
@@ -494,7 +525,9 @@ const ServerCardImpl = memo(function ServerCardImpl({ server, isSelected, onSele
         )
       })()}
 
-      {/* 1v1 duel: portraits + score side-by-side. Other modes use the player table. */}
+      {/* 1v1 duel: portraits + score side-by-side. FFA: hero strip
+          above the table for the king-of-the-hill leader. Other modes
+          use the player table directly. */}
       {server.game_type === '1v1' && activePlayers.length >= 2 ? (
         <Duelists
           left={duelistFromLivePlayer(activePlayers[0])}
@@ -504,8 +537,14 @@ const ServerCardImpl = memo(function ServerCardImpl({ server, isSelected, onSele
           onPlayerClick={onPlayerClick}
         />
       ) : (
+        <>
+          {isFfa && (
+            <FfaHero player={ffaHero} onPlayerClick={onPlayerClick} />
+          )}
         <PlayerRows
-          players={activePlayers.map(p => ({
+          players={activePlayers
+            .filter(p => !(heroKey != null && p.client_num === heroKey))
+            .map(p => ({
             name: p.name,
             cleanName: p.clean_name,
             model: p.model,
@@ -526,6 +565,7 @@ const ServerCardImpl = memo(function ServerCardImpl({ server, isSelected, onSele
           mode="live"
           onPlayerClick={onPlayerClick}
         />
+        </>
       )}
 
       <SpectatorStrip
@@ -577,7 +617,7 @@ function duelistFromLivePlayer(p: Player | undefined): DuelistData {
     isVerified: p.is_verified,
     isAdmin: p.is_admin,
     score: p.score ?? 0,
-    sub: <span>{p.ping ?? 0} ping</span>,
+    sub: <span data-help={PING_HELP}>{p.ping ?? 0} ping</span>,
     awards: awardsFromCounts(p),
     playerId: p.player_id,
   }

@@ -4,6 +4,7 @@ import { PlayerBadge } from '../PlayerBadge'
 import { BotBadge } from '../BotBadge'
 import { MedalIcon } from '../MedalIcon'
 import { ColoredText } from '../ColoredText'
+import { SCORE_HELP } from './PlayerRows'
 import type { ScoreState, AwardEntry } from './format'
 
 export interface DuelistData {
@@ -87,7 +88,7 @@ function Duelist({ data, side, winnerSide, onClick }: DuelistProps) {
       <span className={`duelist__name ${isLoser ? 'dim' : ''}`}>
         <ColoredText text={data.name} />
       </span>
-      <span className={`duelist__score ${isLoser ? 'loser' : ''} ${isWinner ? 'winner' : ''}`}>{data.score}</span>
+      <span className={`duelist__score ${isLoser ? 'loser' : ''} ${isWinner ? 'winner' : ''}`} data-help={SCORE_HELP}>{data.score}</span>
       {data.sub && <span className="duelist__sub">{data.sub}</span>}
     </div>
   )
