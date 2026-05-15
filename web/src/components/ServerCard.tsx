@@ -21,13 +21,6 @@ interface ServerCardProps {
   onSelect?: (serverId: number) => void
   onPlayerClick?: (playerName: string, cleanName: string, playerId?: number) => void
   liveness?: 'live' | 'stale' | 'offline'
-  /** 'docs' renders against a static snapshot: freezes the clock, ignores
-   *  liveness, and ignores LiveDataContext for attacker slots. Default 'live'. */
-  presentation?: 'live' | 'docs'
-  /** Docs-only: replaces the LiveDataContext lookup for attacker client_nums,
-   *  so docs can demo the Overload under-attack indicator + per-row reticle
-   *  without a live data feed. Ignored when presentation === 'live'. */
-  attackersOverride?: Set<number>
 }
 
 // HelpMode descriptions for the inline elements rendered directly by
@@ -312,21 +305,12 @@ export function ModeIcons({ movement, gameplay }: { movement?: string, gameplay?
   )
 }
 
-// Public ServerCard — routes between the live path (subscribes to
-// LiveDataContext) and the docs path (uses the supplied
-// attackersOverride). Docs cards must NOT subscribe to LiveDataContext
-// because that context updates on every WebSocket event; a docs page
-// with 4+ ServerCardDemos would otherwise re-render all of them on
-// every server status broadcast, which on mobile compounds into a
-// memory/CPU pressure crash after the page has been open a while.
+// Public ServerCard — subscribes to LiveDataContext for obelisk
+// attackers (Overload row reticles + under-attack pulse), then hands
+// off to the memoized ServerCardImpl. The split lets Impl skip
+// re-renders when a context tick doesn't actually change THIS card's
+// attacker set.
 export function ServerCard(props: ServerCardProps) {
-  if (props.presentation === 'docs') {
-    return <ServerCardImpl {...props} attackingSlots={props.attackersOverride} />
-  }
-  return <ServerCardLive {...props} />
-}
-
-function ServerCardLive(props: ServerCardProps) {
   const { obeliskAttackersByServer } = useLiveData()
   return (
     <ServerCardImpl {...props} attackingSlots={obeliskAttackersByServer.get(props.server.server_id)} />
@@ -335,9 +319,8 @@ function ServerCardLive(props: ServerCardProps) {
 
 type ServerCardImplProps = ServerCardProps & { attackingSlots: Set<number> | undefined }
 
-const ServerCardImpl = memo(function ServerCardImpl({ server, isSelected, onSelect, onPlayerClick, liveness, presentation = 'live', attackingSlots }: ServerCardImplProps) {
+const ServerCardImpl = memo(function ServerCardImpl({ server, isSelected, onSelect, onPlayerClick, liveness, attackingSlots }: ServerCardImplProps) {
   const { hasMultiple: hasMultipleSources } = useSources()
-  const isDocs = presentation === 'docs'
   const meta = useMapMeta(server.map)
   const showTeamScores = isTeamGame(server.game_type) && server.team_scores
   const scoreLimit = getScoreLimit(server.game_type, server.server_vars)
@@ -349,8 +332,7 @@ const ServerCardImpl = memo(function ServerCardImpl({ server, isSelected, onSele
   // the timer doesn't saw-tooth and the staleness reads visually.
   // `liveness` is undefined on first render (before /api/servers
   // returns) — treat that as live so we don't briefly dim healthy cards.
-  // Docs mode forces non-degraded: snapshots are intentionally static.
-  const isDegraded = !isDocs && (liveness === 'offline' || liveness === 'stale' || server.online === false)
+  const isDegraded = liveness === 'offline' || liveness === 'stale' || server.online === false
 
   // Determine state class and label for top-right badge.
   // Liveness from /api/servers wins over match_state when degraded — a
@@ -358,15 +340,11 @@ const ServerCardImpl = memo(function ServerCardImpl({ server, isSelected, onSele
   // first, since match-state values like "active" become misleading
   // when the data behind them is no longer fresh.
   const getStateBadge = (): { className: string; label: string } => {
-    // Docs mode bypasses liveness so the snapshot's match_state always
-    // wins; readers shouldn't see Offline/Stale on demonstration cards.
-    if (!isDocs) {
-      if (liveness === 'offline' || !server.online) {
-        return { className: 'state-offline', label: 'Offline' }
-      }
-      if (liveness === 'stale') {
-        return { className: 'state-stale', label: 'Stale' }
-      }
+    if (liveness === 'offline' || !server.online) {
+      return { className: 'state-offline', label: 'Offline' }
+    }
+    if (liveness === 'stale') {
+      return { className: 'state-stale', label: 'Stale' }
     }
     switch (server.match_state) {
       case 'overtime':
@@ -429,7 +407,7 @@ const ServerCardImpl = memo(function ServerCardImpl({ server, isSelected, onSele
           server={server}
           timeLimit={timeLimit}
           scoreLimit={scoreLimit}
-          live={!isDegraded && !isDocs}
+          live={!isDegraded}
         />
       </div>
 

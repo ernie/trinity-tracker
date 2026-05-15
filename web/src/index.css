@@ -6636,7 +6636,57 @@ h2 {
   flex-wrap: wrap;
   align-items: center;
   gap: 10px;
+}
+
+/* Wraps ServerFilters + help toggle so they share a row. ServerFilters
+   nullifies itself when nothing is filterable; the help toggle stays
+   visible either way, anchored to the right via margin-left: auto. */
+.servers-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
   margin-bottom: 15px;
+}
+
+.servers-toolbar .server-filters {
+  flex: 1 1 auto;
+  margin-bottom: 0;
+  min-width: 0;
+}
+
+.servers-help-toggle {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: var(--bg-card);
+  border: var(--rule-strong);
+  color: var(--text-dim);
+  border-radius: 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.8rem;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.servers-help-toggle:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+}
+
+.servers-help-toggle.active {
+  background: var(--ember-tint-bg);
+  border-color: var(--ember-strong);
+  color: var(--ember-tint-text);
+}
+
+.servers-help-toggle__glyph {
+  font-weight: 700;
+  font-size: 0.95em;
+  line-height: 1;
 }
 
 /* Outer flex container; supports an optional .server-filter-label
@@ -12360,6 +12410,13 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   /* No layout effect; the wrapper exists only as a delegation root
      for event listeners. */
   display: contents;
+}
+
+/* Signal help mode with the question-mark cursor across the whole
+   wrapped subtree. Universal selector overrides per-element cursors
+   (e.g. cursor: pointer on links / clickables) while the mode is on. */
+.help-mode-root * {
+  cursor: help;
 }
 
 /* Suppress the card's existing in-tree hover previews while in

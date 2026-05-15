@@ -9,14 +9,6 @@ import { CalloutImage, CalloutLegend, type CalloutData } from './CalloutImage'
 import { HitSoundPreview } from './HitSoundPreview'
 import { LazyVideo } from './LazyVideo'
 import { MOVEMENT_MODES } from '../ServerCard'
-import { ServerCardDemo } from './serverCardDemo/ServerCardDemo'
-import { FFA_SNAPSHOT } from './serverCardDemo/snapshots/ffa'
-import { ONE_V_ONE_SNAPSHOT } from './serverCardDemo/snapshots/1v1'
-import { TDM_SNAPSHOT } from './serverCardDemo/snapshots/tdm'
-import { CTF_SNAPSHOT } from './serverCardDemo/snapshots/ctf'
-import { ONE_FCTF_SNAPSHOT } from './serverCardDemo/snapshots/1fctf'
-import { OVERLOAD_SNAPSHOT, OVERLOAD_ATTACKERS } from './serverCardDemo/snapshots/overload'
-import { HARVESTER_SNAPSHOT } from './serverCardDemo/snapshots/harvester'
 
 // Annotated-screenshot callout data. Each entry feeds both the
 // CalloutImage overlay (hover/focus/tap tooltips on the image) and
@@ -534,13 +526,13 @@ export function DocsPlay() {
           <Link to="/servers">Servers</Link> show which:
         </p>
         <ul>
-          <li><strong>Free For All</strong> — everyone vs. everyone. <a href="#card-ffa">[card]</a></li>
-          <li><strong>Tournament</strong> — 1v1. <a href="#card-1v1">[card]</a></li>
-          <li><strong>Team Deathmatch</strong> — team vs. team, frag count. <a href="#card-tdm">[card]</a></li>
-          <li><strong>Capture the Flag</strong> — grab their flag, return yours, score. <a href="#card-ctf">[card]</a></li>
-          <li><strong>One-Flag CTF</strong> <em>(Team Arena)</em> — one neutral flag, deliver to the enemy base. <a href="#card-1fctf">[card]</a></li>
-          <li><strong>Overload</strong> <em>(Team Arena)</em> — destroy the enemy obelisk. <a href="#card-overload">[card]</a></li>
-          <li><strong>Harvester</strong> <em>(Team Arena)</em> — collect skulls from kills, deposit at the enemy receptacle. <a href="#card-harvester">[card]</a></li>
+          <li><strong>Free For All</strong> — everyone vs. everyone.</li>
+          <li><strong>Tournament</strong> — 1v1.</li>
+          <li><strong>Team Deathmatch</strong> — team vs. team, frag count.</li>
+          <li><strong>Capture the Flag</strong> — grab their flag, return yours, score.</li>
+          <li><strong>One-Flag CTF</strong> <em>(Team Arena)</em> — one neutral flag, deliver to the enemy base.</li>
+          <li><strong>Overload</strong> <em>(Team Arena)</em> — destroy the enemy obelisk.</li>
+          <li><strong>Harvester</strong> <em>(Team Arena)</em> — collect skulls from kills, deposit at the enemy receptacle.</li>
         </ul>
 
         <h3 className="docs-play__feature-title">Weapons</h3>
@@ -606,86 +598,6 @@ export function DocsPlay() {
             Invulnerability.
           </li>
         </ul>
-        </details>
-      </div>
-
-      <div className="about-section">
-        <DocsH2 id="reading-server-cards">Reading a server card</DocsH2>
-        <details className="docs-collapsible">
-          <summary>
-            What each piece of the server cards means, mode by mode.
-            Skip if you already know the layout.
-          </summary>
-
-        <p>
-          Each card on <Link to="/servers">Servers</Link> packs a lot
-          of mode-specific UI into a small footprint. Hover (or tap)
-          any part of the cards below to learn what it means.
-        </p>
-
-        <h3 id="card-ffa" className="docs-play__feature-title">Deathmatch (Free For All)</h3>
-        <p>
-          Everyone vs. everyone. Frag count is the only score; first
-          to the frag limit (or whoever's ahead at the time limit)
-          wins.
-        </p>
-        <ServerCardDemo snapshot={FFA_SNAPSHOT} />
-
-        <h3 id="card-1v1" className="docs-play__feature-title">Tournament (1v1)</h3>
-        <p>
-          Two players head-to-head. The card swaps from the player
-          table to a side-by-side view of the two opponents.
-          Spectators queue, and the next in line plays the winner
-          when the current match ends — so spectating is functionally
-          a waiting room.
-        </p>
-        <ServerCardDemo snapshot={ONE_V_ONE_SNAPSHOT} />
-
-        <h3 id="card-tdm" className="docs-play__feature-title">Team Deathmatch</h3>
-        <p>
-          Red vs. Blue, frag count. A team scoreboard appears above
-          the player list, with each team's running score.
-        </p>
-        <ServerCardDemo snapshot={TDM_SNAPSHOT} />
-
-        <h3 id="card-ctf" className="docs-play__feature-title">Capture the Flag</h3>
-        <p>
-          Each team races to grab the enemy's flag and bring it home.
-          Flag indicators next to the team scores show each flag's
-          state; the row-level flag icon next to a player's name marks
-          the active carrier.
-        </p>
-        <ServerCardDemo snapshot={CTF_SNAPSHOT} />
-
-        <h3 id="card-1fctf" className="docs-play__feature-title">One-Flag CTF</h3>
-        <p>
-          A single neutral flag sits at center. Either team can grab
-          it and deliver it to the enemy base to score. The center
-          indicator drifts toward whichever side currently has the
-          flag.
-        </p>
-        <ServerCardDemo snapshot={ONE_FCTF_SNAPSHOT} />
-
-        <h3 id="card-overload" className="docs-play__feature-title">Overload</h3>
-        <p>
-          Destroy the enemy team's obelisk. HP bars in the scoreboard
-          slots show each obelisk's health; a bar pulses while its
-          obelisk is under attack, and player rows mark active
-          attackers with a reticle next to their name.
-        </p>
-        <ServerCardDemo snapshot={OVERLOAD_SNAPSHOT} attackersOverride={OVERLOAD_ATTACKERS} />
-
-        <h3 id="card-harvester" className="docs-play__feature-title">Harvester</h3>
-        <p>
-          Frags spawn skulls at the central skull generator. Pick up
-          enemy skulls (up to 5 at once) and deliver them to the
-          enemy team's receptacle to score. Picking up your own
-          team's skulls removes them from play, denying the enemy.
-          The scoreboard slots show each team's current carry total;
-          a skull chip next to a player's name marks an active
-          carrier.
-        </p>
-        <ServerCardDemo snapshot={HARVESTER_SNAPSHOT} />
         </details>
       </div>
 
