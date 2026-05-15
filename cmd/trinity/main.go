@@ -231,7 +231,26 @@ func cmdServe(args []string) {
 		defer subNC.Close()
 	}
 	if hasCollector {
-		opts := []nats.Option{nats.Name("trinity-collector")}
+		opts := []nats.Option{
+			nats.Name("trinity-collector"),
+			// Retry forever. The 60-reconnect / 2s-wait defaults give
+			// only a ~2min budget — too short for residential links
+			// (modem reboots, DHCP renewals) and hub bounces. Reaching
+			// the terminal "closed" state once stranded the Pi for 33h
+			// publishing into the void.
+			nats.MaxReconnects(-1),
+			nats.ReconnectWait(5 * time.Second),
+			nats.DisconnectErrHandler(func(_ *nats.Conn, err error) {
+				if err != nil {
+					log.Printf("Collector NATS disconnected: %v", err)
+				} else {
+					log.Printf("Collector NATS disconnected")
+				}
+			}),
+			nats.ClosedHandler(func(_ *nats.Conn) {
+				log.Fatalf("Collector NATS connection permanently closed; exiting so systemd restarts us")
+			}),
+		}
 		var connURL string
 		switch {
 		case ns != nil:
