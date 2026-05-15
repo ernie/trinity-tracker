@@ -381,7 +381,6 @@ function LeaderboardGrid({ entries, category }: LeaderboardGridProps) {
     <div className="leaderboard-grid">
       {entries.map((entry, index) => {
         const isTop = index < 3;
-        const cleanInitial = (entry.player.clean_name || entry.player.name || "").replace(/\^./g, "").charAt(0).toLowerCase() || "?";
         return (
           <Link
             key={entry.player.id}
@@ -390,7 +389,7 @@ function LeaderboardGrid({ entries, category }: LeaderboardGridProps) {
           >
             <span className={`leaderboard-card__rank${isTop ? " top" : ""}`}>#{index + 1}</span>
             <span className="leaderboard-card__avatar">
-              <PlayerPortrait model={entry.player.model} size="lg" fallback={cleanInitial} />
+              <PlayerPortrait model={entry.player.model} size="lg" />
               <PlayerBadge
                 isVerified={entry.player.is_verified}
                 isAdmin={entry.player.is_admin}
