@@ -6660,14 +6660,17 @@ h2 {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 12px;
+  /* Padding + font-size match .game-type-btn (the segmented toggles
+     in the same toolbar row) so the help toggle reads as the same
+     size of control, not a slimmer afterthought. */
+  padding: 6px 14px;
   background: var(--bg-card);
   border: var(--rule-strong);
   color: var(--text-dim);
   border-radius: 0;
   cursor: pointer;
   font-family: inherit;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   transition: all 0.2s;
   flex-shrink: 0;
 }
@@ -6681,6 +6684,24 @@ h2 {
   background: var(--ember-tint-bg);
   border-color: var(--ember-strong);
   color: var(--ember-tint-text);
+}
+
+/* Added by App.tsx once help mode is on AND the toggle's natural Y
+   has been measured. `top` and `right` come in via inline style so
+   the button starts at its toolbar-row position and rises with
+   scroll, pinning at HELP_TOGGLE_STICK_TOP_PX (see App.tsx) to clear
+   the status pill. z-index sits below .help-popover (1000); popovers
+   are pointer-events:none, so clicks fall through anyway.
+   `margin-left: 0` defeats the base `margin-left: auto`, which in
+   absolute positioning can otherwise resolve as fill-leftward and
+   leave the element left-anchored at its static position instead of
+   right-anchored at the inline `right` value. */
+.servers-help-toggle.floating {
+  position: fixed;
+  margin-left: 0;
+  left: auto;
+  z-index: 500;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
 }
 
 .servers-help-toggle__glyph {
