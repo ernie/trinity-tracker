@@ -15,7 +15,7 @@ const SIZE_CLASSES: Record<NonNullable<PlayerPortraitProps['size']>, string> = {
   xl: 'portrait-xl',
 }
 
-const PORTRAIT_HELP = `Player model — what they look like in-game. Players set their own via cg_model / cg_team_model.`
+const PORTRAIT_HELP = `Player model — what they look like in-game.`
 
 /**
  * Parse a Q3A model string to get the portrait path.
