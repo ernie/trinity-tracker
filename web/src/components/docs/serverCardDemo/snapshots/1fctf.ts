@@ -40,8 +40,8 @@ export const ONE_FCTF_SNAPSHOT: ServerStatus = {
     // Red team
     {
       client_num: 0,
-      name: 'kreshok',
-      clean_name: 'kreshok',
+      name: 'Kreshok',
+      clean_name: 'Kreshok',
       score: 12,
       ping: 36,
       is_bot: false,
@@ -53,8 +53,8 @@ export const ONE_FCTF_SNAPSHOT: ServerStatus = {
     },
     {
       client_num: 1,
-      name: 'evergreen',
-      clean_name: 'evergreen',
+      name: 'Evergreen',
+      clean_name: 'Evergreen',
       score: 9,
       ping: 41,
       is_bot: false,
@@ -92,8 +92,8 @@ export const ONE_FCTF_SNAPSHOT: ServerStatus = {
     // Blue team
     {
       client_num: 4,
-      name: 'spudly',
-      clean_name: 'spudly',
+      name: 'Spudly',
+      clean_name: 'Spudly',
       score: 14,
       ping: 45,
       is_bot: false,
@@ -107,8 +107,8 @@ export const ONE_FCTF_SNAPSHOT: ServerStatus = {
     },
     {
       client_num: 5,
-      name: 'foxtrot',
-      clean_name: 'foxtrot',
+      name: 'Foxtrot',
+      clean_name: 'Foxtrot',
       score: 11,
       ping: 39,
       is_bot: false,

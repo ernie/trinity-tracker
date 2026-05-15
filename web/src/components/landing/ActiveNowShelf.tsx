@@ -28,7 +28,6 @@ export function ActiveNowShelf() {
               <div key={server.server_id} className="landing-shelf-h__slot">
                 <ServerCard
                   server={server}
-                  newPlayers={live.newPlayers}
                   onPlayerClick={live.showPlayer}
                   liveness={live.liveness.get(server.server_id)}
                 />

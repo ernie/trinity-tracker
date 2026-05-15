@@ -6,7 +6,7 @@
 //
 // Snapshot state:
 //   - Blue obelisk is at 1400/2500 HP and under attack — its bar
-//     pulses, the row-attacker reticle shows on the attacker.
+//     is highlighted, the row-attacker reticle shows on the attacker.
 //   - Red obelisk is at full HP (2500/2500) — not under attack.
 //   - Team scores 1–0 (red previously destroyed blue once and the
 //     blue obelisk respawned); the `obelisks_destroyed: 1` count on
@@ -15,7 +15,7 @@
 // The "currently attacking" state is supplied by passing an
 // attackersOverride Set to the ServerCardDemo wrapper — the live
 // ServerCard reads attackingSlots from LiveDataContext, but the
-// snapshot needs a static way to demonstrate the indicator pulse.
+// snapshot needs a static way to demonstrate the indicator.
 // dread (client_num 0, red team) is the attacker in this snapshot.
 import type { ServerStatus } from '../../../../types'
 
@@ -46,8 +46,8 @@ export const OVERLOAD_SNAPSHOT: ServerStatus = {
     // supplied by DocsPlay).
     {
       client_num: 0,
-      name: 'dread',
-      clean_name: 'dread',
+      name: 'Dread',
+      clean_name: 'Dread',
       score: 14,
       ping: 33,
       is_bot: false,
@@ -59,8 +59,8 @@ export const OVERLOAD_SNAPSHOT: ServerStatus = {
     },
     {
       client_num: 1,
-      name: 'monstr',
-      clean_name: 'monstr',
+      name: 'Monstr',
+      clean_name: 'Monstr',
       score: 22,
       ping: 27,
       is_bot: false,
@@ -75,8 +75,8 @@ export const OVERLOAD_SNAPSHOT: ServerStatus = {
     },
     {
       client_num: 2,
-      name: 'sane',
-      clean_name: 'sane',
+      name: 'Sane',
+      clean_name: 'Sane',
       score: 9,
       ping: 44,
       is_bot: false,
@@ -100,8 +100,8 @@ export const OVERLOAD_SNAPSHOT: ServerStatus = {
     // Blue team (team: 2)
     {
       client_num: 4,
-      name: 'danillzin',
-      clean_name: 'danillzin',
+      name: 'Danillzin',
+      clean_name: 'Danillzin',
       score: 16,
       ping: 38,
       is_bot: false,
@@ -163,8 +163,8 @@ export const OVERLOAD_SNAPSHOT: ServerStatus = {
     },
     {
       client_num: 9,
-      name: 'vortex',
-      clean_name: 'vortex',
+      name: 'Vortex',
+      clean_name: 'Vortex',
       score: 0,
       ping: 53,
       is_bot: false,
@@ -188,5 +188,5 @@ export const OVERLOAD_SNAPSHOT: ServerStatus = {
 
 // The attacker Set lives alongside the snapshot — when DocsPlay
 // renders this card, it must pass this Set as attackersOverride so
-// the under-attack pulse + row reticle resolve.
+// the under-attack indicator + row reticle resolve.
 export const OVERLOAD_ATTACKERS: Set<number> = new Set([0]) // dread

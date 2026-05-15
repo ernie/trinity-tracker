@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { memo, useEffect, useMemo, useState } from 'react'
 import type { ServerStatus, Player } from '../types'
 import { FlagIcon } from './FlagIcon'
 import { SkullIcon } from './SkullIcon'
@@ -16,16 +16,16 @@ import { SpectatorStrip } from './cards/SpectatorStrip'
 
 interface ServerCardProps {
   server: ServerStatus
-  newPlayers: Set<string>
   isSelected?: boolean
-  onSelect?: () => void
+  /** Takes the server id so parents can pass one stable handler across all cards. */
+  onSelect?: (serverId: number) => void
   onPlayerClick?: (playerName: string, cleanName: string, playerId?: number) => void
   liveness?: 'live' | 'stale' | 'offline'
   /** 'docs' renders against a static snapshot: freezes the clock, ignores
    *  liveness, and ignores LiveDataContext for attacker slots. Default 'live'. */
   presentation?: 'live' | 'docs'
   /** Docs-only: replaces the LiveDataContext lookup for attacker client_nums,
-   *  so docs can demo the Overload under-attack pulse + per-row reticle
+   *  so docs can demo the Overload under-attack indicator + per-row reticle
    *  without a live data feed. Ignored when presentation === 'live'. */
   attackersOverride?: Set<number>
 }
@@ -68,7 +68,7 @@ const OBELISK_HP_HELP = `Enemy obelisk HP.
 • Pulses while under attack
 • Destroyed at 0 HP — respawns shortly; the attacking team scores`
 const HARVESTER_SKULLS_HELP = `Enemy skulls this team is currently holding (sum across all team carriers).
-Frags spawn skulls at the central skull generator. Deliver enemy skulls to the enemy receptacle to score. Picking up your own team's skulls denies them to the enemy (they don't go into inventory). Each player can carry up to 5 enemy skulls at once.`
+Frags spawn skulls at the central skull generator. Deliver enemy skulls to the enemy receptacle to score. Picking up your own team's skulls denies them to the enemy. Each player can carry up to 5 enemy skulls at once.`
 
 // Check if this is a team-based game mode
 function isTeamGame(gameType: string): boolean {
@@ -335,7 +335,7 @@ function ServerCardLive(props: ServerCardProps) {
 
 type ServerCardImplProps = ServerCardProps & { attackingSlots: Set<number> | undefined }
 
-function ServerCardImpl({ server, isSelected, onSelect, onPlayerClick, liveness, presentation = 'live', attackingSlots }: ServerCardImplProps) {
+const ServerCardImpl = memo(function ServerCardImpl({ server, isSelected, onSelect, onPlayerClick, liveness, presentation = 'live', attackingSlots }: ServerCardImplProps) {
   const { hasMultiple: hasMultipleSources } = useSources()
   const isDocs = presentation === 'docs'
   const meta = useMapMeta(server.map)
@@ -351,12 +351,6 @@ function ServerCardImpl({ server, isSelected, onSelect, onPlayerClick, liveness,
   // returns) — treat that as live so we don't briefly dim healthy cards.
   // Docs mode forces non-degraded: snapshots are intentionally static.
   const isDegraded = !isDocs && (liveness === 'offline' || liveness === 'stale' || server.online === false)
-
-  // Use interpolated time for smooth updates between server reports.
-  // Docs mode passes live=false so the clock stays frozen at snapshot time.
-  const { gameTimeMs, warmupRemaining } = useInterpolatedTime(server, timeLimit, !isDegraded && !isDocs)
-  const interpolatedServer = { ...server, game_time_ms: gameTimeMs, warmup_remaining: warmupRemaining }
-  const displayTime = getDisplayTime(interpolatedServer, timeLimit)
 
   // Determine state class and label for top-right badge.
   // Liveness from /api/servers wins over match_state when degraded — a
@@ -390,8 +384,11 @@ function ServerCardImpl({ server, isSelected, onSelect, onPlayerClick, liveness,
   }
   const stateBadge = getStateBadge()
 
-  // Generate levelshot URL from map name
   const levelshotUrl = server.map ? `/assets/levelshots/${server.map.toLowerCase()}.jpg` : undefined
+  const cardStyle = useMemo<React.CSSProperties | undefined>(
+    () => (levelshotUrl ? ({ '--levelshot': `url(${levelshotUrl})` } as React.CSSProperties) : undefined),
+    [levelshotUrl],
+  )
 
   // Players excluding spectators (team 3), sorted for display
   const activePlayers = sortPlayersByTeam(
@@ -402,8 +399,8 @@ function ServerCardImpl({ server, isSelected, onSelect, onPlayerClick, liveness,
   return (
     <div
       className={`card server-card ${isSelected ? 'selected' : ''} ${onSelect ? 'selectable' : ''} ${isDegraded ? 'degraded' : ''}`}
-      style={levelshotUrl ? { '--levelshot': `url(${levelshotUrl})` } as React.CSSProperties : undefined}
-      onClick={onSelect}
+      style={cardStyle}
+      onClick={onSelect ? () => onSelect(server.server_id) : undefined}
       role={onSelect ? 'button' : undefined}
       tabIndex={onSelect ? 0 : undefined}
     >
@@ -428,14 +425,12 @@ function ServerCardImpl({ server, isSelected, onSelect, onPlayerClick, liveness,
           <span className="card__map-short">{meta.shortName || server.map || 'Unknown'}</span>
           <span className="card__map-long">{meta.displayName || server.map || 'Unknown'}</span>
         </div>
-        {(scoreLimit || timeLimit || gameTimeMs > 0 || displayTime.isWarmup) && (
-          <div className="card__limits" data-help={LIMITS_HELP}>
-            {scoreLimit && <span>Limit: {scoreLimit}</span>}
-            {scoreLimit && (timeLimit || gameTimeMs > 0 || displayTime.isWarmup) && <span> | </span>}
-            <span className={displayTime.isOvertime ? 'overtime-time' : displayTime.isWarmup ? 'warmup-time' : ''}>{displayTime.time}</span>
-            {timeLimit && <span> / {timeLimit}m</span>}
-          </div>
-        )}
+        <CardLimits
+          server={server}
+          timeLimit={timeLimit}
+          scoreLimit={scoreLimit}
+          live={!isDegraded && !isDocs}
+        />
       </div>
 
       {showTeamScores && server.team_scores && (() => {
@@ -561,7 +556,33 @@ function ServerCardImpl({ server, isSelected, onSelect, onPlayerClick, liveness,
       />
     </div>
   )
-}
+})
+
+// Isolates the 1-second interpolation tick so it only re-renders this
+// small subtree, not the full card.
+const CardLimits = memo(function CardLimits({
+  server, timeLimit, scoreLimit, live,
+}: {
+  server: ServerStatus
+  timeLimit: number | null
+  scoreLimit: number | null
+  live: boolean
+}) {
+  const { gameTimeMs, warmupRemaining } = useInterpolatedTime(server, timeLimit, live)
+  const interpolatedServer = { ...server, game_time_ms: gameTimeMs, warmup_remaining: warmupRemaining }
+  const displayTime = getDisplayTime(interpolatedServer, timeLimit)
+
+  if (!scoreLimit && !timeLimit && gameTimeMs <= 0 && !displayTime.isWarmup) return null
+
+  return (
+    <div className="card__limits" data-help={LIMITS_HELP}>
+      {scoreLimit && <span>Limit: {scoreLimit}</span>}
+      {scoreLimit && (timeLimit || gameTimeMs > 0 || displayTime.isWarmup) && <span> | </span>}
+      <span className={displayTime.isOvertime ? 'overtime-time' : displayTime.isWarmup ? 'warmup-time' : ''}>{displayTime.time}</span>
+      {timeLimit && <span> / {timeLimit}m</span>}
+    </div>
+  )
+})
 
 // DuelistData from a live-server Player. Sub-text is ping (live analog of F/D).
 function duelistFromLivePlayer(p: Player | undefined): DuelistData {
@@ -586,8 +607,8 @@ function duelistFromLivePlayer(p: Player | undefined): DuelistData {
 
 // ObeliskHPIndicator renders an Overload obelisk's HP bar. At HP=0 the
 // bar stays present (empty + pulsing) to signal "respawning". When
-// `underAttack` is true (and not destroyed), a team-colored glow
-// pulses on the bar to mirror the attacker reticle on the row.
+// `underAttack` is true (and not destroyed), an ember ring pulses
+// around the bar.
 function ObeliskHPIndicator({ team, hp, maxHP, underAttack }: { team: 'red' | 'blue'; hp: number; maxHP: number; underAttack?: boolean }) {
   const pct = Math.max(0, Math.min(100, (hp / maxHP) * 100))
   const destroyed = hp <= 0

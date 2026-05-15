@@ -104,8 +104,8 @@ export const FFA_SNAPSHOT: ServerStatus = {
     },
     {
       client_num: 4,
-      name: 'fox',
-      clean_name: 'fox',
+      name: 'Fox',
+      clean_name: 'Fox',
       score: 7,
       ping: 52,
       is_bot: false,
@@ -117,8 +117,8 @@ export const FFA_SNAPSHOT: ServerStatus = {
     },
     {
       client_num: 5,
-      name: 'evil',
-      clean_name: 'evil',
+      name: 'Evil',
+      clean_name: 'Evil',
       score: 5,
       ping: 46,
       is_bot: false,
@@ -130,8 +130,8 @@ export const FFA_SNAPSHOT: ServerStatus = {
     },
     {
       client_num: 6,
-      name: 'cypher',
-      clean_name: 'cypher',
+      name: 'Cypher',
+      clean_name: 'Cypher',
       score: 3,
       ping: 64,
       is_bot: false,

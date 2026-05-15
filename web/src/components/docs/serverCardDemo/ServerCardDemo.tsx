@@ -4,12 +4,10 @@
 // section of /docs/play, one instance per mode.
 //
 // attackersOverride is only used by the Overload subsection to demo
-// the under-attack pulse + per-row reticle without a live data feed.
+// the under-attack indicator + per-row reticle without a live data feed.
 import type { ServerStatus } from '../../../types'
 import { HelpModeRoot } from '../../HelpModeRoot'
 import { ServerCard } from '../../ServerCard'
-
-const EMPTY_SET: Set<string> = new Set()
 
 interface ServerCardDemoProps {
   snapshot: ServerStatus
@@ -21,7 +19,6 @@ export function ServerCardDemo({ snapshot, attackersOverride }: ServerCardDemoPr
     <HelpModeRoot>
       <ServerCard
         server={snapshot}
-        newPlayers={EMPTY_SET}
         presentation="docs"
         attackersOverride={attackersOverride}
       />

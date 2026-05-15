@@ -51,8 +51,8 @@ export const ONE_V_ONE_SNAPSHOT: ServerStatus = {
     },
     {
       client_num: 1,
-      name: 'dahang',
-      clean_name: 'dahang',
+      name: 'DaHaNg',
+      clean_name: 'DaHaNg',
       score: 3,
       ping: 34,
       is_bot: false,
@@ -77,8 +77,8 @@ export const ONE_V_ONE_SNAPSHOT: ServerStatus = {
     },
     {
       client_num: 3,
-      name: 'raisy',
-      clean_name: 'raisy',
+      name: 'Raisy',
+      clean_name: 'Raisy',
       score: 0,
       ping: 41,
       is_bot: false,

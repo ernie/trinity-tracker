@@ -51,8 +51,8 @@ export const CTF_SNAPSHOT: ServerStatus = {
     },
     {
       client_num: 1,
-      name: 'agentbob',
-      clean_name: 'agentbob',
+      name: 'AgentBob',
+      clean_name: 'AgentBob',
       score: 12,
       ping: 46,
       is_bot: false,
@@ -91,8 +91,8 @@ export const CTF_SNAPSHOT: ServerStatus = {
     // Blue team (team: 2)
     {
       client_num: 4,
-      name: 'psygib',
-      clean_name: 'psygib',
+      name: 'Psygib',
+      clean_name: 'Psygib',
       score: 14,
       ping: 29,
       is_bot: false,
@@ -106,8 +106,8 @@ export const CTF_SNAPSHOT: ServerStatus = {
     },
     {
       client_num: 5,
-      name: 'lostcontrol',
-      clean_name: 'lostcontrol',
+      name: 'LostControl',
+      clean_name: 'LostControl',
       score: 10,
       ping: 38,
       is_bot: false,
@@ -145,8 +145,8 @@ export const CTF_SNAPSHOT: ServerStatus = {
     // Spectator
     {
       client_num: 8,
-      name: 'ryan',
-      clean_name: 'ryan',
+      name: 'Ryan',
+      clean_name: 'Ryan',
       score: 0,
       ping: 42,
       is_bot: false,

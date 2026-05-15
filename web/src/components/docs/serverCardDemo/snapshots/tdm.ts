@@ -32,8 +32,8 @@ export const TDM_SNAPSHOT: ServerStatus = {
     // Red team (team: 1) — total 56
     {
       client_num: 0,
-      name: 'sparx',
-      clean_name: 'sparx',
+      name: 'Sparx',
+      clean_name: 'Sparx',
       score: 18,
       ping: 26,
       is_bot: false,
@@ -71,8 +71,8 @@ export const TDM_SNAPSHOT: ServerStatus = {
     },
     {
       client_num: 3,
-      name: 'zero4',
-      clean_name: 'zero4',
+      name: 'Zero4',
+      clean_name: 'Zero4',
       score: 11,
       ping: 31,
       is_bot: false,
@@ -84,8 +84,8 @@ export const TDM_SNAPSHOT: ServerStatus = {
     // Blue team (team: 2) — total 39
     {
       client_num: 4,
-      name: 'polosatiy',
-      clean_name: 'polosatiy',
+      name: 'Polosatiy',
+      clean_name: 'Polosatiy',
       score: 15,
       ping: 48,
       is_bot: false,
@@ -98,8 +98,8 @@ export const TDM_SNAPSHOT: ServerStatus = {
     },
     {
       client_num: 5,
-      name: 'swelter',
-      clean_name: 'swelter',
+      name: 'Swelter',
+      clean_name: 'Swelter',
       score: 10,
       ping: 35,
       is_bot: false,

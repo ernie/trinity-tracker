@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useCallback, useState, useMemo } from "react";
 import { useAuth } from "./hooks/useAuth";
 import { useLiveData } from "./contexts/LiveDataContext";
 import {
@@ -15,7 +15,7 @@ import {
 function App() {
   const { auth } = useAuth();
   const {
-    servers, liveness, manageable, newPlayers, loading,
+    servers, liveness, manageable, loading,
     showPlayer,
   } = useLiveData();
 
@@ -25,12 +25,12 @@ function App() {
   const [showRcon, setShowRcon] = useState(false);
   const [serverFilters, setServerFilters] = useState<ServerFilterState>(() => loadServerFilters());
 
-  const handleServerSelect = (serverId: number) => {
+  const handleServerSelect = useCallback((serverId: number) => {
     setSelectedServerId(serverId);
     if (auth.isAuthenticated) {
       setShowRcon(true);
     }
-  };
+  }, [auth.isAuthenticated]);
 
   const selectedServer = useMemo(
     () => (selectedServerId !== null ? servers.get(selectedServerId) || null : null),
@@ -65,13 +65,8 @@ function App() {
                 <ServerCard
                   key={server.server_id}
                   server={server}
-                  newPlayers={newPlayers}
                   isSelected={selectedServerId === server.server_id}
-                  onSelect={
-                    manageable.get(server.server_id)
-                      ? () => handleServerSelect(server.server_id)
-                      : undefined
-                  }
+                  onSelect={manageable.get(server.server_id) ? handleServerSelect : undefined}
                   onPlayerClick={showPlayer}
                   liveness={liveness.get(server.server_id)}
                 />

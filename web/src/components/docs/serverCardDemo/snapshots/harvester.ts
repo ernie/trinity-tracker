@@ -58,8 +58,8 @@ export const HARVESTER_SNAPSHOT: ServerStatus = {
     },
     {
       client_num: 1,
-      name: 'jam',
-      clean_name: 'jam',
+      name: 'Jam',
+      clean_name: 'Jam',
       score: 9,
       ping: 42,
       is_bot: false,
@@ -129,8 +129,8 @@ export const HARVESTER_SNAPSHOT: ServerStatus = {
     },
     {
       client_num: 6,
-      name: 'riv',
-      clean_name: 'riv',
+      name: 'Riv',
+      clean_name: 'Riv',
       score: 8,
       ping: 51,
       is_bot: false,
@@ -177,8 +177,8 @@ export const HARVESTER_SNAPSHOT: ServerStatus = {
     },
     {
       client_num: 10,
-      name: 'spawn',
-      clean_name: 'spawn',
+      name: 'Spawn',
+      clean_name: 'Spawn',
       score: 0,
       ping: 51,
       is_bot: false,

@@ -11116,47 +11116,6 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   line-height: 1;
 }
 
-/* Shared "attack pulse" clock — drives the attacker reticle AND the
-   under-attack obelisk glow from a single root-level animation so they
-   pulse in unison regardless of when each element entered its attack
-   state. @property registers the custom properties as interpolatable
-   (otherwise CSS variables jump instantly at each keyframe boundary
-   rather than tweening smoothly). */
-@property --attack-glow-blur {
-  syntax: '<length>';
-  initial-value: 0px;
-  inherits: true;
-}
-@property --attack-glow-alpha {
-  syntax: '<number>';
-  initial-value: 0;
-  inherits: true;
-}
-@property --attack-reticle-opacity {
-  syntax: '<number>';
-  initial-value: 0.55;
-  inherits: true;
-}
-:root {
-  animation: attack-pulse-clock 1.2s ease-in-out infinite;
-}
-@keyframes attack-pulse-clock {
-  0%, 100% {
-    --attack-glow-blur: 0px;
-    --attack-glow-alpha: 0;
-    --attack-reticle-opacity: 0.55;
-  }
-  50% {
-    --attack-glow-blur: 5px;
-    --attack-glow-alpha: 0.9;
-    --attack-reticle-opacity: 1;
-  }
-}
-
-/* Overload "actively attacking" — opacity driven by the shared clock. */
-.player-row .pname-cell .row-carrier--obelisk-attacker {
-  opacity: var(--attack-reticle-opacity);
-}
 .reticle-icon {
   display: inline-flex;
   align-items: center;
@@ -11216,16 +11175,23 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 }
 .obelisk-hp--red .obelisk-hp__fill  { background: #d2493a; }
 .obelisk-hp--blue .obelisk-hp__fill { background: #4076c8; }
-/* Under-attack glow — pulses a team-colored drop-shadow around the
-   obelisk bar. Reads the shared --attack-glow-* variables from the
-   attack-pulse-clock so it stays in lockstep with the attacker reticle
-   on the player row — coordinated alert system: attacker reticle
-   pulses on the player; matching glow pulses on the obelisk under fire. */
-.obelisk-hp--red.obelisk-hp--under-attack {
-  filter: drop-shadow(0 0 var(--attack-glow-blur) rgba(210, 73, 58, var(--attack-glow-alpha)));
+/* Under-attack indicator — pulsing ember ring + halo. Scoped to the
+   bar element (which only renders when an obelisk is actively being
+   attacked), so the animation only runs when needed. */
+.obelisk-hp--under-attack .obelisk-hp__bar {
+  animation: obelisk-attack-pulse 1.4s ease-in-out infinite;
 }
-.obelisk-hp--blue.obelisk-hp--under-attack {
-  filter: drop-shadow(0 0 var(--attack-glow-blur) rgba(64, 118, 200, var(--attack-glow-alpha)));
+@keyframes obelisk-attack-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 2px rgba(255, 110, 60, 0.55),
+      0 0 4px 1px rgba(255, 110, 60, 0.30);
+  }
+  50% {
+    box-shadow:
+      0 0 0 2px var(--ember-strong),
+      0 0 9px 2px rgba(255, 110, 60, 0.90);
+  }
 }
 /* Destroyed obelisk pulses while waiting for respawn (~10s default). */
 .obelisk-hp--destroyed .obelisk-hp__bar {
@@ -13327,3 +13293,4 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   padding-inline-start: 1.5em;
   margin: 8px 0;
 }
+
