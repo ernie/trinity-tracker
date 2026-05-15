@@ -10959,40 +10959,33 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 
 /* 1v1 cards have only two players, so the body has more vertical and
    horizontal room than FFA/team. Sized up: bigger portraits + score
-   numerals. Two-row 3-col grid: row 1 = portraits + VS (same column
-   structure as the team .scoreboard), row 2 = awards centered under
-   each duelist. */
+   numerals. Single-row 3-col grid: portraits + VS (same column
+   structure as the team .scoreboard). Award medals hang off the
+   inner edge of each portrait as an absolute-positioned vertical
+   stack — see .duelist-awards below. */
 .duelists {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  gap: 8px 14px;  /* row gap | column gap */
+  gap: 14px;
   margin-bottom: 18px;
   padding: 8px 0 4px;
 }
-/* Awards lean OUTWARD (toward the card edges) on each side — keeps
-   the spacing between the two clusters constant regardless of medal
-   count. `awardsFromCounts()` returns medals in scoring-relevance
-   ascending order (combat-skill first, victory last), so the LAST
-   medal in the array is the most directly tied to score. The cluster
-   layout places that LAST medal at the INNERMOST edge (closest to the
-   centered score above) — matching the same "closest-to-score" rule
-   used by row-based layouts where the strip sits left of the score
-   column and the last medal renders adjacent to it. */
+/* Medal stack anchored to .duelist__portrait-wrap (which is already
+   position: relative for the verified/bot badge). Vertical column so
+   the 1v1 award set — humiliation/impressive/excellent/victory, max
+   four — fits flush against the portrait without crowding the score.
+   Out of flow → name/score/sub below the portrait never shift. */
 .duelist-awards {
-  display: flex; flex-wrap: wrap; gap: 5px;
-  grid-row: 2;
-  grid-column: 1;
-  /* defaults: flex-direction row + justify-content flex-start →
-     cluster anchored at the LEFT edge (outward), LAST DOM medal at
-     the right of the cluster (innermost, score-adjacent). */
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  left: calc(100% + 10px); /* just outside right edge of left portrait */
+  display: flex; flex-direction: column; gap: 5px;
 }
 .duelist-awards.right {
-  grid-column: 3;
-  /* row-reverse: cluster anchored at the RIGHT edge (outward via the
-     reversed axis's flex-start), LAST DOM medal at the left of the
-     cluster (innermost, score-adjacent). */
-  flex-direction: row-reverse;
+  left: auto;
+  right: calc(100% + 10px); /* mirror onto inner edge of right portrait */
 }
 .duelist-awards .medal-icon { margin: 0; }
 .duelist-awards .medal-icon-sm img { width: 18px; height: 18px; }
@@ -11059,6 +11052,10 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   color: var(--accent); line-height: 1; letter-spacing: 0.04em; font-variant-numeric: tabular-nums;
 }
 .duelist__score.loser { color: var(--text-dim); }
+.duelist__score.winner {
+  color: #facc15;
+  text-shadow: 0 0 12px rgba(250, 204, 21, 0.35);
+}
 .duelist__sub {
   font-family: 'Barlow', sans-serif; font-size: 11px;
   letter-spacing: 0.16em; color: var(--text-dim); text-transform: uppercase;

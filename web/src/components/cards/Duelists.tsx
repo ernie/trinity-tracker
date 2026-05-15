@@ -35,15 +35,13 @@ interface DuelistsProps {
 }
 
 function DuelistAwards({ awards, side }: { awards?: AwardEntry[]; side: 'left' | 'right' }) {
-  if (!awards || awards.length === 0) {
-    return <div className={`duelist-awards ${side === 'right' ? 'right' : ''}`} aria-hidden />
-  }
+  if (!awards || awards.length === 0) return null
   return (
-    <div className={`duelist-awards ${side === 'right' ? 'right' : ''}`}>
+    <span className={`duelist-awards ${side === 'right' ? 'right' : ''}`} aria-hidden>
       {awards.map((a) => (
         <MedalIcon key={a.type} type={a.type} count={a.count} size="sm" />
       ))}
-    </div>
+    </span>
   )
 }
 
@@ -82,6 +80,9 @@ function Duelist({ data, side, winnerSide, onClick }: DuelistProps) {
         ) : (
           <PlayerBadge isVerified={data.isVerified} isAdmin={data.isAdmin} isVR={data.isVR} size="sm" />
         )}
+        {/* Medal stack hangs off the inner edge of the portrait,
+            absolutely positioned so it doesn't shift name/score below. */}
+        <DuelistAwards awards={data.awards} side={side} />
       </span>
       <span className={`duelist__name ${isLoser ? 'dim' : ''}`}>
         <ColoredText text={data.name} />
@@ -112,10 +113,6 @@ export function Duelists({ left, right, state, live, onPlayerClick }: DuelistsPr
         <Duelist data={left} side="left" winnerSide={winnerSide} onClick={onPlayerClick} />
         <span className="scoreboard__vs">vs</span>
         <Duelist data={right} side="right" winnerSide={winnerSide} onClick={onPlayerClick} />
-        {/* Awards sit on row 2 directly below each duelist — grid
-            placement is in CSS via .duelist-awards / .duelist-awards.right. */}
-        <DuelistAwards awards={left.awards} side="left" />
-        <DuelistAwards awards={right.awards} side="right" />
       </div>
     </>
   )
