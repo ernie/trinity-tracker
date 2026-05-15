@@ -73,7 +73,6 @@ export function PlayerRows({ players, mode, onPlayerClick }: PlayerRowsProps) {
         {mode === 'live' && <span style={{ textAlign: 'right' }}>Ping</span>}
       </div>
       {players.map((p, i) => {
-        const portraitFallback = (p.cleanName || p.name || '?').replace(/\^./g, '').charAt(0).toLowerCase() || '?'
         const clickable = !!onPlayerClick && !p.isBot
         const handleClick = clickable
           ? () => onPlayerClick!(p.name, p.cleanName ?? p.name, p.playerId)
@@ -100,7 +99,7 @@ export function PlayerRows({ players, mode, onPlayerClick }: PlayerRowsProps) {
                 data-help={TEAM_DOT_HELP}
               />
               <span className="player-row__portrait">
-                <PlayerPortrait model={p.model} size="sm" fallback={portraitFallback} />
+                <PlayerPortrait model={p.model} size="sm" />
               </span>
               {p.isBot ? (
                 <BotBadge isBot skill={p.skill ?? 1} size="sm" />

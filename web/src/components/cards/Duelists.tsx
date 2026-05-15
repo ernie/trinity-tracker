@@ -9,7 +9,7 @@ import type { ScoreState, AwardEntry } from './format'
 export interface DuelistData {
   name: string
   cleanName?: string
-  /** Q3 model id (e.g. "sarge/default") used by PlayerPortrait. Falls back to initial. */
+  /** Q3 model id (e.g. "sarge/default") used by PlayerPortrait. */
   model?: string
   isBot?: boolean
   /** 1–5 bot skill, drives BotBadge color. */
@@ -57,7 +57,6 @@ interface DuelistProps {
 function Duelist({ data, side, winnerSide, onClick }: DuelistProps) {
   const isWinner = winnerSide === side
   const isLoser = winnerSide !== null && winnerSide !== side
-  const portraitFallback = (data.cleanName || data.name || '?').replace(/\^./g, '').charAt(0).toLowerCase() || '?'
   const clickable = !!onClick && !data.isBot
   const handleClick = clickable
     ? () => onClick!(data.name, data.cleanName ?? data.name, data.playerId)
@@ -77,7 +76,7 @@ function Duelist({ data, side, winnerSide, onClick }: DuelistProps) {
       } : undefined}
     >
       <span className={`duelist__portrait-wrap ${isWinner ? 'winner' : ''}`}>
-        <PlayerPortrait model={data.model} size="lg" fallback={portraitFallback} />
+        <PlayerPortrait model={data.model} size="lg" />
         {data.isBot ? (
           <BotBadge isBot skill={data.skill ?? 1} size="sm" />
         ) : (

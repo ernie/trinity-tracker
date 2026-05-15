@@ -4,7 +4,6 @@ import { createPortal } from 'react-dom'
 interface PlayerPortraitProps {
   model?: string  // e.g., "sarge/default", "sarge", or "*james"
   size?: 'sm' | 'md' | 'lg' | 'xl'
-  fallback?: React.ReactNode
   className?: string
 }
 
@@ -58,21 +57,17 @@ function DefaultPortraitSvg() {
   )
 }
 
-export function PlayerPortrait({ model, size = 'sm', fallback, className = '' }: PlayerPortraitProps) {
+export function PlayerPortrait({ model, size = 'sm', className = '' }: PlayerPortraitProps) {
   const [hasError, setHasError] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
   const [previewPos, setPreviewPos] = useState({ x: 0, y: 0 })
   const ref = useRef<HTMLSpanElement>(null)
   const sizeClass = SIZE_CLASSES[size]
 
-  // No model provided — fall back to the caller's fallback (a single
-  // initial letter, in practice) rather than the generic silhouette.
-  // Silhouette is only used as a last resort when neither model nor
-  // fallback is available — which shouldn't happen in normal flows.
   if (!model) {
     return (
       <span className={`player-portrait ${sizeClass} ${className}`} data-help={PORTRAIT_HELP}>
-        {fallback ?? <DefaultPortraitSvg />}
+        <DefaultPortraitSvg />
       </span>
     )
   }
@@ -109,11 +104,7 @@ export function PlayerPortrait({ model, size = 'sm', fallback, className = '' }:
         data-help={PORTRAIT_HELP}
       >
         {hasError ? (
-          // Prefer the caller's fallback (the player's initial) over
-          // the silhouette when the model's portrait fails to load.
-          // Silhouette only renders if no fallback was supplied — a
-          // case our card components don't produce in practice.
-          fallback ?? <DefaultPortraitSvg />
+          <DefaultPortraitSvg />
         ) : (
           <img
             src={portraitSrc}

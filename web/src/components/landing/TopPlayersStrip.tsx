@@ -35,7 +35,6 @@ export function TopPlayersStrip() {
         <NavScroller scrollClassName="landing-shelf-h__scroll landing-players-strip">
           {entries.map((p) => {
             const isTop = p.rank <= 3
-            const cleanInitial = (p.player.clean_name || p.player.name || '').replace(/\^./g, '').charAt(0).toLowerCase() || '?'
             return (
               <Link
                 key={p.player.id}
@@ -44,7 +43,7 @@ export function TopPlayersStrip() {
               >
                 <span className={`landing-player-card__rank ${isTop ? 'top' : ''}`}>#{p.rank}</span>
                 <span className="landing-player-card__avatar">
-                  <PlayerPortrait model={p.player.model} size="lg" fallback={cleanInitial} />
+                  <PlayerPortrait model={p.player.model} size="lg" />
                 </span>
                 <span className="landing-player-card__name">
                   <ColoredText text={p.player.name} />
