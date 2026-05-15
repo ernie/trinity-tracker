@@ -50,6 +50,18 @@ interface PlayerRowsProps {
   onPlayerClick?: (playerName: string, cleanName: string, playerId?: number) => void
 }
 
+// HelpMode descriptions for the inline cells. The team-dot text
+// describes ALL color variants (red, blue, green, gray) so the same
+// string works across modes — a reader on an FFA card learns about
+// red/blue too, and vice versa.
+const TEAM_DOT_HELP = `Team marker.
+• Red / Blue — team in TDM, CTF, Overload, Harvester
+• Green — no team (FFA, Tournament)
+• Gray — player dropped before the match ended (completed matches only)`
+const SCORE_HELP = `Score for this match.
+FFA / 1v1 / TDM use frags; objective modes (CTF, 1FCTF, Overload, Harvester) use the engine's composite score (caps, defends, returns, frags, plus mode-specific events).`
+const PING_HELP = `Round-trip latency to the server, in milliseconds. Bots are always 0.`
+
 export function PlayerRows({ players, mode, onPlayerClick }: PlayerRowsProps) {
   return (
     <div className="player-rows">
@@ -85,6 +97,7 @@ export function PlayerRows({ players, mode, onPlayerClick }: PlayerRowsProps) {
                 className={`team-dot ${p.completed === false ? 'dropped' : teamClass(p.team)}`}
                 aria-hidden
                 title={p.completed === false ? "Didn't finish the match" : undefined}
+                data-help={TEAM_DOT_HELP}
               />
               <span className="player-row__portrait">
                 <PlayerPortrait model={p.model} size="sm" fallback={portraitFallback} />
@@ -96,7 +109,13 @@ export function PlayerRows({ players, mode, onPlayerClick }: PlayerRowsProps) {
               )}
               <span className={`name ${p.isBot ? 'bot' : ''}`}><ColoredText text={p.name} /></span>
               {p.flagCarrier && (
-                <span className="row-carrier" aria-hidden>
+                <span
+                  className="row-carrier"
+                  aria-hidden
+                  data-help={p.flagCarrier === 'neutral'
+                    ? `Carrying the neutral flag toward the enemy base for a capture.`
+                    : `Carrying the ${p.flagCarrier} team's flag toward their own base for a capture.`}
+                >
                   {/* Static flag silhouette next to the name — the
                       runner icon (status="taken") is reserved for
                       score-cell indicators. */}
@@ -105,14 +124,21 @@ export function PlayerRows({ players, mode, onPlayerClick }: PlayerRowsProps) {
               )}
               {/* Harvester live carry — opposing-team skull (CTF flag-carrier convention). */}
               {p.skullsCarrying ? (
-                <span className="row-carrier row-carrier--skulls" aria-hidden>
+                <span
+                  className="row-carrier row-carrier--skulls"
+                  aria-hidden
+                  data-help={`Currently carrying enemy skulls (up to 5). On death, the skulls are removed from play. Deliver to the enemy receptacle to score.`}
+                >
                   <SkullIcon team={p.team === 2 ? 'red' : 'blue'} size="sm" />
                   <span className="row-carrier__count">{p.skullsCarrying}</span>
                 </span>
               ) : null}
               {/* Overload live attack — reticle in the targeted obelisk's color. */}
               {p.attackingObelisk ? (
-                <span className="row-carrier row-carrier--obelisk-attacker">
+                <span
+                  className="row-carrier row-carrier--obelisk-attacker"
+                  data-help={`Currently attacking the enemy obelisk.`}
+                >
                   <TargetReticleIcon team={p.team === 2 ? 'red' : 'blue'} size="sm" title="Attacking obelisk" />
                 </span>
               ) : null}
@@ -126,12 +152,12 @@ export function PlayerRows({ players, mode, onPlayerClick }: PlayerRowsProps) {
                 </span>
               )}
             </span>
-            <span className="stat">
+            <span className="stat" data-help={SCORE_HELP}>
               {mode === 'live' ? p.score ?? 0 : p.frags ?? 0}
             </span>
             {mode === 'finished' && <span className="stat dim">{p.deaths ?? 0}</span>}
             {mode === 'finished' && <span className="stat">{p.score ?? p.frags ?? 0}</span>}
-            {mode === 'live' && <span className="stat dim">{p.ping ?? 0}</span>}
+            {mode === 'live' && <span className="stat dim" data-help={PING_HELP}>{p.ping ?? 0}</span>}
           </div>
         )
       })}

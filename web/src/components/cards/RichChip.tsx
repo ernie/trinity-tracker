@@ -16,7 +16,14 @@ interface RichChipProps {
 
 export function RichChip({ source, server, mode, className, children }: RichChipProps) {
   return (
-    <span className={`rich-chip ${className ?? ''}`}>
+    <span
+      className={`rich-chip ${className ?? ''}`}
+      data-help={`Server identity:
+• Mode icons — Q3, CPMA, Quake Live, or QLT (one icon if movement & gameplay match; two if they differ)
+• Source — the host running this Q3 server. One host can serve multiple game servers.
+• Server key — short identifier
+• Game type — match format`}
+    >
       {children && (
         <>
           <span className="rich-chip__extras">{children}</span>

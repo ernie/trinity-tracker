@@ -23,6 +23,16 @@ const QuestionIcon = () => (
   </svg>
 )
 
+// Variant-aware help text. The six distinct branches mirror the
+// visual states below; each is its own line in the editorial pass
+// (admin vs user have separate icons, so they're separate strings).
+const HELP_UNVERIFIED    = `Unverified player. Stats attach to this install's qkey, not a Trinity account.`
+const HELP_UNVERIFIED_VR = `Unverified VR player. No Trinity account yet.`
+const HELP_USER          = `Verified Trinity account.`
+const HELP_ADMIN         = `Verified Trinity admin.`
+const HELP_USER_VR       = `Verified Trinity account, playing in VR.`
+const HELP_ADMIN_VR      = `Verified Trinity admin, playing in VR.`
+
 export function PlayerBadge({ isVerified, isAdmin, isVR, size = 'sm' }: PlayerBadgeProps) {
   const sizeClass = `player-badge-${size}`
 
@@ -32,6 +42,7 @@ export function PlayerBadge({ isVerified, isAdmin, isVR, size = 'sm' }: PlayerBa
       <span
         className={`player-badge ${sizeClass} unverified`}
         title="Unverified"
+        data-help={HELP_UNVERIFIED}
       >
         <QuestionIcon />
       </span>
@@ -41,7 +52,11 @@ export function PlayerBadge({ isVerified, isAdmin, isVR, size = 'sm' }: PlayerBa
   // VR only (not verified): VR icon with dotted outline
   if (isVR && !isVerified) {
     return (
-      <span className={`player-badge ${sizeClass} unverified vr`} title="Unverified (VR)">
+      <span
+        className={`player-badge ${sizeClass} unverified vr`}
+        title="Unverified (VR)"
+        data-help={HELP_UNVERIFIED_VR}
+      >
         <QuestionIcon />
       </span>
     )
@@ -53,6 +68,7 @@ export function PlayerBadge({ isVerified, isAdmin, isVR, size = 'sm' }: PlayerBa
       <span
         className={`player-badge ${sizeClass} ${isAdmin ? 'admin' : 'user'}`}
         title={isAdmin ? 'Verified Admin' : 'Verified User'}
+        data-help={isAdmin ? HELP_ADMIN : HELP_USER}
       >
         {isAdmin ? <StarIcon /> : <CheckIcon />}
       </span>
@@ -64,6 +80,7 @@ export function PlayerBadge({ isVerified, isAdmin, isVR, size = 'sm' }: PlayerBa
     <span
       className={`player-badge ${sizeClass} ${isAdmin ? 'admin' : 'user'} vr`}
       title={isAdmin ? 'Verified Admin (VR)' : 'Verified User (VR)'}
+      data-help={isAdmin ? HELP_ADMIN_VR : HELP_USER_VR}
     >
       {isAdmin ? <StarIcon /> : <CheckIcon />}
     </span>

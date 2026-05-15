@@ -1,0 +1,172 @@
+// Canonical TDM (Team Deathmatch) snapshot for the docs section.
+//
+// The first mode where the Scoreboard component renders. The shared
+// team-dot tooltip already covers red/blue from FFA; the new tooltip
+// surface is the Scoreboard root.
+//
+// Captured from /api/servers/3/status then hand-edited to:
+//   - Fresh names (no overlap with FFA or 1v1 snapshots).
+//   - 4-on-4 split with asymmetric team scores (56 vs 39), so the
+//     team-vs-team visual reads clearly.
+//   - Mostly verified humans, one bot per team for variety.
+//   - A spectator to keep the bottom strip populated.
+import type { ServerStatus } from '../../../../types'
+
+export const TDM_SNAPSHOT: ServerStatus = {
+  server_id: -3,
+  source: 'hub',
+  key: 'tdm-ta',
+  address: 'trinity.run:27962',
+  map: 'mpteam1',
+  game_type: 'tdm',
+  game_time_ms: 657000, // ~10:57 elapsed
+  max_clients: 12,
+  human_count: 6,
+  bot_count: 2,
+  online: true,
+  last_updated: '2026-05-14T23:14:15.614Z',
+  match_state: 'active',
+  team_scores: { red: 56, blue: 39 },
+  // Order doesn't matter much — ServerCard re-sorts by team then score.
+  players: [
+    // Red team (team: 1) — total 56
+    {
+      client_num: 0,
+      name: 'sparx',
+      clean_name: 'sparx',
+      score: 18,
+      ping: 26,
+      is_bot: false,
+      is_verified: true,
+      team: 1,
+      excellents: 2,
+      impressives: 1,
+      player_id: 301,
+      model: 'ranger/red',
+    },
+    {
+      client_num: 1,
+      name: 'kvr',
+      clean_name: 'kvr',
+      score: 14,
+      ping: 42,
+      is_bot: false,
+      is_verified: true,
+      is_vr: true,
+      team: 1,
+      excellents: 1,
+      player_id: 302,
+      model: 'tankjr/red',
+    },
+    {
+      client_num: 2,
+      name: 'Slash',
+      clean_name: 'Slash',
+      score: 13,
+      ping: 0,
+      is_bot: true,
+      skill: 3,
+      team: 1,
+      model: 'slash/red',
+    },
+    {
+      client_num: 3,
+      name: 'zero4',
+      clean_name: 'zero4',
+      score: 11,
+      ping: 31,
+      is_bot: false,
+      is_verified: true,
+      team: 1,
+      player_id: 303,
+      model: 'mynx/red',
+    },
+    // Blue team (team: 2) — total 39
+    {
+      client_num: 4,
+      name: 'polosatiy',
+      clean_name: 'polosatiy',
+      score: 15,
+      ping: 48,
+      is_bot: false,
+      is_verified: true,
+      team: 2,
+      excellents: 1,
+      humiliations: 1,
+      player_id: 304,
+      model: 'klesk/blue',
+    },
+    {
+      client_num: 5,
+      name: 'swelter',
+      clean_name: 'swelter',
+      score: 10,
+      ping: 35,
+      is_bot: false,
+      is_verified: true,
+      team: 2,
+      player_id: 305,
+      model: 'bones/blue',
+    },
+    {
+      client_num: 6,
+      name: 'k1llsen',
+      clean_name: 'k1llsen',
+      score: 9,
+      ping: 51,
+      is_bot: false,
+      is_verified: true,
+      is_vr: true,
+      team: 2,
+      impressives: 1,
+      player_id: 306,
+      model: 'uriel/blue',
+    },
+    {
+      client_num: 7,
+      name: 'Sorlag',
+      clean_name: 'Sorlag',
+      score: 5,
+      ping: 0,
+      is_bot: true,
+      skill: 4,
+      team: 2,
+      model: 'sorlag/blue',
+    },
+    // Spectators
+    {
+      client_num: 8,
+      name: 'judas',
+      clean_name: 'judas',
+      score: 0,
+      ping: 39,
+      is_bot: false,
+      is_verified: true,
+      team: 3,
+      player_id: 307,
+    },
+    {
+      client_num: 9,
+      name: 'Tox',
+      clean_name: 'Tox',
+      score: 0,
+      ping: 53,
+      is_bot: false,
+      is_verified: true,
+      is_vr: true,
+      team: 3,
+      player_id: 308,
+    },
+  ],
+  server_vars: {
+    fraglimit: '100',
+    timelimit: '20',
+    sv_hostname: 'Trinity TDM',
+    g_gametype: '3',
+    g_gameplay: '0',
+    g_movement: '0',
+    g_redteam: 'Red',
+    g_blueteam: 'Blue',
+    mapname: 'mpteam1',
+  },
+}

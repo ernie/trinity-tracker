@@ -20,9 +20,13 @@ export function SpectatorStrip({ spectators, isLive, rightSlot, ariaLabel }: Spe
 
   const eyeColorClass = isLive ? '' : 'spec'
   const label = ariaLabel ?? (isLive ? 'In queue or spectating' : 'Spectated by')
+  const help = isLive
+    ? `Players currently spectating this server.
+In Tournament (1v1), the next in queue plays the winner when a match ends.`
+    : `Players who spectated this match.`
 
   return (
-    <div className="card__bottom">
+    <div className="card__bottom" data-help={help}>
       {hasSpectators && (
         <span className="card__spectators">
           <span className={`card__spectators-label ${eyeColorClass}`} aria-label={label}>

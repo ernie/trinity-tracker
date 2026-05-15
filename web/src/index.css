@@ -12386,6 +12386,47 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   padding: 1px 5px;
 }
 
+/* HelpMode popover — consumes `data-help` attributes on descendants
+   of <HelpModeRoot>. Portaled to document.body so positioning is in
+   the viewport coordinate space (position: fixed) and escapes any
+   ancestor stacking context / overflow clipping. */
+.help-mode-root {
+  /* No layout effect; the wrapper exists only as a delegation root
+     for event listeners. */
+  display: contents;
+}
+
+/* Suppress the card's existing in-tree hover previews while in
+   HelpMode — they would visually conflict with the help popover that
+   appears on the same hover. The portrait preview is portaled (so
+   it's not a descendant of .help-mode-root); PlayerPortrait
+   suppresses that one imperatively via a closest() check. */
+.help-mode-root .card__map-long::after { content: none; }
+.help-mode-root .mode-panel { display: none; }
+
+.help-popover {
+  position: fixed;
+  z-index: 1000;
+  background: var(--bg-card);
+  border: 1px solid var(--ember-strong);
+  border-radius: 6px;
+  padding: 10px 12px;
+  max-width: min(320px, 80vw);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  pointer-events: none; /* never intercept hover/clicks on the underlying card */
+}
+
+.help-popover__text {
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--text);
+  /* `pre-line` honors \n line breaks from authoring while collapsing
+     runs of other whitespace. Source-line wraps inside template
+     literals become render line breaks — concatenate strings with +
+     to wrap source without affecting output. */
+  white-space: pre-line;
+}
+
 .docs-hud-figure figcaption {
   margin-top: 6px;
   font-size: 0.85rem;
@@ -12490,11 +12531,11 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
    but heftier visual weight (full-width, larger padding,
    normal-weight body text) so it reads as a real section
    choice rather than a small inline detail. */
-.about-section .docs-q3-basics {
+.about-section .docs-collapsible {
   margin: 0;
 }
 
-.about-section .docs-q3-basics > summary {
+.about-section .docs-collapsible > summary {
   list-style: none;
   cursor: pointer;
   display: flex;
@@ -12509,12 +12550,12 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   transition: background 0.12s, color 0.12s;
 }
 
-.about-section .docs-q3-basics > summary::-webkit-details-marker {
+.about-section .docs-collapsible > summary::-webkit-details-marker {
   display: none;
 }
 
 /* Same border-corner caret as .docs-callout-legend; see notes there. */
-.about-section .docs-q3-basics > summary::before {
+.about-section .docs-collapsible > summary::before {
   content: "";
   display: inline-block;
   width: 7px;
@@ -12528,12 +12569,12 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   flex-shrink: 0;
 }
 
-.about-section .docs-q3-basics[open] > summary::before {
+.about-section .docs-collapsible[open] > summary::before {
   transform: rotate(135deg);
 }
 
-.about-section .docs-q3-basics > summary:hover,
-.about-section .docs-q3-basics > summary:focus-visible {
+.about-section .docs-collapsible > summary:hover,
+.about-section .docs-collapsible > summary:focus-visible {
   background: rgba(0, 0, 0, 0.32);
   color: var(--text);
   outline: none;
@@ -12542,7 +12583,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 /* Add breathing room above the first h3 once expanded so
    the primer reads as content, not a continuation of the
    summary bar. */
-.about-section .docs-q3-basics[open] > h3:first-of-type {
+.about-section .docs-collapsible[open] > h3:first-of-type {
   margin-top: 18px;
 }
 

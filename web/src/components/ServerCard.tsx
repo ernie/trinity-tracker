@@ -21,7 +21,54 @@ interface ServerCardProps {
   onSelect?: () => void
   onPlayerClick?: (playerName: string, cleanName: string, playerId?: number) => void
   liveness?: 'live' | 'stale' | 'offline'
+  /** 'docs' renders against a static snapshot: freezes the clock, ignores
+   *  liveness, and ignores LiveDataContext for attacker slots. Default 'live'. */
+  presentation?: 'live' | 'docs'
+  /** Docs-only: replaces the LiveDataContext lookup for attacker client_nums,
+   *  so docs can demo the Overload under-attack pulse + per-row reticle
+   *  without a live data feed. Ignored when presentation === 'live'. */
+  attackersOverride?: Set<number>
 }
+
+// HelpMode descriptions for the inline elements rendered directly by
+// this file (not their own components). State badge enumerates the
+// full taxonomy (not the current variant only) so a reader on any
+// state learns about the others — same pattern as the team-dot
+// tooltip in PlayerRows.tsx.
+const STATE_HELP = `Match state.
+• Active — playing
+• Warmup — pre-match countdown
+• Waiting — not enough players
+• Overtime — tied at time limit, sudden death
+• Intermission — match just ended, next map loading
+
+Or, when the server's data feed is unhealthy:
+• Stale — collector hasn't checked in recently
+• Offline — server unreachable`
+const MAP_HELP    = `Map shortname (how you'd load it with /map) above the long-form name.`
+const LIMITS_HELP = `Score limit (when set) · time / time limit.`
+
+// Flag indicators in the Scoreboard slots (CTF / 1FCTF). Each
+// describes its full status taxonomy so a reader sees the variants
+// they can't currently observe in the snapshot.
+const RED_FLAG_HELP = `Red flag status:
+• At base — safe at red's spawn
+• Taken — an enemy is carrying it
+• Dropped — carrier died; lies on the ground for ~30s before returning`
+const BLUE_FLAG_HELP = `Blue flag status:
+• At base — safe at blue's spawn
+• Taken — an enemy is carrying it
+• Dropped — carrier died; lies on the ground for ~30s before returning`
+const NEUTRAL_FLAG_HELP = `Neutral flag — the single flag in One-Flag CTF.
+• At base — sitting at center
+• Carried — drifts toward whichever team has it
+• Dropped — carrier died; lies for ~30s`
+const OBELISK_HP_HELP = `Enemy obelisk HP.
+• Drains as enemies damage it
+• Pulses while under attack
+• Destroyed at 0 HP — respawns shortly; the attacking team scores`
+const HARVESTER_SKULLS_HELP = `Enemy skulls this team is currently holding (sum across all team carriers).
+Frags spawn skulls at the central skull generator. Deliver enemy skulls to the enemy receptacle to score. Picking up your own team's skulls denies them to the enemy (they don't go into inventory). Each player can carry up to 5 enemy skulls at once.`
 
 // Check if this is a team-based game mode
 function isTeamGame(gameType: string): boolean {
@@ -265,10 +312,32 @@ export function ModeIcons({ movement, gameplay }: { movement?: string, gameplay?
   )
 }
 
-export function ServerCard({ server, isSelected, onSelect, onPlayerClick, liveness }: ServerCardProps) {
-  const { hasMultiple: hasMultipleSources } = useSources()
+// Public ServerCard — routes between the live path (subscribes to
+// LiveDataContext) and the docs path (uses the supplied
+// attackersOverride). Docs cards must NOT subscribe to LiveDataContext
+// because that context updates on every WebSocket event; a docs page
+// with 4+ ServerCardDemos would otherwise re-render all of them on
+// every server status broadcast, which on mobile compounds into a
+// memory/CPU pressure crash after the page has been open a while.
+export function ServerCard(props: ServerCardProps) {
+  if (props.presentation === 'docs') {
+    return <ServerCardImpl {...props} attackingSlots={props.attackersOverride} />
+  }
+  return <ServerCardLive {...props} />
+}
+
+function ServerCardLive(props: ServerCardProps) {
   const { obeliskAttackersByServer } = useLiveData()
-  const attackingSlots = obeliskAttackersByServer.get(server.server_id)
+  return (
+    <ServerCardImpl {...props} attackingSlots={obeliskAttackersByServer.get(props.server.server_id)} />
+  )
+}
+
+type ServerCardImplProps = ServerCardProps & { attackingSlots: Set<number> | undefined }
+
+function ServerCardImpl({ server, isSelected, onSelect, onPlayerClick, liveness, presentation = 'live', attackingSlots }: ServerCardImplProps) {
+  const { hasMultiple: hasMultipleSources } = useSources()
+  const isDocs = presentation === 'docs'
   const meta = useMapMeta(server.map)
   const showTeamScores = isTeamGame(server.game_type) && server.team_scores
   const scoreLimit = getScoreLimit(server.game_type, server.server_vars)
@@ -280,10 +349,12 @@ export function ServerCard({ server, isSelected, onSelect, onPlayerClick, livene
   // the timer doesn't saw-tooth and the staleness reads visually.
   // `liveness` is undefined on first render (before /api/servers
   // returns) — treat that as live so we don't briefly dim healthy cards.
-  const isDegraded = liveness === 'offline' || liveness === 'stale' || server.online === false
+  // Docs mode forces non-degraded: snapshots are intentionally static.
+  const isDegraded = !isDocs && (liveness === 'offline' || liveness === 'stale' || server.online === false)
 
-  // Use interpolated time for smooth updates between server reports
-  const { gameTimeMs, warmupRemaining } = useInterpolatedTime(server, timeLimit, !isDegraded)
+  // Use interpolated time for smooth updates between server reports.
+  // Docs mode passes live=false so the clock stays frozen at snapshot time.
+  const { gameTimeMs, warmupRemaining } = useInterpolatedTime(server, timeLimit, !isDegraded && !isDocs)
   const interpolatedServer = { ...server, game_time_ms: gameTimeMs, warmup_remaining: warmupRemaining }
   const displayTime = getDisplayTime(interpolatedServer, timeLimit)
 
@@ -293,11 +364,15 @@ export function ServerCard({ server, isSelected, onSelect, onPlayerClick, livene
   // first, since match-state values like "active" become misleading
   // when the data behind them is no longer fresh.
   const getStateBadge = (): { className: string; label: string } => {
-    if (liveness === 'offline' || !server.online) {
-      return { className: 'state-offline', label: 'Offline' }
-    }
-    if (liveness === 'stale') {
-      return { className: 'state-stale', label: 'Stale' }
+    // Docs mode bypasses liveness so the snapshot's match_state always
+    // wins; readers shouldn't see Offline/Stale on demonstration cards.
+    if (!isDocs) {
+      if (liveness === 'offline' || !server.online) {
+        return { className: 'state-offline', label: 'Offline' }
+      }
+      if (liveness === 'stale') {
+        return { className: 'state-stale', label: 'Stale' }
+      }
     }
     switch (server.match_state) {
       case 'overtime':
@@ -340,11 +415,11 @@ export function ServerCard({ server, isSelected, onSelect, onPlayerClick, livene
         >
           <ModeIcons movement={server.server_vars?.g_movement} gameplay={server.server_vars?.g_gameplay} />
         </RichChip>
-        <span className={`card__state ${stateBadge.className}`}>{stateBadge.label}</span>
+        <span className={`card__state ${stateBadge.className}`} data-help={STATE_HELP}>{stateBadge.label}</span>
       </div>
 
       <div className="card__header">
-        <div className="card__map">
+        <div className="card__map" data-help={MAP_HELP}>
           {/* Both rows always render; the small tracked-uppercase code
               label and the Cinzel headline are visually distinct, so
               keeping the slot present makes cards line up across the
@@ -354,7 +429,7 @@ export function ServerCard({ server, isSelected, onSelect, onPlayerClick, livene
           <span className="card__map-long">{meta.displayName || server.map || 'Unknown'}</span>
         </div>
         {(scoreLimit || timeLimit || gameTimeMs > 0 || displayTime.isWarmup) && (
-          <div className="card__limits">
+          <div className="card__limits" data-help={LIMITS_HELP}>
             {scoreLimit && <span>Limit: {scoreLimit}</span>}
             {scoreLimit && (timeLimit || gameTimeMs > 0 || displayTime.isWarmup) && <span> | </span>}
             <span className={displayTime.isOvertime ? 'overtime-time' : displayTime.isWarmup ? 'warmup-time' : ''}>{displayTime.time}</span>
@@ -369,7 +444,7 @@ export function ServerCard({ server, isSelected, onSelect, onPlayerClick, livene
         const redInd = obj?.mode === 'ctf' ? (() => {
           const i = getFlagIndicator(obj.red ?? 0)
           return (
-            <span className={`flag-indicator ${i.className}`}>
+            <span className={`flag-indicator ${i.className}`} data-help={RED_FLAG_HELP}>
               <FlagIcon team="red" status={i.status} size="md" title={`Red flag: ${i.title}`} />
             </span>
           )
@@ -377,7 +452,7 @@ export function ServerCard({ server, isSelected, onSelect, onPlayerClick, livene
         const blueInd = obj?.mode === 'ctf' ? (() => {
           const i = getFlagIndicator(obj.blue ?? 0)
           return (
-            <span className={`flag-indicator ${i.className}`}>
+            <span className={`flag-indicator ${i.className}`} data-help={BLUE_FLAG_HELP}>
               <FlagIcon team="blue" status={i.status} size="md" title={`Blue flag: ${i.title}`} />
             </span>
           )
@@ -385,7 +460,7 @@ export function ServerCard({ server, isSelected, onSelect, onPlayerClick, livene
         const centerInd = obj?.mode === '1fctf' ? (() => {
           const i = getNeutralFlagIndicator(obj.neutral ?? 0)
           return (
-            <span className={`flag-indicator ${i.drift}`}>
+            <span className={`flag-indicator ${i.drift}`} data-help={NEUTRAL_FLAG_HELP}>
               <FlagIcon team="neutral" status={i.status} size="md" title={i.title} />
             </span>
           )
@@ -420,7 +495,11 @@ export function ServerCard({ server, isSelected, onSelect, onPlayerClick, livene
         // (red carrier holds blue skulls), matching the CTF flag-carrier
         // convention. MedalIcon is reserved for cumulative awards.
         const harvestInd = (team: 'red' | 'blue', skulls: number) => (
-          <span className={`harvester-skulls harvester-skulls--${team}`} title={`${skulls} enemy skull${skulls === 1 ? '' : 's'} carried by ${team}`}>
+          <span
+            className={`harvester-skulls harvester-skulls--${team}`}
+            title={`${skulls} enemy skull${skulls === 1 ? '' : 's'} carried by ${team}`}
+            data-help={HARVESTER_SKULLS_HELP}
+          >
             <SkullIcon team={team === 'red' ? 'blue' : 'red'} size="md" />
             <span className="harvester-skulls__count">{skulls}</span>
           </span>
@@ -524,6 +603,7 @@ function ObeliskHPIndicator({ team, hp, maxHP, underAttack }: { team: 'red' | 'b
       title={label}
       role="img"
       aria-label={label}
+      data-help={OBELISK_HP_HELP}
     >
       <span className="obelisk-hp__bar">
         <span className="obelisk-hp__fill" style={{ height: `${pct}%` }} />

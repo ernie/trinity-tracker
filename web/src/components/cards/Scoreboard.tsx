@@ -1,6 +1,13 @@
 import type React from 'react'
 import type { ScoreState } from './format'
 
+// Scoreboard tooltip — appears on every team-mode card (TDM, CTF,
+// 1FCTF, Overload, Harvester). Mode-agnostic phrasing; per-mode
+// indicators in the slots get their own data-help on the slot
+// elements (added in their respective ServerCard render branches).
+const SCOREBOARD_HELP = `Team scoreboard. Each side shows the team's current score.
+Score meaning depends on mode — frags (TDM), captures (CTF, 1FCTF), obelisks destroyed (Overload), or skulls delivered (Harvester).`
+
 interface ScoreboardProps {
   redLabel: string
   redScore: number
@@ -39,7 +46,7 @@ export function Scoreboard({
   if (!live && state === 'no_contest') connector = <span className="scoreboard__state nc">NO<br />CONTEST</span>
 
   return (
-    <div className="scoreboard">
+    <div className="scoreboard" data-help={SCOREBOARD_HELP}>
       <div className="scoreboard__side scoreboard__side--red">
         <span className="scoreboard__label red">{redLabel}</span>
         <span className="scoreboard__score-line">

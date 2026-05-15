@@ -58,11 +58,14 @@ interface ColoredTextProps {
   className?: string
 }
 
+const COLOR_CODE_HELP = `Player names can have color codes.
+^1 red, ^2 green, ^3 yellow, ^4 blue, ^5 cyan, ^6 magenta, ^7 white.`
+
 export function ColoredText({ text, className }: ColoredTextProps) {
   const segments = useMemo(() => parseQ3ColorCodes(text), [text])
 
   return (
-    <span className={className}>
+    <span className={className} data-help={COLOR_CODE_HELP}>
       {segments.map((segment, i) => (
         <span key={i} style={{ color: segment.color }}>
           {segment.text}

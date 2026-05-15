@@ -15,6 +15,8 @@ const SIZE_CLASSES: Record<NonNullable<PlayerPortraitProps['size']>, string> = {
   xl: 'portrait-xl',
 }
 
+const PORTRAIT_HELP = `Player model — what they look like in-game. Players set their own via cg_model / cg_team_model.`
+
 /**
  * Parse a Q3A model string to get the portrait path.
  * Examples:
@@ -63,14 +65,14 @@ export function PlayerPortrait({ model, size = 'sm', fallback, className = '' }:
   const ref = useRef<HTMLSpanElement>(null)
   const sizeClass = SIZE_CLASSES[size]
 
-  // No model provided
+  // No model provided — fall back to the caller's fallback (a single
+  // initial letter, in practice) rather than the generic silhouette.
+  // Silhouette is only used as a last resort when neither model nor
+  // fallback is available — which shouldn't happen in normal flows.
   if (!model) {
-    if (fallback) {
-      return <span className={`player-portrait ${sizeClass} ${className}`}>{fallback}</span>
-    }
     return (
-      <span className={`player-portrait ${sizeClass} ${className}`}>
-        <DefaultPortraitSvg />
+      <span className={`player-portrait ${sizeClass} ${className}`} data-help={PORTRAIT_HELP}>
+        {fallback ?? <DefaultPortraitSvg />}
       </span>
     )
   }
@@ -79,6 +81,10 @@ export function PlayerPortrait({ model, size = 'sm', fallback, className = '' }:
 
   const handleMouseEnter = () => {
     if (!showHoverPreview || !ref.current) return
+    // Inside a HelpModeRoot the help-popover *is* the preview-and-
+    // explanation surface; suppress the magnified-portrait popup so
+    // the two don't fight for the same screen space.
+    if (ref.current.closest('.help-mode-root')) return
     const rect = ref.current.getBoundingClientRect()
     setPreviewPos({
       x: rect.left + rect.width / 2,
@@ -100,9 +106,14 @@ export function PlayerPortrait({ model, size = 'sm', fallback, className = '' }:
         className={`player-portrait ${sizeClass} ${className}`}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
+        data-help={PORTRAIT_HELP}
       >
         {hasError ? (
-          <DefaultPortraitSvg />
+          // Prefer the caller's fallback (the player's initial) over
+          // the silhouette when the model's portrait fails to load.
+          // Silhouette only renders if no fallback was supplied — a
+          // case our card components don't produce in practice.
+          fallback ?? <DefaultPortraitSvg />
         ) : (
           <img
             src={portraitSrc}
