@@ -161,6 +161,19 @@ func (s *Store) SetServerHandshakeRequired(ctx context.Context, serverID int64, 
 	return err
 }
 
+// SetServerAdminDelegation sets servers.admin_delegation_enabled for a
+// single row. The collector's heartbeat is the production source of
+// truth for this flag (mirrored from the collector's per-server cfg);
+// this setter exists for tests and for any future admin-side override.
+func (s *Store) SetServerAdminDelegation(ctx context.Context, serverID int64, enabled bool) error {
+	v := 0
+	if enabled {
+		v = 1
+	}
+	_, err := s.db.ExecContext(ctx, `UPDATE servers SET admin_delegation_enabled = ? WHERE id = ?`, v, serverID)
+	return err
+}
+
 // --- Player GUID methods ---
 
 // UpsertPlayerGUID creates or updates a player GUID, creating a new player if needed

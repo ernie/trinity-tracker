@@ -7,6 +7,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/ernie/trinity-tracker/internal/hub"
 	"github.com/nats-io/nats.go"
 )
 
@@ -26,14 +27,16 @@ const (
 	defaultRconTimeout    = 5 * time.Second
 )
 
-// RconRole is what the hub asserts about the calling user. The
-// collector trusts the hub on identity (JWT was already validated)
-// but re-checks RoleHubAdmin against its per-server delegation flag.
-type RconRole string
+// RconRole + role constants live in internal/hub so the policy
+// decision (hub.AuthorizeUserForRcon) can be shared between the HTTP
+// rcon-exec path and the handshake-time rcon-autoset path. Re-exported
+// here as type aliases to keep the wire format and existing callers
+// unchanged.
+type RconRole = hub.RconRole
 
 const (
-	RconRoleOwner    RconRole = "owner"
-	RconRoleHubAdmin RconRole = "hub_admin"
+	RconRoleOwner    = hub.RconRoleOwner
+	RconRoleHubAdmin = hub.RconRoleHubAdmin
 )
 
 // RconExecRequest is the hub's RCON proxy request. ServerKey is the

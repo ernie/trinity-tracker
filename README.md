@@ -487,6 +487,44 @@ WebSocket endpoint for real-time updates.
 
 Health check endpoint. Returns `ok` with status 200.
 
+## RCON
+
+The web UI offers an RCON terminal for servers the signed-in user is
+authorized to manage. Authorization follows two rules:
+
+- **Source owner** — the user who registered (or was assigned) the
+  source can RCON any server on that source, with or without the global
+  `is_admin` bit.
+- **Global admin with delegation** — a `is_admin` user can RCON a
+  remote server only if the operator has flipped
+  `admin_delegation_enabled` on that server (mirrored from the
+  collector's per-server cfg via the heartbeat). The colocated
+  hub+collector case grants the local admin RCON without the opt-in.
+
+### Encrypted rcon-autoset
+
+When an authorized user joins a managed server with a Trinity client
+that has logged in via `cl_trinityLogin`, the hub pushes an encrypted
+copy of the server's rcon password down to the client during the
+Trinity handshake. The engine decrypts it and sets `rconPassword` for
+the session (transient `set`, not archived `seta`), so `\rcon status`
+just works without copy-pasting credentials.
+
+Crypto layer:
+
+- Per-handshake key `K = SipHash128(token, "trinity-rconset-key-v1" || nonce)`,
+  where `token` is the user's long-lived `cl_trinityToken`.
+- Ciphertext = plaintext XOR keystream (SipHash counter mode).
+- 64-bit SipHash MAC over `(header || ciphertext)`.
+- Wire payload travels as the single argument to a
+  `trinity_rconset` server command (engine-side handler in
+  `cl_trinity_rconset.c`).
+
+The user's long-lived `cl_trinityToken` never leaves the hub — only
+the per-handshake derived key reaches the collector. Audit rows are
+written under the `rcon.autoset` action so autosets show up next to
+manual RCON dispatches in `source_audit`.
+
 ## Quake 3 Server Log Configuration
 
 To enable detailed event tracking, use the `g_log` cvar to write game events to a log file. This requires a modified game QVM that outputs ISO 8601 timestamps (see [baseq3a](https://github.com/ernie/baseq3a) or [missionpackplus](https://github.com/ernie/missionpackplus)).

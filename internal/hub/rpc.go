@@ -60,6 +60,25 @@ type GreetReply struct {
 	GUIDLinked       bool       `json:"guid_linked"`
 	KDRatio          float64    `json:"kd_ratio"`
 	CompletedMatches int64      `json:"completed_matches"`
+	// RconStuff is populated only when the authenticated player is
+	// authorized to RCON the server they just joined. The collector
+	// uses (EpochNonce, Key) to encrypt the rcon password and push it
+	// to the connected client via a trinity_rconset server command. The
+	// long-lived user token is never sent to the collector — Key is a
+	// per-handshake derivative the collector can use exactly once and
+	// then forget.
+	RconStuff *RconStuff `json:"rcon_stuff,omitempty"`
+}
+
+// RconStuff is the rcon-autoset payload the collector receives in
+// GreetReply. Role mirrors the RconRoleOwner / RconRoleHubAdmin
+// distinction returned by AuthorizeUserForRcon — purely for audit and
+// collector-side re-validation; the wire format produced by the
+// collector is identical either way.
+type RconStuff struct {
+	EpochNonce [16]byte `json:"epoch_nonce"`
+	Key        [16]byte `json:"key"`
+	Role       string   `json:"role"`
 }
 
 type ClaimStatus string

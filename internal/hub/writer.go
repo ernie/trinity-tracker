@@ -30,6 +30,11 @@ type Writer struct {
 
 	sources *SourceRegistry
 
+	// localSource is the collector source colocated with this hub
+	// (when hub+collector run on the same box). Empty for hub-only
+	// deployments. Drives the local-admin shortcut in rcon authorization.
+	localSource string
+
 	// guidCache memoizes GUID → player_id. Positive entries are
 	// invalidated explicitly by AssociateGUIDWithPlayer and MergePlayers;
 	// negative results are not cached because a GUID can transition to
@@ -65,6 +70,14 @@ type FactPublisher interface {
 // WithFactPublisher diverts Publish to a remote transport.
 func WithFactPublisher(p FactPublisher) Option {
 	return func(w *Writer) { w.publisher = p }
+}
+
+// WithLocalSource records the source name of the collector colocated
+// with this hub. Used by the Greet handler to grant the local-admin
+// rcon shortcut without requiring the operator to flip
+// admin_delegation_enabled on every local server.
+func WithLocalSource(source string) Option {
+	return func(w *Writer) { w.localSource = source }
 }
 
 const eventBufferSize = 1024
@@ -637,17 +650,25 @@ func (w *Writer) Greet(ctx context.Context, req GreetRequest) (GreetReply, error
 	}
 	playerID := pg.PlayerID
 
+	// authedUser is set when this handshake produced a verified auth
+	// proof. Used after the GUID-link step to evaluate rcon-autoset.
+	var authedUser *storage.User
+
 	if req.Auth != nil {
-		authPlayerID, token, authErr := w.store.GetGameTokenByUsername(ctx, req.Auth.Username)
+		user, authErr := w.store.GetUserByUsername(ctx, req.Auth.Username)
 		switch {
 		case authErr != nil:
-			log.Printf("hub: greet auth no token for %q: %v", req.Auth.Username, authErr)
+			log.Printf("hub: greet auth no user for %q: %v", req.Auth.Username, authErr)
 			reply.AuthResult = AuthFailed
-		case sipHashHex(token, req.Auth.Nonce) != req.Auth.TokenHash:
+		case user.GameToken == "" || user.PlayerID == nil:
+			log.Printf("hub: greet auth no token/player for user %q", req.Auth.Username)
+			reply.AuthResult = AuthFailed
+		case sipHashHex(user.GameToken, req.Auth.Nonce) != req.Auth.TokenHash:
 			log.Printf("hub: greet auth hash mismatch for user %q", req.Auth.Username)
 			reply.AuthResult = AuthFailed
 		default:
 			reply.AuthResult = AuthVerified
+			authPlayerID := *user.PlayerID
 			merged, mergeErr := w.store.AssociateGUIDWithPlayer(ctx, req.GUID, authPlayerID)
 			if mergeErr != nil {
 				log.Printf("hub: greet associate GUID %q with player %d: %v", req.GUID, authPlayerID, mergeErr)
@@ -656,6 +677,7 @@ func (w *Writer) Greet(ctx context.Context, req GreetRequest) (GreetReply, error
 				w.invalidateGUID(req.GUID)
 			}
 			playerID = authPlayerID
+			authedUser = user
 		}
 	}
 
@@ -675,6 +697,12 @@ func (w *Writer) Greet(ctx context.Context, req GreetRequest) (GreetReply, error
 	verified, admin := w.store.GetPlayerVerifiedStatus(ctx, playerID)
 	reply.IsVerified = verified
 	reply.IsAdmin = admin
+
+	if authedUser != nil && req.ServerID > 0 {
+		if stuff := w.evaluateRconStuff(ctx, authedUser, req.ServerID); stuff != nil {
+			reply.RconStuff = stuff
+		}
+	}
 
 	return reply, nil
 }

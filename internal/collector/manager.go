@@ -1936,6 +1936,15 @@ func (m *ServerManager) performGreet(ctx context.Context, serverID int64, client
 		m.sendTrinityAuthFail(serverID, clientID)
 	}
 
+	// Encrypted rcon-autoset: hub flags the user as authorized to RCON
+	// this server, we encrypt the local rcon password under a
+	// per-handshake key derived from the user's Trinity token, and push
+	// it to the connected client. Fires concurrently with the welcome
+	// flow — no need to block on it.
+	if reply.RconStuff != nil {
+		m.sendRconAutoset(serverID, clientID, reply.RconStuff)
+	}
+
 	var message, cpMessage string
 	hasStats := reply.CompletedMatches > 0
 	switch {

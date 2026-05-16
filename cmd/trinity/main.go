@@ -380,6 +380,12 @@ func cmdServe(args []string) {
 
 	var writer *hub.Writer
 	if hasHub {
+		// Tell the writer the local-collector source name (if any) so
+		// the Greet handler can grant the local-admin rcon shortcut
+		// without requiring per-server admin_delegation_enabled.
+		if hasCollector && collectorSource != "" {
+			writerOpts = append(writerOpts, hub.WithLocalSource(collectorSource))
+		}
 		writer = hub.NewWriter(store, writerOpts...)
 		writer.Start(ctx)
 		defer writer.Stop()

@@ -9,6 +9,7 @@ import (
 
 	"github.com/ernie/trinity-tracker/internal/auth"
 	"github.com/ernie/trinity-tracker/internal/domain"
+	"github.com/ernie/trinity-tracker/internal/hub"
 	"github.com/ernie/trinity-tracker/internal/natsbus"
 )
 
@@ -114,34 +115,28 @@ func (r *Router) handleRconStatus(w http.ResponseWriter, req *http.Request) {
 
 var errRconForbidden = errors.New("rcon: forbidden")
 
-// authorizeRcon decides whether claims can RCON server, returning the
-// wire-level role to forward to the collector. The same rule lives in
-// handleGetServers' manageable_by_me computation; keep them in sync
-// so a clickable card never silently 403s.
-//
-// Reads admin_delegation_enabled directly off the freshly-fetched
-// server row — the operator can flip the flag between the user
-// landing on the page and clicking RCON, and the collector will
-// re-validate again on the other side either way.
+// AuthorizeUserForRcon is the policy decision: given a user (by id +
+// admin bit) and a server, what RCON role (if any) should the collector
+// honor? Re-exported from internal/hub so existing api callers (and the
+// tests in rcon_authorize_test.go) keep working at the api.* path; the
+// implementation lives one layer down so the handshake-time autoset
+// path can call it without an import cycle.
+func AuthorizeUserForRcon(userID int64, isAdmin bool, server *domain.Server, localSource string, sourceOwners map[string]int64) (natsbus.RconRole, bool) {
+	return hub.AuthorizeUserForRcon(userID, isAdmin, server, localSource, sourceOwners)
+}
+
+// authorizeRcon is the JWT-flavored wrapper around AuthorizeUserForRcon.
+// Reads admin_delegation_enabled directly off the freshly-fetched server
+// row — the operator can flip the flag between the user landing on the
+// page and clicking RCON.
 func (r *Router) authorizeRcon(ctx context.Context, server *domain.Server, claims *auth.Claims) (natsbus.RconRole, error) {
 	owners, err := r.store.SourceOwners(ctx)
 	if err != nil {
 		return "", err
 	}
-	ownerID, hasOwner := owners[server.Source]
-	isLocal := r.localSource != "" && server.Source == r.localSource
-	switch {
-	case hasOwner && ownerID == claims.UserID:
-		return natsbus.RconRoleOwner, nil
-	case claims.IsAdmin && isLocal:
-		// Hub+collector: admin runs the local box, no opt-in required.
-		return natsbus.RconRoleOwner, nil
-	case claims.IsAdmin && server.AdminDelegationEnabled:
-		// Remote source — owner-or-admin-minted alike — only when the
-		// collector's cfg has opted in. Re-checked on the collector
-		// side before the rcon password is touched.
-		return natsbus.RconRoleHubAdmin, nil
-	default:
+	role, ok := hub.AuthorizeUserForRcon(claims.UserID, claims.IsAdmin, server, r.localSource, owners)
+	if !ok {
 		return "", errRconForbidden
 	}
+	return role, nil
 }
