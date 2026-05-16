@@ -26,3 +26,26 @@ export function serverDisplay(source: string | undefined, key: string | undefine
   if (opts && opts.hasMultipleSources === false) return k;
   return `${source} / ${k}`;
 }
+
+// Parse a demo-player time URL param into seconds.
+// Accepts plain seconds ("90") or short form ("1m30s", "2m", "45s", "1m30").
+// Returns null on garbage; consumers treat null as "ignore".
+export function parseTimeParam(raw: string): number | null {
+  const s = raw.trim().toLowerCase();
+  if (!s) return null;
+  if (/^\d+$/.test(s)) return Number(s);
+  const m = s.match(/^(?:(\d+)m)?(\d+)?s?$/);
+  if (!m || (m[1] === undefined && m[2] === undefined)) return null;
+  return Number(m[1] ?? 0) * 60 + Number(m[2] ?? 0);
+}
+
+// Inverse of parseTimeParam: produce the short form Share emits.
+// 90 -> "1m30s", 120 -> "2m", 45 -> "45s".
+export function formatTimeParam(secs: number): string {
+  const s = Math.max(0, Math.floor(secs));
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  if (m === 0) return `${r}s`;
+  if (r === 0) return `${m}m`;
+  return `${m}m${r}s`;
+}

@@ -1,10 +1,19 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { flushSync } from 'react-dom'
-import { useParams, useLocation, useNavigate } from 'react-router-dom'
+import { useParams, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { ColoredText } from './ColoredText'
 import { PlayerPortrait } from './PlayerPortrait'
 import { ArrowIcon } from './ArrowIcon'
 import type { EngineModule } from '../types'
+import { parseTimeParam, formatTimeParam } from '../utils'
+
+// Parse a follow-target client number from the URL. Out-of-range or
+// non-numeric returns null so the receiver silently ignores garbage links.
+function parseClientNum(raw: string): number | null {
+  if (!/^\d+$/.test(raw)) return null
+  const n = Number(raw)
+  return n >= 0 && n < 64 ? n : null
+}
 
 interface MatchData {
   id: number
@@ -63,6 +72,19 @@ export function DemoPlayerPage() {
   const [playerListOpen, setPlayerListOpen] = useState(false)
   const playerListOpenRef = useRef(false)
   const playerWrapRef = useRef<HTMLDivElement>(null)
+  const [shareCopied, setShareCopied] = useState(false)
+
+  // Deep-link URL params: ?t=<time>&f=<clientnum>. Applied once after the
+  // engine is live and the first snapshot has arrived (tv_view needs the
+  // player table populated to validate the target).
+  const [search] = useSearchParams()
+  const initialSeek = parseTimeParam(search.get('t') ?? '')
+  const initialFollow = parseClientNum(search.get('f') ?? '')
+  const hasDeepLink = initialSeek !== null || initialFollow !== null
+  const paramsAppliedRef = useRef(false)
+  // Keep the levelshot covering the canvas while we wait to seek/follow,
+  // so the viewer never sees the demo's default viewpoint flash.
+  const [paramsApplied, setParamsApplied] = useState(!hasDeepLink)
 
   useEffect(() => {
     let aborted = false
@@ -335,6 +357,41 @@ export function DemoPlayerPage() {
     return () => window.removeEventListener('keydown', onDown, true)
   }, [])
 
+  // Apply ?t=&f= deep-link params once the engine is live and a snapshot
+  // has arrived. We poll CL_TV_GetPlayerList because there's no JS-side
+  // "first snap" hook — the player list is empty until the engine has
+  // processed at least one snapshot, which is when tv_view's target table
+  // is valid.
+  useEffect(() => {
+    if (!engineReady || paramsAppliedRef.current) return
+    if (initialSeek === null && initialFollow === null) {
+      paramsAppliedRef.current = true
+      return
+    }
+    const mod = moduleRef.current
+    if (!mod?.ccall) return
+    const interval = setInterval(() => {
+      let raw: string | null = null
+      try { raw = mod.ccall('CL_TV_GetPlayerList', 'string', [], []) }
+      catch (e) { console.debug('CL_TV_GetPlayerList failed', e); return }
+      if (!raw) return
+      const lines = raw.split('\n').filter(Boolean)
+      if (lines.length < 2) return
+      paramsAppliedRef.current = true
+      clearInterval(interval)
+      const cmds: string[] = []
+      if (initialFollow !== null) cmds.push(`tv_view ${initialFollow}`)
+      if (initialSeek !== null) cmds.push(`tv_seek ${initialSeek}`)
+      try { mod.ccall('Cbuf_AddText', null, ['string'], [cmds.join('\n') + '\n']) }
+      catch (e) { console.debug('apply URL params failed', e) }
+      if (initialFollow !== null) setViewpoint(initialFollow)
+      // Wait one engine frame so the cbuf processes tv_view + tv_seek before
+      // we drop the levelshot and reveal the canvas.
+      mod.onNextFrame?.(() => setParamsApplied(true))
+    }, 100)
+    return () => clearInterval(interval)
+  }, [engineReady, initialSeek, initialFollow])
+
   // Sync volume to engine via s_volume / s_musicvolume / cl_voipVolume cvars
   useEffect(() => {
     const mod = moduleRef.current
@@ -409,6 +466,26 @@ export function DemoPlayerPage() {
     } catch (e) { console.debug('refreshPlayerList failed', e) }
   }, [])
 
+  const onShare = useCallback(() => {
+    const mod = moduleRef.current
+    if (!mod?.ccall) return
+    let tMs = 0, fNum = -1
+    try { tMs = mod.ccall('Cvar_VariableValue', 'number', ['string'], ['cl_tvTime']) }
+    catch (e) { console.debug('cl_tvTime read failed', e) }
+    try { fNum = mod.ccall('Cvar_VariableValue', 'number', ['string'], ['cl_tvViewpoint']) }
+    catch (e) { console.debug('cl_tvViewpoint read failed', e) }
+    const params = new URLSearchParams()
+    // Drop near-start times so the common "from the beginning" share stays clean.
+    if (tMs >= 1000) params.set('t', formatTimeParam(tMs / 1000))
+    if (fNum >= 0 && fNum < 64) params.set('f', String(fNum | 0))
+    const qs = params.toString()
+    const url = `${window.location.origin}${window.location.pathname}${qs ? '?' + qs : ''}`
+    navigator.clipboard.writeText(url).then(() => {
+      setShareCopied(true)
+      setTimeout(() => setShareCopied(false), 1500)
+    }).catch(e => console.debug('clipboard write failed', e))
+  }, [])
+
   const handleScrubToggle = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
     setScrubActive(prev => {
@@ -456,7 +533,7 @@ export function DemoPlayerPage() {
           <div className="demo-progress-bar" style={{ width: `${Math.min(100, (progress.loaded / progress.total) * 100)}%` }} />
         </div>
       )}
-      {mapName && !engineReady && (
+      {mapName && (!engineReady || !paramsApplied) && (
         <div
           className="demo-levelshot"
           style={{ backgroundImage: `url(/assets/levelshots/${mapName.toLowerCase()}.jpg)` }}
@@ -633,6 +710,19 @@ export function DemoPlayerPage() {
               </div>
             </div>
           </div>
+        </div>
+
+        <div className="ctrl-group ctrl-share-wrap">
+          <button className={`ctrl-btn${shareCopied ? ' active' : ''}`}
+            title={shareCopied ? 'Link copied!' : 'Copy share link to this moment'}
+            onMouseDown={preventFocus} onClick={onShare}
+          >
+            {shareCopied ? (
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5L20 7"/></svg>
+            ) : (
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 6l-4-4-4 4"/><line x1="12" y1="2" x2="12" y2="15"/><path d="M6 10H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1"/></svg>
+            )}
+          </button>
         </div>
 
         <div className="ctrl-group ctrl-help-wrap">

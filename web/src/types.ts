@@ -511,6 +511,7 @@ export interface EngineModule {
   pauseMainLoop: () => void
   _exit: (code: number) => void
   ccall(name: string, returnType: 'string', argTypes: string[], args: unknown[]): string | null
+  ccall(name: string, returnType: 'number', argTypes: string[], args: unknown[]): number
   ccall(name: string, returnType: null, argTypes: string[], args: unknown[]): void
   onNextFrame: (cb: () => void) => void
 }

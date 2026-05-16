@@ -8338,6 +8338,11 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   z-index: 10;
   white-space: pre;
   text-align: center;
+  padding: 16px 32px 56px;
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: 8px;
+  min-width: min(90vw, 480px);
+  box-sizing: border-box;
 }
 
 .demo-progress {
@@ -8345,9 +8350,9 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   top: calc(50% + clamp(24px, 4vw, 48px));
   left: 50%;
   transform: translateX(-50%);
-  width: min(80%, 400px);
+  width: min(70vw, 380px);
   height: 6px;
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.18);
   border-radius: var(--radius-sm);
   z-index: 10;
   overflow: hidden;
@@ -8356,7 +8361,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 
 .demo-progress-bar {
   height: 100%;
-  background: rgba(255, 255, 255, 0.5);
+  background: #fff;
   border-radius: var(--radius-sm);
   transition: width 0.15s ease-out;
 }
@@ -8368,8 +8373,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
-  background-color: rgba(0, 0, 0, 0.5);
-  background-blend-mode: darken;
+  background-color: #000;
   pointer-events: none;
 }
 
@@ -8565,9 +8569,12 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   border: none;
 }
 
+.ctrl-share-wrap {
+  margin-left: auto;
+}
+
 .ctrl-help-wrap {
   position: relative;
-  margin-left: auto;
 }
 
 .ctrl-help-btn {
