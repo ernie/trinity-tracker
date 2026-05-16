@@ -405,6 +405,19 @@ const ServerCardImpl = memo(function ServerCardImpl({ server, isSelected, onSele
   const isFfa = isFreeForAll(server.game_type)
   const heroKey = isFfa && ffaHero ? ffaHero.key : null
 
+  // Intermission: the match is over, the engine is showing the
+  // final scoreboard, and the next map hasn't loaded yet. Drop the
+  // "live" suppression from Scoreboard/Duelists so they apply their
+  // post-match winner/loser styling (and their TIE / NO CONTEST
+  // banners for ambiguous outcomes). For FFA we compute ffaGild the
+  // same way MatchCard does: gild iff exactly one player holds the
+  // top score, so frag-count ties stay un-gilded.
+  const isIntermission = server.match_state === 'intermission'
+  const ffaTopCount = ffaHero
+    ? ffaPlayerData.filter(p => p.score === ffaHero.score).length
+    : 0
+  const ffaGild = isIntermission && ffaTopCount === 1
+
   return (
     <div
       className={`card server-card ${isSelected ? 'selected' : ''} ${onSelect ? 'selectable' : ''} ${isDegraded ? 'degraded' : ''}`}
@@ -517,7 +530,7 @@ const ServerCardImpl = memo(function ServerCardImpl({ server, isSelected, onSele
             blueLabel={server.server_vars?.g_blueteam ?? 'Blue'}
             blueScore={server.team_scores.blue}
             state={classifyScores(server.team_scores.red, server.team_scores.blue)}
-            live
+            live={!isIntermission}
             redIndicator={redInd ?? overloadRed ?? harvestRed}
             blueIndicator={blueInd ?? overloadBlue ?? harvestBlue}
             centerIndicator={centerInd}
@@ -533,13 +546,13 @@ const ServerCardImpl = memo(function ServerCardImpl({ server, isSelected, onSele
           left={duelistFromLivePlayer(activePlayers[0])}
           right={duelistFromLivePlayer(activePlayers[1])}
           state={classifyScores(activePlayers[0]?.score ?? 0, activePlayers[1]?.score ?? 0)}
-          live
+          live={!isIntermission}
           onPlayerClick={onPlayerClick}
         />
       ) : (
         <>
           {isFfa && (
-            <FfaHero player={ffaHero} onPlayerClick={onPlayerClick} />
+            <FfaHero player={ffaHero} gildScore={ffaGild} onPlayerClick={onPlayerClick} />
           )}
         <PlayerRows
           players={activePlayers
