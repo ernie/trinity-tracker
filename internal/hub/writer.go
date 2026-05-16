@@ -318,6 +318,9 @@ func (w *Writer) handleMatchStart(ctx context.Context, serverID int64, data doma
 		return
 	}
 	w.presence.ResetCounters(serverID)
+	if n := w.loadActivityNotifier(); n != nil {
+		n.OnMatchStart(serverID)
+	}
 	if existing, err := w.store.GetMatchByUUID(ctx, data.MatchUUID); err != nil {
 		log.Printf("hub: match_start UUID lookup failed: %v", err)
 		return

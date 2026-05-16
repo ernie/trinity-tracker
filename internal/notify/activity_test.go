@@ -2,6 +2,8 @@ package notify
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -10,6 +12,8 @@ import (
 	"github.com/ernie/trinity-tracker/internal/domain"
 	"github.com/ernie/trinity-tracker/internal/hub"
 )
+
+func contains(haystack, needle string) bool { return strings.Contains(haystack, needle) }
 
 // fakePoller returns a fixed status for each server. Good enough for
 // the activity-trigger tests — embed-body details are tested
@@ -82,17 +86,39 @@ func (c *fakeClock) pendingLen() int {
 	return n
 }
 
-// capturePoster records every embed POSTed so the test can assert on
-// fire counts and order.
+// capturePoster records every webhook POST and PATCH so the test
+// can assert on fire counts and order. Posts get sequential ids
+// so the editor can match by message id.
 type capturePoster struct {
-	mu     sync.Mutex
-	embeds []discord.Embed
+	mu          sync.Mutex
+	embeds      []discord.Embed
+	nextID      int
+	edits       []editRecord
+	editErr     error // returned by next edit call, if non-nil
 }
 
-func (c *capturePoster) post(_ context.Context, _ string, embeds ...discord.Embed) error {
+type editRecord struct {
+	messageID string
+	embed     discord.Embed
+}
+
+func (c *capturePoster) post(_ context.Context, _ string, embed discord.Embed) (string, error) {
 	c.mu.Lock()
-	c.embeds = append(c.embeds, embeds...)
-	c.mu.Unlock()
+	defer c.mu.Unlock()
+	c.nextID++
+	c.embeds = append(c.embeds, embed)
+	return fmt.Sprintf("msg-%d", c.nextID), nil
+}
+
+func (c *capturePoster) edit(_ context.Context, _, messageID string, embed discord.Embed) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.editErr != nil {
+		err := c.editErr
+		c.editErr = nil
+		return err
+	}
+	c.edits = append(c.edits, editRecord{messageID: messageID, embed: embed})
 	return nil
 }
 
@@ -104,6 +130,21 @@ func (c *capturePoster) titles() []string {
 		out[i] = e.Title
 	}
 	return out
+}
+
+func (c *capturePoster) editCount() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return len(c.edits)
+}
+
+func (c *capturePoster) lastEdit() (editRecord, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if len(c.edits) == 0 {
+		return editRecord{}, false
+	}
+	return c.edits[len(c.edits)-1], true
 }
 
 func (c *capturePoster) waitFor(t *testing.T, n int) {
@@ -122,6 +163,18 @@ func (c *capturePoster) waitFor(t *testing.T, n int) {
 	got := len(c.embeds)
 	c.mu.Unlock()
 	t.Fatalf("timed out waiting for %d embed(s), have %d", n, got)
+}
+
+func (c *capturePoster) waitForEdits(t *testing.T, n int) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if c.editCount() >= n {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for %d edit(s), have %d", n, c.editCount())
 }
 
 // setup spins a fresh notifier wired to a hub.Presence we can
@@ -152,6 +205,7 @@ func setup(t *testing.T, serverID int64) (*Notifier, *hub.Presence, *fakeClock, 
 		},
 		poller, presence, nil,
 		WithPoster(poster.post),
+		WithEditor(poster.edit),
 		WithAfterFunc(clock.after),
 	)
 	return n, presence, clock, poster, poller
@@ -378,5 +432,194 @@ func TestNotifier_NoStatusSkipsFire(t *testing.T) {
 
 	if got := len(poster.embeds); got != 0 {
 		t.Fatalf("missing status should suppress fire, got %d (%v)", got, poster.titles())
+	}
+}
+
+// After going-active has fired and recorded a message id, a
+// second human joining schedules a refresh that PATCHes the same
+// message id with an updated embed. No new POST.
+func TestNotifier_AdditionalJoinSchedulesRefresh(t *testing.T) {
+	const serverID = int64(7)
+	n, presence, clock, poster, _ := setup(t, serverID)
+
+	recordJoin(presence, serverID, 0, "guid-A")
+	n.OnHumanJoin(serverID)
+	clock.fireAll() // active timer
+	poster.waitFor(t, 1)
+
+	// Second player joins while declared=active.
+	recordJoin(presence, serverID, 1, "guid-B")
+	n.OnHumanJoin(serverID)
+	if got := clock.pendingLen(); got != 1 {
+		t.Fatalf("expected 1 pending refresh timer, got %d", got)
+	}
+
+	clock.fireAll() // refresh timer
+	poster.waitForEdits(t, 1)
+
+	if got := len(poster.embeds); got != 1 {
+		t.Errorf("refresh must edit, not post a new message; got %d posts", got)
+	}
+	last, _ := poster.lastEdit()
+	if last.messageID != "msg-1" {
+		t.Errorf("edit message id: got %q, want msg-1", last.messageID)
+	}
+	if last.embed.Title != "🟢  test / alpha is active" {
+		t.Errorf("edit title: got %q", last.embed.Title)
+	}
+}
+
+// A leave that keeps count > 0 also refreshes the roster so the
+// embed reflects the new player list. Same commitment window as
+// joins (no twitchy updates from a player who immediately rejoins).
+func TestNotifier_LeaveWithRemainingSchedulesRefresh(t *testing.T) {
+	const serverID = int64(7)
+	n, presence, clock, poster, _ := setup(t, serverID)
+
+	recordJoin(presence, serverID, 0, "guid-A")
+	n.OnHumanJoin(serverID)
+	clock.fireAll() // active
+	poster.waitFor(t, 1)
+
+	recordJoin(presence, serverID, 1, "guid-B")
+	n.OnHumanJoin(serverID)
+	clock.fireAll() // first refresh
+	poster.waitForEdits(t, 1)
+
+	// One player leaves; another remains. Refresh should fire.
+	recordLeave(presence, serverID, 0, "guid-A")
+	n.OnHumanLeave(serverID)
+	if got := clock.pendingLen(); got != 1 {
+		t.Fatalf("expected refresh scheduled, got %d pending", got)
+	}
+	clock.fireAll()
+	poster.waitForEdits(t, 2)
+
+	if got := len(poster.embeds); got != 1 {
+		t.Errorf("expected no new POST, got %d", got)
+	}
+}
+
+// While the going-inactive debounce is pending we don't schedule
+// a refresh — the inactive fire would supersede it. Avoids a
+// "Server is active with 0 players" frame between the leave and
+// the inactive fire.
+func TestNotifier_NoRefreshWhileInactivePending(t *testing.T) {
+	const serverID = int64(7)
+	n, presence, clock, poster, _ := setup(t, serverID)
+
+	recordJoin(presence, serverID, 0, "guid-A")
+	n.OnHumanJoin(serverID)
+	clock.fireAll() // active
+	poster.waitFor(t, 1)
+
+	recordLeave(presence, serverID, 0, "guid-A")
+	n.OnHumanLeave(serverID)
+	// Pending should be exactly the inactive debounce — no refresh.
+	if got := clock.pendingLen(); got != 1 {
+		t.Fatalf("expected only inactive timer, got %d pending", got)
+	}
+
+	// Even if a stray rejoin happens, cancelling inactive shouldn't
+	// schedule a refresh until count > 0 *and* declared==active.
+	// (After the rejoin, declared remains active, so a refresh is
+	// allowed and expected — this checks that the inactive-pending
+	// case alone doesn't schedule one.)
+}
+
+// Going-inactive clears activeMessageID and the next 0→1 starts a
+// fresh POST. Without this the second "active" would PATCH the
+// previous (now silent) embed.
+func TestNotifier_InactiveClearsActiveMessageID(t *testing.T) {
+	const serverID = int64(7)
+	n, presence, clock, poster, _ := setup(t, serverID)
+
+	recordJoin(presence, serverID, 0, "guid-A")
+	n.OnHumanJoin(serverID)
+	clock.fireAll() // active
+	poster.waitFor(t, 1)
+
+	recordLeave(presence, serverID, 0, "guid-A")
+	n.OnHumanLeave(serverID)
+	clock.fireAll() // inactive
+	poster.waitFor(t, 2)
+
+	// Next 0→1 transition should produce a third POST, not a PATCH.
+	recordJoin(presence, serverID, 1, "guid-B")
+	n.OnHumanJoin(serverID)
+	clock.fireAll() // active
+	poster.waitFor(t, 3)
+
+	if got := poster.editCount(); got != 0 {
+		t.Errorf("expected zero edits across lifecycle, got %d", got)
+	}
+}
+
+// OnMatchStart while active schedules a refresh so a map change
+// (or a new match on the same map with reset scores) updates the
+// embed. The 30s window lets the UDP poller observe the new
+// mapname cvar before we PATCH.
+func TestNotifier_MatchStartRefreshesWhileActive(t *testing.T) {
+	const serverID = int64(7)
+	n, presence, clock, poster, poller := setup(t, serverID)
+
+	recordJoin(presence, serverID, 0, "guid-A")
+	n.OnHumanJoin(serverID)
+	clock.fireAll() // active
+	poster.waitFor(t, 1)
+
+	// Update poller status to simulate the new map landing in the
+	// next UDP poll cycle, then trigger OnMatchStart.
+	poller.byID[serverID].Map = "q3dm6"
+	n.OnMatchStart(serverID)
+	if got := clock.pendingLen(); got != 1 {
+		t.Fatalf("expected refresh scheduled after match start, got %d pending", got)
+	}
+
+	clock.fireAll() // refresh
+	poster.waitForEdits(t, 1)
+	last, _ := poster.lastEdit()
+	if !contains(last.embed.Description, "q3dm6") {
+		t.Errorf("refresh embed should mention new map q3dm6, got %q", last.embed.Description)
+	}
+}
+
+// OnMatchStart on an inactive or pre-announce server is a no-op:
+// nothing to refresh.
+func TestNotifier_MatchStartIgnoredWhenInactive(t *testing.T) {
+	const serverID = int64(7)
+	n, _, clock, _, _ := setup(t, serverID)
+
+	n.OnMatchStart(serverID)
+	if got := clock.pendingLen(); got != 0 {
+		t.Errorf("match start on inactive server should not schedule anything, got %d pending", got)
+	}
+}
+
+// Discord 404 on PATCH means someone deleted the message in the
+// channel. The notifier clears its cached id so future events
+// don't keep failing against a tombstone.
+func TestNotifier_EditNotFoundClearsMessageID(t *testing.T) {
+	const serverID = int64(7)
+	n, presence, clock, poster, _ := setup(t, serverID)
+
+	recordJoin(presence, serverID, 0, "guid-A")
+	n.OnHumanJoin(serverID)
+	clock.fireAll() // active
+	poster.waitFor(t, 1)
+
+	// Next refresh hits a 404.
+	poster.editErr = discord.ErrMessageNotFound
+	recordJoin(presence, serverID, 1, "guid-B")
+	n.OnHumanJoin(serverID)
+	clock.fireAll() // refresh (will fail with 404)
+	time.Sleep(20 * time.Millisecond)
+
+	// A follow-up event must NOT schedule another refresh — the id
+	// is gone so maybeScheduleRefresh has nothing to refresh.
+	recordJoin(presence, serverID, 2, "guid-C")
+	n.OnHumanJoin(serverID)
+	if got := clock.pendingLen(); got != 0 {
+		t.Errorf("after 404, expected no pending refresh, got %d", got)
 	}
 }

@@ -6,6 +6,7 @@ package notify
 
 import (
 	"context"
+	"errors"
 	"log"
 	"strings"
 	"sync"
@@ -69,7 +70,10 @@ const (
 
 // Notifier tracks per-server activity state and posts a Discord
 // embed each time a server crosses the 0↔1 human-player threshold,
-// with symmetric debouncing on both sides.
+// with symmetric debouncing on both sides. While a server is
+// declared active, subsequent joins/leaves trigger an in-place
+// PATCH of the original "going active" embed so the channel shows
+// a live roster rather than accumulating new messages per player.
 type Notifier struct {
 	webhookURL string
 	publicURL  string
@@ -80,7 +84,8 @@ type Notifier struct {
 	activeDelay      time.Duration
 	inactiveDebounce time.Duration
 	log              *log.Logger
-	poster           func(ctx context.Context, url string, embeds ...discord.Embed) error
+	poster           func(ctx context.Context, url string, embed discord.Embed) (string, error)
+	editor           func(ctx context.Context, url, messageID string, embed discord.Embed) error
 	afterFunc        func(time.Duration, func()) Stopper
 
 	mu     sync.Mutex
@@ -95,12 +100,22 @@ type Stopper interface {
 }
 
 // serverState carries the declared edge plus any pending fire.
-// Only one of pendingActive / pendingInactive can be non-nil at a
-// time — the cancel-on-opposite-event rule enforces this.
+// pendingActive / pendingInactive are mutually exclusive — the
+// cancel-on-opposite-event rule enforces that. pendingRefresh runs
+// independently while the server is declared active to coalesce
+// roster changes into PATCH edits of the existing message.
+//
+// activeMessageID is the Discord message id returned by the
+// initial going-active POST. While non-empty the notifier edits
+// that message; cleared on going-inactive fire (next active starts
+// a fresh message) or on a 404 from Discord (someone deleted the
+// message).
 type serverState struct {
 	declared        declaredState
 	pendingActive   Stopper
 	pendingInactive Stopper
+	pendingRefresh  Stopper
+	activeMessageID string
 }
 
 // Option customizes a Notifier — chiefly for tests.
@@ -111,10 +126,18 @@ func WithLogger(l *log.Logger) Option {
 	return func(n *Notifier) { n.log = l }
 }
 
-// WithPoster injects an alternate Discord-post function. Tests use
-// this to capture POSTs without hitting the network.
-func WithPoster(f func(ctx context.Context, url string, embeds ...discord.Embed) error) Option {
+// WithPoster injects an alternate Discord-post function. Tests
+// use this to capture POSTs without hitting the network. The
+// function returns the new message's id (as PostWebhookForID
+// does); pass any non-empty string for tests that don't care.
+func WithPoster(f func(ctx context.Context, url string, embed discord.Embed) (string, error)) Option {
 	return func(n *Notifier) { n.poster = f }
+}
+
+// WithEditor injects an alternate Discord-edit function. Tests
+// use this to capture refresh PATCHes without hitting the network.
+func WithEditor(f func(ctx context.Context, url, messageID string, embed discord.Embed) error) Option {
+	return func(n *Notifier) { n.editor = f }
 }
 
 // WithAfterFunc injects an alternate time.AfterFunc. Tests fire
@@ -137,7 +160,8 @@ func NewNotifier(cfg ActivityConfig, poller PollerStatus, presence *hub.Presence
 		activeDelay:      cfg.ActiveDelay,
 		inactiveDebounce: cfg.InactiveDebounce,
 		log:              log.Default(),
-		poster:           discord.PostWebhook,
+		poster:           discord.PostWebhookForID,
+		editor:           discord.EditWebhookMessage,
 		afterFunc:        func(d time.Duration, fn func()) Stopper { return time.AfterFunc(d, fn) },
 		states:           make(map[int64]*serverState),
 	}
@@ -180,16 +204,17 @@ func (n *Notifier) OnHumanJoin(serverID int64) {
 	// HumanCount runs *after* the writer's RecordJoin updates
 	// presence, so count==1 means this caller was the first human.
 	count := n.presence.HumanCount(serverID)
-	if count != 1 || st.declared == declaredActive {
+	if count == 1 && st.declared != declaredActive {
+		if st.pendingActive == nil {
+			st.pendingActive = n.afterFunc(n.activeDelay, func() { n.fireActive(serverID) })
+		}
 		return
 	}
-	if st.pendingActive != nil {
-		// Already scheduled (e.g., two rapid joins of the first
-		// player due to ClientConnect/ClientBegin races). Leave the
-		// existing timer in place.
-		return
-	}
-	st.pendingActive = n.afterFunc(n.activeDelay, func() { n.fireActive(serverID) })
+	// We're already declared active (additional player joining) or
+	// still climbing toward the first commitment (count > 1 but
+	// pendingActive is set). In the former, schedule a refresh; in
+	// the latter, maybeScheduleRefresh is a no-op.
+	n.maybeScheduleRefresh(st, serverID)
 }
 
 // OnHumanLeave reports a human-player leave on serverID.
@@ -216,6 +241,9 @@ func (n *Notifier) OnHumanLeave(serverID int64) {
 	st := n.ensureState(serverID)
 	count := n.presence.HumanCount(serverID)
 	if count != 0 {
+		// Someone left but the server is still busy. Refresh the
+		// live embed so the roster reflects the new count.
+		n.maybeScheduleRefresh(st, serverID)
 		return
 	}
 
@@ -234,6 +262,45 @@ func (n *Notifier) OnHumanLeave(serverID int64) {
 		st.pendingInactive.Stop()
 	}
 	st.pendingInactive = n.afterFunc(n.inactiveDebounce, func() { n.fireInactive(serverID) })
+}
+
+// OnMatchStart reports that a new match has begun on serverID
+// (new map or new match on the same map). If the server is
+// declared active, schedule a refresh so the embed picks up the
+// new map name and reset scores once the UDP poller has caught
+// up. Outside the active state this is a no-op — pre-active
+// match-starts get rolled into the going-active POST when it
+// fires, and inactive servers have no embed to refresh.
+func (n *Notifier) OnMatchStart(serverID int64) {
+	if n == nil {
+		return
+	}
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	st := n.ensureState(serverID)
+	n.maybeScheduleRefresh(st, serverID)
+}
+
+// maybeScheduleRefresh queues a debounced PATCH of the active
+// embed. Caller holds n.mu. No-op when there is no message to
+// refresh, when going-inactive is pending (the inactive fire would
+// supersede a refresh), or when a refresh is already scheduled —
+// leaving the existing timer in place bounds the wait. The delay
+// reuses activeDelay so a player who joins mid-session has to
+// commit to staying before they appear in the embed, matching the
+// "is this a real player" reasoning the initial going-active POST
+// already applies.
+func (n *Notifier) maybeScheduleRefresh(st *serverState, serverID int64) {
+	if st.declared != declaredActive || st.activeMessageID == "" {
+		return
+	}
+	if st.pendingInactive != nil {
+		return
+	}
+	if st.pendingRefresh != nil {
+		return
+	}
+	st.pendingRefresh = n.afterFunc(n.activeDelay, func() { n.fireRefresh(serverID) })
 }
 
 func (n *Notifier) ensureState(serverID int64) *serverState {
@@ -267,7 +334,23 @@ func (n *Notifier) fireActive(serverID int64) {
 		n.log.Printf("notify: going-active fire skipped, no poller status for server %d", serverID)
 		return
 	}
-	n.post(buildActiveEmbed(status, n.publicURL, n.mapMeta))
+	if n.webhookURL == "" {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	messageID, err := n.poster(ctx, n.webhookURL, buildActiveEmbed(status, n.publicURL, n.mapMeta))
+	if err != nil {
+		n.log.Printf("notify: POST webhook: %v", err)
+		return
+	}
+	// Stash the message id so subsequent join/leave events can
+	// PATCH it instead of posting fresh messages.
+	n.mu.Lock()
+	if st, ok := n.states[serverID]; ok {
+		st.activeMessageID = messageID
+	}
+	n.mu.Unlock()
 }
 
 func (n *Notifier) fireInactive(serverID int64) {
@@ -282,6 +365,15 @@ func (n *Notifier) fireInactive(serverID int64) {
 		return
 	}
 	st.declared = declaredInactive
+	// Clear the active message id and any pending refresh — the
+	// going-inactive POST is a new message, not an edit of the
+	// active one (editing "Server is active" into "Server is idle"
+	// would erase the original alert from the channel).
+	st.activeMessageID = ""
+	if st.pendingRefresh != nil {
+		st.pendingRefresh.Stop()
+		st.pendingRefresh = nil
+	}
 	n.mu.Unlock()
 
 	status := n.poller.GetServerStatus(serverID)
@@ -289,16 +381,64 @@ func (n *Notifier) fireInactive(serverID int64) {
 		n.log.Printf("notify: going-inactive fire skipped, no poller status for server %d", serverID)
 		return
 	}
-	n.post(buildInactiveEmbed(status, n.publicURL, n.mapMeta))
-}
-
-func (n *Notifier) post(embed discord.Embed) {
 	if n.webhookURL == "" {
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	if err := n.poster(ctx, n.webhookURL, embed); err != nil {
+	if _, err := n.poster(ctx, n.webhookURL, buildInactiveEmbed(status, n.publicURL, n.mapMeta)); err != nil {
 		n.log.Printf("notify: POST webhook: %v", err)
 	}
+}
+
+// fireRefresh PATCHes the active embed with current poller status.
+// Skips silently if the server transitioned out of active in the
+// meantime, or if Discord reports the message is gone (someone
+// deleted it from the channel) — in that case we clear the id so
+// future refresh attempts don't keep failing against a tombstone.
+func (n *Notifier) fireRefresh(serverID int64) {
+	n.mu.Lock()
+	st, ok := n.states[serverID]
+	if ok {
+		st.pendingRefresh = nil
+	}
+	if !ok || st.declared != declaredActive || st.activeMessageID == "" {
+		n.mu.Unlock()
+		return
+	}
+	count := n.presence.HumanCount(serverID)
+	messageID := st.activeMessageID
+	n.mu.Unlock()
+	if count == 0 {
+		// Server emptied between scheduling and firing — the
+		// inactive flow will handle the message; skip the refresh.
+		return
+	}
+
+	status := n.poller.GetServerStatus(serverID)
+	if status == nil {
+		n.log.Printf("notify: refresh skipped, no poller status for server %d", serverID)
+		return
+	}
+	if n.webhookURL == "" {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	err := n.editor(ctx, n.webhookURL, messageID, buildActiveEmbed(status, n.publicURL, n.mapMeta))
+	if err == nil {
+		return
+	}
+	if errors.Is(err, discord.ErrMessageNotFound) {
+		// Discord lost the message — clear our id so we don't
+		// keep PATCHing a tombstone. Future events will see no id
+		// and skip refreshes; the next 0→1 transition posts fresh.
+		n.mu.Lock()
+		if st, ok := n.states[serverID]; ok && st.activeMessageID == messageID {
+			st.activeMessageID = ""
+		}
+		n.mu.Unlock()
+		return
+	}
+	n.log.Printf("notify: PATCH webhook: %v", err)
 }
