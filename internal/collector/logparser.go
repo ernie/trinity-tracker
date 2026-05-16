@@ -57,6 +57,13 @@ const (
 	EventTypeTrinityHandshake = "trinity_handshake"
 	EventTypeDemoSaved        = "demo_saved"
 	EventTypeDemoDiscarded    = "demo_discarded"
+	// EventTypeRconExec is the engine-side audit of an accepted /rcon
+	// command. The engine logs the source address, the connected
+	// client's GUID (or "-" when none matched), and the command.
+	EventTypeRconExec         = "rcon_exec"
+	// EventTypeRconDenied is the engine-side audit of a rejected /rcon
+	// attempt (bad password). Carries only the source address.
+	EventTypeRconDenied       = "rcon_denied"
 )
 
 // DemoSavedData carries the structured payload from a trinity-engine
@@ -275,6 +282,21 @@ type TrinityHandshakeData struct {
 	TokenHash string // empty if not authenticated
 }
 
+// RconExecData represents one accepted /rcon command, logged by the
+// engine's SVC_RemoteCommand. GUID is empty when the engine couldn't
+// match the source address to a connected client (external rcon).
+type RconExecData struct {
+	ClientAddr string // "ip:port" verbatim from NET_AdrToString
+	GUID       string // empty when no connected client matched
+	Command    string
+}
+
+// RconDeniedData represents one rejected /rcon attempt. Source address
+// only — the attempted password is not propagated.
+type RconDeniedData struct {
+	ClientAddr string
+}
+
 // Regular expressions for parsing log lines
 var (
 	// Matches ISO 8601 timestamp at start of line: 2026-01-12T10:58:23 or 2026-01-12T10:58:23.456789Z
@@ -325,6 +347,10 @@ var (
 	// for log review.
 	demoSavedRegex     = regexp.MustCompile(`^DemoSaved: (\S+)(?: frames=(\d+))?(?: duration_ms=(\d+))?(?: bytes=(\d+))?$`)
 	demoDiscardedRegex = regexp.MustCompile(`^DemoDiscarded: (\S+)`)
+	// addr is "ip:port" (NET_AdrToString); guid is 32 hex chars or "-";
+	// command is the remainder of the line.
+	rconExecRegex   = regexp.MustCompile(`^RconExec: (\S+) (\S+) (.+)$`)
+	rconDeniedRegex = regexp.MustCompile(`^RconDenied: (\S+)$`)
 )
 
 // LogTailer watches a log file and parses events
@@ -951,6 +977,26 @@ func ParseLine(line string) (*LogEvent, error) {
 			Key:   match[1],
 			Value: match[2],
 		}
+		return event, nil
+	}
+
+	if match := rconExecRegex.FindStringSubmatch(content); match != nil {
+		guid := match[2]
+		if guid == "-" {
+			guid = ""
+		}
+		event.Type = EventTypeRconExec
+		event.Data = RconExecData{
+			ClientAddr: match[1],
+			GUID:       guid,
+			Command:    match[3],
+		}
+		return event, nil
+	}
+
+	if match := rconDeniedRegex.FindStringSubmatch(content); match != nil {
+		event.Type = EventTypeRconDenied
+		event.Data = RconDeniedData{ClientAddr: match[1]}
 		return event, nil
 	}
 

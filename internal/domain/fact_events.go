@@ -18,6 +18,15 @@ const (
 	FactServerStartup        = "server_startup"
 	FactServerShutdown       = "server_shutdown"
 	FactDemoFinalized        = "demo_finalized"
+	// FactRconExec is one accepted /rcon command observed by the engine
+	// (sv_main.c::SVC_RemoteCommand). Drives a source_audit row with
+	// action "rcon.exec" — same column the web-dispatched rcon path
+	// writes — so both surfaces share an audit view.
+	FactRconExec             = "rcon_exec"
+	// FactRconDenied is one rejected /rcon attempt (bad password / no
+	// password set). Drives a source_audit row with action "rcon.denied".
+	// Source IP only — never the attempted password.
+	FactRconDenied           = "rcon_denied"
 )
 
 // FactEvent is the in-process envelope carrying a payload from the
@@ -191,6 +200,29 @@ type ServerStartupData struct {
 // timestamp.
 type ServerShutdownData struct {
 	ShutdownAt time.Time `json:"shutdown_at"`
+}
+
+// RconExecData carries one in-game /rcon command for hub-side audit.
+// GUID is empty when the engine couldn't match the rcon source address
+// to a connected client (external rcon, NAT quirks, separate console
+// socket). The hub writer SKIPS the audit row when the GUID can't be
+// resolved to a known user — those calls are either the collector's
+// own service traffic (welcome / web-UI rcon hairpinning back through
+// the local UDP socket) or external operator rcon we can't attribute
+// anyway. Failed rcon attempts get their own FactRconDenied lane.
+type RconExecData struct {
+	ClientAddr string `json:"client_addr"`
+	GUID       string `json:"guid,omitempty"`
+	Command    string `json:"command"`
+}
+
+// RconDeniedData is emitted when the engine rejects an rcon attempt
+// (wrong password or no password set). Carries source address only —
+// the attempted password is deliberately NOT propagated to avoid
+// leaking secret material into the audit log. Useful for spotting
+// brute-force attempts.
+type RconDeniedData struct {
+	ClientAddr string `json:"client_addr"`
 }
 
 // DemoFinalizedData is emitted when trinity-engine logs a "DemoSaved:"

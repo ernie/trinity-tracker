@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"crypto/rand"
+	"database/sql"
 	"encoding/hex"
 )
 
@@ -40,6 +41,29 @@ func (s *Store) EnsureGameToken(ctx context.Context, userID int64) (string, erro
 		return existing, nil
 	}
 	return s.RotateGameToken(ctx, userID)
+}
+
+// GetUserIDByGUID resolves a GUID to its owning user. Returns ok=false
+// cleanly when the GUID has no matching user (unlinked player, or a
+// GUID we've never seen). Sibling of GetGameTokenByGUID; same JOIN
+// shape, different selected column. Used by the in-game rcon audit
+// path to attribute /rcon commands by user rather than by IP.
+func (s *Store) GetUserIDByGUID(ctx context.Context, guid string) (int64, bool, error) {
+	var userID int64
+	err := s.db.QueryRowContext(ctx, `
+		SELECT u.id
+		FROM users u
+		JOIN players p ON p.id = u.player_id
+		JOIN player_guids pg ON pg.player_id = p.id
+		WHERE pg.guid = ?
+	`, guid).Scan(&userID)
+	if err == sql.ErrNoRows {
+		return 0, false, nil
+	}
+	if err != nil {
+		return 0, false, err
+	}
+	return userID, true, nil
 }
 
 func (s *Store) GetGameTokenByGUID(ctx context.Context, guid string) (string, error) {

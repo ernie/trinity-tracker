@@ -142,6 +142,18 @@ func decodeEventPayload(event string, raw json.RawMessage) (interface{}, error) 
 			return nil, fmt.Errorf("hub: decode %s: %w", event, err)
 		}
 		return p, nil
+	case domain.FactRconExec:
+		var p domain.RconExecData
+		if err := json.Unmarshal(raw, &p); err != nil {
+			return nil, fmt.Errorf("hub: decode %s: %w", event, err)
+		}
+		return p, nil
+	case domain.FactRconDenied:
+		var p domain.RconDeniedData
+		if err := json.Unmarshal(raw, &p); err != nil {
+			return nil, fmt.Errorf("hub: decode %s: %w", event, err)
+		}
+		return p, nil
 	default:
 		return nil, fmt.Errorf("hub: unknown event type %q", event)
 	}

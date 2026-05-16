@@ -247,6 +247,10 @@ func (w *Writer) dispatch(ctx context.Context, e domain.FactEvent) {
 		w.handleServerShutdown(ctx, e.ServerID, data)
 	case domain.DemoFinalizedData:
 		w.handleDemoFinalized(ctx, data)
+	case domain.RconExecData:
+		w.handleRconExec(ctx, e.ServerID, data)
+	case domain.RconDeniedData:
+		w.handleRconDenied(ctx, e.ServerID, data)
 	default:
 		log.Printf("hub.Writer: received %s event for server %d (dispatch not yet implemented)",
 			e.Type, e.ServerID)
@@ -552,6 +556,56 @@ func (w *Writer) handleDemoFinalized(ctx context.Context, data domain.DemoFinali
 	}
 	log.Printf("hub: demo_finalized match=%s frames=%d duration_ms=%d bytes=%d",
 		data.MatchUUID, data.Frames, data.DurationMS, data.Bytes)
+}
+
+// handleRconExec writes a source_audit row for an in-game /rcon
+// command observed by the engine. Attribution requires that the
+// command's source address matches a connected client whose GUID
+// links to a real user — anything we can't attribute is service
+// noise (collector welcome rcon hairpinning back, web-UI rcon
+// already audited at the api/rcon.go layer, or external operator
+// rcon we can't tie to a person). Failed attempts get their own
+// rcon.denied audit lane so brute-force visibility doesn't ride on
+// this success-path code.
+func (w *Writer) handleRconExec(ctx context.Context, serverID int64, data domain.RconExecData) {
+	if data.GUID == "" {
+		return
+	}
+	uid, ok, err := w.store.GetUserIDByGUID(ctx, data.GUID)
+	if err != nil {
+		log.Printf("hub: rcon-exec audit GetUserIDByGUID(%s): %v", data.GUID, err)
+		return
+	}
+	if !ok {
+		return
+	}
+
+	srv, err := w.store.GetServerByID(ctx, serverID)
+	if err != nil || srv == nil {
+		log.Printf("hub: rcon-exec audit GetServerByID(%d): %v", serverID, err)
+		return
+	}
+
+	if err := w.store.WriteSourceAudit(ctx, srv.Source, &uid, "rcon.exec", "ingame: "+data.Command); err != nil {
+		log.Printf("hub: rcon-exec audit insert failed (source=%s): %v", srv.Source, err)
+	}
+}
+
+// handleRconDenied writes a source_audit row for an rcon attempt the
+// engine rejected (bad password). Actor is intentionally NULL — these
+// are by definition unattributed attempts. The display layer renders
+// these as "system" rows; together with the per-source filtering on
+// the audit page that's the brute-force-visibility surface.
+func (w *Writer) handleRconDenied(ctx context.Context, serverID int64, data domain.RconDeniedData) {
+	srv, err := w.store.GetServerByID(ctx, serverID)
+	if err != nil || srv == nil {
+		log.Printf("hub: rcon-denied audit GetServerByID(%d): %v", serverID, err)
+		return
+	}
+	detail := "bad rcon from " + data.ClientAddr
+	if err := w.store.WriteSourceAudit(ctx, srv.Source, nil, "rcon.denied", detail); err != nil {
+		log.Printf("hub: rcon-denied audit insert failed (source=%s): %v", srv.Source, err)
+	}
 }
 
 func (w *Writer) resolveOpenSession(ctx context.Context, serverID int64, guid string) (*domain.Session, error) {

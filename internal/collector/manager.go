@@ -1447,6 +1447,38 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 		// No fact emitted — absence of FactDemoFinalized for the match
 		// is the same signal hub-side. Logged for replay/debug.
 
+	case EventTypeRconExec:
+		data := event.Data.(RconExecData)
+		// Defense-in-depth: the engine already filters trinity_rconset
+		// (the autoset path is audited as rcon.autoset hub-side); if a
+		// future code path produces one anyway, drop it here too.
+		if strings.HasPrefix(data.Command, "sv_cmd trinity_rconset") {
+			break
+		}
+		if !replayMode {
+			m.pub.Publish(domain.FactEvent{
+				Type:      domain.FactRconExec,
+				ServerID:  serverID,
+				Timestamp: event.Timestamp,
+				Data: domain.RconExecData{
+					ClientAddr: data.ClientAddr,
+					GUID:       data.GUID,
+					Command:    data.Command,
+				},
+			})
+		}
+
+	case EventTypeRconDenied:
+		data := event.Data.(RconDeniedData)
+		if !replayMode {
+			m.pub.Publish(domain.FactEvent{
+				Type:      domain.FactRconDenied,
+				ServerID:  serverID,
+				Timestamp: event.Timestamp,
+				Data:      domain.RconDeniedData{ClientAddr: data.ClientAddr},
+			})
+		}
+
 	case EventTypeCvarChange:
 		data := event.Data.(CvarChangeData)
 		if state.match != nil && state.match.UUID != "" {
