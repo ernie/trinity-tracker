@@ -1,0 +1,66 @@
+[
+  {
+    "name": "min_1byte_plaintext",
+    "token": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "epoch_nonce_hex": "00000000000000000000000000000001",
+    "plaintext": "x",
+    "expected_key_hex": "ea00d837ba1fe7d2a52b78d38f69eb23",
+    "expected_blob_hex": "01010000000000000000000000000000000130c8942a31b2e16d34"
+  },
+  {
+    "name": "exactly_one_block",
+    "token": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "epoch_nonce_hex": "00112233445566778899aabbccddeeff",
+    "plaintext": "1234567890abcdef",
+    "expected_key_hex": "f0c58f2c3413257ca0f34613cc17a4a1",
+    "expected_blob_hex": "011000112233445566778899aabbccddeeff0600e9d2a14a9ed7d240f49d02dee4bee853a32d1d53ef5d"
+  },
+  {
+    "name": "spans_two_blocks",
+    "token": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "epoch_nonce_hex": "00112233445566778899aabbccddeeff",
+    "plaintext": "1234567890abcdefg",
+    "expected_key_hex": "f0c58f2c3413257ca0f34613cc17a4a1",
+    "expected_blob_hex": "011100112233445566778899aabbccddeeff0600e9d2a14a9ed7d240f49d02dee4bea466cdef09392be57b"
+  },
+  {
+    "name": "max_64_bytes",
+    "token": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "epoch_nonce_hex": "fedcba9876543210fedcba9876543210",
+    "plaintext": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@",
+    "expected_key_hex": "db86fd8db651a85185b1f4a2293a6244",
+    "expected_blob_hex": "0140fedcba9876543210fedcba9876543210a44f50c0f62a275fef3aafb5d04696a6b9d519fcc9c516764115b60a7d8d8fb1159bd17fd6ca92eccc945746d4a8288fb8236d81a74bf6a2befd0d8eeba1bf8fd4493277f36017f4"
+  },
+  {
+    "name": "typical_rcon_password",
+    "token": "deadbeefcafef00d1234567890abcdef0123456789abcdef1111222233334444",
+    "epoch_nonce_hex": "0102030405060708090a0b0c0d0e0f10",
+    "plaintext": "hunter2hunter2",
+    "expected_key_hex": "2601bee64d75d9db314f5eb5c3a26c21",
+    "expected_blob_hex": "010e0102030405060708090a0b0c0d0e0f109e1ec8fff4ba8f8d79ed9e892a2f81ed379523f1259a"
+  },
+  {
+    "name": "punctuation_password",
+    "token": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "epoch_nonce_hex": "ababababababababcdcdcdcdcdcdcdcd",
+    "plaintext": "!#$%\u0026'()*+,-./",
+    "expected_key_hex": "49a6d54c254cf36bd5e026904f12e587",
+    "expected_blob_hex": "010eababababababababcdcdcdcdcdcdcdcd3106cae676d574bf090ee33b732221f512c77a491554"
+  },
+  {
+    "name": "short_token",
+    "token": "abc",
+    "epoch_nonce_hex": "1111111111111111aaaaaaaaaaaaaaaa",
+    "plaintext": "pw",
+    "expected_key_hex": "8b282cefe9900897344c47dce9f79800",
+    "expected_blob_hex": "01021111111111111111aaaaaaaaaaaaaaaa7b0b6735e1077f2cd997"
+  },
+  {
+    "name": "long_token",
+    "token": "99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+    "epoch_nonce_hex": "deadbeefdeadbeefdeadbeefdeadbeef",
+    "plaintext": "rconAdmin99",
+    "expected_key_hex": "2789674ac68e7d119a2412f53e7dd55b",
+    "expected_blob_hex": "010bdeadbeefdeadbeefdeadbeefdeadbeef57c5f022ba1ee0e0e6ea9a7ac598908c2da7e8"
+  }
+]
