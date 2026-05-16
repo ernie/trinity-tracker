@@ -113,7 +113,7 @@ function duelistFromMatchPlayer(p: MatchPlayerSummary | undefined): DuelistData 
     isVR: p.is_vr,
     isVerified: p.is_verified,
     isAdmin: p.is_admin,
-    score: p.frags ?? 0,
+    score: p.score ?? 0,
     sub: <span>{p.frags ?? 0} K · {p.deaths ?? 0} D</span>,
     awards: awardsFromCounts(p),
     playerId: p.player_id,
@@ -191,7 +191,7 @@ export function MatchCard({
     isVR: p.is_vr,
     isVerified: p.is_verified,
     isAdmin: p.is_admin,
-    score: p.frags ?? 0,
+    score: p.score ?? 0,
     sub: <span>{p.frags ?? 0} K · {p.deaths ?? 0} D</span>,
     awards: awardsFromCounts(p),
     playerId: p.player_id,
@@ -310,7 +310,7 @@ export function MatchCard({
         <Duelists
           left={duelistFromMatchPlayer(activeTeams[0])}
           right={duelistFromMatchPlayer(activeTeams[1])}
-          state={classifyScores(activeTeams[0]?.frags ?? 0, activeTeams[1]?.frags ?? 0)}
+          state={classifyScores(activeTeams[0]?.score ?? 0, activeTeams[1]?.score ?? 0)}
           onPlayerClick={onPlayerClick}
         />
       ) : (
