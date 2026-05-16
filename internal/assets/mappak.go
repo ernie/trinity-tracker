@@ -48,19 +48,22 @@ func BuildMapPak(mapName, game string, manifest *Manifest, quake3Dir, outputPath
 		resolveModel(modelPath, gm, needed)
 	}
 
-	// 5. Resolve entity sounds
+	// 5. Resolve entity sounds. BSP "noise" values often omit the
+	// extension (e.g. "sound/ct3tourney2/thunder"); the engine tries
+	// .wav then .ogg at load time (snd_codec.c:S_CodecGetSound). Mirror
+	// that so the file actually gets bundled — otherwise the engine
+	// falls back to default_sfx, which is sound/feedback/hit.wav, and
+	// looped speakers loop the hit sound forever.
 	for _, soundPath := range bspAssets.Sounds {
-		lower := strings.ToLower(soundPath)
-		if _, ok := gm.FileIndex[lower]; ok {
-			needed[lower] = true
+		if resolved, ok := resolveAudioPath(soundPath, gm.FileIndex); ok {
+			needed[resolved] = true
 		}
 	}
 
-	// 6. Resolve music
+	// 6. Resolve music (same extension-fallback rules as entity sounds)
 	for _, musicPath := range bspAssets.Music {
-		lower := strings.ToLower(musicPath)
-		if _, ok := gm.FileIndex[lower]; ok {
-			needed[lower] = true
+		if resolved, ok := resolveAudioPath(musicPath, gm.FileIndex); ok {
+			needed[resolved] = true
 		}
 	}
 
@@ -140,16 +143,26 @@ func resolveShaderTextures(shaderName string, gm *GameManifest, needed map[strin
 	}
 }
 
-// resolveModel resolves an MD3 model and all its shader/texture dependencies.
+// resolveModel resolves a model and all its shader/texture dependencies.
+// BSP "model2" values usually include the extension, but mirror the
+// engine's fallback order (renderer/tr_model.c modelLoaders: iqm, mdr,
+// md3) for completeness so a custom map referencing a bare path doesn't
+// silently drop the model from the bundle.
 func resolveModel(modelPath string, gm *GameManifest, needed map[string]bool) {
-	lower := strings.ToLower(modelPath)
-	if _, ok := gm.FileIndex[lower]; !ok {
+	resolved, ok := resolveModelPath(modelPath, gm.FileIndex)
+	if !ok {
 		return
 	}
-	needed[lower] = true
+	needed[resolved] = true
 
-	// Parse MD3 to get shader refs
-	data, err := readFileFromIndex(lower, gm.FileIndex)
+	// Only .md3 has a shader-table format we can parse; iqm/mdr embed
+	// materials differently and aren't worth a parser here — bundling
+	// the file itself is the important part.
+	if !strings.HasSuffix(resolved, ".md3") {
+		return
+	}
+
+	data, err := readFileFromIndex(resolved, gm.FileIndex)
 	if err != nil {
 		return
 	}
@@ -161,6 +174,54 @@ func resolveModel(modelPath string, gm *GameManifest, needed map[string]bool) {
 	for _, ref := range shaderRefs {
 		resolveShaderTextures(ref, gm, needed)
 	}
+}
+
+// resolveModelPath finds a model in the file index, trying the engine's
+// extension-fallback order (iqm, mdr, md3) when the literal path isn't
+// present. Matches modelLoaders[] in renderer/tr_model.c.
+func resolveModelPath(modelPath string, fileIndex map[string]string) (string, bool) {
+	lower := strings.ToLower(modelPath)
+	if _, ok := fileIndex[lower]; ok {
+		return lower, true
+	}
+	base := lower
+	for _, ext := range []string{".md3", ".mdr", ".iqm"} {
+		base = strings.TrimSuffix(base, ext)
+	}
+	for _, ext := range []string{".iqm", ".mdr", ".md3"} {
+		candidate := base + ext
+		if candidate == lower {
+			continue
+		}
+		if _, ok := fileIndex[candidate]; ok {
+			return candidate, true
+		}
+	}
+	return "", false
+}
+
+// resolveAudioPath finds an audio asset in the file index, trying the
+// engine's extension-fallback order if the literal path isn't present.
+// Q3's snd_codec.c tries the given filename first, then strips the
+// extension and tries each codec — wav before ogg, since wav is
+// registered last and the codec list is a LIFO stack.
+func resolveAudioPath(soundPath string, fileIndex map[string]string) (string, bool) {
+	lower := strings.ToLower(soundPath)
+	if _, ok := fileIndex[lower]; ok {
+		return lower, true
+	}
+	base := strings.TrimSuffix(lower, ".wav")
+	base = strings.TrimSuffix(base, ".ogg")
+	for _, ext := range []string{".wav", ".ogg"} {
+		candidate := base + ext
+		if candidate == lower {
+			continue
+		}
+		if _, ok := fileIndex[candidate]; ok {
+			return candidate, true
+		}
+	}
+	return "", false
 }
 
 // MapPakFileSet returns the set of files in a map pk3 by reading it.
