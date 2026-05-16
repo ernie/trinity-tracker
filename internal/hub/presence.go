@@ -95,6 +95,20 @@ func (p *Presence) Lookup(serverID int64, clientNum int) (PresenceEntry, bool) {
 	return entry, ok
 }
 
+// HumanCount returns the number of non-bot entries currently tracked
+// for serverID. Drives the activity-notifier's 0↔1 transition trigger.
+func (p *Presence) HumanCount(serverID int64) int {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	n := 0
+	for k, v := range p.bySlot {
+		if k.serverID == serverID && !v.IsBot {
+			n++
+		}
+	}
+	return n
+}
+
 func (p *Presence) Clear(serverID int64) {
 	p.mu.Lock()
 	defer p.mu.Unlock()

@@ -166,21 +166,69 @@ type AuthConfig struct {
 	TokenDuration time.Duration `yaml:"token_duration"`
 }
 
-// DiscordConfig is read by the `trinity discord-digest` subcommand
-// (invoked from cron / a systemd timer). Never read by `trinity serve`,
-// so an empty/missing block has no effect on hub startup.
+// DiscordConfig groups the optional Discord integrations. Each
+// sub-block is independent — operators can configure one without the
+// other. Webhook URLs are credentials in their own right (Discord
+// auths the request entirely by URL), so the file should stay 0640.
+//
+// The block is read in two contexts:
+//   - `trinity discord-digest` (cron/systemd timer) reads Digest for
+//     the weekly leaderboard embed.
+//   - `trinity serve` reads Activity to spin up the server-activity
+//     notifier that fires when a Q3 server's human-player count
+//     crosses 0↔1.
+type DiscordConfig struct {
+	Digest   *DigestConfig   `yaml:"digest,omitempty"`
+	Activity *ActivityConfig `yaml:"activity,omitempty"`
+
+	// Legacy fields kept solely so the validator can emit a clear
+	// migration error pointing operators at the new sub-block names.
+	// Yaml's default unmarshal is lenient about unknown keys, so
+	// without these we'd silently ignore an older config and the
+	// digest would mysteriously stop posting.
+	LegacyWebhookURL       string   `yaml:"webhook_url,omitempty"`
+	LegacyDigestCategories []string `yaml:"digest_categories,omitempty"`
+}
+
+// DigestConfig drives the weekly leaderboard digest.
 //
 // WebhookURL is the full https://discord.com/api/webhooks/{id}/{token}
-// URL — the URL itself is the credential. Stored alongside other
-// secret-bearing fields in /etc/trinity/config.yml (mode 0640).
-//
-// DigestCategories optionally overrides the 9 default leaderboard
-// categories shown in the embed. Order is preserved. Each entry must
-// be one of the categories accepted by /api/stats/leaderboard.
-type DiscordConfig struct {
-	WebhookURL       string   `yaml:"webhook_url"`
-	DigestCategories []string `yaml:"digest_categories,omitempty"`
+// URL. Categories optionally overrides the 9 default leaderboard
+// categories rendered in the embed; each entry must be one of the
+// categories accepted by /api/stats/leaderboard.
+type DigestConfig struct {
+	WebhookURL string   `yaml:"webhook_url"`
+	Categories []string `yaml:"categories,omitempty"`
 }
+
+// ActivityConfig drives the server-activity notifier.
+//
+// WebhookURL is the full Discord webhook URL the notifier POSTs to.
+//
+// ActiveDelaySeconds is how long the notifier waits between "first
+// human joined" and the going-active POST. The delay gives the
+// poller time to capture the new player on a subsequent UDP probe
+// (so the embed roster isn't stale) and rules out connect-and-drop
+// noise. Defaults to DefaultActiveDelaySeconds.
+//
+// InactiveDebounceSeconds is how long the notifier waits with zero
+// humans on a server before declaring it idle. Short flaps below
+// this threshold produce no message at all. Defaults to
+// DefaultInactiveDebounceSeconds.
+type ActivityConfig struct {
+	WebhookURL              string `yaml:"webhook_url"`
+	ActiveDelaySeconds      int    `yaml:"active_delay_seconds,omitempty"`
+	InactiveDebounceSeconds int    `yaml:"inactive_debounce_seconds,omitempty"`
+}
+
+// DefaultActiveDelaySeconds is the fallback going-active delay
+// when the config doesn't override it.
+const DefaultActiveDelaySeconds = 30
+
+// DefaultInactiveDebounceSeconds is the fallback debounce when the
+// config doesn't override it. 60s comfortably absorbs typical
+// reconnect lag without delaying a real "everyone left" notification.
+const DefaultInactiveDebounceSeconds = 60
 
 // discordWebhookURLPattern matches Discord's webhook URL shape. We
 // don't try to verify the token is "real" — Discord will reject bad
@@ -201,12 +249,28 @@ func validateDiscord(d *DiscordConfig) error {
 	if d == nil {
 		return nil
 	}
-	if d.WebhookURL != "" && !discordWebhookURLPattern.MatchString(d.WebhookURL) {
-		return fmt.Errorf("discord.webhook_url %q does not match Discord webhook shape (https://discord.com/api/webhooks/{id}/{token})", d.WebhookURL)
+	if d.LegacyWebhookURL != "" || len(d.LegacyDigestCategories) > 0 {
+		return fmt.Errorf("discord.webhook_url / discord.digest_categories were moved to discord.digest.webhook_url / discord.digest.categories — update your config.yml")
 	}
-	for i, cat := range d.DigestCategories {
-		if !validDigestCategories[cat] {
-			return fmt.Errorf("discord.digest_categories[%d] %q is not a valid leaderboard category", i, cat)
+	if d.Digest != nil {
+		if d.Digest.WebhookURL != "" && !discordWebhookURLPattern.MatchString(d.Digest.WebhookURL) {
+			return fmt.Errorf("discord.digest.webhook_url %q does not match Discord webhook shape (https://discord.com/api/webhooks/{id}/{token})", d.Digest.WebhookURL)
+		}
+		for i, cat := range d.Digest.Categories {
+			if !validDigestCategories[cat] {
+				return fmt.Errorf("discord.digest.categories[%d] %q is not a valid leaderboard category", i, cat)
+			}
+		}
+	}
+	if d.Activity != nil {
+		if d.Activity.WebhookURL != "" && !discordWebhookURLPattern.MatchString(d.Activity.WebhookURL) {
+			return fmt.Errorf("discord.activity.webhook_url %q does not match Discord webhook shape (https://discord.com/api/webhooks/{id}/{token})", d.Activity.WebhookURL)
+		}
+		if d.Activity.ActiveDelaySeconds < 0 {
+			return fmt.Errorf("discord.activity.active_delay_seconds must be >= 0 (got %d)", d.Activity.ActiveDelaySeconds)
+		}
+		if d.Activity.InactiveDebounceSeconds < 0 {
+			return fmt.Errorf("discord.activity.inactive_debounce_seconds must be >= 0 (got %d)", d.Activity.InactiveDebounceSeconds)
 		}
 	}
 	return nil
@@ -340,8 +404,13 @@ func validateNoPlaceholders(cfg *Config) error {
 			return fmt.Errorf("q3_servers[%d].rcon_password is still %q — edit your config.yml", i, srv.RconPassword)
 		}
 	}
-	if cfg.Discord != nil && strings.Contains(cfg.Discord.WebhookURL, placeholder) {
-		return fmt.Errorf("discord.webhook_url is still %q — edit your config.yml", cfg.Discord.WebhookURL)
+	if cfg.Discord != nil {
+		if cfg.Discord.Digest != nil && strings.Contains(cfg.Discord.Digest.WebhookURL, placeholder) {
+			return fmt.Errorf("discord.digest.webhook_url is still %q — edit your config.yml", cfg.Discord.Digest.WebhookURL)
+		}
+		if cfg.Discord.Activity != nil && strings.Contains(cfg.Discord.Activity.WebhookURL, placeholder) {
+			return fmt.Errorf("discord.activity.webhook_url is still %q — edit your config.yml", cfg.Discord.Activity.WebhookURL)
+		}
 	}
 	return nil
 }

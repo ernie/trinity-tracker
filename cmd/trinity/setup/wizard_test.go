@@ -290,8 +290,8 @@ func TestRunWizard_HubOnly_DiscordAccepted(t *testing.T) {
 		t.Errorf("schedule default: got %q, want %q", a.DiscordSchedule, "Mon 00:00")
 	}
 	cfg := a.ToConfig()
-	if cfg.Discord == nil || cfg.Discord.WebhookURL == "" {
-		t.Errorf("ToConfig should emit cfg.Discord, got %+v", cfg.Discord)
+	if cfg.Discord == nil || cfg.Discord.Digest == nil || cfg.Discord.Digest.WebhookURL == "" {
+		t.Errorf("ToConfig should emit cfg.Discord.Digest, got %+v", cfg.Discord)
 	}
 }
 

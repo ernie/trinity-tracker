@@ -1,16 +1,12 @@
 package main
 
 import (
-	"context"
-	"encoding/json"
-	"io"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/ernie/trinity-tracker/internal/discord"
 	"github.com/ernie/trinity-tracker/internal/domain"
 )
 
@@ -189,8 +185,6 @@ func TestRenderDigestEmbed_UnknownCategorySkipped(t *testing.T) {
 	}
 }
 
-// postWebhook posts JSON and treats 2xx as success. 4xx/5xx surface
-// the response body so cron failure mail is diagnostic.
 // Badges are 1-cell each (verification) and 2-cell each (platform)
 // — locking the rendered widths in keeps the alignment math honest
 // across future refactors.
@@ -208,7 +202,7 @@ func TestPlayerBadges_StableWidths(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := ansiVisibleWidth(tc.in); got != tc.want {
+			if got := discord.AnsiVisibleWidth(tc.in); got != tc.want {
 				t.Errorf("%s width: got %d, want %d (badge=%q)", tc.name, got, tc.want, tc.in)
 			}
 		})
@@ -388,46 +382,3 @@ func TestStripVRPrefix(t *testing.T) {
 	}
 }
 
-func TestPostWebhook_Success(t *testing.T) {
-	var got struct {
-		Embeds []discordEmbed `json:"embeds"`
-	}
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "POST" {
-			t.Errorf("expected POST, got %s", r.Method)
-		}
-		if ct := r.Header.Get("Content-Type"); ct != "application/json" {
-			t.Errorf("expected JSON content-type, got %q", ct)
-		}
-		body, _ := io.ReadAll(r.Body)
-		if err := json.Unmarshal(body, &got); err != nil {
-			t.Errorf("body not JSON: %v", err)
-		}
-		w.WriteHeader(http.StatusNoContent)
-	}))
-	defer srv.Close()
-
-	embed := discordEmbed{Title: "test"}
-	if err := postWebhook(context.Background(), srv.URL, embed); err != nil {
-		t.Fatalf("postWebhook: %v", err)
-	}
-	if len(got.Embeds) != 1 || got.Embeds[0].Title != "test" {
-		t.Errorf("server saw wrong payload: %+v", got)
-	}
-}
-
-func TestPostWebhook_NonOKSurfaceBody(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(`{"message":"Invalid Webhook Token"}`))
-	}))
-	defer srv.Close()
-
-	err := postWebhook(context.Background(), srv.URL, discordEmbed{})
-	if err == nil {
-		t.Fatal("expected error on 400")
-	}
-	if !strings.Contains(err.Error(), "Invalid Webhook Token") {
-		t.Errorf("error %q should surface response body for diagnostics", err)
-	}
-}

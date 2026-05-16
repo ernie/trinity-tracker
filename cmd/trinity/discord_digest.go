@@ -1,71 +1,20 @@
 package main
 
 import (
-	"bytes"
-	"context"
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/ernie/trinity-tracker/internal/discord"
 	"github.com/ernie/trinity-tracker/internal/domain"
 )
-
-// Discord webhook embed shapes — only the fields we use. See
-// https://discord.com/developers/docs/resources/channel#embed-object
-// for the full schema.
-
-type discordEmbed struct {
-	Title       string            `json:"title,omitempty"`
-	Description string            `json:"description,omitempty"`
-	URL         string            `json:"url,omitempty"`
-	Color       int               `json:"color,omitempty"`
-	Fields      []discordField    `json:"fields,omitempty"`
-	Footer      *discordFooter    `json:"footer,omitempty"`
-	Thumbnail   *discordThumbnail `json:"thumbnail,omitempty"`
-	Author      *discordAuthor    `json:"author,omitempty"`
-}
-
-// discordAuthor renders as a small icon + name line at the very top
-// of the embed, above the title. The icon is smaller than a thumbnail
-// (~24×24) and sits beside the name rather than above it — closest
-// Discord-native equivalent of a labeled portrait.
-type discordAuthor struct {
-	Name    string `json:"name,omitempty"`
-	URL     string `json:"url,omitempty"`
-	IconURL string `json:"icon_url,omitempty"`
-}
-
-type discordField struct {
-	Name   string `json:"name"`
-	Value  string `json:"value"`
-	Inline bool   `json:"inline,omitempty"`
-}
-
-type discordFooter struct {
-	Text string `json:"text"`
-}
-
-// discordThumbnail is the small image that appears in the top-right
-// corner of an embed. Used here for the headline player's portrait —
-// gives the digest a visual focal point without requiring per-row
-// images (which Discord embeds don't support inline).
-type discordThumbnail struct {
-	URL string `json:"url"`
-}
-
-type discordWebhookPayload struct {
-	Embeds []discordEmbed `json:"embeds"`
-}
 
 // digestCategory describes how to render one leaderboard category for
 // either the Discord embed (Title with emoji) or the CLI table
 // (CLILabel, plain). The registry covers all 12 API categories so
-// operators can swap any of them in via discord.digest_categories
+// operators can swap any of them in via discord.digest.categories
 // or `trinity leaderboard --category=...`.
 //
 // Headline is the prepositional phrase used in the author bar when
@@ -101,7 +50,7 @@ var digestCategoryRegistry = map[string]digestCategory{
 }
 
 // defaultDigestCategories is the order / selection used when
-// discord.digest_categories is unset. Three thematic rows of three;
+// discord.digest.categories is unset. Three thematic rows of three;
 // Discord's inline-field layout renders this as a 3×3 grid on desktop.
 var defaultDigestCategories = []string{
 	"frags", "kd_ratio", "victories",
@@ -123,7 +72,7 @@ const trinityEmbedColor = 0x2A9D8F
 // live under (cfg.Server.StaticDir) — used to skip a 404-bound icon
 // URL when the player's custom model isn't on disk. Pass "" for
 // publicBase or staticDir to skip the leader callout entirely.
-func renderDigestEmbed(results map[string]*domain.LeaderboardResponse, categories []string, topN int, footerURL, publicBase, staticDir string, now time.Time) discordEmbed {
+func renderDigestEmbed(results map[string]*domain.LeaderboardResponse, categories []string, topN int, footerURL, publicBase, staticDir string, now time.Time) discord.Embed {
 	// embedMinWidthPad is a run of U+2800 BRAILLE PATTERN BLANK
 	// characters appended to the footer text. Discord's layout engine
 	// reserves the full footer width when computing the embed's
@@ -143,11 +92,11 @@ func renderDigestEmbed(results map[string]*domain.LeaderboardResponse, categorie
 		"⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀" +
 		"⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀"
 
-	embed := discordEmbed{
+	embed := discord.Embed{
 		Title: "This Week's Leaderboard",
 		URL:   footerURL,
 		Color: trinityEmbedColor,
-		Footer: &discordFooter{
+		Footer: &discord.Footer{
 			Text: "Generated " + now.UTC().Format("2006-01-02 15:04 UTC") + " " + embedMinWidthPad,
 		},
 	}
@@ -182,7 +131,7 @@ func renderDigestEmbed(results map[string]*domain.LeaderboardResponse, categorie
 			if hasSpec && spec.Headline != "" {
 				name = fmt.Sprintf("🥇 %s · %s", leader.CleanName, spec.Headline)
 			}
-			author := &discordAuthor{Name: name}
+			author := &discord.Author{Name: name}
 			if leader.ID != 0 {
 				author.URL = fmt.Sprintf("%s/players/%d",
 					strings.TrimSuffix(publicBase, "/"), leader.ID)
@@ -232,7 +181,7 @@ func renderDigestEmbed(results map[string]*domain.LeaderboardResponse, categorie
 			// this, but skip gracefully rather than panicking.
 			continue
 		}
-		embed.Fields = append(embed.Fields, discordField{
+		embed.Fields = append(embed.Fields, discord.Field{
 			Name:   spec.Title,
 			Value:  renderCategoryField(results[cat], spec, topN),
 			Inline: true,
@@ -254,8 +203,8 @@ func renderDigestEmbed(results map[string]*domain.LeaderboardResponse, categorie
 // used to pad rows in the 2-per-row layout. Pulled into a helper so
 // the layout logic reads cleanly and the ZWS character has one
 // canonical site.
-func blankInlineField() discordField {
-	return discordField{Name: "​", Value: "​", Inline: true}
+func blankInlineField() discord.Field {
+	return discord.Field{Name: "​", Value: "​", Inline: true}
 }
 
 // renderCategoryField produces one field's body as a Discord ```ansi
@@ -265,11 +214,11 @@ func blankInlineField() discordField {
 //
 // Layout per row (left-aligned name, left-aligned score):
 //
-//   <rank>. <verif badge> <platform badge> <name>   <value>
+//	<rank>. <verif badge> <platform badge> <name>   <value>
 //
 // Both columns (name and value) are left-aligned at fixed positions
-// computed from the widest row in this field. ansiVisibleWidth keeps
-// the math honest in the face of ANSI codes and emoji widths.
+// computed from the widest row in this field. discord.AnsiVisibleWidth
+// keeps the math honest in the face of ANSI codes and emoji widths.
 func renderCategoryField(r *domain.LeaderboardResponse, spec digestCategory, topN int) string {
 	if r == nil || len(r.Entries) == 0 {
 		return "_(no activity)_"
@@ -293,8 +242,8 @@ func renderCategoryField(r *domain.LeaderboardResponse, spec digestCategory, top
 	for i := 0; i < n; i++ {
 		e := r.Entries[i]
 		name := stripVRPrefix(e.Player.Name)
-		prefix := fmt.Sprintf("%d. %s", e.Rank, q3ToANSIDiscord(name))
-		if w := ansiVisibleWidth(prefix); w > maxPrefixWidth {
+		prefix := fmt.Sprintf("%d. %s", e.Rank, discord.Q3ToANSIDiscord(name))
+		if w := discord.AnsiVisibleWidth(prefix); w > maxPrefixWidth {
 			maxPrefixWidth = w
 		}
 		rows[i] = rowParts{prefix: prefix, value: spec.Format(e)}
@@ -303,7 +252,7 @@ func renderCategoryField(r *domain.LeaderboardResponse, spec digestCategory, top
 	var b strings.Builder
 	b.WriteString("```ansi\n")
 	for _, row := range rows {
-		padding := maxPrefixWidth - ansiVisibleWidth(row.prefix)
+		padding := maxPrefixWidth - discord.AnsiVisibleWidth(row.prefix)
 		if padding < 0 {
 			padding = 0
 		}
@@ -320,9 +269,9 @@ func renderCategoryField(r *domain.LeaderboardResponse, spec digestCategory, top
 // background indicating the player's account status. Always emitted
 // (even for unverified) so columns stay aligned across rows.
 //
-//   admin:      ★ on yellow bg, dark fg
-//   verified:   ✓ on green bg, dark fg
-//   unverified: ? on dark bg, white fg
+//	admin:      ★ on yellow bg, dark fg
+//	verified:   ✓ on green bg, dark fg
+//	unverified: ? on dark bg, white fg
 func playerVerificationBadge(verified, admin bool) string {
 	switch {
 	case admin:
@@ -338,8 +287,8 @@ func playerVerificationBadge(verified, admin bool) string {
 // platform. Always emitted so the column width stays consistent
 // regardless of mix.
 //
-//   VR:    🥽 (goggles)
-//   flat:  🖥️ (desktop computer)
+//	VR:    🥽 (goggles)
+//	flat:  🖥️ (desktop computer)
 func playerPlatformBadge(isVR bool) string {
 	if isVR {
 		return "🥽"
@@ -411,32 +360,4 @@ func humanPeriod(p string) string {
 		return "All time"
 	}
 	return p
-}
-
-// postWebhook sends the embed to a Discord webhook URL. Discord
-// returns 204 on success (no body); we treat 2xx as ok and surface
-// the body on anything else so cron-emailed errors are diagnostic.
-func postWebhook(ctx context.Context, url string, embed discordEmbed) error {
-	body, err := json.Marshal(discordWebhookPayload{Embeds: []discordEmbed{embed}})
-	if err != nil {
-		return fmt.Errorf("marshal webhook payload: %w", err)
-	}
-	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
-	if err != nil {
-		return fmt.Errorf("build request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "trinity-discord-digest/1.0")
-
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("POST webhook: %w", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		respBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("webhook returned %d: %s", resp.StatusCode, strings.TrimSpace(string(respBody)))
-	}
-	return nil
 }

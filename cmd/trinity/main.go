@@ -33,10 +33,12 @@ import (
 	"github.com/ernie/trinity-tracker/internal/auth"
 	"github.com/ernie/trinity-tracker/internal/collector"
 	"github.com/ernie/trinity-tracker/internal/config"
+	"github.com/ernie/trinity-tracker/internal/discord"
 	"github.com/ernie/trinity-tracker/internal/domain"
 	"github.com/ernie/trinity-tracker/internal/hub"
 	"github.com/ernie/trinity-tracker/internal/directory"
 	"github.com/ernie/trinity-tracker/internal/natsbus"
+	"github.com/ernie/trinity-tracker/internal/notify"
 	"github.com/ernie/trinity-tracker/internal/storage"
 	"github.com/nats-io/nats.go"
 	"github.com/ftrvxmtrx/tga"
@@ -433,6 +435,34 @@ func cmdServe(args []string) {
 		log.Printf("Hub polling every %v", cfg.Server.PollInterval)
 	}
 
+	// Discord server-activity notifier: opt-in via discord.activity.
+	// Subscribes to writer join/leave events and POSTs to a webhook on
+	// 0↔1 human-count transitions. Constructed after the poller because
+	// it consults poller-cached status for embed bodies.
+	if hasHub && cfg.Discord != nil && cfg.Discord.Activity != nil && cfg.Discord.Activity.WebhookURL != "" {
+		mapMeta := loadMapMeta(cfg.Server.StaticDir)
+		activeDelay := time.Duration(cfg.Discord.Activity.ActiveDelaySeconds) * time.Second
+		if cfg.Discord.Activity.ActiveDelaySeconds == 0 {
+			activeDelay = time.Duration(config.DefaultActiveDelaySeconds) * time.Second
+		}
+		debounce := time.Duration(cfg.Discord.Activity.InactiveDebounceSeconds) * time.Second
+		if cfg.Discord.Activity.InactiveDebounceSeconds == 0 {
+			debounce = time.Duration(config.DefaultInactiveDebounceSeconds) * time.Second
+		}
+		publicURL := ""
+		if cfg.Tracker.Collector != nil {
+			publicURL = strings.TrimSuffix(cfg.Tracker.Collector.PublicURL, "/")
+		}
+		actNotifier := notify.NewNotifier(notify.ActivityConfig{
+			WebhookURL:       cfg.Discord.Activity.WebhookURL,
+			PublicURL:        publicURL,
+			ActiveDelay:      activeDelay,
+			InactiveDebounce: debounce,
+		}, remotePoller, writer.Presence(), mapMeta)
+		writer.SetActivityNotifier(actNotifier)
+		log.Printf("Hub server-activity notifier active (active_delay=%s inactive_debounce=%s)", activeDelay, debounce)
+	}
+
 	// Optional Q3 directory (master) server. Off by default; opt in via
 	// tracker.hub.directory.enabled.
 	if hasHub && cfg.Tracker.Hub.Directory != nil && cfg.Tracker.Hub.Directory.Enabled {
@@ -655,6 +685,34 @@ var (
 	baseURL = "http://localhost:8080"
 	dbPath  string
 )
+
+// loadMapMeta reads <static_dir>/assets/maps.json (produced by
+// `trinity arenas`) and projects it to the short-id → longname map
+// the activity notifier renders into Discord embeds. Returns nil
+// (caller falls back to short ids) on any missing-file / malformed
+// case — the notifier should not block hub startup on cosmetics.
+func loadMapMeta(staticDir string) map[string]string {
+	if staticDir == "" {
+		return nil
+	}
+	path := filepath.Join(staticDir, "assets", "maps.json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	var raw map[string]assets.ArenaMeta
+	if err := json.Unmarshal(data, &raw); err != nil {
+		log.Printf("loadMapMeta: parse %s: %v", path, err)
+		return nil
+	}
+	out := make(map[string]string, len(raw))
+	for k, v := range raw {
+		if v.LongName != "" {
+			out[k] = v.LongName
+		}
+	}
+	return out
+}
 
 // loadCLIConfigFromFlags loads config using pre-parsed flag values
 func loadCLIConfigFromFlags(configPath, url string) *config.Config {
@@ -1216,16 +1274,16 @@ func cmdDiscordDigest(args []string) {
 
 	webhookURL := *webhookOverride
 	if webhookURL == "" {
-		if cfg == nil || cfg.Discord == nil || cfg.Discord.WebhookURL == "" {
-			fmt.Fprintln(os.Stderr, "Error: discord.webhook_url not set in config (or pass --webhook)")
+		if cfg == nil || cfg.Discord == nil || cfg.Discord.Digest == nil || cfg.Discord.Digest.WebhookURL == "" {
+			fmt.Fprintln(os.Stderr, "Error: discord.digest.webhook_url not set in config (or pass --webhook)")
 			os.Exit(1)
 		}
-		webhookURL = cfg.Discord.WebhookURL
+		webhookURL = cfg.Discord.Digest.WebhookURL
 	}
 
 	categories := defaultDigestCategories
-	if cfg != nil && cfg.Discord != nil && len(cfg.Discord.DigestCategories) > 0 {
-		categories = cfg.Discord.DigestCategories
+	if cfg != nil && cfg.Discord != nil && cfg.Discord.Digest != nil && len(cfg.Discord.Digest.Categories) > 0 {
+		categories = cfg.Discord.Digest.Categories
 	}
 
 	// Pin asOf once so every per-category fetch sees the same anchor
@@ -1266,14 +1324,14 @@ func cmdDiscordDigest(args []string) {
 
 	if *dryRun {
 		// Pretty-print so operators can eyeball the payload.
-		out, _ := json.MarshalIndent(discordWebhookPayload{Embeds: []discordEmbed{embed}}, "", "  ")
+		out, _ := json.MarshalIndent(discord.WebhookPayload{Embeds: []discord.Embed{embed}}, "", "  ")
 		fmt.Println(string(out))
 		return
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	if err := postWebhook(ctx, webhookURL, embed); err != nil {
+	if err := discord.PostWebhook(ctx, webhookURL, embed); err != nil {
 		fmt.Fprintf(os.Stderr, "Error posting to Discord: %v\n", err)
 		os.Exit(1)
 	}

@@ -270,10 +270,12 @@ func (a *Answers) ToConfig() *config.Config {
 		// the 24h default on round-trip.
 		cfg.Auth = &config.AuthConfig{JWTSecret: a.JWTSecret}
 		if a.DiscordEnabled {
-			// DigestCategories left empty so the discord-digest
-			// subcommand uses defaults; operators can edit the
-			// config later to prune or reorder.
-			cfg.Discord = &config.DiscordConfig{WebhookURL: a.DiscordWebhookURL}
+			// Categories left empty so the discord-digest subcommand
+			// uses defaults; operators can edit the config later to
+			// prune or reorder.
+			cfg.Discord = &config.DiscordConfig{
+				Digest: &config.DigestConfig{WebhookURL: a.DiscordWebhookURL},
+			}
 		}
 	}
 	// static_dir is also useful for collectors: trinity levelshots and

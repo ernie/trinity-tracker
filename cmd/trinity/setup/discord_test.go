@@ -34,11 +34,14 @@ func TestToConfig_HubMode_EmitsDiscordWhenEnabled(t *testing.T) {
 	if cfg.Discord == nil {
 		t.Fatal("cfg.Discord should be populated when DiscordEnabled=true")
 	}
-	if cfg.Discord.WebhookURL != a.DiscordWebhookURL {
-		t.Errorf("webhook url: got %q, want %q", cfg.Discord.WebhookURL, a.DiscordWebhookURL)
+	if cfg.Discord.Digest == nil {
+		t.Fatal("cfg.Discord.Digest should be populated when DiscordEnabled=true")
 	}
-	if len(cfg.Discord.DigestCategories) != 0 {
-		t.Errorf("DigestCategories should be empty so the subcommand uses its defaults, got %v", cfg.Discord.DigestCategories)
+	if cfg.Discord.Digest.WebhookURL != a.DiscordWebhookURL {
+		t.Errorf("webhook url: got %q, want %q", cfg.Discord.Digest.WebhookURL, a.DiscordWebhookURL)
+	}
+	if len(cfg.Discord.Digest.Categories) != 0 {
+		t.Errorf("digest.categories should be empty so the subcommand uses its defaults, got %v", cfg.Discord.Digest.Categories)
 	}
 }
 

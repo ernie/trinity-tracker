@@ -5,6 +5,8 @@ import (
 
 	flag "github.com/spf13/pflag"
 	"golang.org/x/term"
+
+	"github.com/ernie/trinity-tracker/internal/discord"
 )
 
 // colorEnabled gates every color-emitting helper in this binary.
@@ -101,7 +103,7 @@ func dim(s string) string { return faint(s) }
 // (which carries both forms) and what the user sees.
 func displayName(name, cleanName string) string {
 	if colorEnabled {
-		return q3ToANSI(name)
+		return discord.Q3ToANSI(name)
 	}
 	return cleanName
 }

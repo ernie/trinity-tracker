@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ernie/trinity-tracker/internal/domain"
@@ -48,6 +49,12 @@ type Writer struct {
 	// post-restart we don't have to warm the whole table.
 	handshakeMu    sync.RWMutex
 	handshakeState map[int64]bool
+
+	// activityNotifier (if installed) receives human-player join/leave
+	// transitions for Discord server-activity notifications. Pointer-to-
+	// interface so SetActivityNotifier can flip it after Start without
+	// racing the dispatch goroutine.
+	activityNotifier atomic.Pointer[ActivityNotifier]
 
 	wg       sync.WaitGroup
 	stopOnce sync.Once
@@ -462,6 +469,10 @@ func (w *Writer) handlePlayerJoin(ctx context.Context, serverID int64, data doma
 		return
 	}
 
+	if n := w.loadActivityNotifier(); n != nil {
+		n.OnHumanJoin(serverID)
+	}
+
 	pg, err := w.store.GetPlayerGUIDByGUID(ctx, data.GUID)
 	if notFound(err) || pg == nil {
 		log.Printf("hub: player_join unknown GUID %s; skipping session create", data.GUID)
@@ -492,6 +503,10 @@ func (w *Writer) handlePlayerJoin(ctx context.Context, serverID int64, data doma
 
 func (w *Writer) handlePlayerLeave(ctx context.Context, serverID int64, data domain.PlayerLeaveData) {
 	w.presence.RecordLeave(serverID, data.ClientNum, data.GUID)
+
+	if n := w.loadActivityNotifier(); n != nil {
+		n.OnHumanLeave(serverID)
+	}
 
 	session, err := w.resolveOpenSession(ctx, serverID, data.GUID)
 	if err != nil {

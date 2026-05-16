@@ -1,12 +1,12 @@
-package main
+package discord
 
 import "testing"
 
 func TestQ3ToANSI(t *testing.T) {
 	cases := []struct {
-		name  string
-		in    string
-		want  string
+		name string
+		in   string
+		want string
 	}{
 		{"plain", "ernie", "ernie"},
 		// Bright variants (91-97) — modern terminals render these
@@ -32,14 +32,14 @@ func TestQ3ToANSI(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := q3ToANSI(tc.in); got != tc.want {
-				t.Errorf("q3ToANSI(%q) = %q, want %q", tc.in, got, tc.want)
+			if got := Q3ToANSI(tc.in); got != tc.want {
+				t.Errorf("Q3ToANSI(%q) = %q, want %q", tc.in, got, tc.want)
 			}
 		})
 	}
 }
 
-// q3ToANSIDiscord uses the standard codes (30-37) because Discord's
+// Q3ToANSIDiscord uses the standard codes (30-37) because Discord's
 // ansi parser strips the bright variants. Same parsing logic, just
 // a different lookup table.
 func TestQ3ToANSIDiscord(t *testing.T) {
@@ -57,8 +57,31 @@ func TestQ3ToANSIDiscord(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.in, func(t *testing.T) {
-			if got := q3ToANSIDiscord(tc.in); got != tc.want {
-				t.Errorf("q3ToANSIDiscord(%q) = %q, want %q", tc.in, got, tc.want)
+			if got := Q3ToANSIDiscord(tc.in); got != tc.want {
+				t.Errorf("Q3ToANSIDiscord(%q) = %q, want %q", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestStripQ3Colors(t *testing.T) {
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{"plain", "plain"},
+		{"^1ernie", "ernie"},
+		{"^1Red^2Green^7White", "RedGreenWhite"},
+		// Non-color caret sequences stay literal — same passthrough as
+		// the translators.
+		{"abc^^def", "abc^^def"},
+		{"^9not_a_color", "^9not_a_color"},
+		{"trailing^", "trailing^"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.in, func(t *testing.T) {
+			if got := StripQ3Colors(tc.in); got != tc.want {
+				t.Errorf("StripQ3Colors(%q) = %q, want %q", tc.in, got, tc.want)
 			}
 		})
 	}
