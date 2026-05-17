@@ -19,6 +19,7 @@ type PresenceEntry struct {
 	Defends         int
 	Captures        int
 	Assists         int
+	FlagReturns     int // CTF/1FCTF: player-initiated returns this match (auto-returns filtered upstream)
 	SkullsDelivered int // Harvester: cumulative deliveries this match (drives the live skull medal)
 }
 
@@ -135,6 +136,7 @@ func (p *Presence) ResetCounters(serverID int64) {
 		v.Defends = 0
 		v.Captures = 0
 		v.Assists = 0
+		v.FlagReturns = 0
 		v.SkullsDelivered = 0
 		p.bySlot[k] = v
 	}
@@ -150,6 +152,7 @@ const (
 	AwardDefend
 	AwardCapture
 	AwardAssist
+	AwardFlagReturn
 	AwardSkullDelivered
 )
 
@@ -184,6 +187,8 @@ func (p *Presence) IncrementByGUIDBy(serverID int64, guid string, award Award, c
 			v.Captures += count
 		case AwardAssist:
 			v.Assists += count
+		case AwardFlagReturn:
+			v.FlagReturns += count
 		case AwardSkullDelivered:
 			v.SkullsDelivered += count
 		}

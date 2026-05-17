@@ -30,11 +30,13 @@ export function classifyScores(left: number, right: number): ScoreState {
   return left > right ? 'left' : 'right'
 }
 
-export type MedalType = 'impressive' | 'excellent' | 'humiliation' | 'capture' | 'assist' | 'defend' | 'victory' | 'skull' | 'obelisk'
+export type MedalType = 'impressive' | 'excellent' | 'humiliation' | 'capture' | 'assist' | 'defend' | 'flag_return' | 'victory' | 'skull' | 'obelisk'
 
 export interface AwardEntry {
   type: MedalType
   count: number
+  /** flag_return only: which team's flag PNG to render (red/blue/neutral). */
+  team?: 'red' | 'blue' | 'neutral'
 }
 
 export interface PlayerAwardCounts {
@@ -44,9 +46,12 @@ export interface PlayerAwardCounts {
   captures?: number
   assists?: number
   defends?: number
+  flag_returns?: number
   victories?: number
   skulls_delivered?: number
   obelisks_destroyed?: number
+  /** Player team (1=red, 2=blue). Used only to color the flag_return medal. */
+  team?: number
 }
 
 /** Player medal counts → ordered AwardEntry list. Zero/absent dropped.
@@ -62,9 +67,10 @@ export function awardsFromCounts(p: PlayerAwardCounts): AwardEntry[] {
     ['humiliation', p.humiliations],
     ['impressive', p.impressives],
     ['excellent', p.excellents],
-    // Support (helping teammates score)
+    // Support (helping teammates score / denying opponent score)
     ['assist', p.assists],
     ['defend', p.defends],
+    ['flag_return', p.flag_returns],
     // Mode-specific objective points (direct score contribution)
     ['capture', p.captures],
     ['skull', p.skulls_delivered],
@@ -72,7 +78,8 @@ export function awardsFromCounts(p: PlayerAwardCounts): AwardEntry[] {
     // Outcome (the match win itself)
     ['victory', p.victories],
   ]
+  const flagTeam: AwardEntry['team'] = p.team === 1 ? 'red' : p.team === 2 ? 'blue' : 'neutral'
   return order
     .filter((entry): entry is [MedalType, number] => typeof entry[1] === 'number' && entry[1] > 0)
-    .map(([type, count]) => ({ type, count }))
+    .map(([type, count]) => type === 'flag_return' ? { type, count, team: flagTeam } : { type, count })
 }

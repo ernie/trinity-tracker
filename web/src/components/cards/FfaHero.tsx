@@ -83,7 +83,7 @@ export function FfaHero({ player, gildScore, onPlayerClick }: FfaHeroProps) {
         <span className={`ffa-hero__score ${gildScore ? 'winner' : ''}`} data-help={SCORE_HELP}>{player.score}</span>
         <span className="ffa-hero__medals">
           {(player.awards ?? []).map((a) => (
-            <MedalIcon key={a.type} type={a.type} count={a.count} size="sm" />
+            <MedalIcon key={a.type} type={a.type} count={a.count} size="sm" team={a.team} />
           ))}
         </span>
         {player.sub && (

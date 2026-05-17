@@ -920,6 +920,7 @@ func (w *Writer) EnrichEvent(ctx context.Context, event domain.Event) domain.Eve
 		event.Data = d
 	case domain.FlagReturnEvent:
 		d.PlayerID = resolve(d.GUID)
+		w.presence.IncrementByGUID(event.ServerID, d.GUID, AwardFlagReturn)
 		event.Data = d
 	case domain.FlagDropEvent:
 		d.PlayerID = resolve(d.GUID)

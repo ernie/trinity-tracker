@@ -40,7 +40,7 @@ function DuelistAwards({ awards, side }: { awards?: AwardEntry[]; side: 'left' |
   return (
     <span className={`duelist-awards ${side === 'right' ? 'right' : ''}`} aria-hidden>
       {awards.map((a) => (
-        <MedalIcon key={a.type} type={a.type} count={a.count} size="sm" />
+        <MedalIcon key={a.type} type={a.type} count={a.count} size="sm" team={a.team} />
       ))}
     </span>
   )

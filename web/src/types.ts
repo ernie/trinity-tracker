@@ -14,6 +14,7 @@ export interface Player {
   defends?: number
   captures?: number
   assists?: number
+  flag_returns?: number         // CTF/1FCTF: player-initiated returns this match
   skulls_carrying?: number      // Harvester: transient carry (row indicator)
   skulls_delivered?: number     // Harvester: cumulative this match (medal strip)
   obelisks_destroyed?: number   // Overload: cumulative this match (medal strip)
@@ -296,6 +297,7 @@ export interface MatchPlayerSummary {
   victories?: number
   captures?: number
   assists?: number
+  flag_returns?: number       // CTF/1FCTF: player-initiated returns this match
   skulls_delivered?: number   // Harvester (skulls deposited at enemy obelisk)
   obelisks_destroyed?: number // Overload
 }

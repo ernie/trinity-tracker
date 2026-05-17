@@ -11237,6 +11237,11 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   flex-shrink: 1;
   min-width: 0;
   padding-left: 16px;
+  /* padding-right buffers the .medal-count badge's `right: -2px`
+     overhang against the overflow:hidden clip on this container.
+     Without it, the count digit on the last medal gets a hairline
+     trim on the right. */
+  padding-right: 4px;
   margin-left: auto;
   overflow: hidden;
   -webkit-mask-image: linear-gradient(to right, transparent 0, black 16px);

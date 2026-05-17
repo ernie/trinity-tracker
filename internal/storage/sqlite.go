@@ -1773,7 +1773,7 @@ func (s *Store) attachPlayersToMatches(ctx context.Context, matches []domain.Mat
 
 	// Get player stats for all matches
 	playerRows, err := s.db.QueryContext(ctx, `
-		SELECT mps.match_id, p.id, pg.name, pg.clean_name, mps.frags, mps.deaths, mps.completed, p.is_bot, mps.skill, mps.score, mps.team, mps.model, mps.impressives, mps.excellents, mps.humiliations, mps.defends, mps.victories, mps.captures, mps.assists, mps.skulls_delivered, mps.obelisks_destroyed, mps.is_vr,
+		SELECT mps.match_id, p.id, pg.name, pg.clean_name, mps.frags, mps.deaths, mps.completed, p.is_bot, mps.skill, mps.score, mps.team, mps.model, mps.impressives, mps.excellents, mps.humiliations, mps.defends, mps.victories, mps.captures, mps.assists, mps.flag_returns, mps.skulls_delivered, mps.obelisks_destroyed, mps.is_vr,
 			CASE WHEN u.id IS NOT NULL THEN 1 ELSE 0 END as is_verified,
 			COALESCE(u.is_admin, 0) as is_admin
 		FROM match_player_stats mps
@@ -2195,7 +2195,7 @@ func (s *Store) GetMatchSummaryByID(ctx context.Context, matchID int64) (*domain
 
 	// Get player stats for this match
 	playerRows, err := s.db.QueryContext(ctx, `
-		SELECT p.id, pg.name, pg.clean_name, mps.frags, mps.deaths, mps.completed, p.is_bot, mps.skill, mps.score, mps.team, mps.model, mps.impressives, mps.excellents, mps.humiliations, mps.defends, mps.victories, mps.captures, mps.assists, mps.skulls_delivered, mps.obelisks_destroyed, mps.is_vr,
+		SELECT p.id, pg.name, pg.clean_name, mps.frags, mps.deaths, mps.completed, p.is_bot, mps.skill, mps.score, mps.team, mps.model, mps.impressives, mps.excellents, mps.humiliations, mps.defends, mps.victories, mps.captures, mps.assists, mps.flag_returns, mps.skulls_delivered, mps.obelisks_destroyed, mps.is_vr,
 			CASE WHEN u.id IS NOT NULL THEN 1 ELSE 0 END as is_verified,
 			COALESCE(u.is_admin, 0) as is_admin
 		FROM match_player_stats mps

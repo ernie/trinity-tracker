@@ -75,6 +75,7 @@ type MatchPlayerSummary struct {
 	Victories         int `json:"victories,omitempty"`
 	Captures          int `json:"captures,omitempty"`
 	Assists           int `json:"assists,omitempty"`
+	FlagReturns       int `json:"flag_returns,omitempty"`
 	SkullsDelivered   int `json:"skulls_delivered,omitempty"`
 	ObelisksDestroyed int `json:"obelisks_destroyed,omitempty"`
 }

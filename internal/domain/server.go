@@ -107,6 +107,7 @@ type PlayerStatus struct {
 	Defends      int       `json:"defends,omitempty"`      // defend awards this match
 	Captures     int       `json:"captures,omitempty"`     // flag captures this match
 	Assists      int       `json:"assists,omitempty"`      // assist awards this match
+	FlagReturns  int       `json:"flag_returns,omitempty"` // CTF/1FCTF: player-initiated returns this match
 	SkullsDelivered   int `json:"skulls_delivered,omitempty"`   // Harvester: cumulative this match (from Presence)
 	ObelisksDestroyed int `json:"obelisks_destroyed,omitempty"`  // Overload: cumulative this match (from g_objStatus tail)
 	SkullsCarrying    int `json:"skulls_carrying,omitempty"`     // Harvester: transient carry count
