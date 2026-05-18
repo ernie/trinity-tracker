@@ -13,9 +13,10 @@ import (
 
 // digestCategory describes how to render one leaderboard category for
 // either the Discord embed (Title with emoji) or the CLI table
-// (CLILabel, plain). The registry covers all 12 API categories so
+// (CLILabel, plain). The registry covers all 14 API categories so
 // operators can swap any of them in via discord.digest.categories
-// or `trinity leaderboard --category=...`.
+// or `trinity leaderboard --category=...`. Must stay in sync with
+// internal/api.validCategories and internal/config.validDigestCategories.
 //
 // Headline is the prepositional phrase used in the author bar when
 // this category produces the embed's headlining player, e.g. "most
@@ -36,26 +37,34 @@ func fmtKD(r float64) string { return fmt.Sprintf("%.2f", r) }
 
 var digestCategoryRegistry = map[string]digestCategory{
 	"frags":        {Title: "🔥 Frags", CLILabel: "FRAGS", Headline: "most frags", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.TotalFrags) }},
-	"deaths":       {Title: "💀 Deaths", CLILabel: "DEATHS", Headline: "most deaths", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.TotalDeaths) }},
+	"deaths":       {Title: "🪦 Deaths", CLILabel: "DEATHS", Headline: "most deaths", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.TotalDeaths) }},
 	"kd_ratio":     {Title: "⚖️ K/D Ratio", CLILabel: "K/D", Headline: "best K/D", Format: func(e domain.LeaderboardEntry) string { return fmtKD(e.KDRatio) }},
 	"matches":      {Title: "🎮 Matches", CLILabel: "MATCHES", Headline: "most matches", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.CompletedMatches) }},
-	"victories":    {Title: "🏆 Wins", CLILabel: "WINS", Headline: "most wins", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.Victories) }},
+	"victories":    {Title: "🏆 Victories", CLILabel: "VICTORIES", Headline: "most victories", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.Victories) }},
 	"captures":     {Title: "🚩 Captures", CLILabel: "CAPTURES", Headline: "most flag captures", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.Captures) }},
 	"flag_returns": {Title: "🔁 Flag Returns", CLILabel: "RETURNS", Headline: "most flag returns", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.FlagReturns) }},
 	"assists":      {Title: "🤝 Assists", CLILabel: "ASSISTS", Headline: "most assists", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.Assists) }},
 	"defends":      {Title: "🛡️ Defends", CLILabel: "DEFENDS", Headline: "most defends", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.Defends) }},
-	"impressives":  {Title: "⚡ Impressives", CLILabel: "IMPRESSIVES", Headline: "most impressives", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.Impressives) }},
-	"excellents":   {Title: "💎 Excellents", CLILabel: "EXCELLENTS", Headline: "most excellents", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.Excellents) }},
-	"humiliations": {Title: "😂 Humiliations", CLILabel: "HUMILIATIONS", Headline: "most humiliations", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.Humiliations) }},
+	"impressives":        {Title: "⚡ Impressives", CLILabel: "IMPRESSIVES", Headline: "most impressives", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.Impressives) }},
+	"excellents":         {Title: "💎 Excellents", CLILabel: "EXCELLENTS", Headline: "most excellents", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.Excellents) }},
+	"humiliations":       {Title: "😂 Humiliations", CLILabel: "HUMILIATIONS", Headline: "most humiliations", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.Humiliations) }},
+	"skulls_delivered":   {Title: "💀 Skulls Delivered", CLILabel: "SKULLS", Headline: "most skulls delivered", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.SkullsDelivered) }},
+	"obelisks_destroyed": {Title: "💥 Obelisks Destroyed", CLILabel: "OBELISKS", Headline: "most obelisks destroyed", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.ObelisksDestroyed) }},
 }
 
 // defaultDigestCategories is the order / selection used when
-// discord.digest.categories is unset. Three thematic rows of three;
-// Discord's inline-field layout renders this as a 3×3 grid on desktop.
+// discord.digest.categories is unset. Mirrors the /leaderboard page's
+// gameType=all ordering, paired so each two-column row reads as a
+// thematic couplet (volume/efficiency, kill/death, win/lose, skill
+// medals, CTF offense/return, team support, harvester/overload).
 var defaultDigestCategories = []string{
-	"frags", "kd_ratio", "victories",
-	"captures", "assists", "defends",
-	"impressives", "excellents", "humiliations",
+	"matches", "kd_ratio",
+	"frags", "deaths",
+	"victories", "humiliations",
+	"excellents", "impressives",
+	"captures", "flag_returns",
+	"assists", "defends",
+	"skulls_delivered", "obelisks_destroyed",
 }
 
 // trinityEmbedColor is a muted teal, matches the website's accent.

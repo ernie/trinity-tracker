@@ -243,6 +243,7 @@ var validDigestCategories = map[string]bool{
 	"captures": true, "flag_returns": true, "assists": true,
 	"impressives": true, "excellents": true, "humiliations": true,
 	"defends": true, "victories": true,
+	"skulls_delivered": true, "obelisks_destroyed": true,
 }
 
 func validateDiscord(d *DiscordConfig) error {
