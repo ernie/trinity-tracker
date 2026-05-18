@@ -865,7 +865,7 @@ func cmdStatus(args []string) {
 		printLiveServerTable(*configPath, *url)
 	}
 
-	if isCollector && len(cfg.Q3Servers) > 0 {
+	if isCollector && !isHub && len(cfg.Q3Servers) > 0 {
 		fmt.Println()
 		printLocalServerTable(cfg)
 	}
