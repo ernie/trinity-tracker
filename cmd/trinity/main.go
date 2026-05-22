@@ -1219,8 +1219,8 @@ func cmdLeaderboard(args []string) {
 			rank = bold(rank)
 		}
 
-		name := stripVRPrefix(e.Player.Name)
-		clean := stripVRPrefix(e.Player.CleanName)
+		name := discord.DisplayName(e.Player.Name, e.Player.IsVR)
+		clean := discord.DisplayName(e.Player.CleanName, e.Player.IsVR)
 		playerCell := fmt.Sprintf("%s %s %s",
 			playerVerificationBadge(e.Player.IsVerified, e.Player.IsAdmin),
 			playerPlatformBadge(e.Player.IsVR),

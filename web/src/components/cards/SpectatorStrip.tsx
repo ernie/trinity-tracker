@@ -4,9 +4,10 @@
 // actions on finished cards) right-aligns naturally.
 import type React from 'react'
 import { EyeIcon } from '../EyeIcon'
+import { stripVRPrefix } from '../../utils'
 
 interface SpectatorStripProps {
-  spectators: { name: string; isNext?: boolean }[]
+  spectators: { name: string; isVR?: boolean; isNext?: boolean }[]
   isLive: boolean
   /** Demo actions render to the right on finished cards. Provide as JSX. */
   rightSlot?: React.ReactNode
@@ -35,7 +36,7 @@ In Tournament (1v1), the next in queue plays the winner when a match ends.`
           <span className="card__spectators-list">
             {spectators.map((s, i) => (
               <span key={i} className={s.isNext ? 'next' : ''}>
-                {s.name}{i < spectators.length - 1 ? ' · ' : ''}
+                {s.isVR ? stripVRPrefix(s.name) : s.name}{i < spectators.length - 1 ? ' · ' : ''}
               </span>
             ))}
           </span>

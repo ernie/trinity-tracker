@@ -5,7 +5,7 @@ import { ColoredText } from './ColoredText'
 import { PlayerPortrait } from './PlayerPortrait'
 import { ArrowIcon } from './ArrowIcon'
 import type { EngineModule } from '../types'
-import { parseTimeParam, formatTimeParam } from '../utils'
+import { parseTimeParam, formatTimeParam, stripVRPrefix } from '../utils'
 
 // Parse a follow-target client number from the URL. Out-of-range or
 // non-numeric returns null so the receiver silently ignores garbage links.
@@ -606,7 +606,7 @@ export function DemoPlayerPage() {
                     {p.isVR && <img src="/assets/vr/vr.png" alt="VR" />}
                   </span>
                   <PlayerPortrait model={p.model} size="sm" />
-                  <ColoredText text={p.name} />
+                  <ColoredText text={p.isVR ? stripVRPrefix(p.name) : p.name} />
                 </button>
               ))}
             </div>

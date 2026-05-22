@@ -3,10 +3,14 @@ export function formatNumber(n: number): string {
   return n.toLocaleString();
 }
 
-// Strip [VR] prefix from player name when VR badge is shown
-// Handles color codes around [VR]: e.g., "^7[VR]^1Name" or "[VR] Name"
+// Strip the "[VR]" decoration from a player name, at either the
+// start or end. Handles surrounding color codes — "^7[VR] Name" or
+// "Name [VR]^7". Mirrors internal/discord/name.go:StripVRTag; keep
+// the two regexes in sync.
 export function stripVRPrefix(name: string): string {
-  return name.replace(/^(\^[0-9])*\[VR\]\s*/i, '');
+  return name
+    .replace(/^(\^[0-9])*\[VR\]\s*/i, '')
+    .replace(/\s*\[VR\](\^[0-9])*$/i, '')
 }
 
 // Canonical display name for a player record. Strips the [VR] prefix

@@ -250,7 +250,7 @@ func renderCategoryField(r *domain.LeaderboardResponse, spec digestCategory, top
 	maxPrefixWidth := 0
 	for i := 0; i < n; i++ {
 		e := r.Entries[i]
-		name := stripVRPrefix(e.Player.Name)
+		name := discord.DisplayName(e.Player.Name, e.Player.IsVR)
 		prefix := fmt.Sprintf("%d. %s", e.Rank, discord.Q3ToANSIDiscord(name))
 		if w := discord.AnsiVisibleWidth(prefix); w > maxPrefixWidth {
 			maxPrefixWidth = w
@@ -305,13 +305,6 @@ func playerPlatformBadge(isVR bool) string {
 	return "🖥️"
 }
 
-// stripVRPrefix removes the conventional "[VR] " prefix that bots
-// of trinity-engine prepend to VR users' names. We use the platform
-// badge instead so the prefix is redundant — and stripping it keeps
-// names single-cased and aligned with the website's display.
-func stripVRPrefix(name string) string {
-	return strings.TrimPrefix(name, "[VR] ")
-}
 
 // portraitExists checks whether the URL path's portrait file is
 // present on disk. The digest runs on the hub host so we can stat

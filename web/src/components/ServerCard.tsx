@@ -582,7 +582,7 @@ const ServerCardImpl = memo(function ServerCardImpl({ server, isSelected, onSele
       )}
 
       <SpectatorStrip
-        spectators={spectators.map(p => ({ name: p.name }))}
+        spectators={spectators.map(p => ({ name: p.name, isVR: p.is_vr }))}
         isLive={true}
       />
     </div>

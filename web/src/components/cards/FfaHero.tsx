@@ -7,6 +7,7 @@ import { MedalIcon } from '../MedalIcon'
 import { ColoredText } from '../ColoredText'
 import type { AwardEntry } from './format'
 import { SCORE_HELP } from './PlayerRows'
+import { stripVRPrefix } from '../../utils'
 
 export interface FfaHeroPlayer {
   /** Stable identity within the data source — live uses client_num,
@@ -79,7 +80,7 @@ export function FfaHero({ player, gildScore, onPlayerClick }: FfaHeroProps) {
         )}
       </span>
       <div className="ffa-hero__identity">
-        <span className="ffa-hero__name"><ColoredText text={player.name} /></span>
+        <span className="ffa-hero__name"><ColoredText text={player.isVR ? stripVRPrefix(player.name) : player.name} /></span>
         <span className={`ffa-hero__score ${gildScore ? 'winner' : ''}`} data-help={SCORE_HELP}>{player.score}</span>
         <span className="ffa-hero__medals">
           {(player.awards ?? []).map((a) => (

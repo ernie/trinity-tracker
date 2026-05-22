@@ -10,6 +10,7 @@ import { FlagIcon } from '../FlagIcon'
 import { SkullIcon } from '../SkullIcon'
 import { TargetReticleIcon } from '../TargetReticleIcon'
 import type { AwardEntry } from './format'
+import { stripVRPrefix } from '../../utils'
 
 export interface PlayerRowData {
   name: string
@@ -106,7 +107,7 @@ export function PlayerRows({ players, mode, onPlayerClick }: PlayerRowsProps) {
               ) : (
                 <PlayerBadge isVerified={p.isVerified} isAdmin={p.isAdmin} isVR={p.isVR} size="sm" />
               )}
-              <span className={`name ${p.isBot ? 'bot' : ''}`}><ColoredText text={p.name} /></span>
+              <span className={`name ${p.isBot ? 'bot' : ''}`}><ColoredText text={p.isVR ? stripVRPrefix(p.name) : p.name} /></span>
               {p.flagCarrier && (
                 <span
                   className="row-carrier"

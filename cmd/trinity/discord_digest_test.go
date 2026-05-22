@@ -365,20 +365,3 @@ func TestPortraitPath(t *testing.T) {
 	}
 }
 
-// Bare names with the [VR] prefix get stripped — the platform badge
-// already conveys the VR-ness. Keeps name column widths consistent
-// regardless of how the engine reported the name.
-func TestStripVRPrefix(t *testing.T) {
-	if got := stripVRPrefix("[VR] Traithe"); got != "Traithe" {
-		t.Errorf("VR prefix: got %q", got)
-	}
-	if got := stripVRPrefix("ernie"); got != "ernie" {
-		t.Errorf("non-VR untouched: got %q", got)
-	}
-	// Don't strip prefixes that aren't ours — the bracket convention
-	// is also used for clan tags like "[TRN]".
-	if got := stripVRPrefix("[TRN] someone"); got != "[TRN] someone" {
-		t.Errorf("clan tag should not be stripped, got %q", got)
-	}
-}
-

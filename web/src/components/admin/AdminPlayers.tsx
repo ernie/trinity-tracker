@@ -281,7 +281,7 @@ export function AdminPlayers() {
                   {displayMergeResults.map((p) => (
                     <div key={p.id} className="merge-result-item">
                       <div className="merge-player-info">
-                        <ColoredText text={p.name} />
+                        <ColoredText text={p.is_vr ? stripVRPrefix(p.name) : p.name} />
                         <span className="merge-player-date">Last seen: {formatDate(p.last_seen)}</span>
                       </div>
                       <button className="admin-btn-danger" onClick={() => handleMerge(p.id)} disabled={merging}>

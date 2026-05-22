@@ -4,6 +4,7 @@ import { ColoredText } from '../ColoredText'
 import { PlayerPortrait } from '../PlayerPortrait'
 import { ArrowIcon } from '../ArrowIcon'
 import { NavScroller } from '../NavScroller'
+import { stripVRPrefix } from '../../utils'
 import type { LeaderboardEntry, LeaderboardResponse } from '../../types'
 
 export function TopPlayersStrip() {
@@ -46,7 +47,7 @@ export function TopPlayersStrip() {
                   <PlayerPortrait model={p.player.model} size="lg" />
                 </span>
                 <span className="landing-player-card__name">
-                  <ColoredText text={p.player.name} />
+                  <ColoredText text={p.player.is_vr ? stripVRPrefix(p.player.name) : p.player.name} />
                 </span>
                 <span className="landing-player-card__stat">{p.victories}</span>
                 <span className="landing-player-card__stat-label">victories</span>

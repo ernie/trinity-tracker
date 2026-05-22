@@ -201,7 +201,7 @@ export function MatchCard({
   const topScore = ffaPlayerData.reduce((m, p) => Math.max(m, p.score), 0)
   const topCount = topScore > 0 ? ffaPlayerData.filter((p) => p.score === topScore).length : 0
   const ffaGild = isFfa && topCount === 1
-  const spectators = players.filter(isSpectator).map((p) => ({ name: p.name }))
+  const spectators = players.filter(isSpectator).map((p) => ({ name: p.name, isVR: p.is_vr }))
 
   const redScore = match.red_score ?? 0
   const blueScore = match.blue_score ?? 0

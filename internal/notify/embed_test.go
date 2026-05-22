@@ -15,9 +15,9 @@ func mkStatus() *domain.ServerStatus {
 		Map:      "q3dm17",
 		GameType: "FFA",
 		Players: []domain.PlayerStatus{
-			{Name: "^1ernie", Score: 12, IsBot: false},
-			{Name: "rocketeer", Score: 9, IsBot: false},
-			{Name: "Sarge", Score: 5, IsBot: true},
+			{Name: "rocketeer", IsBot: false},
+			{Name: "^1ernie", IsBot: false},
+			{Name: "Sarge", IsBot: true},
 		},
 	}
 }
@@ -44,9 +44,9 @@ func TestBuildActiveEmbed_MapLongName(t *testing.T) {
 	}
 }
 
-// Roster groups humans before bots, score-sorted descending; bot
-// rows get a "(bot)" suffix so the channel doesn't think a bot is
-// the headline player.
+// Roster groups humans before bots, name-sorted within each group;
+// bot rows get a "(bot)" suffix so the channel doesn't think a bot
+// is the headline player.
 func TestBuildActiveEmbed_RosterShape(t *testing.T) {
 	embed := buildActiveEmbed(mkStatus(), "", nil)
 	if len(embed.Fields) != 1 {
@@ -78,6 +78,119 @@ func TestBuildActiveEmbed_PlayerCounts(t *testing.T) {
 	}
 	if !strings.Contains(embed.Description, "1 bot") {
 		t.Errorf("expected '1 bot' (singular) in description: %q", embed.Description)
+	}
+}
+
+// Team modes get two inline columns (Red, Blue). When the engine has
+// assigned anyone to Red/Blue, that's the trigger — not the game-type
+// string, which can be ambiguous during warmup.
+func TestBuildActiveEmbed_TeamModeColumns(t *testing.T) {
+	s := &domain.ServerStatus{
+		ServerID: 42, Source: "local", Key: "dm-hub", Map: "q3ctf3", GameType: "CTF",
+		TeamScores: &domain.TeamScores{RedScore: 3, BlueScore: 1},
+		Players: []domain.PlayerStatus{
+			{Name: "red-ace", IsBot: false, Team: 1},
+			{Name: "redbot", IsBot: true, Team: 1},
+			{Name: "blue-pro", IsBot: false, Team: 2},
+		},
+	}
+	embed := buildActiveEmbed(s, "", nil)
+	if len(embed.Fields) != 2 {
+		t.Fatalf("expected 2 fields (Red, Blue), got %d: %+v", len(embed.Fields), embed.Fields)
+	}
+	if embed.Fields[0].Name != "Red" || !embed.Fields[0].Inline {
+		t.Errorf("field 0: want inline Red, got %+v", embed.Fields[0])
+	}
+	if embed.Fields[1].Name != "Blue" || !embed.Fields[1].Inline {
+		t.Errorf("field 1: want inline Blue, got %+v", embed.Fields[1])
+	}
+	if !strings.Contains(embed.Fields[0].Value, "red-ace") || !strings.Contains(embed.Fields[0].Value, "redbot") {
+		t.Errorf("Red field missing players: %q", embed.Fields[0].Value)
+	}
+	if !strings.Contains(embed.Fields[1].Value, "blue-pro") {
+		t.Errorf("Blue field missing player: %q", embed.Fields[1].Value)
+	}
+}
+
+// Spectators land in a non-inline third field below the play roster,
+// regardless of whether the play roster is team-split or FFA.
+func TestBuildActiveEmbed_SpectatorsField(t *testing.T) {
+	s := &domain.ServerStatus{
+		ServerID: 42, Source: "local", Key: "dm-hub", Map: "q3ctf3", GameType: "CTF",
+		Players: []domain.PlayerStatus{
+			{Name: "red-ace", IsBot: false, Team: 1},
+			{Name: "blue-pro", IsBot: false, Team: 2},
+			{Name: "watcher", IsBot: false, Team: 3},
+		},
+	}
+	embed := buildActiveEmbed(s, "", nil)
+	if len(embed.Fields) != 3 {
+		t.Fatalf("expected 3 fields (Red, Blue, Spectators), got %d", len(embed.Fields))
+	}
+	spec := embed.Fields[2]
+	if spec.Name != "Spectators" {
+		t.Errorf("field 2 name: got %q", spec.Name)
+	}
+	if spec.Inline {
+		t.Errorf("Spectators field should not be inline (own row)")
+	}
+	if !strings.Contains(spec.Value, "watcher") {
+		t.Errorf("Spectators field missing watcher: %q", spec.Value)
+	}
+}
+
+// FFA renders a two-column grid so a fuller server doesn't waste so
+// much vertical space. With four players the first row holds two.
+func TestBuildActiveEmbed_FFATwoColumns(t *testing.T) {
+	s := &domain.ServerStatus{
+		ServerID: 42, Source: "local", Key: "dm-hub", Map: "q3dm17", GameType: "FFA",
+		Players: []domain.PlayerStatus{
+			{Name: "alpha"}, {Name: "bravo"}, {Name: "charlie"}, {Name: "delta"},
+		},
+	}
+	embed := buildActiveEmbed(s, "", nil)
+	if len(embed.Fields) != 1 || embed.Fields[0].Name != "Players" {
+		t.Fatalf("want single Players field, got %+v", embed.Fields)
+	}
+	if embed.Fields[0].Inline {
+		t.Errorf("FFA Players field should not be inline")
+	}
+	val := embed.Fields[0].Value
+	// Find the line containing "alpha" — it should also contain "bravo"
+	// because two-column layout pairs them.
+	var alphaLine string
+	for _, line := range strings.Split(val, "\n") {
+		if strings.Contains(line, "alpha") {
+			alphaLine = line
+			break
+		}
+	}
+	if !strings.Contains(alphaLine, "bravo") {
+		t.Errorf("two-column layout: alpha+bravo should share a line, got %q", alphaLine)
+	}
+}
+
+// "[VR] " leading or trailing decoration gets stripped from the
+// displayed name — IsVR carries the same info without the visual
+// noise.
+func TestBuildActiveEmbed_StripsVRTag(t *testing.T) {
+	s := &domain.ServerStatus{
+		ServerID: 42, Source: "local", Key: "dm-hub", Map: "q3dm17", GameType: "FFA",
+		Players: []domain.PlayerStatus{
+			{Name: "[VR] phoenix", IsVR: true},
+			{Name: "raven [VR]", IsVR: true},
+		},
+	}
+	embed := buildActiveEmbed(s, "", nil)
+	if len(embed.Fields) != 1 {
+		t.Fatalf("want 1 field, got %d", len(embed.Fields))
+	}
+	val := embed.Fields[0].Value
+	if strings.Contains(val, "[VR]") {
+		t.Errorf("VR tag should be stripped from display: %q", val)
+	}
+	if !strings.Contains(val, "phoenix") || !strings.Contains(val, "raven") {
+		t.Errorf("stripped names should still appear: %q", val)
 	}
 }
 

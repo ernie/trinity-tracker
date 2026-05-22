@@ -6,6 +6,7 @@ import { PlayerBadge } from './PlayerBadge'
 import { StatItem } from './StatItem'
 import { useAuth } from '../hooks/useAuth'
 import { formatDate, formatDuration } from '../utils/formatters'
+import { stripVRPrefix } from '../utils'
 import type { PlayerProfile, AggregatedStats } from '../types'
 
 interface ClaimInfo {
@@ -25,7 +26,7 @@ function ClaimPlayerCard({ player, stats }: { player: PlayerProfile; stats?: Agg
         <div className="player-name-info">
           <div className="player-name-large">
             <PlayerBadge isVerified={player.is_verified} isAdmin={player.is_admin} isVR={player.is_vr} size="md" />
-            <ColoredText text={player.name} />
+            <ColoredText text={player.is_vr ? stripVRPrefix(player.name) : player.name} />
           </div>
           <div className="player-dates">
             <div>Playing since {formatDate(player.first_seen)}</div>

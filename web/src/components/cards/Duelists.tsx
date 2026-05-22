@@ -6,6 +6,7 @@ import { MedalIcon } from '../MedalIcon'
 import { ColoredText } from '../ColoredText'
 import { SCORE_HELP } from './PlayerRows'
 import type { ScoreState, AwardEntry } from './format'
+import { stripVRPrefix } from '../../utils'
 
 export interface DuelistData {
   name: string
@@ -86,7 +87,7 @@ function Duelist({ data, side, winnerSide, onClick }: DuelistProps) {
         <DuelistAwards awards={data.awards} side={side} />
       </span>
       <span className={`duelist__name ${isLoser ? 'dim' : ''}`}>
-        <ColoredText text={data.name} />
+        <ColoredText text={data.isVR ? stripVRPrefix(data.name) : data.name} />
       </span>
       <span className={`duelist__score ${isLoser ? 'loser' : ''} ${isWinner ? 'winner' : ''}`} data-help={SCORE_HELP}>{data.score}</span>
       {data.sub && <span className="duelist__sub">{data.sub}</span>}
