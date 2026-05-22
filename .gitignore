@@ -36,12 +36,3 @@ docs/superpowers/
 
 # Personal migration helpers (one-off, not for distribution)
 scripts/migrate/
-
-# Landing-page wallpaper variants are now committed alongside the
-# source PNG. Re-run `bun run build:landing-images` only after the
-# source wallpaper-wqhd.png changes; the regular `bun run build` no
-# longer regenerates them on every invocation.
-
-# Local scratch / working notes (not for commit)
-*.local.md
-files-for-play-guide/
