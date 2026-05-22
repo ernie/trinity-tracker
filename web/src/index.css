@@ -5694,6 +5694,16 @@ h2 {
   letter-spacing: 0.02em;
 }
 
+/* Hidden state: render the full token but let CSS truncate with an
+   ellipsis at the box edge. Previously JS sliced to 8 chars regardless
+   of width, which left most of a desktop-width box empty. */
+.game-token-value.hidden {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: normal;
+}
+
 .game-token-actions {
   display: flex;
   gap: var(--space-2);

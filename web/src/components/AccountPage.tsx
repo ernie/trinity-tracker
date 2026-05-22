@@ -443,7 +443,7 @@ export function AccountPage() {
                 <div className="loading">Loading...</div>
               ) : gameToken ? (
                 <div className="game-token-display">
-                  <div className="game-token-value">{gameTokenVisible ? gameToken : gameToken.slice(0, 8) + '…'}</div>
+                  <div className={`game-token-value${gameTokenVisible ? '' : ' hidden'}`}>{gameToken}</div>
                   <div className="game-token-actions">
                     <button
                       className="generate-btn rotate-btn"
