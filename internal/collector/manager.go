@@ -1966,6 +1966,15 @@ func (m *ServerManager) performGreet(ctx context.Context, serverID int64, client
 	if reply.AuthResult == hub.AuthFailed {
 		// Clears cl_trinityToken/cl_trinityUser engine-side.
 		m.sendTrinityAuthFail(serverID, clientID)
+	} else if reply.AuthResult == hub.AuthVerified {
+		// Tell the QVM to set sess.trinityUserType to 1 (verified) or 2
+		// (admin). Without this signal the QVM stays at tu=0, which is
+		// the correct state for unauthenticated clients.
+		level := 1
+		if reply.IsAdmin {
+			level = 2
+		}
+		m.sendTrinityAuthOk(serverID, clientID, level)
 	}
 
 	// Encrypted rcon-autoset: hub flags the user as authorized to RCON
