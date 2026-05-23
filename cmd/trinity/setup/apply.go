@@ -503,27 +503,6 @@ func installPerServerFiles(plan *Plan, a *Answers, uid, gid int) error {
 		}
 		plan.Say("Installed: %s", path)
 
-		// trinity-bots.txt: curated bot list referenced by
-		// quake3-server@.service's `+set g_botsfile`. bot_minplayers
-		// reads this; without it, bot fill silently fails. Always
-		// installed to both baseq3 and missionpack — cheap, and saves
-		// surprise if an operator later adds a TA server without
-		// re-running the wizard.
-		botsFile, err := TrinityBotsFile()
-		if err != nil {
-			return err
-		}
-		for _, m := range []string{"baseq3", "missionpack"} {
-			botsPath := filepath.Join(a.Quake3Dir, m, "scripts", "trinity-bots.txt")
-			if err := plan.MkdirChown(filepath.Dir(botsPath), 0755, uid, gid); err != nil {
-				return err
-			}
-			if err := plan.WriteFileAs(uid, gid, botsPath, botsFile, 0644); err != nil {
-				return err
-			}
-			plan.Say("Installed: %s", botsPath)
-		}
-
 		// autoexec.cfg only needs to live in baseq3 — q3's vfs looks
 		// up cfg files in the active mod first and falls back to
 		// baseq3, so a baseq3/autoexec.cfg that does `exec trinity.cfg`

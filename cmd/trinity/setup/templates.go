@@ -38,7 +38,7 @@ func displayHostname(key string) string {
 	return "Trinity " + key
 }
 
-//go:embed cfgtemplates/*.cfg cfgtemplates/*.txt cfgtemplates/rotations/*
+//go:embed cfgtemplates/*.cfg cfgtemplates/rotations/*
 var cfgTemplates embed.FS
 
 //go:embed systemd/*
@@ -204,18 +204,6 @@ func RenderRotation(g Gametype, useMissionpack bool) ([]byte, error) {
 	raw, err := cfgTemplates.ReadFile("cfgtemplates/rotations/" + name)
 	if err != nil {
 		return nil, fmt.Errorf("reading rotation %s: %w", name, err)
-	}
-	return raw, nil
-}
-
-// TrinityBotsFile returns the curated bot definitions list shipped
-// alongside the wizard. Installed at <quake3>/baseq3/scripts/trinity-bots.txt
-// and referenced from quake3-server@.service via `+set g_botsfile`.
-// `bot_minplayers` reads this file to fill empty slots.
-func TrinityBotsFile() ([]byte, error) {
-	raw, err := cfgTemplates.ReadFile("cfgtemplates/trinity-bots.txt")
-	if err != nil {
-		return nil, fmt.Errorf("reading trinity-bots.txt template: %w", err)
 	}
 	return raw, nil
 }

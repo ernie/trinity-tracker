@@ -9,7 +9,7 @@ Type=simple
 User=quake
 WorkingDirectory=/usr/lib/quake3
 EnvironmentFile=-/etc/trinity/%i.env
-ExecStart=/usr/bin/screen -Dm -S quake3-%i /usr/lib/quake3/trinity.ded +set fs_homepath /usr/lib/quake3 +set com_hunkmegs 256 +set g_botsfile scripts/trinity-bots.txt +set g_log "logs/%i.log" $SERVER_OPTS
+ExecStart=/usr/bin/screen -Dm -S quake3-%i /usr/lib/quake3/trinity.ded +set fs_homepath /usr/lib/quake3 +set com_hunkmegs 256 +set g_log "logs/%i.log" $SERVER_OPTS
 # SIGTERM straight to the q3 process: trinity-engine's
 # linux_signals.c queues the signal via signal_handler_async, and
 # Sys_CheckPendingSignal runs SV_Shutdown from main-loop context on
