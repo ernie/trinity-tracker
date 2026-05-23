@@ -60,6 +60,7 @@ type GreetReply struct {
 	GUIDLinked       bool       `json:"guid_linked"`
 	KDRatio          float64    `json:"kd_ratio"`
 	CompletedMatches int64      `json:"completed_matches"`
+	DisplayName      string     `json:"display_name"`
 	// RconStuff is populated only when the authenticated player is
 	// authorized to RCON the server they just joined. The collector
 	// uses (EpochNonce, Key) to encrypt the rcon password and push it

@@ -1577,6 +1577,55 @@ func (s *Store) deriveDisplayName(ctx context.Context, q sqlQuerier, username st
 	return "", ""
 }
 
+// DeriveAndSetDisplayName lazily populates a user's display_name on
+// first auth when the field is still empty. playerName is the client's
+// current in-game name (available from the Greet request). Applies the
+// same StripVRTag + canonical-uniqueness-check + username-fallback chain
+// as CreateUser, then persists the result.
+func (s *Store) DeriveAndSetDisplayName(ctx context.Context, userID int64, username, playerName string) (raw, canonical string) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return "", ""
+	}
+	defer tx.Rollback()
+
+	candidates := []string{}
+	if stripped := discord.StripVRTag(playerName); stripped != "" {
+		candidates = append(candidates, stripped)
+	}
+	candidates = append(candidates, username)
+
+	for _, c := range candidates {
+		cano := canonicalizeDisplayName(c)
+		if cano == "" {
+			continue
+		}
+		var taken int
+		if err := tx.QueryRowContext(ctx, `
+			SELECT COUNT(*) FROM users
+			WHERE display_name_canonical = ? AND id != ?
+		`, cano, userID).Scan(&taken); err != nil {
+			continue
+		}
+		if taken == 0 {
+			raw, canonical = c, cano
+			break
+		}
+	}
+
+	if raw != "" {
+		if _, err := tx.ExecContext(ctx, `
+			UPDATE users SET display_name = ?, display_name_canonical = ?
+			WHERE id = ?
+		`, raw, canonical, userID); err != nil {
+			return "", ""
+		}
+		tx.Commit()
+	}
+
+	return raw, canonical
+}
+
 // CreateUser creates a new user account
 func (s *Store) CreateUser(ctx context.Context, username, passwordHash string, isAdmin bool, playerID *int64) error {
 	tx, err := s.db.BeginTx(ctx, nil)

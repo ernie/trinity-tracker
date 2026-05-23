@@ -750,6 +750,20 @@ func (w *Writer) Greet(ctx context.Context, req GreetRequest) (GreetReply, error
 			}
 			playerID = authPlayerID
 			authedUser = user
+			// Populate DisplayName from the authenticated user's account.
+			// If the user has no display name yet (first auth after the
+			// column was added, or account created without a player link),
+			// derive it lazily from the current in-game name and persist.
+			if authedUser.DisplayName == "" {
+				dn, cano := w.store.DeriveAndSetDisplayName(ctx, authedUser.ID, authedUser.Username, req.ClientName)
+				reply.DisplayName = dn
+				if reply.DisplayName == "" {
+					reply.DisplayName = authedUser.Username
+				}
+				_ = cano
+			} else {
+				reply.DisplayName = authedUser.DisplayName
+			}
 		}
 	}
 
