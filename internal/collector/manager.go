@@ -1974,6 +1974,9 @@ func (m *ServerManager) performGreet(ctx context.Context, serverID int64, client
 			userType = 2
 		}
 		m.sendTrinityAuthOk(serverID, clientID, userType, reply.DisplayName)
+		if reply.DisplayName != "" {
+			playerName = reply.DisplayName
+		}
 	}
 
 	// Encrypted rcon-autoset: hub flags the user as authorized to RCON
