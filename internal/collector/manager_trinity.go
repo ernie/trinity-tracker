@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/ernie/trinity-tracker/internal/domain"
@@ -134,12 +135,24 @@ func (m *ServerManager) sendTrinityAuthFail(serverID int64, clientNum int) {
 }
 
 // sendTrinityAuthOk notifies the QVM that the hub has verified this
-// client's identity. level is 1 for a verified user, 2 for an admin;
-// higher values are reserved. Mirror of sendTrinityAuthFail — same
+// client's identity. userType is 1 for a verified user, 2 for an admin;
+// higher values are reserved. canonicalName, when non-empty, is sent as
+// a quoted third arg so the QVM can lock the in-game name to the
+// account's display name. Mirror of sendTrinityAuthFail — same
 // fire-and-forget shape, same logging on failure.
-func (m *ServerManager) sendTrinityAuthOk(serverID int64, clientNum, level int) {
+func (m *ServerManager) sendTrinityAuthOk(serverID int64, clientNum, userType int, canonicalName string) {
 	go func() {
-		cmd := fmt.Sprintf("trinity_auth_ok %d %d", clientNum, level)
+		// Q3 tokenizer doesn't support \" escaping inside quoted strings
+		// (see g_svcmds.c:567), so strip embedded quotes before sending.
+		// Spaces, control chars, and ^N color codes pass through fine in
+		// a quoted arg.
+		safeName := strings.ReplaceAll(canonicalName, "\"", "")
+		var cmd string
+		if safeName == "" {
+			cmd = fmt.Sprintf("trinity_auth_ok %d %d", clientNum, userType)
+		} else {
+			cmd = fmt.Sprintf("trinity_auth_ok %d %d \"%s\"", clientNum, userType, safeName)
+		}
 		if _, err := m.ExecuteRcon(serverID, cmd); err != nil {
 			log.Printf("Failed to send trinity_auth_ok to server %d client %d: %v", serverID, clientNum, err)
 		}
