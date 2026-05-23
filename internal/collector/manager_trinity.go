@@ -133,3 +133,16 @@ func (m *ServerManager) sendTrinityAuthFail(serverID int64, clientNum int) {
 	}()
 }
 
+// sendTrinityAuthOk notifies the QVM that the hub has verified this
+// client's identity. level is 1 for a verified user, 2 for an admin;
+// higher values are reserved. Mirror of sendTrinityAuthFail — same
+// fire-and-forget shape, same logging on failure.
+func (m *ServerManager) sendTrinityAuthOk(serverID int64, clientNum, level int) {
+	go func() {
+		cmd := fmt.Sprintf("trinity_auth_ok %d %d", clientNum, level)
+		if _, err := m.ExecuteRcon(serverID, cmd); err != nil {
+			log.Printf("Failed to send trinity_auth_ok to server %d client %d: %v", serverID, clientNum, err)
+		}
+	}()
+}
+
