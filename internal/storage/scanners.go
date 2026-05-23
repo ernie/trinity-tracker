@@ -62,13 +62,15 @@ func scanUser(s scanner) (*User, error) {
 	var user User
 	var lastLogin sql.NullTime
 	var playerID sql.NullInt64
+	var displayName sql.NullString
 	err := s.Scan(&user.ID, &user.Username, &user.PasswordHash, &user.IsAdmin,
-		&playerID, &user.PasswordChangeRequired, &user.CreatedAt, &lastLogin, &user.GameToken)
+		&playerID, &user.PasswordChangeRequired, &user.CreatedAt, &lastLogin, &user.GameToken, &displayName)
 	if err != nil {
 		return nil, err
 	}
 	user.LastLogin = scanNullTime(lastLogin)
 	user.PlayerID = scanNullInt64Ptr(playerID)
+	user.DisplayName = scanNullStringValue(displayName)
 	return &user, nil
 }
 

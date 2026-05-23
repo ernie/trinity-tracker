@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ernie/trinity-tracker/internal/discord"
 	"github.com/ernie/trinity-tracker/internal/domain"
 	_ "modernc.org/sqlite"
 )
@@ -1521,21 +1522,83 @@ type User struct {
 	CreatedAt              time.Time
 	LastLogin              *time.Time
 	GameToken              string
+	DisplayName            string
+}
+
+// sqlQuerier abstracts *sql.DB and *sql.Tx so deriveDisplayName works
+// both inside a transaction (claim-code path) and outside one (admin
+// CreateUser path).
+type sqlQuerier interface {
+	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
+}
+
+// deriveDisplayName returns the values to seed (display_name,
+// display_name_canonical) with at account creation or backfill. Rule:
+//  1. Try StripVRTag(players.name) when playerID is non-nil — this is
+//     the player's most-recent observed name minus the VR decoration.
+//  2. If that's empty OR its canonical form is already taken by another
+//     user, fall back to username.
+//  3. If username's canonical form is ALSO taken (a rare degenerate case
+//     — e.g. a casing-different account got there first), return empty
+//     strings so the row defers to "no override" rather than colliding.
+//
+// The caller must use the returned canonical value in the INSERT for the
+// unique partial index to enforce. Must run inside a transaction in the
+// caller; the SELECT-then-INSERT is racy at READ COMMITTED, but the
+// partial index would catch a true race anyway.
+func (s *Store) deriveDisplayName(ctx context.Context, q sqlQuerier, username string, playerID *int64, excludeUserID int64) (raw, canonical string) {
+	candidates := []string{}
+	if playerID != nil {
+		var playerName string
+		if err := q.QueryRowContext(ctx, `SELECT name FROM players WHERE id = ?`, *playerID).Scan(&playerName); err == nil {
+			if stripped := discord.StripVRTag(playerName); stripped != "" {
+				candidates = append(candidates, stripped)
+			}
+		}
+	}
+	candidates = append(candidates, username)
+
+	for _, c := range candidates {
+		cano := canonicalizeDisplayName(c)
+		if cano == "" {
+			continue
+		}
+		var taken int
+		if err := q.QueryRowContext(ctx, `
+			SELECT COUNT(*) FROM users
+			WHERE display_name_canonical = ? AND id != ?
+		`, cano, excludeUserID).Scan(&taken); err != nil {
+			continue
+		}
+		if taken == 0 {
+			return c, cano
+		}
+	}
+	return "", ""
 }
 
 // CreateUser creates a new user account
 func (s *Store) CreateUser(ctx context.Context, username, passwordHash string, isAdmin bool, playerID *int64) error {
-	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO users (username, password_hash, is_admin, player_id, password_change_required)
-		VALUES (?, ?, ?, ?, TRUE)
-	`, username, passwordHash, isAdmin, playerID)
-	return err
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	raw, cano := s.deriveDisplayName(ctx, tx, username, playerID, 0)
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO users (username, password_hash, is_admin, player_id, password_change_required, display_name, display_name_canonical)
+		VALUES (?, ?, ?, ?, TRUE, ?, ?)
+	`, username, passwordHash, isAdmin, playerID, raw, cano); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 // GetUserByUsername retrieves a user by username
 func (s *Store) GetUserByUsername(ctx context.Context, username string) (*User, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, username, password_hash, is_admin, player_id, password_change_required, created_at, last_login, game_token
+		SELECT id, username, password_hash, is_admin, player_id, password_change_required, created_at, last_login, game_token, display_name
 		FROM users WHERE username = ?
 	`, username)
 	return scanUser(row)
@@ -1544,7 +1607,7 @@ func (s *Store) GetUserByUsername(ctx context.Context, username string) (*User, 
 // GetUserByID retrieves a user by ID
 func (s *Store) GetUserByID(ctx context.Context, id int64) (*User, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, username, password_hash, is_admin, player_id, password_change_required, created_at, last_login, game_token
+		SELECT id, username, password_hash, is_admin, player_id, password_change_required, created_at, last_login, game_token, display_name
 		FROM users WHERE id = ?
 	`, id)
 	return scanUser(row)
@@ -1566,7 +1629,7 @@ func (s *Store) DeleteUser(ctx context.Context, username string) error {
 // ListUsers returns all users with details
 func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, username, password_hash, is_admin, player_id, password_change_required, created_at, last_login, game_token
+		SELECT id, username, password_hash, is_admin, player_id, password_change_required, created_at, last_login, game_token, display_name
 		FROM users ORDER BY username
 	`)
 	if err != nil {
@@ -2077,10 +2140,11 @@ func (s *Store) ClaimRegister(ctx context.Context, codeID, playerID int64, usern
 	}
 
 	// Create user with password_change_required = FALSE
+	raw, cano := s.deriveDisplayName(ctx, tx, username, &playerID, 0)
 	result, err := tx.ExecContext(ctx, `
-		INSERT INTO users (username, password_hash, is_admin, player_id, password_change_required)
-		VALUES (?, ?, FALSE, ?, FALSE)
-	`, username, passwordHash, playerID)
+		INSERT INTO users (username, password_hash, is_admin, player_id, password_change_required, display_name, display_name_canonical)
+		VALUES (?, ?, FALSE, ?, FALSE, ?, ?)
+	`, username, passwordHash, playerID, raw, cano)
 	if err != nil {
 		return 0, err
 	}
