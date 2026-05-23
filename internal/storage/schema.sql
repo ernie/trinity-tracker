@@ -184,6 +184,19 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_login TIMESTAMP,
     game_token TEXT NOT NULL DEFAULT '',
+    -- Canonical in-game name pushed to the server on auth_ok. Populated
+    -- at account creation from StripVRTag(players.name) (with username
+    -- fallback). Empty = no override; QVM falls back to whatever the
+    -- client sends. May contain Q3 color codes (^0-^7) and spaces.
+    display_name TEXT NOT NULL DEFAULT '',
+    -- Normalized form of display_name used for per-account uniqueness:
+    -- VR tag stripped, color codes stripped, whitespace runs collapsed
+    -- to a single space, ends trimmed. Application code maintains this
+    -- alongside display_name (storage.canonicalizeDisplayName). The
+    -- partial unique index below means two accounts cannot lock names
+    -- that look identical in-game even if their raw display_name
+    -- strings differ (e.g. "^1Foo" and "^7Foo").
+    display_name_canonical TEXT NOT NULL DEFAULT '',
     -- NULL = no explicit choice; frontend falls back to 'victories'.
     -- See migrations/2026-05-13-users-featured-honor.sql.
     featured_honor TEXT
@@ -191,6 +204,9 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 CREATE INDEX IF NOT EXISTS idx_users_player_id ON users(player_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_display_name_canonical
+    ON users(display_name_canonical)
+    WHERE display_name_canonical != '';
 
 -- Link codes for account linking via game chat
 -- user_id is nullable: NULL = claim code (player-initiated), NOT NULL = link code (user-initiated)
