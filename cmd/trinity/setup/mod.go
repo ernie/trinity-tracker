@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const modRepo = "ernie/trinity"
@@ -83,4 +84,23 @@ func InstallMod(plan *Plan, tag, quake3Dir string, uid, gid int) (string, error)
 		plan.Say("Installed %s → %s", m.Asset, dest)
 	}
 	return resolvedTag, nil
+}
+
+// CheckAnnouncerState reports whether the announcer pk3 at
+// installedPath matches expectedChecksum. Returns StateCurrent when
+// expectedChecksum is empty (release doesn't include the asset) or
+// the hash matches, StateUnknown when the file is missing, and
+// StateBehind when the hash differs.
+func CheckAnnouncerState(installedPath, expectedChecksum string) (VersionState, string) {
+	if expectedChecksum == "" {
+		return StateCurrent, ""
+	}
+	actual, err := HashFile(installedPath)
+	if err != nil {
+		return StateUnknown, ""
+	}
+	if strings.EqualFold(expectedChecksum, actual) {
+		return StateCurrent, actual
+	}
+	return StateBehind, actual
 }

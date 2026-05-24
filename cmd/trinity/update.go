@@ -225,20 +225,37 @@ func cmdUpdate(args []string) {
 	// Detect current versions.
 	currentTracker := version
 	var currentEngine, currentBaseq3, currentMissionpack string
+	var announcerExpected string
+	var modRows []row
 	if hasLocalServers {
 		currentEngine, _ = setup.DetectEngineVersion(quake3Dir)
 		currentBaseq3, _ = setup.DetectModVersion(quake3Dir, "baseq3")
 		currentMissionpack, _ = setup.DetectModVersion(quake3Dir, "missionpack")
+
+		expected, err := setup.FetchExpectedChecksum("ernie/trinity", targetMod, "zzz-trinity-announcer.pk3")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: could not check announcer state: %v\n", err)
+		} else {
+			announcerExpected = expected
+		}
 	}
 
-	// Build the displayed table — 4 rows for visibility (mod is shown
-	// per subdir so an operator sees baseq3/missionpack discrepancies).
+	// Build the displayed table — mod is shown per subdir + announcer
+	// so the operator sees per-component state.
 	var rows []row
 	rows = append(rows, makeRow("tracker", currentTracker, targetTracker, *force))
 	if hasLocalServers {
 		rows = append(rows, makeRow("engine", currentEngine, targetEngine, *force))
-		rows = append(rows, makeRow("mod (baseq3)", currentBaseq3, targetMod, *force))
-		rows = append(rows, makeRow("mod (missionpack)", currentMissionpack, targetMod, *force))
+		modRows = []row{
+			makeRow("mod (baseq3)", currentBaseq3, targetMod, *force),
+			makeRow("mod (missionpack)", currentMissionpack, targetMod, *force),
+		}
+		if announcerExpected != "" {
+			announcerPath := filepath.Join(quake3Dir, "baseq3", "zzz-trinity-announcer.pk3")
+			announcerState, currentHash := setup.CheckAnnouncerState(announcerPath, announcerExpected)
+			modRows = append(modRows, makeAnnouncerRow(announcerState, shortHash(currentHash), shortHash(announcerExpected), *force))
+		}
+		rows = append(rows, modRows...)
 	}
 	printDecisionTable(rows)
 
@@ -250,7 +267,7 @@ func cmdUpdate(args []string) {
 	decisions := []decision{rowToDecision(rows[0])}
 	if hasLocalServers {
 		decisions = append(decisions, rowToDecision(rows[1])) // engine
-		decisions = append(decisions, mergeModDecision(rows[2], rows[3], targetMod, *force))
+		decisions = append(decisions, mergeModDecision(modRows, targetMod, *force))
 	}
 
 	anyActionable := false
@@ -410,7 +427,9 @@ func cmdUpdate(args []string) {
 		nowMissionpack, _ := setup.DetectModVersion(quake3Dir, "missionpack")
 		baseq3State := setup.CompareVersions(nowBaseq3, targetMod)
 		mpState := setup.CompareVersions(nowMissionpack, targetMod)
-		if (baseq3State != setup.StateCurrent || mpState != setup.StateCurrent) || *force {
+		announcerPath := filepath.Join(quake3Dir, "baseq3", "zzz-trinity-announcer.pk3")
+		nowAnnouncerState, _ := setup.CheckAnnouncerState(announcerPath, announcerExpected)
+		if (baseq3State != setup.StateCurrent || mpState != setup.StateCurrent || nowAnnouncerState != setup.StateCurrent) || *force {
 			plan.Say("Installing trinity mod %s ...", targetMod)
 			if _, err := setup.InstallMod(plan, targetMod, quake3Dir, uid, gid); err != nil {
 				fmt.Fprintf(os.Stderr, "Error installing mod: %v\n", err)
@@ -536,6 +555,39 @@ func makeRow(name, current, latest string, force bool) row {
 	return r
 }
 
+func shortHash(h string) string {
+	if len(h) > 8 {
+		return h[:8]
+	}
+	return h
+}
+
+func makeAnnouncerRow(state setup.VersionState, current, latest string, force bool) row {
+	r := row{
+		name:   "mod (announcer)",
+		latest: latest,
+		state:  state,
+	}
+	switch state {
+	case setup.StateCurrent:
+		r.current = orUnknown(current)
+		if force {
+			r.action = "reinstall"
+			r.defaultYes = true
+		} else {
+			r.action = "current"
+		}
+	case setup.StateBehind:
+		r.current = orUnknown(current)
+		r.action = "upgrade"
+		r.defaultYes = true
+	case setup.StateUnknown:
+		r.current = "(missing)"
+		r.action = "missing"
+	}
+	return r
+}
+
 // rowToDecision lifts a single display row into a decision (used for
 // tracker and engine; mod uses mergeModDecision instead).
 func rowToDecision(r row) decision {
@@ -547,19 +599,19 @@ func rowToDecision(r row) decision {
 	}
 }
 
-// mergeModDecision collapses the baseq3 + missionpack display rows
-// into a single mod decision. We pick whichever side most needs
-// attention (Diverged > Behind > Unknown > Current) so the operator
-// sees the "worst case" in the prompt; the mod release lays down
-// both paks regardless of which one was the trigger.
-func mergeModDecision(b, mp row, latest string, force bool) decision {
-	pick := func(a, b row) row {
-		if modPriority(a.state) >= modPriority(b.state) {
-			return a
+// mergeModDecision collapses the mod display rows (baseq3,
+// missionpack, and optionally announcer) into a single mod decision.
+// We pick whichever component most needs attention (Diverged > Behind >
+// Unknown > Current) so the operator sees the "worst case" in the
+// prompt; the mod release lays down all paks regardless of which one
+// was the trigger.
+func mergeModDecision(modRows []row, latest string, force bool) decision {
+	worst := modRows[0]
+	for _, r := range modRows[1:] {
+		if modPriority(r.state) > modPriority(worst.state) {
+			worst = r
 		}
-		return b
 	}
-	worst := pick(b, mp)
 	d := decision{
 		name:       "mod",
 		action:     worst.action,
@@ -569,8 +621,13 @@ func mergeModDecision(b, mp row, latest string, force bool) decision {
 		d.action = "reinstall"
 		d.defaultYes = true
 	}
-	d.prompt = fmt.Sprintf("mod: baseq3 %s, missionpack %s → %s — %s?",
-		b.current, mp.current, latest, d.action)
+	var parts []string
+	for _, r := range modRows {
+		short := strings.TrimSuffix(strings.TrimPrefix(r.name, "mod ("), ")")
+		parts = append(parts, fmt.Sprintf("%s %s", short, r.current))
+	}
+	d.prompt = fmt.Sprintf("mod: %s → %s — %s?",
+		strings.Join(parts, ", "), latest, d.action)
 	return d
 }
 

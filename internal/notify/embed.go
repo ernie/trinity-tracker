@@ -36,11 +36,24 @@ const (
 	ffaColumnWidth = 18
 )
 
+// embedMinWidthPad is a run of U+2800 BRAILLE PATTERN BLANK characters
+// appended to the description. Discord's layout engine reserves the
+// full line width when computing the embed's minimum size, so a long
+// invisible-but-counted string pushes the embed out to its column-max
+// width — wide enough for the two-column ANSI roster to avoid wrapping.
+// Same technique as the digest embed in discord_digest.go.
+const embedMinWidthPad = "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀" +
+	"⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀" +
+	"⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀" +
+	"⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀" +
+	"⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀" +
+	"⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀"
+
 // buildActiveEmbed renders the "going active" snapshot for s.
 func buildActiveEmbed(s *domain.ServerStatus, publicURL string, mapMeta map[string]string) discord.Embed {
 	embed := discord.Embed{
 		Title:       "🟢  " + serverDisplay(s) + " is active",
-		Description: describeMatch(s, mapMeta),
+		Description: describeMatch(s, mapMeta) + embedMinWidthPad,
 		Color:       activeColor,
 		URL:         serverLink(publicURL, s.ServerID),
 		Timestamp:   time.Now().UTC().Format(time.RFC3339),

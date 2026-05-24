@@ -126,6 +126,40 @@ func VerifyReleaseChecksum(repo, tag, asset, localPath string) error {
 	return nil
 }
 
+// FetchExpectedChecksum fetches sha256sums.txt from a release and
+// returns the expected hex SHA-256 for asset. Returns ("", nil) when
+// the manifest exists but doesn't list the asset (release predates it).
+func FetchExpectedChecksum(repo, tag, asset string) (string, error) {
+	url := ReleaseAssetURL(repo, tag, "sha256sums.txt")
+	resp, err := http.Get(url)
+	if err != nil {
+		return "", fmt.Errorf("fetching %s: %w", url, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("fetching %s: HTTP %d", url, resp.StatusCode)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("reading %s: %w", url, err)
+	}
+	return lookupChecksum(string(body), asset), nil
+}
+
+// HashFile returns the hex-encoded SHA-256 of path.
+func HashFile(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
 // lookupChecksum scans sha256sum-formatted manifest text for the
 // entry matching asset. Handles both `<hash>  <name>` (text mode)
 // and `<hash> *<name>` (binary mode) variants.
