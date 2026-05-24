@@ -34,6 +34,20 @@ export function DocsAccount() {
             <ColoredText text="^1PhR4g^7M4st3r" />" is which.
           </li>
           <li>
+            <strong>Name lock.</strong> On Trinity servers, your
+            in-game name is locked to your account's display
+            name — you always show up with a consistent identity
+            across sessions and servers. No other registered
+            player can claim the same name.
+          </li>
+          <li>
+            <strong>Announcer clips.</strong> Eligible players get
+            custom audio announcements — your name when you join a
+            server, and a win call when you take a match in FFA or
+            1v1. Clips are currently added by request once a player
+            has at least 25 match victories.
+          </li>
+          <li>
             <strong>No <code>!link</code> commands to manage.</strong>{' '}
             New install, new device, fresh reinstall — sign in
             once and Trinity links your identity automatically.

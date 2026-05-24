@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { DocsH2 } from './DocsH2'
 import { DocsModeTabs } from './DocsModeTabs'
@@ -486,6 +487,59 @@ const DEMO_PLAYER_CALLOUTS: CalloutData[] = [
 // want to peek at another. PlatformTabs is reserved for sections
 // where seeing the choice up front is the point (downloads on
 // /docs/install — not used here).
+const VOIP_CHANNELS = [
+  { key: 'spatial', label: 'Spatial', color: 'rgb(255, 255, 51)' },
+  { key: 'team', label: 'Team', color: 'rgb(51, 255, 255)' },
+  { key: 'all', label: 'All', color: 'rgb(51, 255, 51)' },
+  { key: 'direct', label: 'Direct', color: 'rgb(255, 51, 255)' },
+] as const
+
+const VOIP_LEVELS = [
+  { suffix: 'muted', label: 'Muted', bright: false },
+  { suffix: 'idle', label: 'Idle', bright: false },
+  { suffix: 'level1', label: '< 30%', bright: false },
+  { suffix: 'level2', label: '< 60%', bright: false },
+  { suffix: 'level3', label: '< 90%', bright: false },
+  { suffix: 'level4', label: '90%+', bright: true },
+] as const
+
+function VoipLevelStrip() {
+  const [channel, setChannel] = useState<string>('spatial')
+  const ch = VOIP_CHANNELS.find((c) => c.key === channel) ?? VOIP_CHANNELS[0]
+  return (
+    <div className="voip-level-panel">
+      <div className="voip-level-tabs" role="tablist">
+        {VOIP_CHANNELS.map((c) => (
+          <button
+            key={c.key}
+            role="tab"
+            aria-selected={channel === c.key}
+            className={`voip-level-tab voip-level-tab--${c.key}${channel === c.key ? ' voip-level-tab--active' : ''}`}
+            onClick={() => setChannel(c.key)}
+          >
+            {c.label}
+          </button>
+        ))}
+      </div>
+      <div className="voip-level-strip">
+        {VOIP_LEVELS.map((lv) => (
+          <div
+            key={lv.suffix}
+            className={`voip-level-item${lv.bright ? ' voip-level-item--bright' : ''}`}
+            style={lv.bright ? { color: ch.color } : undefined}
+          >
+            <img
+              src={`/assets/play/voip/speaker-${lv.suffix}-${channel}.png`}
+              alt={`${lv.label} (${channel})`}
+            />
+            <span>{lv.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function DocsPlay() {
   return (
     <>
@@ -667,7 +721,7 @@ export function DocsPlay() {
         </p>
 
         <h3 className="docs-play__feature-title">Spotting who's talking</h3>
-        <p>Trinity surfaces voice activity in three places visible during play:</p>
+        <p>Trinity surfaces voice activity in three places visible during play, using channel-colored speaker icons:</p>
         <ul>
           <li>
             <strong>Player portrait icon</strong> — a speaker icon
@@ -678,29 +732,8 @@ export function DocsPlay() {
             <strong>Upper-right speakers list</strong> —{' '}
             <code>cg_drawVoipSpeakers 1</code> draws a stack of
             currently-speaking player names in the upper-right of
-            the HUD, each paired with a channel-colored speaker
-            icon:
+            the HUD.
           </li>
-        </ul>
-        <ul className="voip-channel-key">
-          <li>
-            <span className="voip-channel-swatch voip-channel-swatch--spatial" aria-hidden="true"></span>
-            <span><strong>Yellow</strong> — spatial.</span>
-          </li>
-          <li>
-            <span className="voip-channel-swatch voip-channel-swatch--team" aria-hidden="true"></span>
-            <span><strong>Cyan</strong> — team.</span>
-          </li>
-          <li>
-            <span className="voip-channel-swatch voip-channel-swatch--all" aria-hidden="true"></span>
-            <span><strong>Green</strong> — all.</span>
-          </li>
-          <li>
-            <span className="voip-channel-swatch voip-channel-swatch--direct" aria-hidden="true"></span>
-            <span><strong>Magenta</strong> — direct.</span>
-          </li>
-        </ul>
-        <ul>
           <li>
             <strong>Over-head indicators</strong> — in-world speaker
             icons appear above speaking players' models, so you know
@@ -708,6 +741,12 @@ export function DocsPlay() {
             at) the HUD list.
           </li>
         </ul>
+        <p>
+          The number of arcs on each icon reflects the speaker's
+          peak volume — more arcs means a higher peak, and at
+          90%+, the icon brightens.
+        </p>
+        <VoipLevelStrip />
 
         <h3 className="docs-play__feature-title">
           Activating voice chat

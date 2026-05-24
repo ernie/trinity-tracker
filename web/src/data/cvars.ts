@@ -140,6 +140,17 @@ export const PLAYER_CVARS: CvarEntry[] = [
       'Force every teammate to render as this model + skin pair (e.g. "doom/pm"). Empty disables.',
   },
   {
+    name: 'cg_trinityAnnounce',
+    default: '1',
+    platforms: ALL_PLATFORMS,
+    description:
+      'Play audio announcements for players when they join a server and when they win a match in FFA or 1v1. Eligible players have a custom announcer clip in the zzz-trinity-announcer.pk3 that ships alongside the mod.',
+    values: [
+      { value: '0', meaning: 'off' },
+      { value: '1', meaning: 'on' },
+    ],
+  },
+  {
     name: 'cg_trueShotgun',
     default: '0',
     platforms: ALL_PLATFORMS,
