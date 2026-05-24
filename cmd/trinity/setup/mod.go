@@ -15,9 +15,11 @@ const modRepo = "ernie/trinity"
 // pairing — q3's vfs uses these as load-order slots, not mod identifiers.
 var modPaks = []struct {
 	Asset, Subdir string
+	Optional      bool // skip checksum verify + don't fail if missing from release
 }{
-	{"pak3t.pk3", "missionpack"},
-	{"pak8t.pk3", "baseq3"},
+	{"pak3t.pk3", "missionpack", false},
+	{"pak8t.pk3", "baseq3", false},
+	{"zzz-trinity-announcer.pk3", "baseq3", true},
 }
 
 // InstallMod overlays the latest mod pk3s on top of whatever the
@@ -64,11 +66,17 @@ func InstallMod(plan *Plan, tag, quake3Dir string, uid, gid int) (string, error)
 		url := ReleaseAssetURL(modRepo, resolvedTag, m.Asset)
 		if err := plan.DownloadAs(uid, gid, url, stagePath); err != nil {
 			_ = os.Remove(stagePath)
+			if m.Optional {
+				plan.Say("Skipped %s (not available)", m.Asset)
+				continue
+			}
 			return "", err
 		}
-		if err := VerifyReleaseChecksum(modRepo, resolvedTag, m.Asset, stagePath); err != nil {
-			_ = os.Remove(stagePath)
-			return "", err
+		if !m.Optional {
+			if err := VerifyReleaseChecksum(modRepo, resolvedTag, m.Asset, stagePath); err != nil {
+				_ = os.Remove(stagePath)
+				return "", err
+			}
 		}
 		if err := os.Chmod(stagePath, 0644); err != nil {
 			_ = os.Remove(stagePath)
