@@ -97,8 +97,7 @@ const HUD_BASEQ3_CALLOUTS: CalloutData[] = [
     body: (
       <>
         When your crosshair lands on a player, their name renders
-        just above it. Color reflects their team in team modes;
-        white in FFA.
+        just above it.
       </>
     ),
   },
@@ -126,38 +125,65 @@ const HUD_BASEQ3_CALLOUTS: CalloutData[] = [
 const HUD_TEAMARENA_CALLOUTS: CalloutData[] = [
   {
     n: 1,
-    xPct: 0, yPct: 0, wPct: 15.352, hPct: 4.097,
-    title: 'Console & chat notify',
+    xPct: 0, yPct: 0, wPct: 21.055, hPct: 15.694,
+    title: 'Console & voice chat',
     body: (
       <>
-        Engine-drawn rolling notify area at the top-left — chat
-        messages, kill feed entries, and server messages all
-        interleave here.
+        Rolling notify area at the top-left — chat messages, kill
+        feed entries, and server messages all interleave here.
+        When a voice-chat macro is playing, a player portrait
+        appears and shifts the text to the right. Grunt (a bot
+        teammate) is announcing he's bringing the flag back to base.
       </>
     ),
   },
   {
     n: 2,
-    xPct: 40.781, yPct: 10.694, wPct: 17.891, hPct: 11.389,
+    xPct: 24.102, yPct: 10.694, wPct: 51.406, hPct: 10.764,
     title: 'Medal display',
     body: (
       <>
         Pops in when you earn one, stacking the count if you've
-        earned several of the same kind. Team Arena medals:
-        Impressive, Excellent, Capture, Assist, Defense, Gauntlet,
-        Frags, and Perfect.
+        earned several of the same kind. Displays for a few
+        seconds then fades out.
       </>
     ),
   },
   {
     n: 3,
-    xPct: 92.031, yPct: 0, wPct: 7.969, hPct: 4.583,
+    xPct: 88.945, yPct: 0, wPct: 11.055, hPct: 4.236,
     title: 'Timer',
-    body: <>Same upper-right slot as vanilla Q3.</>,
+    body: (
+      <>
+        Same upper-right slot as vanilla Q3. The{' '}
+        <code>OT</code> prefix means the match is in overtime.
+      </>
+    ),
   },
   {
     n: 4,
-    xPct: 73.906, yPct: 28.958, wPct: 4.102, hPct: 8.403,
+    xPct: 19.219, yPct: 29.097, wPct: 11.875, hPct: 28.542,
+    title: 'Flag',
+    body: (
+      <>
+        The blue flag on its stand — what you're defending in CTF.
+      </>
+    ),
+  },
+  {
+    n: 5,
+    xPct: 37.383, yPct: 24.722, wPct: 25.820, hPct: 9.028,
+    title: 'Center-print notification',
+    body: (
+      <>
+        Important messages appear here — frag confirmations, flag
+        pickups, and other game events.
+      </>
+    ),
+  },
+  {
+    n: 6,
+    xPct: 42.813, yPct: 34.097, wPct: 3.242, hPct: 4.236,
     title: 'Teammate indicator',
     body: (
       <>
@@ -167,22 +193,22 @@ const HUD_TEAMARENA_CALLOUTS: CalloutData[] = [
     ),
   },
   {
-    n: 5,
-    xPct: 82.930, yPct: 35.764, wPct: 4.609, hPct: 7.778,
-    title: 'Persistent-powerup pickup',
+    n: 7,
+    xPct: 51.094, yPct: 38.542, wPct: 3.828, hPct: 7.431,
+    title: 'Persistent powerup',
     body: (
       <>
         One of four Team Arena <em>persistent</em> powerups sitting
         on its pad in the world — Guard, Ammo Regen, Scout, or
-        Doubler. Once picked up, they stay with you for the rest
-        of your life (until you die), unlike regular timed
-        powerups.
+        Doubler (the red Doubler here). Once picked up, they stay
+        with you for the rest of your life (until you die), unlike
+        regular timed powerups.
       </>
     ),
   },
   {
-    n: 6,
-    xPct: 11.406, yPct: 73.681, wPct: 23.320, hPct: 16.597,
+    n: 8,
+    xPct: 12.266, yPct: 75.486, wPct: 21.914, hPct: 14.167,
     title: 'Teammate status card',
     body: (
       <>
@@ -190,49 +216,52 @@ const HUD_TEAMARENA_CALLOUTS: CalloutData[] = [
         typically the flag carrier in CTF / 1FCTF, otherwise
         whoever's situationally interesting. Shows their name,
         current location, role-declaration icon, health, armor,
-        and current weapon. The "stylized S" icon in this shot is
-        the <em>defend</em> task icon.
-      </>
-    ),
-  },
-  {
-    n: 7,
-    xPct: 12.227, yPct: 90.694, wPct: 15.391, hPct: 9.097,
-    title: 'Holdables / persistent powerup / carry status',
-    body: (
-      <>
-        Three-slot indicator strip: what you're holding (Medkit,
-        Personal Teleporter, Kamikaze, Invulnerability), which
-        persistent powerup you've grabbed (Doubler in this shot),
-        and whether you're carrying a flag.
-      </>
-    ),
-  },
-  {
-    n: 8,
-    xPct: 29.141, yPct: 90.903, wPct: 12.969, hPct: 7.708,
-    title: 'Weapon + ammo',
-    body: (
-      <>
-        Active weapon icon and ammo count — Rocket Launcher with
-        12 rockets here.
+        and current weapon.
       </>
     ),
   },
   {
     n: 9,
-    xPct: 44.180, yPct: 88.125, wPct: 12.383, hPct: 11.111,
-    title: 'Portrait + health',
+    xPct: 12.109, yPct: 89.514, wPct: 15.547, hPct: 10.347,
+    title: 'Holdables / persistent powerup / carry status',
     body: (
       <>
-        Same conceptual element as in vanilla Q3, repositioned in
-        the TA layout.
+        Three-slot indicator strip: what you're holding (Medkit,
+        Personal Teleporter, Kamikaze, Invulnerability), which
+        persistent powerup you've grabbed (Guard in this shot),
+        and whether you're carrying a flag.
       </>
     ),
   },
   {
     n: 10,
-    xPct: 58.164, yPct: 90.139, wPct: 11.914, hPct: 9.028,
+    xPct: 27.773, yPct: 89.653, wPct: 14.648, hPct: 10.347,
+    title: 'Weapon + ammo',
+    body: (
+      <>
+        Active weapon icon and ammo count — Railgun with 35
+        slugs here.
+      </>
+    ),
+  },
+  {
+    n: 11,
+    xPct: 42.930, yPct: 87.708, wPct: 14.531, hPct: 12.292,
+    title: 'Portrait + health',
+    body: (
+      <>
+        Same conceptual element as in vanilla Q3, repositioned in
+        the TA layout. The small speaker icon overlaid on the
+        portrait shows your VOIP state — the cyan speaker here
+        means you're on the team channel.
+        See <Link to="#voice-chat">Voice chat</Link> for the
+        channel colors.
+      </>
+    ),
+  },
+  {
+    n: 12,
+    xPct: 57.930, yPct: 89.375, wPct: 14.648, hPct: 10.625,
     title: 'Armor',
     body: (
       <>
@@ -244,37 +273,37 @@ const HUD_TEAMARENA_CALLOUTS: CalloutData[] = [
     ),
   },
   {
-    n: 11,
-    xPct: 66.406, yPct: 81.319, wPct: 21.953, hPct: 8.194,
-    title: 'Your status declaration',
+    n: 13,
+    xPct: 66.641, yPct: 82.361, wPct: 20.898, hPct: 7.014,
+    title: 'Status declaration + location',
     body: (
       <>
         What <em>you've</em> declared as your current role, with
         the matching task icon — the upward green arrow is{' '}
-        <em>attack</em>. Set via the <code>task*</code> commands
-        listed below, or from the in-game{' '}
-        <strong>Team Orders</strong> menu.
+        <em>attack</em> — plus your current map location. Set
+        via the <code>task*</code> commands listed below, or from
+        the in-game <strong>Team Orders</strong> menu.
       </>
     ),
   },
   {
-    n: 12,
-    xPct: 72.578, yPct: 90.069, wPct: 15.000, hPct: 9.444,
+    n: 14,
+    xPct: 72.656, yPct: 89.653, wPct: 14.883, hPct: 10.347,
     title: 'Score block',
     body: (
       <>
         Capture limit, then each team's flag-state icon paired
         with their team score. The flag icons are the same set
         used on this site's live server cards. The smaller number
-        under each (<code>418</code> here) is the <em>game score</em>{' '}
-        — Team Arena tracks objective points separately from frags,
-        with bigger objectives like captures worth more.
+        under each is the <em>game score</em> — Team Arena tracks
+        objective points separately from frags, with bigger
+        objectives like captures worth more.
       </>
     ),
   },
   {
-    n: 13,
-    xPct: 93.359, yPct: 68.194, wPct: 6.641, hPct: 13.056,
+    n: 15,
+    xPct: 94.102, yPct: 69.583, wPct: 5.898, hPct: 11.389,
     title: 'Network graph',
     body: (
       <>
@@ -288,59 +317,83 @@ const HUD_TEAMARENA_CALLOUTS: CalloutData[] = [
 
 // Source dims for scoreboard-baseq3.png: 2560×1440. Vanilla Q3
 // scoreboard pulled up via Tab — much sparser than TA. The
-// in-match status indicators (timer, score block) stay drawn
-// underneath the scoreboard panel, hence callouts 2 and 4.
+// in-match status indicators (timer, score block, powerup timer)
+// stay drawn underneath the scoreboard panel.
 const SCOREBOARD_BASEQ3_CALLOUTS: CalloutData[] = [
   {
     n: 1,
-    xPct: 38.789, yPct: 10.347, wPct: 22.500, hPct: 7.431,
-    title: 'Your placement',
+    xPct: 21.094, yPct: 19.306, wPct: 11.055, hPct: 39.375,
+    title: 'Portrait column',
     body: (
       <>
-        Centered headline reading "&lt;rank&gt; place with
-        &lt;score&gt;" — appears when you're not leading.
+        Each player's head model alongside their row. Status
+        indicators to the left vary by player type: bot skill
+        (difficulty 4 here), a gold star for verified admins, a
+        green checkmark for verified accounts, or VR goggles
+        behind the badge for VR clients. VOIP speaker icons
+        appear at the bottom-right of each portrait,
+        channel-colored and animated when speaking.
       </>
     ),
   },
   {
     n: 2,
-    xPct: 88.086, yPct: 0, wPct: 11.914, hPct: 9.236,
-    title: 'Timer + mode icons',
+    xPct: 38.516, yPct: 10.972, wPct: 22.969, hPct: 6.042,
+    title: 'Your placement',
     body: (
       <>
-        The same upper-right stack as the in-match HUD. The two
-        icons next to the timer report the active <em>movement</em>{' '}
-        and <em>gameplay</em> profiles — both CPMA in this shot.
+        Centered headline showing the player's current rank and
+        score.
       </>
     ),
   },
   {
     n: 3,
-    xPct: 21.250, yPct: 20.833, wPct: 11.055, hPct: 36.250,
-    title: 'Portrait column',
+    xPct: 87.852, yPct: 0, wPct: 12.148, hPct: 8.889,
+    title: 'Timer + mode icons',
     body: (
       <>
-        Each player's head model alongside their row. The status
-        icon's meaning depends on the player: bot skill (level 3 =
-        "Hurt me plenty" here, all bots), VOIP indicator for
-        humans (channel-colored, animates when speaking), or{' '}
-        <code>[VR]</code> for VR clients. No VR players in this
-        shot — see{' '}
-        <Link to="#spectating-demos">Spectating and demos</Link>{' '}
-        for an example.
+        The same upper-right stack as the in-match HUD. The two
+        icons next to the timer report the active <em>movement</em>{' '}
+        and <em>gameplay</em> profiles — both vanilla Q3 in this
+        shot.
       </>
     ),
   },
   {
     n: 4,
-    xPct: 90.000, yPct: 69.514, wPct: 10.000, hPct: 13.333,
+    xPct: 86.328, yPct: 71.042, wPct: 13.672, hPct: 11.458,
+    title: 'Timed powerup',
+    body: (
+      <>
+        Countdown for an active timed powerup — Quad Damage with
+        15 seconds remaining here. Appears whenever you're holding
+        a timed powerup and fades when it expires.
+      </>
+    ),
+  },
+  {
+    n: 5,
+    xPct: 86.328, yPct: 82.431, wPct: 13.672, hPct: 5.903,
     title: 'Persistent score indicator',
     body: (
       <>
         Same score block as the in-match HUD, kept on screen
         while the scoreboard is up. Yellow outline still anchors
-        your score (in the red box because you're not leading);
-        the gray box keeps the leader's score visible for context.
+        your score; the gray box keeps the leader's score visible
+        for context.
+      </>
+    ),
+  },
+  {
+    n: 6,
+    xPct: 93.906, yPct: 89.236, wPct: 6.094, hPct: 10.764,
+    title: 'Network graph',
+    body: (
+      <>
+        Lagometer (<code>cg_lagometer 1</code>): ping in
+        milliseconds plus a jitter trace below. A flat horizontal
+        trace means a stable connection.
       </>
     ),
   },
@@ -353,36 +406,35 @@ const SCOREBOARD_BASEQ3_CALLOUTS: CalloutData[] = [
 const SCOREBOARD_TEAMARENA_CALLOUTS: CalloutData[] = [
   {
     n: 1,
-    xPct: 41.836, yPct: 16.944, wPct: 18.438, hPct: 5.833,
+    xPct: 42.813, yPct: 16.875, wPct: 16.758, hPct: 5.486,
     title: 'Team scores headline',
     body: (
       <>
-        Both team names paired with their current scores, plus a
-        "Blue leads Red, 2 to 1"-style summary.
+Shows the current scores.
       </>
     ),
   },
   {
     n: 2,
-    xPct: 14.414, yPct: 30.069, wPct: 2.500, hPct: 17.778,
-    title: 'Per-row indicators',
+    xPct: 88.398, yPct: 0, wPct: 11.602, hPct: 8.472,
+    title: 'Timer + mode icons',
     body: (
       <>
-        Each row carries a few glyphs: bot skill (or VOIP icon
-        for humans, channel-colored when active) and a
-        flag-carrier badge if the player has the enemy flag —
-        Hunter has the blue flag for the red team in this shot.
+        Same upper-right stack as the in-match HUD. The{' '}
+        <code>OT</code> prefix means the match is in overtime.
+        The two icons report the active <em>movement</em> and{' '}
+        <em>gameplay</em> profiles — both vanilla Q3 in this shot.
       </>
     ),
   },
   {
     n: 3,
-    xPct: 52.383, yPct: 30.069, wPct: 2.305, hPct: 17.986,
+    xPct: 16.211, yPct: 30.139, wPct: 3.008, hPct: 17.986,
     title: 'Status (task) column',
     body: (
       <>
         The role each player has declared via <code>task*</code> —
-        attacking, escorting, returning the flag, etc. Bots flip
+        attacking (green) or defending (red) here. Bots flip
         their declarations based on the team leader's orders;
         humans declare their own (and ignore orders if they like).
       </>
@@ -390,19 +442,34 @@ const SCOREBOARD_TEAMARENA_CALLOUTS: CalloutData[] = [
   },
   {
     n: 4,
-    xPct: 18.359, yPct: 35.139, wPct: 5.313, hPct: 3.958,
-    title: 'Leader designation',
+    xPct: 50.078, yPct: 29.653, wPct: 3.125, hPct: 18.264,
+    title: 'Per-row indicators',
     body: (
       <>
-        One player per team can be designated team leader (a
-        voteable status). The leader can issue orders that bots
-        respect.
+        Each row carries a few glyphs: bot skill icon, or for
+        humans, a gold star (admin), green checkmark (verified
+        account), and VR goggles (VR client). Same concept as
+        the vanilla Q3 portrait column but in the TA layout.
       </>
     ),
   },
   {
     n: 5,
-    xPct: 13.945, yPct: 75.694, wPct: 72.578, hPct: 10.972,
+    xPct: 54.336, yPct: 29.653, wPct: 5.430, hPct: 6.667,
+    title: 'Leader + VOIP',
+    body: (
+      <>
+        One player per team can be designated team leader (a
+        voteable status). The leader can issue orders that bots
+        respect. The VOIP speaker icon (cyan here = team channel)
+        shows who's speaking on what channel while the scoreboard
+        is up.
+      </>
+    ),
+  },
+  {
+    n: 6,
+    xPct: 14.336, yPct: 75.972, wPct: 71.992, hPct: 10.764,
     title: 'Performance stats',
     body: (
       <>
@@ -414,10 +481,16 @@ const SCOREBOARD_TEAMARENA_CALLOUTS: CalloutData[] = [
     ),
   },
   {
-    n: 6,
-    xPct: 88.125, yPct: 0, wPct: 11.875, hPct: 8.681,
-    title: 'Timer + mode icons',
-    body: <>Same upper-right stack as the in-match HUD.</>,
+    n: 7,
+    xPct: 94.023, yPct: 69.514, wPct: 5.977, hPct: 11.181,
+    title: 'Network graph',
+    body: (
+      <>
+        Lagometer (<code>cg_lagometer 1</code>): ping in
+        milliseconds plus a jitter trace below. A flat horizontal
+        trace means a stable connection.
+      </>
+    ),
   },
 ]
 
@@ -1073,7 +1146,7 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
             <figure className="docs-hud-figure">
               <CalloutImage
                 src="/assets/play/hud-teamarena.png"
-                alt="Team Arena HUD with thirteen numbered callouts: chat notify, medals, timer, teammate indicator, persistent powerup, teammate status card, holdables and powerup and carry slots, weapon, portrait, armor, status declaration, score block, and lagometer."
+                alt="Team Arena HUD with fifteen numbered callouts: console and voice chat, medal display, timer, flag, center-print notification, teammate indicator, persistent powerup, teammate status card, holdables and powerup and carry slots, weapon, portrait, armor, status declaration and location, score block, and lagometer."
                 callouts={HUD_TEAMARENA_CALLOUTS}
               />
             </figure>
@@ -1153,7 +1226,7 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
             <figure className="docs-hud-figure">
               <CalloutImage
                 src="/assets/play/scoreboard-baseq3.png"
-                alt="Quake III scoreboard with four numbered callouts: placement headline, timer with mode icons, portrait column with bot skill and VOIP, and the persistent score indicator."
+                alt="Quake III scoreboard with six numbered callouts: portrait column, placement headline, timer with mode icons, timed powerup countdown, persistent score indicator, and lagometer."
                 callouts={SCOREBOARD_BASEQ3_CALLOUTS}
               />
             </figure>
@@ -1164,7 +1237,7 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
             <figure className="docs-hud-figure">
               <CalloutImage
                 src="/assets/play/scoreboard-teamarena.png"
-                alt="Team Arena scoreboard with six numbered callouts: team scores headline, per-row indicators, status (task) column, leader designation, performance stats columns, and timer with mode icons."
+                alt="Team Arena scoreboard with seven numbered callouts: team scores headline, timer with mode icons, status (task) column, per-row indicators, leader and VOIP, performance stats, and lagometer."
                 callouts={SCOREBOARD_TEAMARENA_CALLOUTS}
               />
             </figure>
