@@ -10872,7 +10872,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   gap: 12px;
   margin-bottom: 14px;
 }
-.scoreboard__side { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.scoreboard__side { display: flex; flex-direction: column; align-items: center; gap: 2px; position: relative; }
 .scoreboard__label {
   font-family: 'Barlow', sans-serif; font-weight: 500; font-size: 10px;
   letter-spacing: 0.25em; text-transform: uppercase;
@@ -10897,7 +10897,6 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 .scoreboard__indicator {
   display: inline-flex;
   align-items: center;
-  position: relative;
   align-self: stretch;
 }
 /* Flag/skull glyphs visually sit slightly below the Cinzel score's
@@ -11361,9 +11360,8 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   width: 7px;
   height: 47px;
 }
-/* Wider than the shared 8px slot gap — keeps CTF flag indicator tight. */
-.scoreboard__side--red  .obelisk-hp { left:  14px; }
-.scoreboard__side--blue .obelisk-hp { right: 14px; }
+.scoreboard__side--red  .obelisk-hp { right: 0; }
+.scoreboard__side--blue .obelisk-hp { left:  0; }
 .obelisk-hp__bar {
   display: block;
   position: relative;
