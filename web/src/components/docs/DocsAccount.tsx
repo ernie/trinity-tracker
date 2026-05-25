@@ -28,10 +28,12 @@ export function DocsAccount() {
             toward the same profile.
           </li>
           <li>
-            <strong>Verified player badge.</strong> A small marker
-            shows up next to your name on scoreboards and match
-            cards so other players can tell at a glance which "
-            <ColoredText text="^1PhR4g^7M4st3r" />" is which.
+            <strong>Verified player badge.</strong> A green
+            checkmark shows up next to your name on the in-game
+            scoreboard (and on match cards and leaderboards here
+            on the site) so other players can tell at a glance
+            which "<ColoredText text="^1PhR4g^7M4st3r" />" is
+            which. Admins get a gold star instead.
           </li>
           <li>
             <strong>Name lock.</strong> On Trinity servers, your
