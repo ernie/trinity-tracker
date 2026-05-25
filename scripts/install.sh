@@ -168,10 +168,6 @@ if (( ! UPGRADE )); then
      1.32 patch bundle on hand. Hub installs mirror it into
      /var/lib/trinity/web/downloads/ so collectors fetch it from
      this hub instead of needing their own copy.
-   - hqq-baseq3.zip (and hqq-missionpack.zip if running TA) in the
-     current directory to install High Quality Quake assets for
-     sharper levelshots and player portraits.
-
  If you'd rather manage some of these steps yourself — your own
  reverse proxy, host firewall, or log rotation — abort now and
  re-run with one or more of:

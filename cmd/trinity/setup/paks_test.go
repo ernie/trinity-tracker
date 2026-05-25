@@ -155,15 +155,15 @@ func TestFetchAndExtractMods_RestrictMods(t *testing.T) {
 	if err := os.MkdirAll(dlDir, 0755); err != nil {
 		t.Fatal(err)
 	}
-	makeTestZip(t, filepath.Join(dlDir, "hqq.zip"), map[string][]byte{
-		"baseq3/pak9hqq.pk3":   []byte("hqq"),
+	makeTestZip(t, filepath.Join(dlDir, "restricted.zip"), map[string][]byte{
+		"baseq3/pak9extra.pk3":  []byte("extra"),
 		"missionpack/snuck.pk3": []byte("nope"),
 	})
 	opts := PakStepOptions{Quake3Dir: q3Dir, StaticDir: staticDir}
-	if err := fetchAndExtractMods(opts, io.Discard, "hqq.zip", []string{"baseq3"}); err != nil {
+	if err := fetchAndExtractMods(opts, io.Discard, "restricted.zip", []string{"baseq3"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(q3Dir, "baseq3/pak9hqq.pk3")); err != nil {
+	if _, err := os.Stat(filepath.Join(q3Dir, "baseq3/pak9extra.pk3")); err != nil {
 		t.Errorf("baseq3 entry should be extracted: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(q3Dir, "missionpack/snuck.pk3")); !os.IsNotExist(err) {

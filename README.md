@@ -251,11 +251,6 @@ Portraits, medals, and skills are upscaled to 128x128 using Catmull-Rom (bicubic
 
 Requires `static_dir` to be configured. The source path defaults to `quake3_dir` from config but can be overridden on the command line.
 
-For higher quality source assets, consider installing:
-
-- [High Quality Quake](https://www.moddb.com/mods/high-quality-quake) for baseq3
-- [HQQ Team Arena](https://www.moddb.com/games/quake-iii-team-arena/addons/hqq-high-quality-quake-team-arena-test) for missionpack
-
 ## Configuration
 
 `trinity init` writes `/etc/trinity/config.yml` for you. Hand-edit it

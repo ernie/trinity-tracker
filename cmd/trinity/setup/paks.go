@@ -36,12 +36,6 @@ const (
 	// `missionpack/pakN.pk3` at the top level.
 	patchZipName = "quake3-1.32-pk3s.zip"
 
-	// hqqBaseq3ZipName / hqqMPZipName are the optional High Quality
-	// Quake assets the wizard offers after patches. Same layout: top-
-	// level `baseq3/...` or `missionpack/...` directories.
-	hqqBaseq3ZipName = "hqq-baseq3.zip"
-	hqqMPZipName     = "hqq-missionpack.zip"
-
 	// canonBaseq3 / canonMP are the filenames the prereq/install banner
 	// suggests the operator copy their retail pak0s as. When present in
 	// the wizard's CWD they're auto-staged without a prompt.
@@ -57,9 +51,9 @@ type PakStepOptions struct {
 	TrinityBin  string // path to the installed trinity binary; defaults to /usr/local/bin/trinity
 
 	// HubHost is the hostname the wizard uses to fetch hub-hosted
-	// downloads (patch zip, HQQ assets) over HTTPS when no local copy
-	// is found. Required for collector-only installs that have to pull
-	// from a remote hub.
+	// downloads (patch zip) over HTTPS when no local copy is found.
+	// Required for collector-only installs that have to pull from a
+	// remote hub.
 	HubHost string
 
 	// StaticDir is the hub's web-asset root (e.g. /var/lib/trinity/web).
@@ -69,7 +63,7 @@ type PakStepOptions struct {
 	StaticDir string
 
 	// Cwd is the directory `trinity init` was launched from. The wizard
-	// looks here first for operator-supplied zips (patch bundle, HQQ),
+	// looks here first for operator-supplied zips (patch bundle),
 	// matching the pak0 staging pattern. This is how a first hub install
 	// bootstraps before any other hub exists to fetch from.
 	Cwd string
@@ -108,7 +102,6 @@ func RunPakStep(opts PakStepOptions) PakStepResult {
 	if len(missingBaseq3) == 0 && len(missingMP) == 0 {
 		fmt.Fprintln(out, "  All required pak files are already in place.")
 		result.AllReady = true
-		offerHQQ(opts, out)
 		result.Baked = runBake(opts, out)
 		result.Started = maybeAutoStart(opts, out)
 		return result
@@ -141,7 +134,6 @@ func RunPakStep(opts PakStepOptions) PakStepResult {
 	if len(missingBaseq3) == 0 && len(missingMP) == 0 {
 		fmt.Fprintln(out, "  All required pak files are now in place.")
 		result.AllReady = true
-		offerHQQ(opts, out)
 		result.Baked = runBake(opts, out)
 		result.Started = maybeAutoStart(opts, out)
 		return result
@@ -362,41 +354,6 @@ func offerPatchDownload(opts PakStepOptions, out io.Writer) {
 	fmt.Fprintln(out, "  Patches installed.")
 }
 
-// offerHQQ optionally installs High Quality Quake — a community asset
-// pack that ships sharper levelshots and player portraits than the
-// stock retail pk3s. Runs after patches and before bake so the
-// `levelshots` / `demobake` steps see the higher-quality textures.
-//
-// HQQ baseq3 is offered always; HQQ TA is offered only when the
-// missionpack/pak0.pk3 retail asset is in place (no point installing
-// TA assets for an operator who hasn't supplied a TA pak0).
-//
-// Optional, non-fatal: any error or skip just logs and moves on.
-func offerHQQ(opts PakStepOptions, out io.Writer) {
-	mpInstalled := fileExists(filepath.Join(opts.Quake3Dir, "missionpack", "pak0.pk3"))
-
-	fmt.Fprintln(out)
-	fmt.Fprintln(out, "  High Quality Quake (HQQ) is an optional community asset pack with")
-	fmt.Fprintln(out, "  sharper levelshots and player portraits than the stock pk3s. Trinity")
-	fmt.Fprintln(out, "  uses these for the hub UI's map and player thumbnails.")
-	want, err := opts.Prompter.YesNo("  Install High Quality Quake assets?", true)
-	if err != nil || !want {
-		fmt.Fprintln(out, "  Skipping HQQ.")
-		return
-	}
-
-	if err := fetchAndExtractMods(opts, out, hqqBaseq3ZipName, []string{"baseq3"}); err != nil {
-		fmt.Fprintf(out, "  WARN: HQQ baseq3 download failed: %v\n", err)
-		printManualInstall(out, opts, hqqBaseq3ZipName)
-	}
-	if mpInstalled {
-		if err := fetchAndExtractMods(opts, out, hqqMPZipName, []string{"missionpack"}); err != nil {
-			fmt.Fprintf(out, "  WARN: HQQ missionpack download failed: %v\n", err)
-			printManualInstall(out, opts, hqqMPZipName)
-		}
-	}
-}
-
 // printManualInstall tells the operator how to recover when the
 // automated fetch couldn't run — either by dropping the zip in the
 // install dir on a future re-run, or by extracting it manually.
@@ -450,7 +407,7 @@ func pageEULA() error {
 // alone — we only fill gaps, never overwrite operator copies.
 //
 // Hub-hosted zips have `baseq3/...` and/or `missionpack/...` at the
-// top level. Some upstream patch/HQQ zips wrap everything in a single
+// top level. Some upstream patch zips wrap everything in a single
 // release-name dir (e.g. `quake3-latest-pk3s/baseq3/...`); we strip
 // that wrapper transparently. Entries outside the allowed mods (or
 // that resolve outside their mod dir via "..") are skipped.
@@ -504,7 +461,7 @@ func fetchAndExtractMods(opts PakStepOptions, out io.Writer, name string, mods [
 }
 
 // detectWrapperDir returns "wrapper/" when every entry in the zip
-// shares one non-allowed top-level dir (the typical patch/HQQ layout),
+// shares one non-allowed top-level dir (the typical patch zip layout),
 // or "" when entries already start with allowed mod names. Mixed
 // layouts return "" — we'd rather extract nothing than partially.
 func detectWrapperDir(files []*zip.File, allowed map[string]bool) string {

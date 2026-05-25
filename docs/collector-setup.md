@@ -146,12 +146,11 @@ Re-running `trinity init` later refuses to overwrite an existing
 
 ---
 
-## 3. Pak files (retail `pak0` + 1.32 patch data + optional HQQ)
+## 3. Pak files (retail `pak0` + 1.32 patch data)
 
 After the wizard finishes the configuration steps, it walks you
 through pak placement: the retail `pak0.pk3`(s) you supply, plus the
-1.32 point-release patch data distributed under id Software's EULA,
-plus an optional High Quality Quake (HQQ) asset pack.
+1.32 point-release patch data distributed under id Software's EULA.
 
 **Retail `pak0.pk3`.** If you copied a retail pak0 into the directory
 you ran the installer from as `q3-pak0.pk3` (and `mp-pak0.pk3` for
@@ -189,19 +188,9 @@ linked from the Getting Started page and the download dropdown — that
 page gates the zip behind a scroll-to-bottom-then-agree control for
 human visitors.
 
-**HQQ assets (optional).** Once patches are in place, the wizard
-offers to install High Quality Quake — a community asset pack with
-sharper levelshots and player portraits. Source resolution is the
-same as for the patch zip:
-
-- `hqq-baseq3.zip` (always offered)
-- `hqq-missionpack.zip` (offered when `missionpack/pak0.pk3` is present)
-
-Each zip should contain a top-level `baseq3/` (or `missionpack/`)
-directory with the pk3s inside. The wizard never overwrites operator
-copies — it only fills missing files. On a hub install, CWD-staged
-zips are mirrored into `<static_dir>/downloads/` so future collectors
-fetch from this hub.
+The wizard never overwrites operator copies — it only fills missing
+files. On a hub install, CWD-staged zips are mirrored into
+`<static_dir>/downloads/` so future collectors fetch from this hub.
 
 **Auto-start.** Once the required paks are all present, the wizard
 offers to `systemctl start trinity.service quake3-servers.target` for
