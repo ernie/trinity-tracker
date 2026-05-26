@@ -9203,6 +9203,96 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   border-color: var(--ember-strong);
 }
 
+.display-name-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.display-name-input-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.display-name-input {
+  flex: 1;
+  font-family: monospace;
+}
+
+.display-name-bytes {
+  font-size: 0.75rem;
+  opacity: 0.5;
+  white-space: nowrap;
+}
+
+.display-name-preview {
+  padding: 0.375rem 0.5rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 4px;
+  font-size: 1.1rem;
+}
+
+.display-name-hint {
+  font-size: 0.75rem;
+  color: var(--q3-color-3);
+}
+
+.display-name-error {
+  font-size: 0.8rem;
+  color: var(--q3-color-1);
+}
+
+.display-name-help {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.7rem;
+}
+
+.color-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.color-chip-swatch {
+  display: inline-block;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 2px;
+}
+
+.display-name-static {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.edit-icon-btn {
+  background: none;
+  border: none;
+  color: inherit;
+  opacity: 0.4;
+  cursor: pointer;
+  padding: 0.125rem 0.25rem;
+  font-size: 0.9rem;
+}
+
+.edit-icon-btn:hover {
+  opacity: 0.8;
+}
+
+.display-name-edit-inline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.display-name-edit-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
 .claim-success {
   text-align: center;
   padding: 40px 24px;

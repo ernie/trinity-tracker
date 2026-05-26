@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ColoredText } from './ColoredText'
+import { DisplayNameEditor, useDisplayNameValidation } from './DisplayNameEditor'
 import { PlayerHero } from './PlayerHero'
 import { HonorsPanel } from './HonorsPanel'
 import { PlayerRecentMatches } from './PlayerRecentMatches'
@@ -8,6 +9,7 @@ import { PeriodSelector } from './PeriodSelector'
 import { useAuth } from '../hooks/useAuth'
 import { usePlayerStats } from '../hooks/usePlayerStats'
 import { formatDate, formatDateTime } from '../utils/formatters'
+import { stripVRPrefix, canonicalizeDisplayName } from '../utils'
 import type { AccountProfile, TimePeriod } from '../types'
 
 export function AccountPage() {
@@ -18,7 +20,7 @@ export function AccountPage() {
   const [period, setPeriod] = useState<TimePeriod>('all')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const { stats, setFeaturedHonor } = usePlayerStats(profile?.player?.id, period)
+  const { stats, refetch: refetchStats, setFeaturedHonor } = usePlayerStats(profile?.player?.id, period)
 
   // Link code state
   const [linkCode, setLinkCode] = useState<string | null>(null)
@@ -42,6 +44,12 @@ export function AccountPage() {
   const [gameTokenVisible, setGameTokenVisible] = useState(false)
   const [showRotateConfirm, setShowRotateConfirm] = useState(false)
 
+  // Display name state
+  const [editingDisplayName, setEditingDisplayName] = useState(false)
+  const [displayNameValue, setDisplayNameValue] = useState('')
+  const [displayNameError, setDisplayNameError] = useState('')
+  const [savingDisplayName, setSavingDisplayName] = useState(false)
+
   // Password change state
   const [showPasswordForm, setShowPasswordForm] = useState(false)
   const [currentPassword, setCurrentPassword] = useState('')
@@ -50,6 +58,46 @@ export function AccountPage() {
   const [passwordError, setPasswordError] = useState('')
   const [changingPassword, setChangingPassword] = useState(false)
   const [passwordSuccess, setPasswordSuccess] = useState(false)
+
+  const displayNameValidation = useDisplayNameValidation(
+    displayNameValue,
+    'restyle',
+    profile?.player ? canonicalizeDisplayName(
+      profile.player.is_vr ? stripVRPrefix(profile.player.name) : profile.player.name
+    ) : undefined
+  )
+
+  const handleSaveDisplayName = async () => {
+    setSavingDisplayName(true)
+    setDisplayNameError('')
+    try {
+      const res = await fetch('/api/account/display-name', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${auth.token}`,
+        },
+        body: JSON.stringify({ display_name: displayNameValidation.cleaned }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        setDisplayNameError(data.error || 'Failed to update display name')
+        return
+      }
+      setEditingDisplayName(false)
+      const profileRes = await fetch('/api/account/profile', {
+        headers: { Authorization: `Bearer ${auth.token}` },
+      })
+      if (profileRes.ok) {
+        setProfile(await profileRes.json())
+      }
+      refetchStats()
+    } catch {
+      setDisplayNameError('Network error')
+    } finally {
+      setSavingDisplayName(false)
+    }
+  }
 
   // Redirect if not authenticated (after auth check completes)
   useEffect(() => {
@@ -353,6 +401,59 @@ export function AccountPage() {
               <dl className="info-list">
                 <dt>Username</dt>
                 <dd>{profile.user.username}</dd>
+                <dt>Display Name</dt>
+                <dd>
+                  {editingDisplayName ? (
+                    <div className="display-name-edit-inline">
+                      <DisplayNameEditor
+                        value={displayNameValue}
+                        onChange={setDisplayNameValue}
+                        mode="restyle"
+                        originalCanonical={profile.player ? canonicalizeDisplayName(
+                          profile.player.is_vr ? stripVRPrefix(profile.player.name) : profile.player.name
+                        ) : ''}
+                        error={displayNameError}
+                        onSubmit={!displayNameValidation.canonicalMismatch && !displayNameValidation.isEmpty ? handleSaveDisplayName : undefined}
+                      />
+                      <div className="display-name-edit-actions">
+                        <button
+                          className="claim-primary-btn"
+                          disabled={savingDisplayName || displayNameValidation.canonicalMismatch || displayNameValidation.isEmpty}
+                          onClick={handleSaveDisplayName}
+                        >
+                          {savingDisplayName ? 'Saving...' : 'Save'}
+                        </button>
+                        <button
+                          className="claim-secondary-btn"
+                          onClick={() => { setEditingDisplayName(false); setDisplayNameError('') }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="display-name-static">
+                      {profile.player ? (
+                        <ColoredText text={profile.player.name} />
+                      ) : (
+                        <span className="muted">Not set</span>
+                      )}
+                      {profile.player && (
+                        <button
+                          className="edit-icon-btn"
+                          onClick={() => {
+                            setDisplayNameValue(profile.player!.name)
+                            setEditingDisplayName(true)
+                            setDisplayNameError('')
+                          }}
+                          title="Edit display name colors"
+                        >
+                          &#9998;
+                        </button>
+                      )}
+                    </span>
+                  )}
+                </dd>
                 <dt>Role</dt>
                 <dd>{profile.user.is_admin ? 'Administrator' : 'User'}</dd>
                 <dt>Account Created</dt>

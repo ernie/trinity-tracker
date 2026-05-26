@@ -182,6 +182,74 @@ func CleanQ3Name(name string) string {
 	return q3ColorCodeRegex.ReplaceAllString(name, "")
 }
 
+// CleanQ3DisplayName combines the engine's Info_SetValueForKey restrictions
+// (\, ", ; stripped) with the QVM's BG_CleanName algorithm: strips leading
+// whitespace, drops black color codes (^0, ^8), removes non-printable chars,
+// collapses runs of more than 2 spaces, and caps output at 31 bytes.
+// Returns empty string if the result has no visible (non-color-code) characters.
+func CleanQ3DisplayName(raw string) string {
+	const maxBytes = 31
+
+	var out []byte
+	colorlessLen := 0
+	spaces := 0
+	i := 0
+
+	for i < len(raw) {
+		ch := raw[i]
+
+		if len(out) == 0 && ch <= ' ' {
+			i++
+			continue
+		}
+
+		if ch == '^' && i+1 < len(raw) {
+			next := raw[i+1]
+			if next >= '0' && next <= '9' {
+				colorIdx := (next - '0') & 7
+				if colorIdx == 0 {
+					i += 2
+					continue
+				}
+				if len(out) > maxBytes-2 {
+					break
+				}
+				out = append(out, ch, next)
+				i += 2
+				continue
+			}
+		}
+
+		if ch < ' ' || ch > 126 || ch == '\\' || ch == '"' || ch == ';' {
+			i++
+			continue
+		}
+
+		if ch == ' ' {
+			spaces++
+			if spaces > 2 {
+				i++
+				continue
+			}
+		} else {
+			spaces = 0
+		}
+
+		if len(out) > maxBytes-1 {
+			break
+		}
+
+		out = append(out, ch)
+		colorlessLen++
+		i++
+	}
+
+	if colorlessLen == 0 {
+		return ""
+	}
+	return string(out)
+}
+
 // vrLeadingRe matches a leading "[VR]" tag, optionally preceded by
 // Q3 color runs (e.g. "^7[VR] alice") and followed by whitespace.
 var vrLeadingRe = regexp.MustCompile(`(?i)^(?:\^[0-9])*\[VR\]\s*`)

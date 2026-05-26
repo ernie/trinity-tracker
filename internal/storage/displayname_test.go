@@ -22,8 +22,8 @@ func TestCanonicalizeDisplayName(t *testing.T) {
 		{"FOO", "FOO"},
 	}
 	for _, c := range cases {
-		if got := canonicalizeDisplayName(c.in); got != c.want {
-			t.Errorf("canonicalizeDisplayName(%q) = %q, want %q", c.in, got, c.want)
+		if got := CanonicalizeDisplayName(c.in); got != c.want {
+			t.Errorf("CanonicalizeDisplayName(%q) = %q, want %q", c.in, got, c.want)
 		}
 	}
 }

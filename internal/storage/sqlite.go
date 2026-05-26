@@ -402,7 +402,7 @@ func (s *Store) GetPlayerByID(ctx context.Context, id int64) (*domain.Player, er
 	var featuredHonor sql.NullString
 	err := s.db.QueryRowContext(ctx, `
 		SELECT
-			p.id, p.name, p.clean_name, p.first_seen, p.last_seen,
+			p.id, COALESCE(u.display_name, p.name), COALESCE(u.display_name_canonical, p.clean_name), p.first_seen, p.last_seen,
 			COALESCE((
 				SELECT SUM(s.duration_seconds)
 				FROM sessions s
@@ -479,7 +479,7 @@ func (s *Store) SearchPlayers(ctx context.Context, query string, limit int, incl
 	if includeGUID {
 		// Search by name OR by GUID (admin feature)
 		rows, err = s.db.QueryContext(ctx, `
-			SELECT DISTINCT p.id, p.name, p.clean_name, p.first_seen, p.last_seen,
+			SELECT DISTINCT p.id, COALESCE(u.display_name, p.name), COALESCE(u.display_name_canonical, p.clean_name), p.first_seen, p.last_seen,
 				COALESCE((
 					SELECT SUM(s.duration_seconds)
 					FROM sessions s
@@ -494,13 +494,14 @@ func (s *Store) SearchPlayers(ctx context.Context, query string, limit int, incl
 			LEFT JOIN player_guids pg ON pg.player_id = p.id
 			LEFT JOIN users u ON u.player_id = p.id
 			WHERE p.clean_name LIKE ? OR p.name LIKE ? OR pg.guid LIKE ?
+				OR u.display_name_canonical LIKE ?
 			ORDER BY p.last_seen DESC
 			LIMIT ?
-		`, searchPattern, searchPattern, searchPattern, limit)
+		`, searchPattern, searchPattern, searchPattern, searchPattern, limit)
 	} else {
 		// Search by name only
 		rows, err = s.db.QueryContext(ctx, `
-			SELECT p.id, p.name, p.clean_name, p.first_seen, p.last_seen,
+			SELECT p.id, COALESCE(u.display_name, p.name), COALESCE(u.display_name_canonical, p.clean_name), p.first_seen, p.last_seen,
 				COALESCE((
 					SELECT SUM(s.duration_seconds)
 					FROM sessions s
@@ -514,9 +515,10 @@ func (s *Store) SearchPlayers(ctx context.Context, query string, limit int, incl
 			FROM players p
 			LEFT JOIN users u ON u.player_id = p.id
 			WHERE p.clean_name LIKE ? OR p.name LIKE ?
+				OR u.display_name_canonical LIKE ?
 			ORDER BY p.last_seen DESC
 			LIMIT ?
-		`, searchPattern, searchPattern, limit)
+		`, searchPattern, searchPattern, searchPattern, limit)
 	}
 	if err != nil {
 		return nil, err
@@ -553,7 +555,7 @@ func (s *Store) GetPlayers(ctx context.Context, limit, offset int) ([]domain.Pla
 	}
 
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT p.id, p.name, p.clean_name, p.first_seen, p.last_seen,
+		SELECT p.id, COALESCE(u.display_name, p.name), COALESCE(u.display_name_canonical, p.clean_name), p.first_seen, p.last_seen,
 			COALESCE((
 				SELECT SUM(s.duration_seconds)
 				FROM sessions s
@@ -1524,6 +1526,13 @@ type User struct {
 	DisplayName            string
 }
 
+func (s *Store) SetUserDisplayName(ctx context.Context, userID int64, displayName string) error {
+	_, err := s.db.ExecContext(ctx, `
+		UPDATE users SET display_name = ? WHERE id = ?
+	`, displayName, userID)
+	return err
+}
+
 // sqlQuerier abstracts *sql.DB and *sql.Tx so deriveDisplayName works
 // both inside a transaction (claim-code path) and outside one (admin
 // CreateUser path).
@@ -1546,7 +1555,7 @@ func (s *Store) deriveDisplayName(ctx context.Context, q sqlQuerier, playerID *i
 		return "", ""
 	}
 	stripped := domain.StripVRTag(playerName)
-	cano := canonicalizeDisplayName(stripped)
+	cano := CanonicalizeDisplayName(stripped)
 	if cano == "" {
 		return "", ""
 	}
@@ -1569,7 +1578,7 @@ func (s *Store) deriveDisplayName(ctx context.Context, q sqlQuerier, playerID *i
 // the in-game name; returns empty if unavailable (taken or bot-reserved).
 func (s *Store) DeriveAndSetDisplayName(ctx context.Context, userID int64, playerName string) (raw, canonical string) {
 	stripped := domain.StripVRTag(playerName)
-	cano := canonicalizeDisplayName(stripped)
+	cano := CanonicalizeDisplayName(stripped)
 	if cano == "" || isReservedName(cano) {
 		return "", ""
 	}
@@ -1869,7 +1878,7 @@ func (s *Store) attachPlayersToMatches(ctx context.Context, matches []domain.Mat
 
 	// Get player stats for all matches
 	playerRows, err := s.db.QueryContext(ctx, `
-		SELECT mps.match_id, p.id, pg.name, pg.clean_name, mps.frags, mps.deaths, mps.completed, p.is_bot, mps.skill, mps.score, mps.team, mps.model, mps.impressives, mps.excellents, mps.humiliations, mps.defends, mps.victories, mps.captures, mps.assists, mps.flag_returns, mps.skulls_delivered, mps.obelisks_destroyed, mps.is_vr,
+		SELECT mps.match_id, p.id, COALESCE(u.display_name, pg.name), COALESCE(u.display_name_canonical, pg.clean_name), mps.frags, mps.deaths, mps.completed, p.is_bot, mps.skill, mps.score, mps.team, mps.model, mps.impressives, mps.excellents, mps.humiliations, mps.defends, mps.victories, mps.captures, mps.assists, mps.flag_returns, mps.skulls_delivered, mps.obelisks_destroyed, mps.is_vr,
 			CASE WHEN u.id IS NOT NULL THEN 1 ELSE 0 END as is_verified,
 			COALESCE(u.is_admin, 0) as is_admin
 		FROM match_player_stats mps
@@ -2155,7 +2164,7 @@ func (s *Store) InvalidatePlayerClaimCodes(ctx context.Context, playerID int64) 
 
 // ClaimRegister creates a new user account and links the player, marking the claim code as used.
 // Returns the new user ID.
-func (s *Store) ClaimRegister(ctx context.Context, codeID, playerID int64, username, passwordHash string) (int64, error) {
+func (s *Store) ClaimRegister(ctx context.Context, codeID, playerID int64, username, passwordHash, displayName, displayNameCanonical string) (int64, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return 0, err
@@ -2173,7 +2182,12 @@ func (s *Store) ClaimRegister(ctx context.Context, codeID, playerID int64, usern
 	}
 
 	// Create user with password_change_required = FALSE
-	raw, cano := s.deriveDisplayName(ctx, tx, &playerID, 0)
+	var raw, cano string
+	if displayName != "" {
+		raw, cano = displayName, displayNameCanonical
+	} else {
+		raw, cano = s.deriveDisplayName(ctx, tx, &playerID, 0)
+	}
 	result, err := tx.ExecContext(ctx, `
 		INSERT INTO users (username, password_hash, is_admin, player_id, password_change_required, display_name, display_name_canonical)
 		VALUES (?, ?, FALSE, ?, FALSE, ?, ?)
@@ -2292,7 +2306,7 @@ func (s *Store) GetMatchSummaryByID(ctx context.Context, matchID int64) (*domain
 
 	// Get player stats for this match
 	playerRows, err := s.db.QueryContext(ctx, `
-		SELECT p.id, pg.name, pg.clean_name, mps.frags, mps.deaths, mps.completed, p.is_bot, mps.skill, mps.score, mps.team, mps.model, mps.impressives, mps.excellents, mps.humiliations, mps.defends, mps.victories, mps.captures, mps.assists, mps.flag_returns, mps.skulls_delivered, mps.obelisks_destroyed, mps.is_vr,
+		SELECT p.id, COALESCE(u.display_name, pg.name), COALESCE(u.display_name_canonical, pg.clean_name), mps.frags, mps.deaths, mps.completed, p.is_bot, mps.skill, mps.score, mps.team, mps.model, mps.impressives, mps.excellents, mps.humiliations, mps.defends, mps.victories, mps.captures, mps.assists, mps.flag_returns, mps.skulls_delivered, mps.obelisks_destroyed, mps.is_vr,
 			CASE WHEN u.id IS NOT NULL THEN 1 ELSE 0 END as is_verified,
 			COALESCE(u.is_admin, 0) as is_admin
 		FROM match_player_stats mps

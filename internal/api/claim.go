@@ -8,6 +8,7 @@ import (
 
 	"github.com/ernie/trinity-tracker/internal/auth"
 	"github.com/ernie/trinity-tracker/internal/domain"
+	"github.com/ernie/trinity-tracker/internal/storage"
 )
 
 var validUsernameRegex = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
@@ -71,6 +72,7 @@ type ClaimRegisterRequest struct {
 	Username        string `json:"username"`
 	Password        string `json:"password"`
 	ConfirmPassword string `json:"confirm_password"`
+	DisplayName     string `json:"display_name"`
 }
 
 // handleClaimRegister creates a new account and claims the player
@@ -101,6 +103,24 @@ func (r *Router) handleClaimRegister(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	var displayName, displayNameCanonical string
+	if body.DisplayName != "" {
+		displayName = domain.CleanQ3DisplayName(body.DisplayName)
+		if displayName == "" {
+			writeError(w, http.StatusBadRequest, "display name is empty after cleaning")
+			return
+		}
+		displayNameCanonical = storage.CanonicalizeDisplayName(displayName)
+		if displayNameCanonical == "" {
+			writeError(w, http.StatusBadRequest, "display name is empty after canonicalization")
+			return
+		}
+		if r.store.IsNameReserved(req.Context(), displayName, 0) {
+			writeError(w, http.StatusConflict, "display name is reserved or already taken")
+			return
+		}
+	}
+
 	// Validate the claim code
 	claimCode, err := r.store.GetValidClaimCode(req.Context(), body.Code)
 	if err != nil {
@@ -116,7 +136,7 @@ func (r *Router) handleClaimRegister(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Create account and claim player (atomic)
-	userID, err := r.store.ClaimRegister(req.Context(), claimCode.ID, claimCode.PlayerID, body.Username, hash)
+	userID, err := r.store.ClaimRegister(req.Context(), claimCode.ID, claimCode.PlayerID, body.Username, hash, displayName, displayNameCanonical)
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint") {
 			writeError(w, http.StatusConflict, "username already exists")

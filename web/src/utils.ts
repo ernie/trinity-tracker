@@ -53,3 +53,74 @@ export function formatTimeParam(secs: number): string {
   if (r === 0) return `${m}m`;
   return `${m}m${r}s`;
 }
+
+// Mirrors internal/storage/displayname.go:CleanQ3DisplayName. Strips
+// forbidden chars (\, ", ;), black color codes (colorIdx 0 via & 7),
+// non-printable, leading whitespace, >2 consecutive spaces, 31-byte limit.
+export function cleanQ3DisplayName(raw: string): string {
+  const maxBytes = 31
+  const buf: string[] = []
+  let len = 0
+  let colorlessLen = 0
+  let spaces = 0
+  let i = 0
+
+  while (i < raw.length) {
+    const ch = raw.charCodeAt(i)
+
+    if (buf.length === 0 && ch <= 32) {
+      i++
+      continue
+    }
+
+    if (raw[i] === '^' && i + 1 < raw.length) {
+      const next = raw.charCodeAt(i + 1)
+      if (next >= 48 && next <= 57) {
+        const colorIdx = (next - 48) & 7
+        if (colorIdx === 0) {
+          i += 2
+          continue
+        }
+        if (len > maxBytes - 2) break
+        buf.push(raw[i], raw[i + 1])
+        len += 2
+        i += 2
+        continue
+      }
+    }
+
+    if (ch < 32 || ch > 126 || ch === 92 || ch === 34 || ch === 59) {
+      i++
+      continue
+    }
+
+    if (ch === 32) {
+      spaces++
+      if (spaces > 2) {
+        i++
+        continue
+      }
+    } else {
+      spaces = 0
+    }
+
+    if (len > maxBytes - 1) break
+
+    buf.push(raw[i])
+    colorlessLen++
+    len++
+    i++
+  }
+
+  if (colorlessLen === 0) return ''
+  return buf.join('')
+}
+
+// Strips [VR] prefix, color codes, and normalizes whitespace for
+// stable identity matching across client-reported name variants.
+export function canonicalizeDisplayName(raw: string): string {
+  let s = stripVRPrefix(raw)
+  s = s.replace(/\^[0-9]/g, '')
+  s = s.replace(/\s+/g, ' ')
+  return s.trim().toLowerCase()
+}

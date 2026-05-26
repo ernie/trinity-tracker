@@ -1,12 +1,13 @@
 import { useState, FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ColoredText } from './ColoredText'
+import { DisplayNameEditor } from './DisplayNameEditor'
 import { PlayerPortrait } from './PlayerPortrait'
 import { PlayerBadge } from './PlayerBadge'
 import { StatItem } from './StatItem'
 import { useAuth } from '../hooks/useAuth'
 import { formatDate, formatDuration } from '../utils/formatters'
-import { stripVRPrefix } from '../utils'
+import { stripVRPrefix, cleanQ3DisplayName } from '../utils'
 import type { PlayerProfile, AggregatedStats } from '../types'
 
 interface ClaimInfo {
@@ -68,6 +69,7 @@ export function ClaimPage() {
   const [loading, setLoading] = useState(false)
 
   // Register form
+  const [displayName, setDisplayName] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -130,6 +132,7 @@ export function ClaimPage() {
           username,
           password,
           confirm_password: confirmPassword,
+          display_name: cleanQ3DisplayName(displayName),
         }),
       })
 
@@ -280,7 +283,16 @@ export function ClaimPage() {
               <div className="claim-choice-section">
                 <div className="claim-actions">
                   <button
-                    onClick={() => { setStep('register'); setError(''); }}
+                    onClick={() => {
+                      setStep('register')
+                      setError('')
+                      if (claimInfo) {
+                        const stripped = claimInfo.player.is_vr
+                          ? stripVRPrefix(claimInfo.player.name)
+                          : claimInfo.player.name
+                        setDisplayName(stripped)
+                      }
+                    }}
                     className="claim-primary-btn"
                   >
                     Create Account
@@ -303,6 +315,14 @@ export function ClaimPage() {
 
             <h3>Create Account</h3>
             <form onSubmit={handleRegister} className="claim-form vertical">
+              <div className="claim-form-group">
+                <label htmlFor="display-name">Display Name</label>
+                <DisplayNameEditor
+                  value={displayName}
+                  onChange={setDisplayName}
+                  mode="claim"
+                />
+              </div>
               <div className="claim-form-group">
                 <label htmlFor="username">Username</label>
                 <input
