@@ -8,18 +8,15 @@ import { PlatformNote } from './PlatformNote'
 import { PlatformOnly } from './PlatformOnly'
 import { PlatformChip } from './PlatformChip'
 
-// Per-OS direct-download mapping for the Flatscreen panel. The
-// engine ships builds for many targets, but only three combos cover
-// the vast majority of users — pick those, link directly via
-// /releases/latest/download/<asset>, and fall through to the
-// releases page for everything else. macOS defaults to Apple
-// Silicon since every Mac sold since late 2020 is aarch64; Intel
-// users follow the "see all builds" link.
+// Per-OS direct-download mapping for the Flatscreen panel. macOS
+// ships a universal2 binary (Intel + Apple Silicon in one); Windows
+// and Linux are x64 only. Fall through to the releases page for
+// anything else.
 type DetectedOS = 'windows' | 'macos' | 'linux'
 
 const FLATSCREEN_DOWNLOADS: Record<DetectedOS, { asset: string; label: string }> = {
   windows: { asset: 'trinity-windows-mingw-x86_64.zip', label: 'Windows (x64)' },
-  macos: { asset: 'trinity-macos-aarch64.zip', label: 'macOS (Apple Silicon)' },
+  macos: { asset: 'trinity-macos-universal2.zip', label: 'macOS' },
   linux: { asset: 'trinity-linux-x86_64.zip', label: 'Linux (x64)' },
 }
 
@@ -429,18 +426,9 @@ export function DocsInstall() {
                     "Run anyway."
                   </li>
                   <li>
-                    <strong>macOS:</strong>
-                    <ul>
-                      <li>
-                        Right-click the app → Open, then confirm.
-                      </li>
-                      <li>
-                        Still blocked? Open Terminal and run{' '}
-                        <code>xattr -cr /path/to/your/install</code>{' '}
-                        to clear extended attributes (including the
-                        quarantine flag), then try again.
-                      </li>
-                    </ul>
+                    <strong>macOS:</strong> a dialog will say the app
+                    was downloaded from the internet. Click "Open" to
+                    continue.
                   </li>
                 </ul>
               </div>
