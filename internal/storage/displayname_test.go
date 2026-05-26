@@ -6,20 +6,20 @@ func TestCanonicalizeDisplayName(t *testing.T) {
 	cases := []struct {
 		in, want string
 	}{
-		{"Foo", "Foo"},
-		{"^1Foo", "Foo"},
-		{"^1Foo^7Bar", "FooBar"},
-		{"[VR] Foo", "Foo"},
-		{"^7[VR] ^1Foo", "Foo"},
-		{"Foo  Bar", "Foo Bar"},
-		{"  Foo  Bar  ", "Foo Bar"},
-		{"Foo Bar [VR]", "Foo Bar"},
-		{"^1Foo^7   Bar^1", "Foo Bar"},
+		{"Foo", "foo"},
+		{"^1Foo", "foo"},
+		{"^1Foo^7Bar", "foobar"},
+		{"[VR] Foo", "foo"},
+		{"^7[VR] ^1Foo", "foo"},
+		{"Foo  Bar", "foo bar"},
+		{"  Foo  Bar  ", "foo bar"},
+		{"Foo Bar [VR]", "foo bar"},
+		{"^1Foo^7   Bar^1", "foo bar"},
 		{"", ""},
 		{"[VR]", ""},
-		// Case is preserved (NOT lowercased)
-		{"Foo", "Foo"},
-		{"FOO", "FOO"},
+		// Case-insensitive: different casing, same canonical form
+		{"Foo", "foo"},
+		{"FOO", "foo"},
 	}
 	for _, c := range cases {
 		if got := CanonicalizeDisplayName(c.in); got != c.want {
