@@ -159,3 +159,12 @@ func (m *ServerManager) sendTrinityAuthOk(serverID int64, clientNum, userType in
 	}()
 }
 
+func (m *ServerManager) sendTrinityNameConflict(serverID int64, clientNum int) {
+	go func() {
+		cmd := fmt.Sprintf("trinity_name_conflict %d", clientNum)
+		if _, err := m.ExecuteRcon(serverID, cmd); err != nil {
+			log.Printf("Failed to send trinity_name_conflict to server %d client %d: %v", serverID, clientNum, err)
+		}
+	}()
+}
+

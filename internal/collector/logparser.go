@@ -104,6 +104,7 @@ type ClientUserinfoData struct {
 	Model           string
 	IsBot           bool
 	IsVR            bool
+	TrinityUserType int
 	IsTrinityEngine bool
 	Skill           float64 // Bot skill level (1-5), 0 if not a bot
 	GUID            string
@@ -637,6 +638,7 @@ func ParseLine(line string) (*LogEvent, error) {
 		// VR client detection: presence of "vr" field with value "1"
 		isVR := userinfo["vr"] == "1"
 		isTrinityEngine := userinfo["te"] == "1"
+		trinityUserType, _ := strconv.Atoi(userinfo["tu"])
 
 		event.Type = EventTypeClientUserinfo
 		event.Data = ClientUserinfoData{
@@ -646,6 +648,7 @@ func ParseLine(line string) (*LogEvent, error) {
 			Model:           model,
 			IsBot:           isBot,
 			IsVR:            isVR,
+			TrinityUserType: trinityUserType,
 			IsTrinityEngine: isTrinityEngine,
 			Skill:           skill,
 			GUID:            userinfo["g"],

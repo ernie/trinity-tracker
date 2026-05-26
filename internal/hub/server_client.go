@@ -15,6 +15,8 @@ type ServerClient interface {
 	UpsertBotPlayerIdentity(ctx context.Context, name, cleanName string, ts time.Time) (PlayerIdentity, error)
 	LookupPlayerIdentity(ctx context.Context, guid string) (PlayerIdentity, error)
 
+	IsNameReserved(ctx context.Context, rawName string, excludePlayerID int64) (bool, error)
+
 	// GetSourceProgress reports the hub's per-source dedup watermark
 	// so a fresh-install collector can seed its publisher seq above
 	// the prior instance's stored consumed_seq.
@@ -66,5 +68,15 @@ type LookupIdentityRequest struct {
 type IdentityReply struct {
 	Identity PlayerIdentity `json:"identity"`
 	Error    string         `json:"error,omitempty"`
+}
+
+type IsNameReservedRequest struct {
+	RawName         string `json:"raw_name"`
+	ExcludePlayerID int64  `json:"exclude_player_id"`
+}
+
+type IsNameReservedReply struct {
+	Reserved bool   `json:"reserved"`
+	Error    string `json:"error,omitempty"`
 }
 

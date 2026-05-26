@@ -95,6 +95,7 @@ type clientState struct {
 	isBot              bool
 	isVR               bool
 	isTrinityEngine    bool
+	trinityUserType    int
 	skill              float64 // bot skill level (1-5), 0 if human
 	team               int
 	joinedAt           time.Time
@@ -665,11 +666,13 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 		}
 		prevModel := client.model
 		prevIsVR := client.isVR
+		prevCleanName := client.cleanName
 		wasBegan := client.began
 		client.name = data.Name
 		client.cleanName = domain.CleanQ3Name(data.Name)
 		client.isBot = data.IsBot
 		client.isVR = data.IsVR
+		client.trinityUserType = data.TrinityUserType
 		client.isTrinityEngine = data.IsTrinityEngine
 		client.skill = data.Skill
 		client.team = data.Team
@@ -713,14 +716,25 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 		// acceptable since that bot will be re-upserted the next time
 		// it joins.
 		if client.guid != "" && !replayMode {
+			var identity hub.PlayerIdentity
 			var err error
 			if data.IsBot {
-				_, err = m.server.UpsertBotPlayerIdentity(ctx, data.Name, client.cleanName, event.Timestamp)
+				identity, err = m.server.UpsertBotPlayerIdentity(ctx, data.Name, client.cleanName, event.Timestamp)
 			} else {
-				_, err = m.server.UpsertPlayerIdentity(ctx, data.GUID, data.Name, client.cleanName, event.Timestamp, data.IsVR)
+				identity, err = m.server.UpsertPlayerIdentity(ctx, data.GUID, data.Name, client.cleanName, event.Timestamp, data.IsVR)
 			}
 			if err != nil {
 				log.Printf("Error resolving player identity for GUID %s: %v", client.guid, err)
+			}
+
+			if wasBegan && !data.IsBot && prevCleanName != client.cleanName && client.cleanName != "UnnamedPlayer" && identity.Found {
+				var excludePlayerID int64
+				if client.trinityUserType > 0 {
+					excludePlayerID = identity.PlayerID
+				}
+				if reserved, err := m.server.IsNameReserved(ctx, data.Name, excludePlayerID); err == nil && reserved {
+					m.sendTrinityNameConflict(serverID, data.ClientID)
+				}
 			}
 		}
 
@@ -758,6 +772,18 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 							SkullsDelivered: client.skullsDelivered,
 						},
 					})
+					if !client.isBot && client.cleanName != "UnnamedPlayer" {
+						var excludePlayerID int64
+						if client.trinityUserType > 0 {
+							id, err := m.server.LookupPlayerIdentity(ctx, client.guid)
+							if err == nil && id.Found {
+								excludePlayerID = id.PlayerID
+							}
+						}
+						if reserved, err := m.server.IsNameReserved(ctx, client.name, excludePlayerID); err == nil && reserved {
+							m.sendTrinityNameConflict(serverID, data.ClientID)
+						}
+					}
 				} else {
 					state.openSessions[client.guid] = true
 					m.pub.Publish(domain.FactEvent{
@@ -1964,19 +1990,18 @@ func (m *ServerManager) performGreet(ctx context.Context, serverID int64, client
 	}
 
 	if reply.AuthResult == hub.AuthFailed {
-		// Clears cl_trinityToken/cl_trinityUser engine-side.
 		m.sendTrinityAuthFail(serverID, clientID)
-	} else if reply.AuthResult == hub.AuthVerified {
-		// Tell the QVM to set sess.trinityUserType (1 verified / 2 admin)
-		// and lock the in-game name to the account's display name.
+	} else if reply.AuthResult == hub.AuthVerified && reply.DisplayName != "" && !reply.NameConflict {
 		userType := 1
 		if reply.IsAdmin {
 			userType = 2
 		}
 		m.sendTrinityAuthOk(serverID, clientID, userType, reply.DisplayName)
-		if reply.DisplayName != "" {
-			playerName = reply.DisplayName
-		}
+		playerName = reply.DisplayName
+	}
+
+	if reply.NameConflict {
+		m.sendTrinityNameConflict(serverID, clientID)
 	}
 
 	// Encrypted rcon-autoset: hub flags the user as authorized to RCON

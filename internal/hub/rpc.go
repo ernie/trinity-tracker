@@ -58,6 +58,7 @@ type GreetReply struct {
 	IsVerified       bool       `json:"is_verified"`
 	IsAdmin          bool       `json:"is_admin"`
 	GUIDLinked       bool       `json:"guid_linked"`
+	NameConflict     bool       `json:"name_conflict"`
 	KDRatio          float64    `json:"kd_ratio"`
 	CompletedMatches int64      `json:"completed_matches"`
 	DisplayName      string     `json:"display_name"`

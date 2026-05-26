@@ -696,6 +696,10 @@ func (w *Writer) LookupPlayerIdentity(ctx context.Context, guid string) (PlayerI
 	}, nil
 }
 
+func (w *Writer) IsNameReserved(ctx context.Context, rawName string, excludePlayerID int64) (bool, error) {
+	return w.store.IsNameReserved(ctx, rawName, excludePlayerID), nil
+}
+
 func (w *Writer) GetSourceProgress(ctx context.Context, source string) (SourceProgressReply, error) {
 	prog, err := w.store.GetSourceProgress(ctx, source)
 	if err != nil {
@@ -750,17 +754,9 @@ func (w *Writer) Greet(ctx context.Context, req GreetRequest) (GreetReply, error
 			}
 			playerID = authPlayerID
 			authedUser = user
-			// Populate DisplayName from the authenticated user's account.
-			// If the user has no display name yet (first auth after the
-			// column was added, or account created without a player link),
-			// derive it lazily from the current in-game name and persist.
 			if authedUser.DisplayName == "" {
-				dn, cano := w.store.DeriveAndSetDisplayName(ctx, authedUser.ID, authedUser.Username, req.ClientName)
+				dn, _ := w.store.DeriveAndSetDisplayName(ctx, authedUser.ID, req.ClientName)
 				reply.DisplayName = dn
-				if reply.DisplayName == "" {
-					reply.DisplayName = authedUser.Username
-				}
-				_ = cano
 			} else {
 				reply.DisplayName = authedUser.DisplayName
 			}
@@ -768,6 +764,16 @@ func (w *Writer) Greet(ctx context.Context, req GreetRequest) (GreetReply, error
 	}
 
 	reply.CanonicalName = pg.CleanName
+
+	// Only exclude the player's own ID when auth proved identity.
+	// Without auth, GUID alone is not proof — qkeys can be copied.
+	var excludePlayerID int64
+	if authedUser != nil {
+		excludePlayerID = playerID
+	}
+	if w.store.IsNameReserved(ctx, req.ClientName, excludePlayerID) {
+		reply.NameConflict = true
+	}
 
 	stats, err := w.store.GetPlayerStatsByID(ctx, playerID, "all")
 	if err == nil && stats != nil {

@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ernie/trinity-tracker/internal/discord"
 	"github.com/ernie/trinity-tracker/internal/domain"
 	_ "modernc.org/sqlite"
 )
@@ -1533,97 +1532,82 @@ type sqlQuerier interface {
 }
 
 // deriveDisplayName returns the values to seed (display_name,
-// display_name_canonical) with at account creation or backfill. Rule:
-//  1. Try StripVRTag(players.name) when playerID is non-nil — this is
-//     the player's most-recent observed name minus the VR decoration.
-//  2. If that's empty OR its canonical form is already taken by another
-//     user, fall back to username.
-//  3. If username's canonical form is ALSO taken (a rare degenerate case
-//     — e.g. a casing-different account got there first), return empty
-//     strings so the row defers to "no override" rather than colliding.
-//
-// The caller must use the returned canonical value in the INSERT for the
-// unique partial index to enforce. Must run inside a transaction in the
-// caller; the SELECT-then-INSERT is racy at READ COMMITTED, but the
-// partial index would catch a true race anyway.
-func (s *Store) deriveDisplayName(ctx context.Context, q sqlQuerier, username string, playerID *int64, excludeUserID int64) (raw, canonical string) {
-	candidates := []string{}
-	if playerID != nil {
-		var playerName string
-		if err := q.QueryRowContext(ctx, `SELECT name FROM players WHERE id = ?`, *playerID).Scan(&playerName); err == nil {
-			if stripped := discord.StripVRTag(playerName); stripped != "" {
-				candidates = append(candidates, stripped)
-			}
-		}
+// display_name_canonical) with at account creation or backfill. Tries
+// only the player's in-game name (VR-tag-stripped); returns empty if the
+// name is unavailable (taken by another user or reserved by a bot).
+// No username fallback — an unclaimed display name stays empty rather
+// than silently grabbing a name the user didn't choose.
+func (s *Store) deriveDisplayName(ctx context.Context, q sqlQuerier, playerID *int64, excludeUserID int64) (raw, canonical string) {
+	if playerID == nil {
+		return "", ""
 	}
-	candidates = append(candidates, username)
-
-	for _, c := range candidates {
-		cano := canonicalizeDisplayName(c)
-		if cano == "" {
-			continue
-		}
-		var taken int
-		if err := q.QueryRowContext(ctx, `
-			SELECT COUNT(*) FROM users
-			WHERE display_name_canonical = ? AND id != ?
-		`, cano, excludeUserID).Scan(&taken); err != nil {
-			continue
-		}
-		if taken == 0 {
-			return c, cano
-		}
+	var playerName string
+	if err := q.QueryRowContext(ctx, `SELECT name FROM players WHERE id = ?`, *playerID).Scan(&playerName); err != nil {
+		return "", ""
 	}
-	return "", ""
+	stripped := domain.StripVRTag(playerName)
+	cano := canonicalizeDisplayName(stripped)
+	if cano == "" {
+		return "", ""
+	}
+	if isReservedName(cano) {
+		return "", ""
+	}
+	var taken int
+	if err := q.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM users
+		WHERE display_name_canonical = ? AND id != ?
+	`, cano, excludeUserID).Scan(&taken); err != nil || taken > 0 {
+		return "", ""
+	}
+	return stripped, cano
 }
 
 // DeriveAndSetDisplayName lazily populates a user's display_name on
 // first auth when the field is still empty. playerName is the client's
-// current in-game name (available from the Greet request). Applies the
-// same StripVRTag + canonical-uniqueness-check + username-fallback chain
-// as CreateUser, then persists the result.
-func (s *Store) DeriveAndSetDisplayName(ctx context.Context, userID int64, username, playerName string) (raw, canonical string) {
+// current in-game name (available from the Greet request). Tries only
+// the in-game name; returns empty if unavailable (taken or bot-reserved).
+func (s *Store) DeriveAndSetDisplayName(ctx context.Context, userID int64, playerName string) (raw, canonical string) {
+	stripped := domain.StripVRTag(playerName)
+	cano := canonicalizeDisplayName(stripped)
+	if cano == "" || isReservedName(cano) {
+		return "", ""
+	}
+
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return "", ""
 	}
 	defer tx.Rollback()
 
-	candidates := []string{}
-	if stripped := discord.StripVRTag(playerName); stripped != "" {
-		candidates = append(candidates, stripped)
-	}
-	candidates = append(candidates, username)
-
-	for _, c := range candidates {
-		cano := canonicalizeDisplayName(c)
-		if cano == "" {
-			continue
-		}
-		var taken int
-		if err := tx.QueryRowContext(ctx, `
-			SELECT COUNT(*) FROM users
-			WHERE display_name_canonical = ? AND id != ?
-		`, cano, userID).Scan(&taken); err != nil {
-			continue
-		}
-		if taken == 0 {
-			raw, canonical = c, cano
-			break
-		}
+	var taken int
+	if err := tx.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM users
+		WHERE display_name_canonical = ? AND id != ?
+	`, cano, userID).Scan(&taken); err != nil || taken > 0 {
+		return "", ""
 	}
 
-	if raw != "" {
-		if _, err := tx.ExecContext(ctx, `
-			UPDATE users SET display_name = ?, display_name_canonical = ?
-			WHERE id = ?
-		`, raw, canonical, userID); err != nil {
-			return "", ""
-		}
-		tx.Commit()
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE users SET display_name = ?, display_name_canonical = ?
+		WHERE id = ?
+	`, stripped, cano, userID); err != nil {
+		return "", ""
 	}
+	tx.Commit()
+	return stripped, cano
+}
 
-	return raw, canonical
+// IsDisplayNameTaken reports whether any user's display_name_canonical
+// matches the given canonical name, excluding the player identified by
+// excludePlayerID (so a player doesn't conflict with their own locked name).
+func (s *Store) IsDisplayNameTaken(ctx context.Context, canonical string, excludePlayerID int64) bool {
+	var count int
+	err := s.db.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM users
+		WHERE display_name_canonical = ? AND (player_id IS NULL OR player_id != ?)
+	`, canonical, excludePlayerID).Scan(&count)
+	return err == nil && count > 0
 }
 
 // CreateUser creates a new user account
@@ -1634,7 +1618,7 @@ func (s *Store) CreateUser(ctx context.Context, username, passwordHash string, i
 	}
 	defer tx.Rollback()
 
-	raw, cano := s.deriveDisplayName(ctx, tx, username, playerID, 0)
+	raw, cano := s.deriveDisplayName(ctx, tx, playerID, 0)
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO users (username, password_hash, is_admin, player_id, password_change_required, display_name, display_name_canonical)
 		VALUES (?, ?, ?, ?, TRUE, ?, ?)
@@ -2189,7 +2173,7 @@ func (s *Store) ClaimRegister(ctx context.Context, codeID, playerID int64, usern
 	}
 
 	// Create user with password_change_required = FALSE
-	raw, cano := s.deriveDisplayName(ctx, tx, username, &playerID, 0)
+	raw, cano := s.deriveDisplayName(ctx, tx, &playerID, 0)
 	result, err := tx.ExecContext(ctx, `
 		INSERT INTO users (username, password_hash, is_admin, player_id, password_change_required, display_name, display_name_canonical)
 		VALUES (?, ?, FALSE, ?, FALSE, ?, ?)

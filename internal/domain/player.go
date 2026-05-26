@@ -181,3 +181,23 @@ var q3ColorCodeRegex = regexp.MustCompile(`\^[0-9]`)
 func CleanQ3Name(name string) string {
 	return q3ColorCodeRegex.ReplaceAllString(name, "")
 }
+
+// vrLeadingRe matches a leading "[VR]" tag, optionally preceded by
+// Q3 color runs (e.g. "^7[VR] alice") and followed by whitespace.
+var vrLeadingRe = regexp.MustCompile(`(?i)^(?:\^[0-9])*\[VR\]\s*`)
+
+// vrTrailingRe matches a trailing "[VR]" tag with optional leading
+// whitespace and trailing color runs ("alice [VR]^7").
+var vrTrailingRe = regexp.MustCompile(`(?i)\s*\[VR\](?:\^[0-9])*$`)
+
+// StripVRTag removes the "[VR]" decoration the Trinity VR client
+// adds to a player's name, at either the start or end.
+func StripVRTag(name string) string {
+	if loc := vrLeadingRe.FindStringIndex(name); loc != nil {
+		return name[loc[1]:]
+	}
+	if loc := vrTrailingRe.FindStringIndex(name); loc != nil {
+		return name[:loc[0]]
+	}
+	return name
+}
