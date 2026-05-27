@@ -16,7 +16,7 @@ type DetectedOS = 'windows' | 'macos' | 'linux'
 
 const FLATSCREEN_DOWNLOADS: Record<DetectedOS, { asset: string; label: string }> = {
   windows: { asset: 'trinity-windows-mingw-x86_64.zip', label: 'Windows (x64)' },
-  macos: { asset: 'trinity-macos-universal2.zip', label: 'macOS' },
+  macos: { asset: 'trinity-macos-universal2.dmg', label: 'macOS' },
   linux: { asset: 'trinity-linux-x86_64.zip', label: 'Linux (x64)' },
 }
 
@@ -98,18 +98,40 @@ export function DocsInstall() {
               </a>
             </p>
             <p>After downloading:</p>
-            <ol>
-              <li>Extract the zip.</li>
-              <li>
-                Rename the extracted folder to{' '}
-                <code>Trinity</code>.
-              </li>
-              <li>
-                Place it wherever you keep your installed games.
-                That folder is your install — the rest of this
-                guide refers to it as "your install."
-              </li>
-            </ol>
+            {detectedOS === 'macos' ? (
+              <ol>
+                <li>
+                  Open the <code>.dmg</code> disk image.
+                </li>
+                <li>
+                  Drag <strong>Trinity</strong> into your{' '}
+                  <strong>Applications</strong> folder (or wherever
+                  you keep your games).
+                </li>
+                <li>
+                  Launch Trinity once — it creates its data folder
+                  at{' '}
+                  <code>
+                    ~/Library/Application&nbsp;Support/Quake3/
+                  </code>
+                  . That folder is your install — the rest of this
+                  guide refers to it as "your install."
+                </li>
+              </ol>
+            ) : (
+              <ol>
+                <li>Extract the zip.</li>
+                <li>
+                  Rename the extracted folder to{' '}
+                  <code>Trinity</code>.
+                </li>
+                <li>
+                  Place it wherever you keep your installed games.
+                  That folder is your install — the rest of this
+                  guide refers to it as "your install."
+                </li>
+              </ol>
+            )}
             <p>
               Auto-updates are handled by the installed app — see
               the Automatic Updates section below.
@@ -259,6 +281,19 @@ export function DocsInstall() {
             matching folder.
           </p>
         </PlatformNote>
+        {detectedOS === 'macos' && (
+          <PlatformNote platform="flatscreen">
+            <p>
+              On macOS, "your install" is the{' '}
+              <code>
+                ~/Library/Application&nbsp;Support/Quake3/
+              </code>
+              {' '}folder from Step 1 — copy each{' '}
+              <code>pak0.pk3</code> into the matching subfolder
+              there.
+            </p>
+          </PlatformNote>
+        )}
       </div>
 
       <div className="about-section">
@@ -415,22 +450,19 @@ export function DocsInstall() {
                 <PlatformChip platform={['flatscreen', 'pcvr']} />
               </summary>
               <div className="install-trouble__body">
-                <p>
-                  Unsigned binaries trip Windows SmartScreen and
-                  macOS Gatekeeper on first run. Subsequent
-                  launches won't prompt.
-                </p>
                 <ul>
                   <li>
-                    <strong>Windows:</strong> click "More info" →
-                    "Run anyway."
+                    <strong>Windows:</strong> SmartScreen may flag
+                    the unsigned binary on first run. Click
+                    "More info" → "Run anyway."
                   </li>
                   <li>
-                    <strong>macOS:</strong> a dialog will say the app
-                    was downloaded from the internet. Click "Open" to
-                    continue.
+                    <strong>macOS:</strong> a dialog will confirm the
+                    app was downloaded from the internet. Click
+                    "Open" to continue.
                   </li>
                 </ul>
+                <p>Subsequent launches won't prompt.</p>
               </div>
             </details>
           </PlatformOnly>

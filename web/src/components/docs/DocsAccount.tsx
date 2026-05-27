@@ -39,8 +39,9 @@ export function DocsAccount() {
             <strong>Name lock.</strong> On Trinity servers, your
             in-game name is locked to your account's display
             name — you always show up with a consistent identity
-            across sessions and servers. No other registered
-            player can claim the same name.
+            across sessions and servers. Your name is protected:
+            if anyone else joins with the same name, they're
+            automatically renamed.
           </li>
           <li>
             <strong>Announcer clips.</strong> Eligible players get
@@ -87,7 +88,13 @@ export function DocsAccount() {
             yours.
           </li>
           <li>
-            Pick a username and password for your account. You're
+            Pick a display name, username, and password for your
+            account. The display name supports Quake 3 color
+            codes (e.g.,{' '}
+            <ColoredText text="^1Ph^7R4g" />) — you'll see a
+            live preview as you type. You can restyle your
+            display name anytime from your{' '}
+            <Link to="/account">Account page</Link>. You're
             done — your in-game identity on that server is now
             linked.
           </li>
