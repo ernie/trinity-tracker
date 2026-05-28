@@ -12,7 +12,7 @@ export function CreditsPage() {
         I'm NilClass. Or, occasionally, I go by{' '}
         <a href="https://ernie.io">Ernie Miller</a>. But really, the
         folks who made this are the people who built the projects my
-        work is based on:
+        work draws from:
       </p>
       <ul>
         <li>
@@ -39,6 +39,12 @@ export function CreditsPage() {
           Kr3m:{' '}
           <a href="https://github.com/Kr3m/missionpackplus">
             missionpackplus
+          </a>
+        </li>
+        <li>
+          <a href="https://www.moddb.com/members/zertero">ZerTerO</a>:{' '}
+          <a href="https://www.moddb.com/mods/high-quality-quake">
+            High Quality Quake
           </a>
         </li>
         <li>
