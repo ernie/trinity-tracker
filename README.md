@@ -541,7 +541,12 @@ This produces timestamped log output like:
 2026-01-12T19:45:15   0:15.5 Kill: 2 0 7: Bot killed Player by MOD_ROCKET_SPLASH
 ```
 
-The log file will be written relative to `fs_homepath`/`fs_game` (e.g., `~/.q3a/baseq3/games.log` or `~/.q3a/missionpack/games.log`). Point `log_path` in your trinity config to this file, or create a symlink to a preferred location.
+The log file will be written relative to `fs_homepath`/`fs_game`. With the
+systemd units (which set `fs_multiuser 0`), that resolves to the install dir,
+e.g. `/usr/lib/quake3/baseq3/games.log`; for a stock client install with
+the per-user home path it would be `~/.trinity/baseq3/games.log`. Point
+`log_path` in your trinity config to this file, or create a symlink to a
+preferred location.
 
 ### Systemd Setup
 
