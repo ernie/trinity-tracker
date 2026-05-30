@@ -3,8 +3,8 @@ import type { Platform } from '../components/docs/platformStorage'
 // Trinity-introduced cvars across the three engines. Inventory built by
 // walking Cvar_Get / CG_CVAR registrations in:
 //   - flatscreen: ../trinity-engine + ../trinity (mod)
-//   - pcvr:       ../q3vr (engine + bundled cgame)
-//   - quest:      ../ioq3quest (engine + bundled cgame)
+//   - pcvr:       ../trinity-vr (engine + bundled cgame)
+//   - quest:      ../trinity-quest (engine + bundled cgame)
 //
 // Each entry is verified against the registering source. Defaults,
 // platforms, and behavior reflect what the code actually does — no

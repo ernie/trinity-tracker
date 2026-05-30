@@ -550,7 +550,7 @@ const DEMO_PLAYER_CALLOUTS: CalloutData[] = [
 // Per docs principles: every menu path and cvar surface here is
 // verified against the relevant engine source — flatscreen items
 // against ../trinity-engine + ../trinity (mod), VR items against
-// ../q3vr (PCVR) or ../ioq3quest (Quest). Cvar enumeration belongs
+// ../trinity-vr (PCVR) or ../trinity-quest (Quest). Cvar enumeration belongs
 // on /docs/reference, not here — this tab describes; Reference lists.
 //
 // Platform divergence is expressed as paired PlatformOnly blocks

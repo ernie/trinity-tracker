@@ -10,7 +10,7 @@ import { MOVEMENT_MODES } from '../ServerCard'
 // (Configuration + raw mode tables) with cvar-by-cvar tunables
 // organized by intent. Cvar inventory drawn from the curated starter
 // autoexec configs in web/public/configs/, descriptions verified
-// against trinity, q3vr, and ioq3quest cgame/engine sources.
+// against trinity, trinity-vr, and trinity-quest cgame/engine sources.
 // Descriptions are factual only — no editorial recommendations or
 // "tune if it feels X" advice; cvars do what they do, the user
 // decides.
@@ -75,12 +75,12 @@ export function DocsCustomize() {
           </PlatformOnly>
           <PlatformOnly platform="pcvr">
             <a
-              href="/configs/q3vr-autoexec.cfg"
+              href="/configs/trinity-vr-autoexec.cfg"
               download="autoexec.cfg"
               className="about-download-item"
             >
               <div className="about-download-info">
-                <span className="about-download-name">Quake 3 VR</span>
+                <span className="about-download-name">Trinity VR</span>
                 <span className="about-download-desc">
                   Trinity feature toggles, online network values,
                   VR comfort settings, and Meta Touch controller
@@ -92,12 +92,12 @@ export function DocsCustomize() {
           </PlatformOnly>
           <PlatformOnly platform="quest">
             <a
-              href="/configs/ioq3quest-autoexec.cfg"
+              href="/configs/trinity-quest-autoexec.cfg"
               download="autoexec.cfg"
               className="about-download-item"
             >
               <div className="about-download-info">
-                <span className="about-download-name">Quake3Quest</span>
+                <span className="about-download-name">Trinity Quest</span>
                 <span className="about-download-desc">
                   Trinity feature toggles, online network values,
                   VR comfort settings, Meta Touch controller

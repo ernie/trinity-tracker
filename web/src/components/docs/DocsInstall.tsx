@@ -25,6 +25,7 @@ const FLATSCREEN_DOWNLOADS: Record<DetectedOS, { asset: string; label: string }>
 // whose OS we don't detect) fall through to the "see all builds"
 // link. Partial<> reflects the absent macos key.
 const PCVR_DOWNLOADS: Partial<Record<DetectedOS, { asset: string; label: string }>> = {
+  // Repo renamed to trinity-vr, but release zips keep the q3vr-* artifact names.
   windows: { asset: 'q3vr-windows-mingw-x86_64.zip', label: 'Windows (x64)' },
   linux: { asset: 'q3vr-linux-x86_64.zip', label: 'Linux (x64)' },
 }
@@ -54,12 +55,12 @@ export function DocsInstall() {
   const pcvrDownload = detectedOS ? PCVR_DOWNLOADS[detectedOS] : undefined
 
   // Map releases to platform — release.repo identifies which engine
-  // a binary is for. trinity-engine = flatscreen, q3vr = pcvr,
-  // ioq3quest = quest. The fourth ('trinity') is the mod itself,
+  // a binary is for. trinity-engine = flatscreen, trinity-vr = pcvr,
+  // trinity-quest = quest. The fourth ('trinity') is the mod itself,
   // bundled with each engine, not a standalone download here.
   const flatscreen = releases.find((r) => r.repo === 'trinity-engine')
-  const pcvr = releases.find((r) => r.repo === 'q3vr')
-  const quest = releases.find((r) => r.repo === 'ioq3quest')
+  const pcvr = releases.find((r) => r.repo === 'trinity-vr')
+  const quest = releases.find((r) => r.repo === 'trinity-quest')
 
   return (
     <>
@@ -112,7 +113,7 @@ export function DocsInstall() {
                   Launch Trinity once — it creates its data folder
                   at{' '}
                   <code>
-                    ~/Library/Application&nbsp;Support/Quake3/
+                    ~/Library/Application&nbsp;Support/Trinity/
                   </code>
                   . That folder is your install — the rest of this
                   guide refers to it as "your install."
@@ -140,17 +141,17 @@ export function DocsInstall() {
 
           <PlatformTabs.Panel platform="pcvr">
             <p>
-              <strong>Quake 3 VR</strong> is a PCVR build based on
+              <strong>Trinity VR</strong> is a PCVR build based on
               RippeR37's Q3VR. Runs through SteamVR on any PCVR
               headset (Index, Vive, Rift, Quest connected to a PC,
               etc.).
             </p>
             {pcvrDownload && (
               <a
-                href={`https://github.com/ernie/q3vr/releases/latest/download/${pcvrDownload.asset}`}
+                href={`https://github.com/ernie/trinity-vr/releases/latest/download/${pcvrDownload.asset}`}
                 className="install-download-link"
               >
-                Download Quake 3 VR
+                Download Trinity VR
                 {pcvr?.version ? ` ${pcvr.version}` : ''}
                 {' '}for {pcvrDownload.label} →
               </a>
@@ -158,7 +159,7 @@ export function DocsInstall() {
             <p className="install-download-others">
               {pcvrDownload ? 'Need a different platform? ' : 'Pick the build for your platform: '}
               <a
-                href={pcvr?.url ?? 'https://github.com/ernie/q3vr/releases/latest'}
+                href={pcvr?.url ?? 'https://github.com/ernie/trinity-vr/releases/latest'}
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -169,7 +170,7 @@ export function DocsInstall() {
             <ol>
               <li>Extract the zip.</li>
               <li>
-                Rename the extracted folder to <code>Q3VR</code>.
+                Rename the extracted folder to <code>TrinityVR</code>.
               </li>
               <li>
                 Place it wherever you keep your installed games.
@@ -185,7 +186,7 @@ export function DocsInstall() {
 
           <PlatformTabs.Panel platform="quest">
             <p>
-              <strong>Quake3Quest</strong> runs natively on Meta
+              <strong>Trinity Quest</strong> runs natively on Meta
               Quest 2, 3, and 3S — no PC required. Built on Team
               Beef's Quake3Quest port.
             </p>
@@ -196,7 +197,7 @@ export function DocsInstall() {
                 rel="noopener noreferrer"
                 className="install-download-link"
               >
-                Download Quake3Quest{quest.version ? ` ${quest.version}` : ''} (.apk) →
+                Download Trinity Quest{quest.version ? ` ${quest.version}` : ''} (.apk) →
               </a>
             )}
             <p>
@@ -286,7 +287,7 @@ export function DocsInstall() {
             <p>
               On macOS, "your install" is the{' '}
               <code>
-                ~/Library/Application&nbsp;Support/Quake3/
+                ~/Library/Application&nbsp;Support/Trinity/
               </code>
               {' '}folder from Step 1 — copy each{' '}
               <code>pak0.pk3</code> into the matching subfolder

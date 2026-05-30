@@ -32,12 +32,14 @@ interface RepoConfig {
 const REPOS: RepoConfig[] = [
   { repo: 'trinity', displayName: 'Trinity Mod', bundled: false },
   { repo: 'trinity-engine', displayName: 'Trinity Engine', bundled: true },
-  { repo: 'q3vr', displayName: 'Quake 3 VR', bundled: true },
+  { repo: 'trinity-vr', displayName: 'Trinity VR', bundled: true },
   {
-    repo: 'ioq3quest',
-    displayName: 'Quake3Quest',
+    repo: 'trinity-quest',
+    displayName: 'Trinity Quest',
     bundled: true,
-    assetMatcher: (a) => /^ioq3quest-.*\.apk$/.test(a.name),
+    // APK is published as trinity-quest-<ver>.apk (version-stamped, so
+    // /releases/latest/download can't use a constant filename here).
+    assetMatcher: (a) => /^trinity-quest-.*\.apk$/.test(a.name),
   },
 ]
 

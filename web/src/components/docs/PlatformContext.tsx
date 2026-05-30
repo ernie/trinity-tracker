@@ -68,8 +68,8 @@ export const PLATFORM_LABELS: Record<Platform, string> = {
 
 export const PLATFORM_DESCRIPTIONS: Record<Platform, string> = {
   flatscreen: 'Trinity Engine on desktop monitor — keyboard + mouse.',
-  pcvr: 'Quake 3 VR on a PC-tethered VR headset.',
-  quest: 'Quake3Quest standalone on Meta Quest 2, 3, or 3S.',
+  pcvr: 'Trinity VR on a PC-tethered VR headset.',
+  quest: 'Trinity Quest standalone on Meta Quest 2, 3, or 3S.',
 }
 
 export const PLATFORM_ORDER: readonly Platform[] = ['flatscreen', 'pcvr', 'quest'] as const
