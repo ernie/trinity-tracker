@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { ColoredText } from '../ColoredText'
-import { formatDate, formatDuration } from '../../utils/formatters'
+import { formatDateTime, formatDuration } from '../../utils/formatters'
 import type { AdminSession, Server } from '../../types'
 import {
   AdminSessionsFilters,
@@ -164,7 +164,6 @@ export function AdminSessions() {
             <th>Player</th>
             <th>Server</th>
             <th>Joined</th>
-            <th>Left</th>
             <th>Duration</th>
             <th>IP</th>
             <th>Client</th>
@@ -179,9 +178,10 @@ export function AdminSessions() {
                 </Link>
               </td>
               <td data-label="Server">{s.server_source} / {s.server_key}</td>
-              <td data-label="Joined">{formatDate(s.joined_at)}</td>
-              <td data-label="Left">{s.left_at ? formatDate(s.left_at) : <em>active</em>}</td>
-              <td data-label="Duration">{s.duration_seconds ? formatDuration(s.duration_seconds) : '—'}</td>
+              <td data-label="Joined">{formatDateTime(s.joined_at)}</td>
+              <td data-label="Duration">
+                {s.duration_seconds ? formatDuration(s.duration_seconds) : (s.left_at ? '—' : <em>active</em>)}
+              </td>
               <td data-label="IP" className="ip-address">{s.ip_address || '—'}</td>
               <td data-label="Client">
                 {s.client_engine ? `${s.client_engine}${s.client_version ? ` ${s.client_version}` : ''}` : '—'}
@@ -190,7 +190,7 @@ export function AdminSessions() {
           ))}
           {visibleSessions.length === 0 && !loading && (
             <tr>
-              <td colSpan={7} className="admin-empty">
+              <td colSpan={6} className="admin-empty">
                 No sessions found.
               </td>
             </tr>
