@@ -17,13 +17,13 @@ export function DocsPage() {
   useEffect(() => {
     let raf = 0;
     const scan = () => {
-      const nodes = contentRef.current?.querySelectorAll('h2[id]') ?? [];
+      const nodes = contentRef.current?.querySelectorAll("h2[id]") ?? [];
       const next: DocSection[] = [];
       nodes.forEach((n) => {
         if (n instanceof HTMLElement && n.id) {
           // Pull the visible text without the copy-anchor glyph.
-          const textEl = n.querySelector('.docs-h2__text');
-          const label = (textEl?.textContent ?? n.textContent ?? '').trim();
+          const textEl = n.querySelector(".docs-h2__text");
+          const label = (textEl?.textContent ?? n.textContent ?? "").trim();
           next.push({ id: n.id, label });
         }
       });
@@ -42,9 +42,9 @@ export function DocsPage() {
     const tryScroll = () => {
       if (location.hash) {
         const el = document.getElementById(location.hash.slice(1));
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
       } else {
-        window.scrollTo({ top: 0, behavior: 'auto' });
+        window.scrollTo({ top: 0, behavior: "auto" });
       }
     };
     const t = setTimeout(tryScroll, 50);
@@ -52,7 +52,9 @@ export function DocsPage() {
   }, [location.pathname, location.hash]);
 
   return (
-    <PlatformProvider renderPicker={(onPick) => <PlatformPicker onPick={onPick} />}>
+    <PlatformProvider
+      renderPicker={(onPick) => <PlatformPicker onPick={onPick} />}
+    >
       <div className="about-page docs-page-v2">
         <div className="docs-layout">
           <aside className="docs-layout__left">

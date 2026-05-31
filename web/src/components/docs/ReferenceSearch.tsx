@@ -1,13 +1,13 @@
-import { useEffect, useRef } from 'react'
-import { PLATFORM_LABELS } from './PlatformContext'
-import type { Platform } from './platformStorage'
+import { useEffect, useRef } from "react";
+import { PLATFORM_LABELS } from "./PlatformContext";
+import type { Platform } from "./platformStorage";
 
 interface ReferenceSearchProps {
-  value: string
-  onChange: (value: string) => void
-  showAllPlatforms: boolean
-  onToggleShowAll: () => void
-  currentPlatform: Platform
+  value: string;
+  onChange: (value: string) => void;
+  showAllPlatforms: boolean;
+  onToggleShowAll: () => void;
+  currentPlatform: Platform;
 }
 
 // Sticky search input + platform-filter toggle pinned to the top of
@@ -23,28 +23,28 @@ export function ReferenceSearch({
   onToggleShowAll,
   currentPlatform,
 }: ReferenceSearchProps) {
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       // Skip when the user is already typing somewhere editable, when
       // any modifier key is held, or when the input is already focused.
-      if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return
-      const target = e.target as HTMLElement | null
+      if (e.key !== "/" || e.ctrlKey || e.metaKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
       if (target) {
-        const tag = target.tagName.toLowerCase()
-        if (tag === 'input' || tag === 'textarea' || tag === 'select') return
-        if (target.isContentEditable) return
+        const tag = target.tagName.toLowerCase();
+        if (tag === "input" || tag === "textarea" || tag === "select") return;
+        if (target.isContentEditable) return;
       }
-      e.preventDefault()
-      inputRef.current?.focus()
-      inputRef.current?.select()
+      e.preventDefault();
+      inputRef.current?.focus();
+      inputRef.current?.select();
     }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [])
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
 
-  const platformLabel = PLATFORM_LABELS[currentPlatform]
+  const platformLabel = PLATFORM_LABELS[currentPlatform];
 
   return (
     <div className="docs-reference-search">
@@ -61,8 +61,8 @@ export function ReferenceSearch({
           type="button"
           className="docs-reference-search__clear"
           onClick={() => {
-            onChange('')
-            inputRef.current?.focus()
+            onChange("");
+            inputRef.current?.focus();
           }}
           aria-label="Clear filter"
         >
@@ -76,13 +76,11 @@ export function ReferenceSearch({
         title={
           showAllPlatforms
             ? `Filter cvars to ${platformLabel} only`
-            : 'Show cvars for all platforms, not just this one'
+            : "Show cvars for all platforms, not just this one"
         }
       >
-        {showAllPlatforms
-          ? `Filter to ${platformLabel}`
-          : 'Show all platforms'}
+        {showAllPlatforms ? `Filter to ${platformLabel}` : "Show all platforms"}
       </button>
     </div>
-  )
+  );
 }

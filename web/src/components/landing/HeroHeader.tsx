@@ -1,25 +1,30 @@
 // Bespoke landing hero header — brand · sparse nav · live pill.
 // Replaces the standard <Header> over the wallpaper.
-import { Link } from 'react-router-dom'
-import { useLiveData } from '../../contexts/LiveDataContext'
+import { Link } from "react-router-dom";
+import { useLiveData } from "../../contexts/LiveDataContext";
 
 export function HeroHeader() {
-  const { activeHumanPlayersCount, isConnected } = useLiveData()
-  const live = activeHumanPlayersCount > 0
+  const { activeHumanPlayersCount, isConnected } = useLiveData();
+  const live = activeHumanPlayersCount > 0;
   // Three states mirror StatusPill: live (humans fragging), quiet (hub up,
   // arena empty), offline (hub feed lost). Class name `quiet` is kept as
   // an internal CSS hook even though the visible label is now "STANDING BY".
-  const stateClass = !isConnected ? 'offline' : live ? 'live' : 'quiet'
+  const stateClass = !isConnected ? "offline" : live ? "live" : "quiet";
   const label = !isConnected
-    ? 'OFFLINE'
+    ? "OFFLINE"
     : live
       ? `${activeHumanPlayersCount} LIVE`
-      : 'STANDING BY'
+      : "STANDING BY";
 
   return (
     <header className="hero__header">
       <Link to="/" className="hero__brand">
-        <img className="hero__brand-logo" src="/assets/icon-1104.png" alt="" aria-hidden />
+        <img
+          className="hero__brand-logo"
+          src="/assets/icon-1104.png"
+          alt=""
+          aria-hidden
+        />
         <span className="hero__brand-title">
           Trinity<span className="hero__brand-wordmark">tracker</span>
         </span>
@@ -38,5 +43,5 @@ export function HeroHeader() {
         {label}
       </span>
     </header>
-  )
+  );
 }

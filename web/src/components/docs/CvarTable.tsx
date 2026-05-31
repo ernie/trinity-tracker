@@ -1,12 +1,12 @@
-import { PlatformChip } from './PlatformChip'
-import type { CvarEntry } from '../../data/cvars'
+import { PlatformChip } from "./PlatformChip";
+import type { CvarEntry } from "../../data/cvars";
 
 interface CvarTableProps {
-  entries: CvarEntry[]
+  entries: CvarEntry[];
   // When true, suppress the per-cvar platform chips (used by the Server
   // CVars section, where every entry applies to any Trinity server
   // regardless of which client architecture connects).
-  hidePlatforms?: boolean
+  hidePlatforms?: boolean;
 }
 
 // Renders a list of cvars as cards: name + default + platform chips
@@ -15,7 +15,7 @@ interface CvarTableProps {
 // parent.
 export function CvarTable({ entries, hidePlatforms }: CvarTableProps) {
   if (entries.length === 0) {
-    return <p className="docs-reference__empty">No matches.</p>
+    return <p className="docs-reference__empty">No matches.</p>;
   }
   return (
     <ul className="cvar-list">
@@ -24,7 +24,7 @@ export function CvarTable({ entries, hidePlatforms }: CvarTableProps) {
           <div className="cvar-entry__head">
             <code className="cvar-entry__name">{entry.name}</code>
             <span className="cvar-entry__default">
-              default <code>{entry.default === '' ? '""' : entry.default}</code>
+              default <code>{entry.default === "" ? '""' : entry.default}</code>
             </span>
             {!hidePlatforms && <PlatformChip platform={entry.platforms} />}
           </div>
@@ -42,5 +42,5 @@ export function CvarTable({ entries, hidePlatforms }: CvarTableProps) {
         </li>
       ))}
     </ul>
-  )
+  );
 }

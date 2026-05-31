@@ -5,16 +5,21 @@
 // signal "this player is currently carrying enemy skulls" — the
 // analog of the flag-carry indicator for CTF.
 interface SkullIconProps {
-  team: 'red' | 'blue'
-  size?: 'sm' | 'md' | 'lg'
-  className?: string
-  title?: string
+  team: "red" | "blue";
+  size?: "sm" | "md" | "lg";
+  className?: string;
+  title?: string;
 }
 
-export function SkullIcon({ team, size = 'sm', className = '', title }: SkullIconProps) {
+export function SkullIcon({
+  team,
+  size = "sm",
+  className = "",
+  title,
+}: SkullIconProps) {
   return (
     <span className={`flag-icon flag-icon-${size} ${className}`} title={title}>
       <img src={`/assets/icons/skull_${team}.png`} alt={`${team} skull`} />
     </span>
-  )
+  );
 }

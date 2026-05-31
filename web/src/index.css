@@ -1,49 +1,49 @@
 @font-face {
-  font-family: 'Cinzel';
+  font-family: "Cinzel";
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url('/assets/fonts/cinzel-regular.woff2') format('woff2');
+  src: url("/assets/fonts/cinzel-regular.woff2") format("woff2");
 }
 
 @font-face {
-  font-family: 'Cinzel';
+  font-family: "Cinzel";
   font-style: normal;
   font-weight: 700;
   font-display: swap;
-  src: url('/assets/fonts/cinzel-bold.woff2') format('woff2');
+  src: url("/assets/fonts/cinzel-bold.woff2") format("woff2");
 }
 
 @font-face {
-  font-family: 'Barlow';
+  font-family: "Barlow";
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url('/assets/fonts/barlow-400.woff2') format('woff2');
+  src: url("/assets/fonts/barlow-400.woff2") format("woff2");
 }
 
 @font-face {
-  font-family: 'Barlow';
+  font-family: "Barlow";
   font-style: normal;
   font-weight: 500;
   font-display: swap;
-  src: url('/assets/fonts/barlow-500.woff2') format('woff2');
+  src: url("/assets/fonts/barlow-500.woff2") format("woff2");
 }
 
 @font-face {
-  font-family: 'Barlow';
+  font-family: "Barlow";
   font-style: normal;
   font-weight: 600;
   font-display: swap;
-  src: url('/assets/fonts/barlow-600.woff2') format('woff2');
+  src: url("/assets/fonts/barlow-600.woff2") format("woff2");
 }
 
 @font-face {
-  font-family: 'Barlow';
+  font-family: "Barlow";
   font-style: normal;
   font-weight: 700;
   font-display: swap;
-  src: url('/assets/fonts/barlow-700.woff2') format('woff2');
+  src: url("/assets/fonts/barlow-700.woff2") format("woff2");
 }
 
 :root {
@@ -102,7 +102,8 @@
   --radius-pill: 999px;
 
   /* Warm-tinted to match the cream palette. */
-  --shadow-1: 0 1px 0 rgba(255, 248, 240, 0.04) inset, 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-1:
+    0 1px 0 rgba(255, 248, 240, 0.04) inset, 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-2: 0 2px 8px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 248, 240, 0.06);
   --rule: 1px solid #2a2622;
   --rule-strong: 1px solid #3d3833;
@@ -138,7 +139,7 @@ html {
 }
 
 body {
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   letter-spacing: 0.05em;
   font-variant-numeric: tabular-nums;
   background: var(--bg);
@@ -154,12 +155,15 @@ body {
 
 /* Pulse used by StatusPill (and any future "live" indicators). */
 @keyframes pulse-green {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 0 4px var(--green);
     opacity: 1;
   }
   50% {
-    box-shadow: 0 0 12px var(--green), 0 0 20px var(--green);
+    box-shadow:
+      0 0 12px var(--green),
+      0 0 20px var(--green);
     opacity: 0.8;
   }
 }
@@ -198,7 +202,9 @@ h2 {
   min-height: 100svh;
 }
 
-.app-main { flex: 1; }
+.app-main {
+  flex: 1;
+}
 
 /* ── Footer ───────────────────────────────────────────────────────── */
 .app-footer {
@@ -209,7 +215,7 @@ h2 {
 }
 
 .app-footer::before {
-  content: '';
+  content: "";
   position: absolute;
   left: var(--space-5);
   right: var(--space-5);
@@ -225,7 +231,7 @@ h2 {
   gap: var(--space-3) var(--space-5);
   max-width: 1800px;
   margin: 0 auto;
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.78rem;
   color: var(--text-dim);
 }
@@ -238,7 +244,7 @@ h2 {
 }
 
 .app-footer__brand {
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.2em;
@@ -247,7 +253,7 @@ h2 {
 }
 
 .app-footer__version {
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-variant-numeric: tabular-nums;
   font-size: 0.7rem;
   letter-spacing: 0.04em;
@@ -270,17 +276,26 @@ h2 {
   transition: color 0.15s;
 }
 
-.app-footer__center a:hover { color: var(--accent); }
+.app-footer__center a:hover {
+  color: var(--accent);
+}
 
-.app-footer__sep { color: rgba(208, 200, 184, 0.3); }
+.app-footer__sep {
+  color: rgba(208, 200, 184, 0.3);
+}
 
-.app-footer__right { color: var(--text-dim); justify-self: end; }
+.app-footer__right {
+  color: var(--text-dim);
+  justify-self: end;
+}
 .app-footer__right a {
   color: var(--accent-dim);
   text-decoration: none;
   transition: color 0.15s;
 }
-.app-footer__right a:hover { color: var(--accent); }
+.app-footer__right a:hover {
+  color: var(--accent);
+}
 
 @media (max-width: 768px) {
   .app-footer__row {
@@ -291,8 +306,12 @@ h2 {
   }
   .app-footer__left,
   .app-footer__center,
-  .app-footer__right { justify-self: center; }
-  .app-footer__center { justify-content: center; }
+  .app-footer__right {
+    justify-self: center;
+  }
+  .app-footer__center {
+    justify-content: center;
+  }
 }
 
 /* ── Breadcrumbs ──────────────────────────────────────────────────── */
@@ -308,7 +327,7 @@ h2 {
   list-style: none;
   padding: 0;
   margin: 0;
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.78rem;
 }
 
@@ -324,7 +343,9 @@ h2 {
   transition: color 0.15s;
 }
 
-.breadcrumbs__link:hover { color: var(--accent); }
+.breadcrumbs__link:hover {
+  color: var(--accent);
+}
 
 .breadcrumbs__current {
   color: var(--accent);
@@ -354,9 +375,10 @@ h2 {
   background: linear-gradient(180deg, #181412 0%, var(--bg-card) 60%);
   border: var(--rule-strong);
   border-radius: var(--radius-lg);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7),
-              0 0 0 1px rgba(255, 110, 60, 0.12),
-              inset 0 1px 0 rgba(255, 110, 60, 0.06);
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.7),
+    0 0 0 1px rgba(255, 110, 60, 0.12),
+    inset 0 1px 0 rgba(255, 110, 60, 0.06);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -371,7 +393,7 @@ h2 {
 }
 
 .cmdk-input-wrap::after {
-  content: '';
+  content: "";
   position: absolute;
   left: var(--space-4);
   right: var(--space-4);
@@ -388,7 +410,7 @@ h2 {
 }
 
 .cmdk-prompt {
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.2em;
@@ -403,16 +425,18 @@ h2 {
   border: none;
   outline: none;
   color: var(--text);
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 1rem;
   letter-spacing: 0.02em;
   padding: 4px 0;
 }
 
-.cmdk-input::placeholder { color: var(--text-dim); }
+.cmdk-input::placeholder {
+  color: var(--text-dim);
+}
 
 .cmdk-kbd {
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.65rem;
   font-weight: 600;
   letter-spacing: 0.1em;
@@ -439,10 +463,12 @@ h2 {
   font-size: 0.85rem;
 }
 
-.cmdk-group { padding: var(--space-1) 0; }
+.cmdk-group {
+  padding: var(--space-1) 0;
+}
 
 .cmdk-group__title {
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-size: 0.6rem;
   font-weight: 700;
   letter-spacing: 0.32em;
@@ -463,12 +489,18 @@ h2 {
   text-align: left;
   cursor: pointer;
   color: var(--text);
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.9rem;
-  transition: background 0.1s, border-color 0.1s, color 0.1s;
+  transition:
+    background 0.1s,
+    border-color 0.1s,
+    color 0.1s;
 }
 
-.cmdk-item__label { flex: 1; min-width: 0; }
+.cmdk-item__label {
+  flex: 1;
+  min-width: 0;
+}
 
 .cmdk-item__hint {
   color: var(--text-dim);
@@ -486,7 +518,9 @@ h2 {
   color: var(--accent);
 }
 
-.cmdk-item--active .cmdk-item__hint { color: var(--accent-dim); }
+.cmdk-item--active .cmdk-item__hint {
+  color: var(--accent-dim);
+}
 
 /* Click-to-open search trigger sitting in its own row above the
    nav-row divider. Visually reads as a search input but is actually
@@ -500,12 +534,15 @@ h2 {
   border-radius: var(--radius-md);
   padding: 6px 10px 6px 12px;
   color: var(--text-dim);
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.85rem;
   letter-spacing: 0.02em;
   cursor: pointer;
   text-align: left;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
 }
 
 .cmdk-trigger:hover,
@@ -531,7 +568,7 @@ h2 {
 }
 
 .cmdk-trigger__kbd {
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.65rem;
   font-weight: 600;
   letter-spacing: 0.06em;
@@ -589,7 +626,10 @@ h2 {
 
 /* Server card */
 /* .server-card delegates background/border/levelshot/z-stacking to .card */
-.server-card { display: flex; flex-direction: column; }
+.server-card {
+  display: flex;
+  flex-direction: column;
+}
 
 .server-name-badge {
   position: absolute;
@@ -1001,7 +1041,7 @@ h2 {
 }
 
 .player-item:hover .awards-container.overflowing::before {
-  content: '';
+  content: "";
   position: absolute;
   top: -2px;
   left: -1px;
@@ -1070,7 +1110,8 @@ h2 {
 }
 
 .player-badge.unverified.vr {
-  background: rgba(255, 255, 255, 0.5) url('/assets/vr/vr.png') center/contain no-repeat;
+  background: rgba(255, 255, 255, 0.5) url("/assets/vr/vr.png") center/contain
+    no-repeat;
 }
 
 /* Verified badge sizes */
@@ -1106,10 +1147,10 @@ h2 {
 
 /* VR + verified combined: colored background with VR icon overlay */
 .player-badge.vr.admin {
-  background: #d4a000 url('/assets/vr/vr.png') center/contain no-repeat;
+  background: #d4a000 url("/assets/vr/vr.png") center/contain no-repeat;
 }
 .player-badge.vr.user {
-  background: #4caf50 url('/assets/vr/vr.png') center/contain no-repeat;
+  background: #4caf50 url("/assets/vr/vr.png") center/contain no-repeat;
 }
 
 /* Bot badge */
@@ -1383,7 +1424,9 @@ h2 {
   padding: 0 8px 0 0;
   position: relative;
 }
-.activity-message .flag-icon { top: -1px; }
+.activity-message .flag-icon {
+  top: -1px;
+}
 .activity-message .medal-icon,
 .activity-message .reticle-icon,
 .activity-message .player-badge,
@@ -1464,7 +1507,7 @@ h2 {
 }
 
 .activity-map-name {
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-size: 1.15rem;
   font-weight: 700;
   letter-spacing: 0.18em;
@@ -1482,7 +1525,7 @@ h2 {
 }
 
 .activity-map-time {
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.7rem;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
@@ -1495,7 +1538,7 @@ h2 {
 }
 
 .activity-map-server {
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.2em;
@@ -1515,7 +1558,7 @@ h2 {
 }
 
 .active-players-header {
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.28em;
@@ -1605,7 +1648,7 @@ h2 {
 
 /* Levelshot background */
 .match-card::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
@@ -1647,7 +1690,7 @@ h2 {
 
 /* Levelshot preview on hover */
 .match-card .match-map::after {
-  content: '';
+  content: "";
   position: absolute;
   top: 100%;
   left: 0;
@@ -1663,7 +1706,9 @@ h2 {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.15s, visibility 0.15s;
+  transition:
+    opacity 0.15s,
+    visibility 0.15s;
   pointer-events: none;
   z-index: 100;
 }
@@ -1866,7 +1911,7 @@ h2 {
 }
 
 .match-player-row:hover .awards-container.overflowing::before {
-  content: '';
+  content: "";
   position: absolute;
   top: -2px;
   left: -1px;
@@ -1891,7 +1936,9 @@ h2 {
   cursor: pointer;
   border-radius: var(--radius-sm);
   font-size: 0.9rem;
-  transition: background 0.2s, border-color 0.2s;
+  transition:
+    background 0.2s,
+    border-color 0.2s;
 }
 
 .load-more-btn:hover:not(:disabled) {
@@ -1940,7 +1987,7 @@ h2 {
 .account-header::after,
 .claim-header::after,
 .admin-header::after {
-  content: '';
+  content: "";
   position: absolute;
   left: 0;
   right: 0;
@@ -1989,11 +2036,17 @@ h2 {
 }
 
 /* ── Hamburger menu (mobile-only collapsing wrapper) ──────────────── */
-.hamburger { display: contents; }
-.hamburger__btn { display: none; }
+.hamburger {
+  display: contents;
+}
+.hamburger__btn {
+  display: none;
+}
 /* On desktop the popup acts like display: contents so its children
    become row members. */
-.hamburger__popup { display: contents; }
+.hamburger__popup {
+  display: contents;
+}
 
 /* Wrapper around PageNav. display: contents on desktop (transparent),
    becomes a real horizontal-scroll container on mobile. Lives as a
@@ -2003,8 +2056,12 @@ h2 {
 .nav-scroller,
 .app-header__nav-scroll,
 .admin-sidebar__scroll,
-.admin-sidebar__strip { display: contents; }
-.nav-scroller__edge { display: none; }
+.admin-sidebar__strip {
+  display: contents;
+}
+.nav-scroller__edge {
+  display: none;
+}
 
 /* Filter chip scroll container — self-contained on every viewport
    (no display: contents trick), so the segmented control always
@@ -2020,7 +2077,9 @@ h2 {
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
 }
-.filter-chips__scroll::-webkit-scrollbar { display: none; }
+.filter-chips__scroll::-webkit-scrollbar {
+  display: none;
+}
 .filter-chips__scroll.is-scroll-left {
   mask-image: linear-gradient(to right, transparent, black 28px);
   -webkit-mask-image: linear-gradient(to right, transparent, black 28px);
@@ -2030,8 +2089,20 @@ h2 {
   -webkit-mask-image: linear-gradient(to left, transparent, black 28px);
 }
 .filter-chips__scroll.is-scroll-left.is-scroll-right {
-  mask-image: linear-gradient(to right, transparent, black 28px, black calc(100% - 28px), transparent);
-  -webkit-mask-image: linear-gradient(to right, transparent, black 28px, black calc(100% - 28px), transparent);
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    black 28px,
+    black calc(100% - 28px),
+    transparent
+  );
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    black 28px,
+    black calc(100% - 28px),
+    transparent
+  );
 }
 
 /* Inner flex strip; width: max-content so scrollWidth tracks real
@@ -2114,10 +2185,24 @@ h2 {
     -webkit-mask-image: linear-gradient(to left, transparent, black 28px);
   }
   .app-header__nav-scroll.is-scroll-left.is-scroll-right {
-    mask-image: linear-gradient(to right, transparent, black 28px, black calc(100% - 28px), transparent);
-    -webkit-mask-image: linear-gradient(to right, transparent, black 28px, black calc(100% - 28px), transparent);
+    mask-image: linear-gradient(
+      to right,
+      transparent,
+      black 28px,
+      black calc(100% - 28px),
+      transparent
+    );
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent,
+      black 28px,
+      black calc(100% - 28px),
+      transparent
+    );
   }
-  .app-header__nav-scroll::-webkit-scrollbar { display: none; }
+  .app-header__nav-scroll::-webkit-scrollbar {
+    display: none;
+  }
   .app-header__nav-scroll .page-nav {
     flex-wrap: nowrap;
     width: max-content;
@@ -2167,9 +2252,16 @@ h2 {
     outline-offset: -2px;
     border-radius: var(--radius-sm);
   }
-  .nav-scroller__edge:active { opacity: 1; color: var(--ember-strong); }
-  .nav-scroller__edge--left { left: 0; }
-  .nav-scroller__edge--right { right: 0; }
+  .nav-scroller__edge:active {
+    opacity: 1;
+    color: var(--ember-strong);
+  }
+  .nav-scroller__edge--left {
+    left: 0;
+  }
+  .nav-scroller__edge--right {
+    right: 0;
+  }
   .nav-scroller__edge--left.is-shown {
     animation: nav-scroller-bob-left 2.4s ease-in-out infinite;
   }
@@ -2177,15 +2269,27 @@ h2 {
     animation: nav-scroller-bob-right 2.4s ease-in-out infinite;
   }
   @keyframes nav-scroller-bob-left {
-    0%, 100% { transform: translate(0, -50%); }
-    50%      { transform: translate(-2px, -50%); }
+    0%,
+    100% {
+      transform: translate(0, -50%);
+    }
+    50% {
+      transform: translate(-2px, -50%);
+    }
   }
   @keyframes nav-scroller-bob-right {
-    0%, 100% { transform: translate(0, -50%); }
-    50%      { transform: translate(2px, -50%); }
+    0%,
+    100% {
+      transform: translate(0, -50%);
+    }
+    50% {
+      transform: translate(2px, -50%);
+    }
   }
   @media (prefers-reduced-motion: reduce) {
-    .nav-scroller__edge.is-shown { animation: none; }
+    .nav-scroller__edge.is-shown {
+      animation: none;
+    }
   }
 
   /* Hamburger sits outside the scroll container so its popup isn't
@@ -2213,7 +2317,11 @@ h2 {
     color: var(--text-dim);
     cursor: pointer;
     padding: 0;
-    transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
+    transition:
+      background 0.15s,
+      border-color 0.15s,
+      color 0.15s,
+      box-shadow 0.15s;
   }
 
   .hamburger__btn:hover,
@@ -2269,8 +2377,9 @@ h2 {
     background: linear-gradient(180deg, #181412 0%, var(--bg-card) 60%);
     border: var(--rule-strong);
     border-radius: var(--radius-md);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6),
-                inset 0 1px 0 rgba(255, 110, 60, 0.06);
+    box-shadow:
+      0 8px 24px rgba(0, 0, 0, 0.6),
+      inset 0 1px 0 rgba(255, 110, 60, 0.06);
     padding: var(--space-3);
     width: max-content;
     max-width: calc(100vw - 24px);
@@ -2310,7 +2419,6 @@ h2 {
     align-items: stretch;
     gap: var(--space-2);
   }
-
 }
 
 .app-header h1,
@@ -2328,7 +2436,7 @@ h2 {
   margin: 0;
   margin-right: auto; /* Pushes future brand-row siblings (StatusPill, ⌘K) right. */
   color: var(--accent);
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-weight: 700;
   font-size: 28px; /* matches .hero__brand-title */
   line-height: 1;
@@ -2357,7 +2465,7 @@ h2 {
   top: calc(100% - 0.2em);
   left: 50%;
   transform: translateX(-50%);
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.6rem;
   font-weight: 500;
   letter-spacing: 0.45em;
@@ -2375,7 +2483,7 @@ h2 {
   margin: 0;
   flex-shrink: 0;
   filter: drop-shadow(0 0 14px rgba(255, 110, 60, 0.4))
-          drop-shadow(0 0 4px rgba(255, 110, 60, 0.7));
+    drop-shadow(0 0 4px rgba(255, 110, 60, 0.7));
 }
 
 /* Transparent header overlay used over the landing-page hero. The header
@@ -2417,14 +2525,17 @@ h2 {
   background-color: var(--bg-card);
   background-image: linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.35));
   color: var(--text);
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   white-space: nowrap;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
 }
 
 .status-pill:hover,
@@ -2444,7 +2555,9 @@ h2 {
 }
 
 /* Quiet: connected but nobody playing. Pulse keeps running in gray. */
-.status-pill.quiet { color: var(--text-dim); }
+.status-pill.quiet {
+  color: var(--text-dim);
+}
 .status-pill.quiet .status-pill__dot {
   background: var(--text-dim);
   box-shadow: none;
@@ -2452,7 +2565,9 @@ h2 {
 }
 
 /* Offline: hub feed lost. No pulse, fully gray. */
-.status-pill.offline { color: var(--text-dim); }
+.status-pill.offline {
+  color: var(--text-dim);
+}
 .status-pill.offline .status-pill__dot {
   background: var(--text-dim);
   box-shadow: none;
@@ -2461,7 +2576,9 @@ h2 {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .status-pill__dot { animation: none; }
+  .status-pill__dot {
+    animation: none;
+  }
 }
 
 /* Community cluster — Download / Discord / GitHub grouped, separated from
@@ -2490,13 +2607,16 @@ h2 {
   color: var(--text-dim);
   text-decoration: none;
   line-height: 1;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s;
 }
 
 .discord-link:hover,
 .discord-link:focus-visible {
-  background: #5865F2;
-  border-color: #5865F2;
+  background: #5865f2;
+  border-color: #5865f2;
   color: #fff;
   outline: none;
 }
@@ -2532,7 +2652,7 @@ h2 {
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-weight: 500;
   font-size: 12px;
   letter-spacing: 0.22em;
@@ -2563,7 +2683,7 @@ h2 {
   flex-shrink: 0;
   display: block;
   filter: drop-shadow(0 0 4px rgba(255, 110, 60, 0.55))
-          drop-shadow(0 0 1px rgba(255, 110, 60, 0.9));
+    drop-shadow(0 0 1px rgba(255, 110, 60, 0.9));
 }
 
 .nav-link__glyph--placeholder {
@@ -2602,7 +2722,7 @@ h2 {
   color: var(--text-dim);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.78rem;
   font-weight: 500;
   letter-spacing: 0.04em;
@@ -2610,7 +2730,10 @@ h2 {
   text-decoration: none;
   text-align: center;
   white-space: nowrap;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .claim-link:hover,
@@ -2657,7 +2780,7 @@ h2 {
   border: var(--rule-strong);
   color: var(--text);
   border-radius: var(--radius-sm);
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.85rem;
   width: 140px;
   transition: border-color 0.15s;
@@ -2672,12 +2795,15 @@ h2 {
   padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.78rem;
   font-weight: 500;
   letter-spacing: 0.04em;
   text-align: center;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
 }
 
 .login-form button[type="submit"] {
@@ -2714,7 +2840,7 @@ h2 {
 .login-error {
   color: rgb(240, 130, 145);
   font-size: 0.78rem;
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
 }
 
 /* Legacy: the green inline "username" span isn't rendered today
@@ -2736,14 +2862,17 @@ h2 {
   padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.78rem;
   font-weight: 500;
   letter-spacing: 0.04em;
   line-height: 1.4;
   text-decoration: none;
   text-align: center;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .admin-btn:hover,
@@ -2768,13 +2897,16 @@ h2 {
   padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.8rem;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   text-align: center;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
 }
 
 .admin-btn-primary:hover:not(:disabled) {
@@ -2834,8 +2966,9 @@ h2 {
   width: min(560px, 100%);
   background: linear-gradient(180deg, #181412 0%, var(--bg-card) 60%);
   color: var(--text);
-  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.6),
-              inset 1px 0 0 rgba(255, 110, 60, 0.08);
+  box-shadow:
+    -8px 0 32px rgba(0, 0, 0, 0.6),
+    inset 1px 0 0 rgba(255, 110, 60, 0.08);
   display: flex;
   flex-direction: column;
   border-left: var(--rule-strong);
@@ -2851,7 +2984,7 @@ h2 {
 
 /* Decorative rule under the header — see --rule-gradient-h. */
 .drawer-header::after {
-  content: '';
+  content: "";
   position: absolute;
   left: var(--space-5);
   right: var(--space-5);
@@ -2862,7 +2995,7 @@ h2 {
 
 .drawer-header h2 {
   margin: 0;
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-size: 1.1rem;
   font-weight: 700;
   letter-spacing: 0.22em;
@@ -2883,7 +3016,10 @@ h2 {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .drawer-header .close-btn:hover,
@@ -2927,7 +3063,7 @@ h2 {
   list-style: none;
   cursor: pointer;
   padding: var(--space-3) var(--space-4);
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-size: 0.85rem;
   font-weight: 700;
   letter-spacing: 0.28em;
@@ -2937,15 +3073,19 @@ h2 {
   transition: color 0.15s;
 }
 
-.activity-filters-toggle > summary:hover { color: var(--accent); }
-.activity-filters-toggle > summary::-webkit-details-marker { display: none; }
+.activity-filters-toggle > summary:hover {
+  color: var(--accent);
+}
+.activity-filters-toggle > summary::-webkit-details-marker {
+  display: none;
+}
 
 /* Disclosure caret drawn from two perpendicular borders rather than a
    ▸ glyph so it matches the line-weight of ArrowIcon and the rest of
    the chrome SVGs. Rotates 45° → right-pointing chevron when closed,
    135° → down-pointing when open. */
 .activity-filters-toggle > summary::before {
-  content: '';
+  content: "";
   display: inline-block;
   width: 6px;
   height: 6px;
@@ -2958,8 +3098,12 @@ h2 {
   transition: transform 0.15s;
 }
 
-.activity-filters-toggle[open] > summary::before { transform: rotate(135deg); }
-.activity-filters-toggle[open] > summary { color: var(--accent); }
+.activity-filters-toggle[open] > summary::before {
+  transform: rotate(135deg);
+}
+.activity-filters-toggle[open] > summary {
+  color: var(--accent);
+}
 
 .activity-filters-panel {
   display: flex;
@@ -2985,7 +3129,10 @@ h2 {
   padding-top: var(--space-3);
 }
 
-.filter-section:first-of-type { border-top: none; padding-top: 0; }
+.filter-section:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
 
 .filter-section > summary.filter-section__header {
   list-style: none;
@@ -2998,7 +3145,9 @@ h2 {
   font-size: 0.72rem;
 }
 
-.filter-section > summary::-webkit-details-marker { display: none; }
+.filter-section > summary::-webkit-details-marker {
+  display: none;
+}
 
 .filter-section__caret {
   display: inline-flex;
@@ -3015,11 +3164,13 @@ h2 {
   flex-shrink: 0;
 }
 
-.filter-section[open] .filter-section__caret { transform: rotate(90deg); }
+.filter-section[open] .filter-section__caret {
+  transform: rotate(90deg);
+}
 
 .filter-section__title {
   flex: 1;
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.28em;
@@ -3038,14 +3189,17 @@ h2 {
   border: 1px solid rgba(208, 200, 184, 0.18);
   border-radius: var(--radius-sm);
   color: var(--text-dim);
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.6rem;
   font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   padding: 3px 8px;
   cursor: pointer;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .filter-section__actions button:hover {
@@ -3078,7 +3232,9 @@ h2 {
   font-size: 0.85rem;
 }
 
-.filter-subgroup__header::-webkit-details-marker { display: none; }
+.filter-subgroup__header::-webkit-details-marker {
+  display: none;
+}
 
 .filter-subgroup__caret {
   display: inline-flex;
@@ -3095,9 +3251,14 @@ h2 {
   height: 1em;
 }
 
-.filter-subgroup[open] .filter-subgroup__caret { transform: rotate(90deg); }
+.filter-subgroup[open] .filter-subgroup__caret {
+  transform: rotate(90deg);
+}
 
-.filter-subgroup__title-wrap { flex: 1; min-width: 0; }
+.filter-subgroup__title-wrap {
+  flex: 1;
+  min-width: 0;
+}
 
 .filter-subgroup__body {
   display: grid;
@@ -3146,7 +3307,10 @@ h2 {
   background: rgba(208, 200, 184, 0.12);
   border: 1px solid rgba(208, 200, 184, 0.22);
   border-radius: var(--radius-pill);
-  transition: background 0.18s, border-color 0.18s, box-shadow 0.18s;
+  transition:
+    background 0.18s,
+    border-color 0.18s,
+    box-shadow 0.18s;
   flex-shrink: 0;
 }
 
@@ -3158,7 +3322,10 @@ h2 {
   height: 10px;
   border-radius: 50%;
   background: var(--text-dim);
-  transition: transform 0.18s, background 0.18s, box-shadow 0.18s;
+  transition:
+    transform 0.18s,
+    background 0.18s,
+    box-shadow 0.18s;
 }
 
 .switch input:checked + .switch__track {
@@ -3196,11 +3363,17 @@ h2 {
 }
 
 .switch--disabled .switch__track,
-.switch--disabled .switch__thumb { cursor: not-allowed; }
+.switch--disabled .switch__thumb {
+  cursor: not-allowed;
+}
 
 @media (prefers-reduced-motion: reduce) {
-  .switch__track, .switch__thumb,
-  .filter-section__caret, .filter-subgroup__caret { transition: none; }
+  .switch__track,
+  .switch__thumb,
+  .filter-section__caret,
+  .filter-subgroup__caret {
+    transition: none;
+  }
 }
 
 /* Per-source card inside the drawer */
@@ -3451,7 +3624,7 @@ h2 {
 }
 
 .admin-pending-requests::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: var(--space-4);
@@ -3533,7 +3706,7 @@ h2 {
 
 /* Same warm gradient hairline as drawer headers — see --rule-gradient-h. */
 .modal-header::after {
-  content: '';
+  content: "";
   position: absolute;
   left: 0;
   right: 0;
@@ -3559,7 +3732,9 @@ h2 {
   width: 28px;
   height: 28px;
   border-radius: var(--radius-pill);
-  transition: color 0.15s, background 0.15s;
+  transition:
+    color 0.15s,
+    background 0.15s;
 }
 
 .modal .close-btn:hover {
@@ -3746,9 +3921,11 @@ h2 {
   padding: var(--space-2) var(--space-3);
   cursor: pointer;
   border-bottom: var(--rule);
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.85rem;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 
 .player-results li:last-child {
@@ -3769,7 +3946,7 @@ h2 {
   border: 1px solid rgba(255, 110, 60, 0.35);
   border-radius: var(--radius-sm);
   color: rgb(255, 165, 120);
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.85rem;
   display: flex;
   justify-content: space-between;
@@ -3786,7 +3963,9 @@ h2 {
   cursor: pointer;
   font-family: inherit;
   font-size: 0.78rem;
-  transition: border-color 0.15s, color 0.15s;
+  transition:
+    border-color 0.15s,
+    color 0.15s;
 }
 
 .selected-player button:hover {
@@ -3842,11 +4021,13 @@ h2 {
   padding: 2px 8px;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.7rem;
   font-weight: 500;
   letter-spacing: 0.04em;
-  transition: color 0.15s, border-color 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
 }
 
 .edit-link-btn:hover {
@@ -3894,7 +4075,9 @@ h2 {
 /* Selectable server cards */
 .server-card.selectable {
   cursor: pointer;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
 }
 
 .server-card.selectable:hover {
@@ -3907,7 +4090,10 @@ h2 {
 }
 
 /* Degraded = liveness offline/stale. Freeze the timer, dim the whole card. */
-.server-card.degraded { opacity: 0.7; filter: saturate(0.8); }
+.server-card.degraded {
+  opacity: 0.7;
+  filter: saturate(0.8);
+}
 
 /* RCON drawer — shares .drawer chrome with ActivityDrawer / MyServersDrawer.
    Slightly wider (640px) than the others so the 'players' / 'status' table
@@ -3932,7 +4118,7 @@ h2 {
   /* The server key (e.g. TRINITY-NA) sits beside the engraved RCON
      wordmark — Barlow at body weight makes it read like a server tag,
      not a second title. Lowercase tracking, normal case. */
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-weight: 600;
   font-size: 0.95rem;
   letter-spacing: 0.04em;
@@ -3973,7 +4159,9 @@ h2 {
   font-size: 0.9rem;
 }
 
-.rcon-drawer__placeholder { font-style: italic; }
+.rcon-drawer__placeholder {
+  font-style: italic;
+}
 
 .rcon-drawer__entry {
   margin-bottom: var(--space-3);
@@ -4025,7 +4213,9 @@ h2 {
   color: var(--text);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.85rem;
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .rcon-drawer__form input::placeholder {
@@ -4047,13 +4237,16 @@ h2 {
   border: 1px solid rgba(255, 110, 60, 0.4);
   border-radius: var(--radius-sm);
   color: var(--accent);
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-size: 0.78rem;
   font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s, color 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    color 0.15s;
 }
 
 .rcon-drawer__form button:hover:not(:disabled),
@@ -4085,7 +4278,11 @@ h2 {
   background: rgba(0, 0, 0, 0.72);
   /* Subtle warm haze toward the top so the modal feels inset into the
      overall warm-dark cinematic, not floating in pure black. */
-  background-image: radial-gradient(ellipse at center 30%, rgba(255, 110, 60, 0.04), transparent 60%);
+  background-image: radial-gradient(
+    ellipse at center 30%,
+    rgba(255, 110, 60, 0.04),
+    transparent 60%
+  );
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4106,8 +4303,9 @@ h2 {
   max-height: 88vh;
   overflow-y: auto;
   position: relative;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6),
-              inset 1px 0 0 rgba(255, 110, 60, 0.06);
+  box-shadow:
+    0 24px 64px rgba(0, 0, 0, 0.6),
+    inset 1px 0 0 rgba(255, 110, 60, 0.06);
 }
 
 .player-stats-modal__close {
@@ -4128,7 +4326,10 @@ h2 {
   cursor: pointer;
   font-size: 1rem;
   line-height: 1;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s,
+    background 0.15s;
   z-index: 2;
 }
 
@@ -4155,7 +4356,7 @@ h2 {
 }
 
 .player-stats-modal__footer::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
@@ -4170,7 +4371,7 @@ h2 {
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-size: 0.78rem;
   font-weight: 600;
   letter-spacing: 0.18em;
@@ -4180,7 +4381,11 @@ h2 {
   background: rgba(255, 110, 60, 0.08);
   border: 1px solid rgba(255, 110, 60, 0.4);
   border-radius: var(--radius-sm);
-  transition: border-color 0.15s, background 0.15s, color 0.15s, transform 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    color 0.15s,
+    transform 0.15s;
 }
 
 .view-profile-link:hover,
@@ -4192,7 +4397,9 @@ h2 {
 
 @media (prefers-reduced-motion: no-preference) {
   .view-profile-link:hover,
-  .view-profile-link:focus-visible { transform: translateX(2px); }
+  .view-profile-link:focus-visible {
+    transform: translateX(2px);
+  }
 }
 
 /* Period selector — connected segmented control hosted inside a
@@ -4214,13 +4421,16 @@ h2 {
   color: var(--text-dim);
   border-radius: 0;
   cursor: pointer;
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.78rem;
   font-weight: 500;
   letter-spacing: 0.06em;
   flex-shrink: 0;
   position: relative;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .period-btn:hover,
@@ -4263,7 +4473,9 @@ h2 {
   margin-bottom: var(--space-3);
   width: 100%;
 }
-.player-hero__top .player-hero__portrait { grid-column: 2; }
+.player-hero__top .player-hero__portrait {
+  grid-column: 2;
+}
 .player-hero__top .player-hero__featured {
   grid-column: 3;
   justify-self: start;
@@ -4317,7 +4529,7 @@ h2 {
   background: rgba(0, 0, 0, 0.78);
   border-radius: var(--radius-sm);
   color: var(--ember-light);
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-weight: 700;
   font-size: 13px;
   line-height: 1.2;
@@ -4355,7 +4567,7 @@ h2 {
      the player-profile equivalent of those page headings. No
      text-transform since player names carry meaningful casing (and
      color codes via ColoredText). */
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-weight: 700;
   font-size: 26px;
   letter-spacing: 0.04em;
@@ -4372,7 +4584,7 @@ h2 {
   justify-content: center;
   gap: 4px var(--space-4);
   margin-top: var(--space-2);
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.82rem;
   color: var(--text-dim);
 }
@@ -4380,7 +4592,7 @@ h2 {
 /* Bullet between meta items — collapses naturally if the playtime span
    is omitted (no playtime data). */
 .player-hero__meta span + span::before {
-  content: '\00b7';
+  content: "\00b7";
   display: inline-block;
   margin-right: var(--space-3);
   margin-left: -3px;
@@ -4401,7 +4613,7 @@ h2 {
 /* Gradient hairline above the headline strip — same treatment as the
    drawer-header rule, just inverted. Centered ~76% width. */
 .player-hero__headline::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 12%;
@@ -4419,7 +4631,7 @@ h2 {
 }
 
 .headline-stat__value {
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-weight: 700;
   font-size: 24px;
   color: var(--accent);
@@ -4429,7 +4641,7 @@ h2 {
 }
 
 .headline-stat__label {
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-weight: 600;
   font-size: 0.62rem;
   letter-spacing: 0.22em;
@@ -4439,22 +4651,50 @@ h2 {
 
 /* Modal scale — already-compact 96px portrait stays, name/value
    slightly tightened so the hero leaves room for medals + AKAs. */
-.player-hero--modal .player-hero__portrait { width: 80px; height: 80px; }
-.player-hero--modal .player-hero__featured { width: 60px; height: 60px; }
-.player-hero--modal .player-hero__featured-count { font-size: 11px; padding: 1px 6px; }
-.player-hero--modal .player-hero__name { font-size: 22px; }
-.player-hero--modal .headline-stat__value { font-size: 20px; }
+.player-hero--modal .player-hero__portrait {
+  width: 80px;
+  height: 80px;
+}
+.player-hero--modal .player-hero__featured {
+  width: 60px;
+  height: 60px;
+}
+.player-hero--modal .player-hero__featured-count {
+  font-size: 11px;
+  padding: 1px 6px;
+}
+.player-hero--modal .player-hero__name {
+  font-size: 22px;
+}
+.player-hero--modal .headline-stat__value {
+  font-size: 20px;
+}
 
 /* Page scale — bigger portrait + headline numbers, more breathing room. */
 .player-hero--page {
   padding: var(--space-7) var(--space-5) var(--space-5);
 }
-.player-hero--page .player-hero__portrait { width: 120px; height: 120px; }
-.player-hero--page .player-hero__featured { width: 90px; height: 90px; }
-.player-hero--page .player-hero__featured-count { font-size: 15px; padding: 2px 10px; }
-.player-hero--page .player-hero__name { font-size: 32px; }
-.player-hero--page .headline-stat__value { font-size: 32px; }
-.player-hero--page .headline-stat__label { font-size: 0.7rem; }
+.player-hero--page .player-hero__portrait {
+  width: 120px;
+  height: 120px;
+}
+.player-hero--page .player-hero__featured {
+  width: 90px;
+  height: 90px;
+}
+.player-hero--page .player-hero__featured-count {
+  font-size: 15px;
+  padding: 2px 10px;
+}
+.player-hero--page .player-hero__name {
+  font-size: 32px;
+}
+.player-hero--page .headline-stat__value {
+  font-size: 32px;
+}
+.player-hero--page .headline-stat__label {
+  font-size: 0.7rem;
+}
 /* Cluster the four headline stats in the middle while keeping the
    strip itself full-width so its ::before hairline spans the full
    hero. Content-sized columns + justify-content: center packs the
@@ -4492,7 +4732,9 @@ h2 {
 }
 
 @media (max-width: 600px) {
-  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 /* Honors grid: flat 3x3 of the nine non-featured medals. The featured
@@ -4555,7 +4797,9 @@ h2 {
   background: rgba(0, 0, 0, 0.22);
   border: 1px solid rgba(255, 248, 240, 0.04);
   border-radius: var(--radius-sm);
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .stat-item:hover {
@@ -4590,7 +4834,7 @@ h2 {
 }
 
 .stat-item .stat-value {
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 1.4rem;
   font-weight: 700;
   color: var(--accent);
@@ -4600,11 +4844,15 @@ h2 {
   z-index: 1;
 }
 
-.stat-item .stat-value.frags { color: var(--green); }
-.stat-item .stat-value.deaths { color: var(--red); }
+.stat-item .stat-value.frags {
+  color: var(--green);
+}
+.stat-item .stat-value.deaths {
+  color: var(--red);
+}
 
 .stat-item .stat-label {
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-weight: 600;
   font-size: 0.6rem;
   letter-spacing: 0.18em;
@@ -4639,7 +4887,7 @@ h2 {
   display: block;
   margin: 0 0 var(--space-3);
   padding-bottom: var(--space-2);
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.22em;
@@ -4651,7 +4899,7 @@ h2 {
 .player-panel__heading::after {
   /* Same gradient hairline used under .drawer-header — ties the
      section dividers across drawers and panels into one motif. */
-  content: '';
+  content: "";
   position: absolute;
   left: 0;
   right: 0;
@@ -4674,7 +4922,7 @@ h2 {
   background: rgba(208, 200, 184, 0.06);
   border: 1px solid rgba(208, 200, 184, 0.14);
   border-radius: var(--radius-pill);
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.82rem;
   letter-spacing: 0.02em;
   color: var(--text);
@@ -4720,7 +4968,6 @@ h2 {
   margin: 0 auto;
 }
 
-
 /* Two-column players layout. Left: persistent search rail. Right:
    either the active search results (as cards), the selected player's
    stats, or a friendly empty state. The rail stays sticky so the user
@@ -4750,7 +4997,7 @@ h2 {
   color: var(--text-dim);
   margin: 0;
   padding: 0 var(--space-1);
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
 }
 
 .players-results-area {
@@ -4781,7 +5028,9 @@ h2 {
   text-align: center;
   font-family: inherit;
   color: inherit;
-  transition: border-color 0.25s ease, transform 0.25s ease;
+  transition:
+    border-color 0.25s ease,
+    transform 0.25s ease;
   min-width: 0;
 }
 .player-card:hover,
@@ -4791,7 +5040,9 @@ h2 {
 }
 @media (prefers-reduced-motion: no-preference) {
   .player-card:hover,
-  .player-card:focus-visible { transform: translateY(-2px); }
+  .player-card:focus-visible {
+    transform: translateY(-2px);
+  }
 }
 
 /* Portrait wrapper — identical to .leaderboard-card__avatar (64px
@@ -4808,7 +5059,9 @@ h2 {
   margin-top: 4px;
   flex-shrink: 0;
   overflow: visible;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
 }
 .player-card__avatar .player-portrait {
   margin: 0;
@@ -4841,7 +5094,7 @@ h2 {
   /* Cinzel regular — same "ceremonial headline at body size" treatment
      as .card__map-long. Lighter than the hero's Cinzel 700 because
      mixed-case Cinzel reads better at a lighter weight when small. */
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-weight: 500;
   font-size: 18px;
   color: var(--text);
@@ -4852,7 +5105,7 @@ h2 {
   margin-top: 8px;
 }
 .player-card__meta {
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 11px;
   letter-spacing: 0.04em;
   color: var(--text-dim);
@@ -4873,7 +5126,7 @@ h2 {
   align-items: center;
   gap: var(--space-2);
   margin: 0;
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.22em;
@@ -4890,11 +5143,13 @@ h2 {
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .online-players__dot { animation: pulse-green 2s ease-in-out infinite; }
+  .online-players__dot {
+    animation: pulse-green 2s ease-in-out infinite;
+  }
 }
 
 .online-players__count {
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.05em;
@@ -4910,7 +5165,9 @@ h2 {
     grid-template-columns: 1fr;
     gap: var(--space-3);
   }
-  .players-search-rail { position: static; }
+  .players-search-rail {
+    position: static;
+  }
 }
 
 .players-search {
@@ -5002,7 +5259,7 @@ h2 {
   display: block;
   margin: 0 0 var(--space-3);
   padding-bottom: var(--space-2);
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.22em;
@@ -5014,7 +5271,7 @@ h2 {
 .player-profile .recent-matches h2::after,
 .player-profile .player-sessions-section h4::after,
 .player-profile .player-guids-section h4::after {
-  content: '';
+  content: "";
   position: absolute;
   left: 0;
   right: 0;
@@ -5061,7 +5318,9 @@ h2 {
   background: var(--bg-card);
   border: var(--rule);
   border-radius: var(--radius-sm);
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .guid-item:hover {
@@ -5075,7 +5334,7 @@ h2 {
   gap: var(--space-3);
   flex-wrap: wrap;
   min-width: 0;
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.85rem;
 }
 
@@ -5167,7 +5426,7 @@ h2 {
   border: var(--rule-strong);
   color: var(--text);
   border-radius: var(--radius-sm);
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.85rem;
   transition: border-color 0.15s;
 }
@@ -5192,7 +5451,9 @@ h2 {
   background: var(--bg-card);
   border: var(--rule);
   border-radius: var(--radius-sm);
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .merge-result-item:hover {
@@ -5204,7 +5465,7 @@ h2 {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.85rem;
   min-width: 0;
 }
@@ -5227,7 +5488,6 @@ h2 {
   max-width: 1800px;
   margin: 0 auto;
 }
-
 
 .account-columns {
   display: grid;
@@ -5253,13 +5513,27 @@ h2 {
     display: contents;
   }
 
-  .account-profile    { order: 1; }
-  .account-info       { order: 2; }
-  .account-password   { order: 3; }
-  .account-game-token { order: 4; }
-  .account-guids      { order: 5; }
-  .account-link       { order: 6; }
-  .account-matches    { order: 7; }
+  .account-profile {
+    order: 1;
+  }
+  .account-info {
+    order: 2;
+  }
+  .account-password {
+    order: 3;
+  }
+  .account-game-token {
+    order: 4;
+  }
+  .account-guids {
+    order: 5;
+  }
+  .account-link {
+    order: 6;
+  }
+  .account-matches {
+    order: 7;
+  }
 }
 
 /* ── Account page section card ────────────────────────────────────────
@@ -5281,7 +5555,7 @@ h2 {
   margin: 0 0 var(--space-3) 0;
   padding-bottom: var(--space-3);
   border-bottom: var(--rule);
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-size: 0.95rem;
   font-weight: 700;
   letter-spacing: 0.18em;
@@ -5291,7 +5565,7 @@ h2 {
 .account-section h3 {
   color: var(--accent);
   margin: var(--space-4) 0 var(--space-2) 0;
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.22em;
@@ -5395,12 +5669,15 @@ h2 {
   color: var(--ember-tint-text);
   border-radius: var(--radius-sm);
   text-decoration: none;
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.8rem;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
 }
 
 .view-stats-btn:hover {
@@ -5423,7 +5700,9 @@ h2 {
   background: var(--bg);
   border: var(--rule);
   border-radius: var(--radius-sm);
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .account-section .guid-item:hover {
@@ -5436,7 +5715,7 @@ h2 {
   align-items: center;
   gap: var(--space-3);
   margin-bottom: 2px;
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.85rem;
 }
 
@@ -5498,7 +5777,7 @@ h2 {
 
 .code-label {
   color: var(--text-dim);
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.22em;
@@ -5517,7 +5796,7 @@ h2 {
 
 .code-timer {
   color: var(--text-dim);
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.85rem;
   margin-bottom: var(--space-2);
   font-variant-numeric: tabular-nums;
@@ -5530,7 +5809,7 @@ h2 {
 
 .code-instruction {
   color: var(--text-dim);
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.85rem;
   margin-bottom: var(--space-3);
 }
@@ -5554,12 +5833,15 @@ h2 {
   color: var(--ember-tint-text);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.8rem;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
 }
 
 .generate-btn:hover:not(:disabled) {
@@ -5589,7 +5871,7 @@ h2 {
 
 .password-form label {
   color: var(--text-dim);
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.78rem;
   font-weight: 600;
   letter-spacing: 0.06em;
@@ -5602,7 +5884,7 @@ h2 {
   border: var(--rule-strong);
   border-radius: var(--radius-sm);
   color: var(--text);
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.9rem;
   transition: border-color 0.15s;
 }
@@ -5628,12 +5910,15 @@ h2 {
   color: var(--ember-tint-text);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.8rem;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
 }
 
 .password-form button[type="submit"]:hover:not(:disabled),
@@ -5656,12 +5941,15 @@ h2 {
   color: var(--text-dim);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.8rem;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .password-form .cancel-btn:hover {
@@ -5744,7 +6032,7 @@ h2 {
 
 .rotate-confirm-text {
   color: rgb(240, 130, 145);
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.85rem;
 }
 
@@ -5755,11 +6043,13 @@ h2 {
   color: var(--text-dim);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.78rem;
   font-weight: 500;
   letter-spacing: 0.04em;
-  transition: color 0.15s, border-color 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
 }
 
 .rotate-confirm .cancel-btn:hover {
@@ -5776,7 +6066,7 @@ h2 {
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);
   margin-bottom: var(--space-3);
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.85rem;
 }
 
@@ -5790,7 +6080,6 @@ h2 {
   max-width: 1800px;
   margin: 0 auto;
 }
-
 
 /* Snapshot banner: shown when ?as_of=... pins a historical anchor.
    Mirrors how the digest's footer URL works — clicking the link
@@ -5912,7 +6201,7 @@ h2 {
 }
 .leaderboard-filters__game-type {
   flex: 1 1 auto;
-  min-width: 0;  /* lets the NavScroller's overflow:hidden actually clip */
+  min-width: 0; /* lets the NavScroller's overflow:hidden actually clip */
 }
 .leaderboard-filters__period {
   flex: 0 0 auto;
@@ -5974,8 +6263,12 @@ h2 {
   opacity: 0.85;
   pointer-events: auto;
 }
-.nav-scroller:has(.category-strip__scroll) .nav-scroller__edge--left  { left: 0; }
-.nav-scroller:has(.category-strip__scroll) .nav-scroller__edge--right { right: 0; }
+.nav-scroller:has(.category-strip__scroll) .nav-scroller__edge--left {
+  left: 0;
+}
+.nav-scroller:has(.category-strip__scroll) .nav-scroller__edge--right {
+  right: 0;
+}
 .nav-scroller:has(.category-strip__scroll) .nav-scroller__edge:hover,
 .nav-scroller:has(.category-strip__scroll) .nav-scroller__edge:focus-visible {
   opacity: 1;
@@ -6008,7 +6301,7 @@ h2 {
     display: none;
   }
   .category-strip__scroll {
-    overflow: visible;  /* no horizontal scroll needed in vertical mode */
+    overflow: visible; /* no horizontal scroll needed in vertical mode */
   }
   .category-strip {
     flex-direction: column;
@@ -6023,7 +6316,10 @@ h2 {
     padding: var(--space-2) var(--space-4) var(--space-2) var(--space-3);
     border-right: 2px solid transparent;
     border-radius: var(--radius-sm) 0 0 var(--radius-sm);
-    transition: color 0.15s, background 0.15s, border-color 0.15s;
+    transition:
+      color 0.15s,
+      background 0.15s,
+      border-color 0.15s;
   }
   .category-tab:hover {
     background: rgba(255, 110, 60, 0.04);
@@ -6038,7 +6334,9 @@ h2 {
     display: none;
   }
 }
-.category-strip__scroll::-webkit-scrollbar { display: none; }
+.category-strip__scroll::-webkit-scrollbar {
+  display: none;
+}
 .category-strip__scroll.is-scroll-left {
   mask-image: linear-gradient(to right, transparent, black 28px);
   -webkit-mask-image: linear-gradient(to right, transparent, black 28px);
@@ -6048,8 +6346,20 @@ h2 {
   -webkit-mask-image: linear-gradient(to left, transparent, black 28px);
 }
 .category-strip__scroll.is-scroll-left.is-scroll-right {
-  mask-image: linear-gradient(to right, transparent, black 28px, black calc(100% - 28px), transparent);
-  -webkit-mask-image: linear-gradient(to right, transparent, black 28px, black calc(100% - 28px), transparent);
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    black 28px,
+    black calc(100% - 28px),
+    transparent
+  );
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    black 28px,
+    black calc(100% - 28px),
+    transparent
+  );
 }
 .category-strip {
   display: flex;
@@ -6066,7 +6376,7 @@ h2 {
   padding: 4px 2px;
   position: relative;
 
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-weight: 600;
   font-size: 11px;
   letter-spacing: 0.22em;
@@ -6076,13 +6386,21 @@ h2 {
   cursor: pointer;
   transition: color 0.15s;
 }
-.category-tab:hover { color: var(--text); }
-.category-tab:focus-visible { outline: none; color: var(--ember-light); }
-.category-tab.active { color: var(--ember-light); }
+.category-tab:hover {
+  color: var(--text);
+}
+.category-tab:focus-visible {
+  outline: none;
+  color: var(--ember-light);
+}
+.category-tab.active {
+  color: var(--ember-light);
+}
 .category-tab.active::after {
-  content: '';
+  content: "";
   position: absolute;
-  left: 0; right: 0;
+  left: 0;
+  right: 0;
   bottom: -7px;
   height: 2px;
   background: var(--ember-strong);
@@ -6120,7 +6438,11 @@ h2 {
   border-top: 1px solid rgba(255, 110, 60, 0.18);
   border-bottom: 1px solid rgba(255, 110, 60, 0.18);
   background:
-    radial-gradient(ellipse 50% 100% at 12% 50%, rgba(255, 110, 60, 0.06), transparent 70%),
+    radial-gradient(
+      ellipse 50% 100% at 12% 50%,
+      rgba(255, 110, 60, 0.06),
+      transparent 70%
+    ),
     linear-gradient(180deg, rgba(20, 14, 10, 0.6), rgba(8, 6, 5, 0.6));
 
   overflow: hidden;
@@ -6131,7 +6453,9 @@ h2 {
 /* Vertical ember ribbon on the left edge — the "banner pole". */
 .leaderboard-standard__ribbon {
   position: absolute;
-  top: 0; bottom: 0; left: 0;
+  top: 0;
+  bottom: 0;
+  left: 0;
   width: 4px;
   background: linear-gradient(
     180deg,
@@ -6146,7 +6470,7 @@ h2 {
 .leaderboard-standard__emblem {
   position: relative;
   grid-column: 1;
-  justify-self: end;  /* sits at the right edge of column 1, near text */
+  justify-self: end; /* sits at the right edge of column 1, near text */
   width: 128px;
   height: 128px;
   display: grid;
@@ -6170,7 +6494,7 @@ h2 {
 }
 
 .leaderboard-standard__medal-img {
-  position: relative;  /* sits above the halo */
+  position: relative; /* sits above the halo */
   width: 100%;
   height: 100%;
   object-fit: contain;
@@ -6196,12 +6520,14 @@ h2 {
   filter: drop-shadow(0 2px 10px rgba(255, 110, 60, 0.45));
 }
 .flag-pair__blue {
-  top: 4%; left: 4%;
+  top: 4%;
+  left: 4%;
   transform: rotate(-14deg);
   opacity: 0.75;
 }
 .flag-pair__red {
-  top: 18%; left: 22%;
+  top: 18%;
+  left: 22%;
   transform: rotate(12deg);
 }
 
@@ -6210,7 +6536,7 @@ h2 {
   grid-column: 2;
   display: flex;
   flex-direction: column;
-  align-items: center;  /* centers the inline-flex eyebrow span */
+  align-items: center; /* centers the inline-flex eyebrow span */
   gap: var(--space-2);
   min-width: 0;
   text-align: center;
@@ -6226,7 +6552,7 @@ h2 {
   display: inline-flex;
   align-items: center;
   gap: var(--space-3);
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-weight: 600;
   font-size: 11px;
   letter-spacing: 0.32em;
@@ -6235,7 +6561,7 @@ h2 {
 }
 .leaderboard-standard__eyebrow > span::before,
 .leaderboard-standard__eyebrow > span::after {
-  content: '';
+  content: "";
   width: 28px;
   height: 1px;
   background: currentColor;
@@ -6245,7 +6571,7 @@ h2 {
 
 .leaderboard-standard__title {
   margin: 0;
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-weight: 700;
   font-size: clamp(36px, 5vw, 64px);
   line-height: 1.05;
@@ -6259,7 +6585,7 @@ h2 {
 
 .leaderboard-standard__tagline {
   margin: 0;
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-weight: 500;
   font-size: 13px;
   letter-spacing: 0.2em;
@@ -6296,12 +6622,25 @@ h2 {
 }
 
 @keyframes standard-rise {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 @keyframes halo-pulse {
-  0%, 100% { opacity: 0.7; transform: scale(1); }
-  50%      { opacity: 1.0; transform: scale(1.08); }
+  0%,
+  100% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .leaderboard-standard,
@@ -6347,7 +6686,9 @@ h2 {
   border-radius: var(--radius-md);
   text-decoration: none;
   color: inherit;
-  transition: border-color 0.25s ease, transform 0.25s ease;
+  transition:
+    border-color 0.25s ease,
+    transform 0.25s ease;
 }
 .leaderboard-card:hover {
   border-color: rgba(255, 110, 60, 0.5);
@@ -6356,14 +6697,20 @@ h2 {
 /* Top 3 — each rank gets its own metal tint on the border, portrait
    ring, rank numeral, and headline stat. Card body keeps the same
    base background; only the border and the portrait-ring glow shift. */
-.leaderboard-card.top-1 { border-color: rgba(255, 215, 0, 0.55); }
-.leaderboard-card.top-2 { border-color: rgba(192, 192, 192, 0.5); }
-.leaderboard-card.top-3 { border-color: rgba(205, 127, 50, 0.55); }
+.leaderboard-card.top-1 {
+  border-color: rgba(255, 215, 0, 0.55);
+}
+.leaderboard-card.top-2 {
+  border-color: rgba(192, 192, 192, 0.5);
+}
+.leaderboard-card.top-3 {
+  border-color: rgba(205, 127, 50, 0.55);
+}
 .leaderboard-card__rank {
   position: absolute;
   top: 10px;
   left: 14px;
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-weight: 700;
   font-size: 18px;
   letter-spacing: 0.1em;
@@ -6417,7 +6764,7 @@ h2 {
   z-index: 2;
 }
 .leaderboard-card__name {
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-weight: 700;
   font-size: 18px;
   color: var(--text);
@@ -6429,7 +6776,7 @@ h2 {
   margin-top: 8px;
 }
 .leaderboard-card__stat-label {
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-weight: 500;
   font-size: 10px;
   letter-spacing: 0.32em;
@@ -6438,7 +6785,7 @@ h2 {
   margin-top: 4px;
 }
 .leaderboard-card__stat {
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-weight: 700;
   font-size: 28px;
   color: var(--accent);
@@ -6446,16 +6793,22 @@ h2 {
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
-.leaderboard-card.top-1 .leaderboard-card__stat { color: gold; }
-.leaderboard-card.top-2 .leaderboard-card__stat { color: silver; }
-.leaderboard-card.top-3 .leaderboard-card__stat { color: #cd7f32; }
+.leaderboard-card.top-1 .leaderboard-card__stat {
+  color: gold;
+}
+.leaderboard-card.top-2 .leaderboard-card__stat {
+  color: silver;
+}
+.leaderboard-card.top-3 .leaderboard-card__stat {
+  color: #cd7f32;
+}
 /* Secondary row — non-sorted core stats compressed into a single
    line so the card carries the full picture without dominating. */
 .leaderboard-card__secondary {
   display: flex;
   gap: 10px;
   margin-top: 8px;
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 11px;
   color: var(--text-dim);
   font-variant-numeric: tabular-nums;
@@ -6476,10 +6829,15 @@ h2 {
 }
 
 /* Gold / silver / bronze rank tint for top 3 cards. */
-.leaderboard-card.top-1 .leaderboard-card__rank { color: gold; }
-.leaderboard-card.top-2 .leaderboard-card__rank { color: silver; }
-.leaderboard-card.top-3 .leaderboard-card__rank { color: #cd7f32; }
-
+.leaderboard-card.top-1 .leaderboard-card__rank {
+  color: gold;
+}
+.leaderboard-card.top-2 .leaderboard-card__rank {
+  color: silver;
+}
+.leaderboard-card.top-3 .leaderboard-card__rank {
+  color: #cd7f32;
+}
 
 .leaderboard-table td sub {
   font-size: 0.45em;
@@ -6738,7 +7096,6 @@ h2 {
   flex-shrink: 0;
 }
 
-
 .mode-filter-btn {
   padding: 4px 10px;
   background: var(--bg-card);
@@ -6804,7 +7161,6 @@ h2 {
   margin: 0 auto;
 }
 
-
 .match-detail-content {
   max-width: 800px;
   margin: 0 auto;
@@ -6830,7 +7186,7 @@ h2 {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 12px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -6840,7 +7196,9 @@ h2 {
   border-radius: var(--radius-sm);
   padding: 6px 12px;
   cursor: pointer;
-  transition: color 0.2s ease, border-color 0.2s ease;
+  transition:
+    color 0.2s ease,
+    border-color 0.2s ease;
 }
 .match-feature-toggle:hover:not(:disabled) {
   color: var(--accent);
@@ -6877,7 +7235,9 @@ h2 {
   text-decoration: none;
   font-weight: bold;
   font-size: 0.9rem;
-  transition: background 0.2s, color 0.2s;
+  transition:
+    background 0.2s,
+    color 0.2s;
 }
 
 .permalink-btn:hover {
@@ -6897,7 +7257,9 @@ h2 {
   text-decoration: none;
   font-size: 1.1rem;
   line-height: 1;
-  transition: background 0.2s, color 0.2s;
+  transition:
+    background 0.2s,
+    color 0.2s;
 }
 
 .demo-download-btn:hover {
@@ -6927,7 +7289,9 @@ h2 {
   user-select: none;
   transition: color 0.15s;
 }
-.toggle-filter:hover { color: var(--text); }
+.toggle-filter:hover {
+  color: var(--text);
+}
 .toggle-filter input[type="checkbox"] {
   position: absolute;
   opacity: 0;
@@ -6943,10 +7307,12 @@ h2 {
   border: 1px solid #444;
   border-radius: var(--radius-pill);
   flex-shrink: 0;
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
 .toggle-filter__switch::after {
-  content: '';
+  content: "";
   position: absolute;
   top: 1px;
   left: 1px;
@@ -6954,7 +7320,9 @@ h2 {
   height: 12px;
   border-radius: 50%;
   background: var(--text-dim);
-  transition: transform 0.15s, background 0.15s;
+  transition:
+    transform 0.15s,
+    background 0.15s;
 }
 .toggle-filter input:checked ~ .toggle-filter__switch {
   background: rgba(255, 110, 60, 0.2);
@@ -7023,14 +7391,16 @@ h2 {
   padding: var(--space-2) var(--space-3);
   color: var(--text-dim);
   text-decoration: none;
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   border-right: 2px solid transparent;
   margin-right: -1px; /* overlap the parent's right rule */
-  transition: color 0.15s, border-color 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
 }
 
 .admin-sidebar-link:hover {
@@ -7049,7 +7419,7 @@ h2 {
   min-width: 18px;
   height: 18px;
   padding: 0 6px;
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.65rem;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -7102,7 +7472,9 @@ h2 {
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
   }
-  .admin-sidebar__scroll::-webkit-scrollbar { display: none; }
+  .admin-sidebar__scroll::-webkit-scrollbar {
+    display: none;
+  }
   .admin-sidebar__scroll.is-scroll-left {
     mask-image: linear-gradient(to right, transparent, black 28px);
     -webkit-mask-image: linear-gradient(to right, transparent, black 28px);
@@ -7112,8 +7484,20 @@ h2 {
     -webkit-mask-image: linear-gradient(to left, transparent, black 28px);
   }
   .admin-sidebar__scroll.is-scroll-left.is-scroll-right {
-    mask-image: linear-gradient(to right, transparent, black 28px, black calc(100% - 28px), transparent);
-    -webkit-mask-image: linear-gradient(to right, transparent, black 28px, black calc(100% - 28px), transparent);
+    mask-image: linear-gradient(
+      to right,
+      transparent,
+      black 28px,
+      black calc(100% - 28px),
+      transparent
+    );
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent,
+      black 28px,
+      black calc(100% - 28px),
+      transparent
+    );
   }
   /* width: max-content makes the strip size to its actual content so
      scrollWidth reflects real overflow rather than the parent's
@@ -7162,7 +7546,7 @@ h2 {
 .admin-section-header h2 {
   margin: 0;
   color: var(--accent);
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-size: 1.05rem;
   font-weight: 700;
   letter-spacing: 0.18em;
@@ -7170,7 +7554,7 @@ h2 {
 }
 
 .admin-section-header__count {
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.7rem;
   font-weight: 500;
   letter-spacing: 0.05em;
@@ -7185,7 +7569,7 @@ h2 {
   padding: var(--space-5);
   text-align: center;
   color: var(--text-dim);
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.85rem;
 }
 
@@ -7213,7 +7597,7 @@ h2 {
 }
 
 .admin-data-table th {
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.18em;
@@ -7283,7 +7667,7 @@ h2 {
   .admin-data-table td::before {
     content: attr(data-label);
     display: block;
-    font-family: 'Cinzel', serif;
+    font-family: "Cinzel", serif;
     font-size: 0.65rem;
     font-weight: 700;
     letter-spacing: 0.16em;
@@ -7370,7 +7754,7 @@ h2 {
 
 .static-section__title {
   flex: 1;
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.28em;
@@ -7395,7 +7779,7 @@ h2 {
   align-items: center;
   gap: var(--space-3);
   color: var(--text-dim);
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.85rem;
 }
 
@@ -7410,14 +7794,17 @@ h2 {
   border: 1px solid rgba(208, 200, 184, 0.18);
   border-radius: var(--radius-sm);
   color: var(--text-dim);
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.7rem;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   padding: 4px 10px;
   cursor: pointer;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .admin-preset-chip:hover {
@@ -7444,7 +7831,7 @@ h2 {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.7rem;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -7492,7 +7879,7 @@ h2 {
   border-radius: var(--radius-sm);
   color: var(--text);
   padding: var(--space-2) var(--space-3);
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.85rem;
   transition: border-color 0.15s;
 }
@@ -7537,13 +7924,15 @@ h2 {
   border: 1px solid rgba(208, 200, 184, 0.25);
   border-radius: var(--radius-sm);
   color: var(--text-dim);
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.78rem;
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   user-select: none;
-  transition: color 0.15s, border-color 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
 }
 
 .admin-form-toggle::-webkit-details-marker {
@@ -7604,7 +7993,7 @@ details[open] > .admin-form-toggle .admin-form-toggle__caret {
   gap: var(--space-3);
   margin: 0 0 var(--space-4) 0;
   color: var(--accent);
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-size: 1.1rem;
   font-weight: 700;
   letter-spacing: 0.16em;
@@ -7632,7 +8021,7 @@ details[open] > .admin-form-toggle .admin-form-toggle__caret {
   gap: var(--space-2);
   margin: 0 0 var(--space-3) 0;
   color: var(--accent);
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.22em;
@@ -7645,7 +8034,6 @@ details[open] > .admin-form-toggle .admin-form-toggle__caret {
   max-width: 1800px;
   margin: 0 auto;
 }
-
 
 .about-content {
   display: flex;
@@ -7745,7 +8133,9 @@ details[open] > .admin-form-toggle .admin-form-toggle__caret {
   border-radius: var(--radius-md);
   color: var(--text);
   text-decoration: none;
-  transition: border-color 120ms ease, background 120ms ease;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease;
 }
 
 .about-download-item:hover,
@@ -7809,7 +8199,9 @@ details[open] > .admin-form-toggle .admin-form-toggle__caret {
   border: var(--rule-strong);
   border-radius: var(--radius-md);
   overflow: hidden;
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .about-feature:hover {
@@ -7830,7 +8222,9 @@ details[open] > .admin-form-toggle .admin-form-toggle__caret {
   padding-left: calc(var(--space-4) - 3px);
   list-style: none;
   user-select: none;
-  transition: border-left-color 0.15s, background 0.15s;
+  transition:
+    border-left-color 0.15s,
+    background 0.15s;
 }
 
 .about-feature summary {
@@ -7853,7 +8247,7 @@ details[open] > .admin-form-toggle .admin-form-toggle__caret {
 
 /* Same border-chevron pattern as activity-filters-toggle; see notes there. */
 .about-feature summary::before {
-  content: '';
+  content: "";
   display: inline-block;
   width: 6px;
   height: 6px;
@@ -7862,7 +8256,9 @@ details[open] > .admin-form-toggle .admin-form-toggle__caret {
   position: relative;
   top: -1px;
   transform: rotate(45deg);
-  transition: transform 0.15s, border-color 0.15s;
+  transition:
+    transform 0.15s,
+    border-color 0.15s;
   flex-shrink: 0;
 }
 
@@ -7883,7 +8279,7 @@ details[open] > .admin-form-toggle .admin-form-toggle__caret {
 }
 
 .about-feature-cvar {
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.72rem;
   letter-spacing: 0.03em;
   color: var(--text-dim);
@@ -7902,7 +8298,9 @@ details[open] > .admin-form-toggle .admin-form-toggle__caret {
 @media (prefers-reduced-motion: reduce) {
   .about-feature,
   .about-feature summary,
-  .about-feature summary::before { transition: none; }
+  .about-feature summary::before {
+    transition: none;
+  }
 }
 
 .about-feature-content p {
@@ -7953,10 +8351,18 @@ details[open] > .admin-form-toggle .admin-form-toggle__caret {
 /* Channel hues match the in-engine VoIP HUD colors. Slightly
    desaturated from pure Q3 primaries so they read as "indicators"
    rather than "fight palette". */
-.voip-channel-swatch--spatial { background: rgb(255, 255, 51); }
-.voip-channel-swatch--team    { background: rgb(51, 255, 255); }
-.voip-channel-swatch--all     { background: rgb(51, 255, 51); }
-.voip-channel-swatch--direct  { background: rgb(255, 51, 255); }
+.voip-channel-swatch--spatial {
+  background: rgb(255, 255, 51);
+}
+.voip-channel-swatch--team {
+  background: rgb(51, 255, 255);
+}
+.voip-channel-swatch--all {
+  background: rgb(51, 255, 51);
+}
+.voip-channel-swatch--direct {
+  background: rgb(255, 51, 255);
+}
 
 .voip-level-panel {
   margin: 10px 0 14px;
@@ -7979,14 +8385,28 @@ details[open] > .admin-form-toggle .admin-form-toggle__caret {
   font-weight: 500;
   cursor: pointer;
   border-bottom: 2px solid transparent;
-  transition: color 0.15s, border-color 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
 }
-.voip-level-tab:hover { color: var(--text-1); }
-.voip-level-tab--active { color: var(--text-1); }
-.voip-level-tab--active.voip-level-tab--spatial { border-bottom-color: rgb(255, 255, 51); }
-.voip-level-tab--active.voip-level-tab--team    { border-bottom-color: rgb(51, 255, 255); }
-.voip-level-tab--active.voip-level-tab--all     { border-bottom-color: rgb(51, 255, 51); }
-.voip-level-tab--active.voip-level-tab--direct  { border-bottom-color: rgb(255, 51, 255); }
+.voip-level-tab:hover {
+  color: var(--text-1);
+}
+.voip-level-tab--active {
+  color: var(--text-1);
+}
+.voip-level-tab--active.voip-level-tab--spatial {
+  border-bottom-color: rgb(255, 255, 51);
+}
+.voip-level-tab--active.voip-level-tab--team {
+  border-bottom-color: rgb(51, 255, 255);
+}
+.voip-level-tab--active.voip-level-tab--all {
+  border-bottom-color: rgb(51, 255, 51);
+}
+.voip-level-tab--active.voip-level-tab--direct {
+  border-bottom-color: rgb(255, 51, 255);
+}
 .voip-level-strip {
   display: flex;
   gap: 4px;
@@ -8041,7 +8461,9 @@ details[open] > .admin-form-toggle .admin-form-toggle__caret {
   .docs-layout {
     grid-template-columns: 200px minmax(0, 1fr);
   }
-  .docs-layout__right { display: none; }
+  .docs-layout__right {
+    display: none;
+  }
 }
 
 @media (max-width: 900px) {
@@ -8063,7 +8485,7 @@ details[open] > .admin-form-toggle .admin-form-toggle__caret {
 
 /* ── Left rail ─ */
 .docs-toc-rail__title {
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-size: 0.65rem;
   font-weight: 700;
   letter-spacing: 0.32em;
@@ -8082,15 +8504,19 @@ details[open] > .admin-form-toggle .admin-form-toggle__caret {
   flex-direction: column;
 }
 
-.docs-toc-rail__item { display: flex; flex-direction: column; }
+.docs-toc-rail__item {
+  display: flex;
+  flex-direction: column;
+}
 
 .docs-toc-rail__tab {
   /* Asymmetric vertical padding nudges the text down 1px to
      compensate for Cinzel's optical bias — the uppercase cap-height
      region sits slightly above the line-box geometric center, more
      noticeably at this small font size. */
-  padding: calc(var(--space-2) + 1px) var(--space-1) calc(var(--space-2) - 1px) var(--space-3);
-  font-family: 'Cinzel', serif;
+  padding: calc(var(--space-2) + 1px) var(--space-1) calc(var(--space-2) - 1px)
+    var(--space-3);
+  font-family: "Cinzel", serif;
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -8099,10 +8525,14 @@ details[open] > .admin-form-toggle .admin-form-toggle__caret {
   color: var(--text-dim);
   text-decoration: none;
   border-left: 2px solid transparent;
-  transition: color 0.15s, border-color 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
 }
 
-.docs-toc-rail__tab:hover { color: var(--text); }
+.docs-toc-rail__tab:hover {
+  color: var(--text);
+}
 
 .docs-toc-rail__item--active .docs-toc-rail__tab {
   color: var(--accent);
@@ -8111,7 +8541,7 @@ details[open] > .admin-form-toggle .admin-form-toggle__caret {
 
 /* ── Right rail (on this page) ─ */
 .docs-on-this-page__title {
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-size: 0.65rem;
   font-weight: 700;
   letter-spacing: 0.32em;
@@ -8136,23 +8566,31 @@ details[open] > .admin-form-toggle .admin-form-toggle__caret {
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-1) var(--space-2);
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.78rem;
   color: var(--text-dim);
   text-decoration: none;
   border-left: 2px solid transparent;
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s,
+    background 0.15s;
 }
 
-.docs-on-this-page__link:hover { color: var(--text); }
+.docs-on-this-page__link:hover {
+  color: var(--text);
+}
 
 .docs-on-this-page__glyph {
   width: 12px;
   height: 12px;
   flex-shrink: 0;
   opacity: 0.25;
-  transition: opacity 0.18s, transform 0.18s, filter 0.18s;
+  transition:
+    opacity 0.18s,
+    transform 0.18s,
+    filter 0.18s;
 }
 
 .docs-on-this-page__item--active .docs-on-this-page__link {
@@ -8165,13 +8603,15 @@ details[open] > .admin-form-toggle .admin-form-toggle__caret {
   opacity: 1;
   transform: scale(1.15);
   filter: drop-shadow(0 0 4px rgba(255, 110, 60, 0.55))
-          drop-shadow(0 0 1px rgba(255, 110, 60, 0.9));
+    drop-shadow(0 0 1px rgba(255, 110, 60, 0.9));
 }
 
 @media (prefers-reduced-motion: reduce) {
   .docs-on-this-page__glyph,
   .docs-toc-rail__tab,
-  .docs-on-this-page__link { transition: none; }
+  .docs-on-this-page__link {
+    transition: none;
+  }
 }
 
 /* ── Content typography upgrades ─────────────────────────────────── */
@@ -8179,7 +8619,7 @@ h2.docs-h2 {
   display: flex;
   align-items: baseline;
   gap: var(--space-2);
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-size: 1rem;
   font-weight: 700;
   letter-spacing: 0.18em;
@@ -8193,13 +8633,16 @@ h2.docs-h2 {
   scroll-margin-top: var(--space-7);
 }
 
-.docs-h2__text { flex: 1; min-width: 0; }
+.docs-h2__text {
+  flex: 1;
+  min-width: 0;
+}
 
 .docs-h2__anchor {
   background: transparent;
   border: none;
   color: var(--text-dim);
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 1rem;
   letter-spacing: normal;
   text-transform: none;
@@ -8207,11 +8650,16 @@ h2.docs-h2 {
   padding: 2px 8px;
   border-radius: var(--radius-sm);
   opacity: 0;
-  transition: opacity 0.15s, color 0.15s, background 0.15s;
+  transition:
+    opacity 0.15s,
+    color 0.15s,
+    background 0.15s;
 }
 
 h2.docs-h2:hover .docs-h2__anchor,
-h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
+h2.docs-h2:focus-within .docs-h2__anchor {
+  opacity: 1;
+}
 
 .docs-h2__anchor:hover {
   color: rgb(255, 130, 80);
@@ -8251,7 +8699,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 /* Editorial transition from content to navigation — same warm hairline
    that closes drawers/modals so the docs page feels of-a-piece. */
 .docs-prev-next::before {
-  content: '';
+  content: "";
   position: absolute;
   left: 0;
   right: 0;
@@ -8269,7 +8717,9 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   border: var(--rule);
   border-radius: var(--radius-md);
   text-decoration: none;
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .docs-prev-next__link:hover {
@@ -8277,13 +8727,15 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   border-color: rgba(255, 110, 60, 0.4);
 }
 
-.docs-prev-next__link--next { text-align: right; }
+.docs-prev-next__link--next {
+  text-align: right;
+}
 
 .docs-prev-next__direction {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.65rem;
   font-weight: 600;
   letter-spacing: 0.2em;
@@ -8292,7 +8744,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 }
 
 .docs-prev-next__label {
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-size: 0.95rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -8363,7 +8815,9 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   text-decoration: none;
   font-size: 1.1rem;
   line-height: 1;
-  transition: background 0.2s, color 0.2s;
+  transition:
+    background 0.2s,
+    color 0.2s;
 }
 
 .demo-play-btn:hover {
@@ -8458,7 +8912,9 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   padding: 4px 8px;
   border-radius: var(--radius-sm);
   background: rgba(0, 0, 0, 0.5);
-  transition: color 0.2s, background 0.2s;
+  transition:
+    color 0.2s,
+    background 0.2s;
   border: none;
   font: inherit;
   cursor: pointer;
@@ -8534,7 +8990,9 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   border-radius: var(--radius-sm);
   color: rgba(255, 255, 255, 0.6);
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
   padding: 0;
 }
 
@@ -8570,7 +9028,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 }
 
 .ctrl-volume-panel::after {
-  content: '';
+  content: "";
   position: absolute;
   top: 100%;
   left: 0;
@@ -8698,7 +9156,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 }
 
 .ctrl-player-list::after {
-  content: '';
+  content: "";
   position: absolute;
   top: 100%;
   left: 0;
@@ -8733,9 +9191,16 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   font-weight: bold;
 }
 
-.ctrl-player-item.team-1 { border-left: 3px solid #ff4444; }
-.ctrl-player-item.team-2 { border-left: 3px solid #6699ff; }
-.ctrl-player-item.spectator { border-left: 3px solid #9c27b0; opacity: 0.6; }
+.ctrl-player-item.team-1 {
+  border-left: 3px solid #ff4444;
+}
+.ctrl-player-item.team-2 {
+  border-left: 3px solid #6699ff;
+}
+.ctrl-player-item.spectator {
+  border-left: 3px solid #9c27b0;
+  opacity: 0.6;
+}
 
 .ctrl-player-vr-slot {
   width: 16px;
@@ -8756,13 +9221,29 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 }
 
 @media (pointer: coarse) {
-  .ctrl-help-wrap { display: none; }
-  .ctrl-player-wrap:hover .ctrl-player-list { display: none; }
-  .ctrl-player-wrap.open .ctrl-player-list { display: block; }
-  .ctrl-volume-wrap:hover .ctrl-volume-panel { display: none; }
-  .ctrl-volume-wrap.open .ctrl-volume-panel { display: block; }
-  .ctrl-volume-panel { left: auto; right: 0; transform: none; }
-  .ctrl-volume-slider { width: 80px; }
+  .ctrl-help-wrap {
+    display: none;
+  }
+  .ctrl-player-wrap:hover .ctrl-player-list {
+    display: none;
+  }
+  .ctrl-player-wrap.open .ctrl-player-list {
+    display: block;
+  }
+  .ctrl-volume-wrap:hover .ctrl-volume-panel {
+    display: none;
+  }
+  .ctrl-volume-wrap.open .ctrl-volume-panel {
+    display: block;
+  }
+  .ctrl-volume-panel {
+    left: auto;
+    right: 0;
+    transform: none;
+  }
+  .ctrl-volume-slider {
+    width: 80px;
+  }
 }
 
 .demo-move-pad {
@@ -8781,7 +9262,9 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 }
 
 @media (pointer: coarse) {
-  .demo-move-pad { display: grid; }
+  .demo-move-pad {
+    display: grid;
+  }
 }
 
 .move-btn {
@@ -8823,7 +9306,10 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   color: var(--text-dim);
   cursor: pointer;
   padding: 0;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s;
 }
 
 .download-toggle:hover,
@@ -9067,7 +9553,9 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   cursor: pointer;
   font-size: 0.95rem;
   font-family: inherit;
-  transition: border-color 0.15s, color 0.15s;
+  transition:
+    border-color 0.15s,
+    color 0.15s;
 }
 
 .claim-secondary-btn:hover {
@@ -9120,7 +9608,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 
 .link-explanation-text {
   color: var(--text-dim);
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.85rem;
   line-height: 1.5;
   margin: 0 0 var(--space-2) 0;
@@ -9321,7 +9809,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 .admin-sources h2 {
   margin: 0 0 var(--space-3) 0;
   color: var(--accent);
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-size: 0.95rem;
   font-weight: 700;
   letter-spacing: 0.18em;
@@ -9352,13 +9840,16 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.78rem;
   font-weight: 500;
   letter-spacing: 0.04em;
   line-height: 1.4;
   text-align: center;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
 }
 
 .admin-btn-danger:hover:not(:disabled) {
@@ -9383,11 +9874,14 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.78rem;
   font-weight: 500;
   letter-spacing: 0.04em;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
 }
 
 .admin-btn-warn:hover:not(:disabled) {
@@ -9408,7 +9902,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   display: inline-block;
   padding: 2px 8px;
   border-radius: var(--radius-sm);
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.7rem;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -9448,7 +9942,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);
   margin-bottom: var(--space-3);
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.85rem;
 }
 
@@ -9718,7 +10212,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   background: rgba(233, 69, 96, 0.08);
   border: 1px solid rgba(233, 69, 96, 0.4);
   color: rgb(240, 130, 145);
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.85rem;
 }
 
@@ -9739,7 +10233,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
    the health-badge vocabulary so the two read as one family. */
 .admin-audit-action {
   display: inline-block;
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.7rem;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -9824,7 +10318,9 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   color: var(--accent);
   text-decoration: none;
   font-weight: 500;
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
 .eula-download-btn:hover {
   background: rgba(255, 255, 255, 0.14);
@@ -9850,8 +10346,12 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   align-items: center;
   padding: 22px 36px 0;
 }
-.hero__header > :first-child { justify-self: start; }
-.hero__header > :last-child { justify-self: end; }
+.hero__header > :first-child {
+  justify-self: start;
+}
+.hero__header > :last-child {
+  justify-self: end;
+}
 
 .hero__brand {
   display: flex;
@@ -9865,27 +10365,28 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   height: 56px;
   width: auto;
   flex-shrink: 0;
-  filter:
-    drop-shadow(0 0 14px rgba(255, 110, 60, 0.4))
+  filter: drop-shadow(0 0 14px rgba(255, 110, 60, 0.4))
     drop-shadow(0 0 4px rgba(255, 110, 60, 0.7));
 }
 .hero__brand-title {
   position: relative;
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-weight: 700;
   font-size: 28px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--accent);
   line-height: 1;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6), 0 0 12px rgba(0, 0, 0, 0.4);
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.6),
+    0 0 12px rgba(0, 0, 0, 0.4);
 }
 .hero__brand-wordmark {
   position: absolute;
   top: calc(100% - 0.2em);
   left: 50%;
   transform: translateX(-50%);
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 0.6rem;
   font-weight: 500;
   letter-spacing: 0.45em;
@@ -9907,8 +10408,14 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   font-weight: 500;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
-.hero__nav a { color: inherit; text-decoration: none; transition: color 0.2s ease; }
-.hero__nav a:hover { color: var(--text); }
+.hero__nav a {
+  color: inherit;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+.hero__nav a:hover {
+  color: var(--text);
+}
 
 .hero__pill {
   display: flex;
@@ -9928,7 +10435,8 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   white-space: nowrap;
 }
 .hero__pill .dot {
-  width: 7px; height: 7px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: var(--ember-strong);
   box-shadow: 0 0 8px var(--ember-strong);
@@ -9936,14 +10444,18 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 }
 /* Quiet state: dim the dot and drop its glow so the pill reads as "still on,
    but nothing happening." The label text itself dims too, mirroring StatusPill. */
-.hero__pill.quiet { color: var(--text-dim); }
+.hero__pill.quiet {
+  color: var(--text-dim);
+}
 .hero__pill.quiet .dot {
   background: var(--text-dim);
   box-shadow: none;
 }
 
 /* Offline: hub feed lost. No pulse, slightly dimmer dot — mirrors StatusPill. */
-.hero__pill.offline { color: var(--text-dim); }
+.hero__pill.offline {
+  color: var(--text-dim);
+}
 .hero__pill.offline .dot {
   background: var(--text-dim);
   box-shadow: none;
@@ -9979,7 +10491,10 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
     row-gap: 14px;
     padding: 16px 20px 0;
   }
-  .hero__brand { grid-column: 1; grid-row: 1; }
+  .hero__brand {
+    grid-column: 1;
+    grid-row: 1;
+  }
   .hero__pill {
     grid-column: 2;
     grid-row: 1;
@@ -9992,9 +10507,15 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
     overflow-x: auto;
     scrollbar-width: none;
   }
-  .hero__nav::-webkit-scrollbar { display: none; }
-  .hero__brand-logo { height: 44px; }
-  .hero__brand-title { font-size: 22px; }
+  .hero__nav::-webkit-scrollbar {
+    display: none;
+  }
+  .hero__brand-logo {
+    height: 44px;
+  }
+  .hero__brand-title {
+    font-size: 22px;
+  }
 }
 
 /* ── Landing hero ──────────────────────────────────────── */
@@ -10023,18 +10544,22 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
      the Mach band a single linear ramp produces over photographic
      content. Anchored to the wrapper, not the inner <img>, so the
      Ken-Burns scale doesn't drift the stops. */
-  -webkit-mask-image:
-    linear-gradient(to bottom,
-      #000 0%, #000 55%,
-      rgba(0, 0, 0, 0.75) 80%,
-      rgba(0, 0, 0, 0.25) 93%,
-      transparent 100%);
-          mask-image:
-    linear-gradient(to bottom,
-      #000 0%, #000 55%,
-      rgba(0, 0, 0, 0.75) 80%,
-      rgba(0, 0, 0, 0.25) 93%,
-      transparent 100%);
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 0%,
+    #000 55%,
+    rgba(0, 0, 0, 0.75) 80%,
+    rgba(0, 0, 0, 0.25) 93%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    #000 0%,
+    #000 55%,
+    rgba(0, 0, 0, 0.75) 80%,
+    rgba(0, 0, 0, 0.25) 93%,
+    transparent 100%
+  );
 }
 .landing-hero__bg img {
   width: 100%;
@@ -10043,7 +10568,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   object-position: center 38%;
 }
 .landing-hero::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   z-index: -1;
@@ -10051,7 +10576,11 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
      wallpaper mask above; adding a dark stop here would re-introduce
      the linear-ramp seam over a wallpaper that's already gone. */
   background:
-    radial-gradient(ellipse 80% 70% at 50% 30%, transparent 0%, rgba(10, 10, 10, 0.35) 100%),
+    radial-gradient(
+      ellipse 80% 70% at 50% 30%,
+      transparent 0%,
+      rgba(10, 10, 10, 0.35) 100%
+    ),
     linear-gradient(180deg, rgba(10, 10, 10, 0.55) 0%, rgba(10, 10, 10, 0) 18%);
 }
 .landing-hero__main {
@@ -10070,7 +10599,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   align-items: center;
   justify-content: center;
   gap: 18px;
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-size: 12px;
   letter-spacing: 0.5em;
   color: var(--ember-light);
@@ -10092,7 +10621,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   background: linear-gradient(90deg, var(--ember-light), transparent);
 }
 .landing-hero__headline {
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-weight: 700;
   font-size: clamp(38px, 6.6vw, 96px);
   letter-spacing: 0.18em;
@@ -10103,7 +10632,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   margin-bottom: 18px;
 }
 .landing-hero__subhead {
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-style: italic;
   font-weight: 400;
   font-size: clamp(15px, 1.5vw, 19px);
@@ -10114,7 +10643,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
 }
 .landing-hero__pulse {
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-weight: 500;
   font-size: 14px;
   letter-spacing: 0.2em;
@@ -10139,8 +10668,15 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   animation: landing-hero-pulse 1.6s ease-in-out infinite;
 }
 @keyframes landing-hero-pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50%      { opacity: 0.55; transform: scale(0.9); }
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.9);
+  }
 }
 .landing-hero__pulse-line2 {
   font-size: 11px;
@@ -10153,7 +10689,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   gap: 28px;
 }
 .landing-cta-primary {
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-weight: 700;
   font-size: 13px;
   letter-spacing: 0.32em;
@@ -10162,19 +10698,29 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   padding: 16px 32px;
   text-decoration: none;
   border: 1px solid var(--ember-strong);
-  background: linear-gradient(180deg, rgba(255, 110, 60, 0.12), rgba(255, 110, 60, 0.04));
+  background: linear-gradient(
+    180deg,
+    rgba(255, 110, 60, 0.12),
+    rgba(255, 110, 60, 0.04)
+  );
   transition: all 0.3s ease;
 }
 .landing-cta-primary:hover {
-  background: linear-gradient(180deg, rgba(255, 110, 60, 0.22), rgba(255, 110, 60, 0.08));
+  background: linear-gradient(
+    180deg,
+    rgba(255, 110, 60, 0.22),
+    rgba(255, 110, 60, 0.08)
+  );
   color: #fff;
-  box-shadow: 0 0 0 1px rgba(255, 110, 60, 0.5), 0 0 40px rgba(255, 110, 60, 0.3);
+  box-shadow:
+    0 0 0 1px rgba(255, 110, 60, 0.5),
+    0 0 40px rgba(255, 110, 60, 0.3);
 }
 .landing-cta-secondary {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-weight: 500;
   font-size: 13px;
   letter-spacing: 0.2em;
@@ -10205,7 +10751,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
      value keeps spacing identical to the prior text-glyph version. */
   display: inline-flex;
   align-items: center;
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 10px;
   letter-spacing: 0.4em;
   text-transform: uppercase;
@@ -10214,8 +10760,13 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 }
 
 @media (max-width: 720px) {
-  .landing-hero__main { padding: 40px 16px 80px; }
-  .landing-hero__cta-row { flex-direction: column; gap: 16px; }
+  .landing-hero__main {
+    padding: 40px 16px 80px;
+  }
+  .landing-hero__cta-row {
+    flex-direction: column;
+    gap: 16px;
+  }
   /* "WELCOME BACK TO" is 15 chars with non-breaking spaces — it can't
      wrap, so it has to fit on one line at every iPhone width. Bring
      the clamp ceiling down to ~28 and drop the optical-centering
@@ -10232,7 +10783,9 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
     margin-bottom: 24px;
     gap: 12px;
   }
-  .landing-hero__rule { width: 32px; }
+  .landing-hero__rule {
+    width: 32px;
+  }
 }
 
 /* Slow Ken-Burns zoom on the wallpaper. Frozen for users who set
@@ -10242,18 +10795,24 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   will-change: transform;
 }
 @keyframes landing-kenburns {
-  from { transform: scale(1.0); }
-  to   { transform: scale(1.05); }
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.05);
+  }
 }
 @media (prefers-reduced-motion: reduce) {
-  .landing-hero__bg img { animation: none; }
+  .landing-hero__bg img {
+    animation: none;
+  }
 }
 
 /* SVG-noise grain overlay for tactile texture. Cheap (single CSS gradient).
    Masked with the same curve as the wallpaper so the grain stops being
    contributed where the image is no longer there — no asymmetric seam. */
 .landing-hero::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   z-index: 0;
@@ -10261,24 +10820,34 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   opacity: 0.07;
   mix-blend-mode: overlay;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.45 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
-  -webkit-mask-image:
-    linear-gradient(to bottom,
-      #000 0%, #000 55%,
-      rgba(0, 0, 0, 0.75) 80%,
-      rgba(0, 0, 0, 0.25) 93%,
-      transparent 100%);
-          mask-image:
-    linear-gradient(to bottom,
-      #000 0%, #000 55%,
-      rgba(0, 0, 0, 0.75) 80%,
-      rgba(0, 0, 0, 0.25) 93%,
-      transparent 100%);
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 0%,
+    #000 55%,
+    rgba(0, 0, 0, 0.75) 80%,
+    rgba(0, 0, 0, 0.25) 93%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    #000 0%,
+    #000 55%,
+    rgba(0, 0, 0, 0.75) 80%,
+    rgba(0, 0, 0, 0.25) 93%,
+    transparent 100%
+  );
 }
 
 /* Type-stack rise on load. Stagger via animation-delay; gated by reduced-motion. */
 @keyframes landing-rise {
-  from { opacity: 0; transform: translateY(12px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 .landing-hero__kicker,
 .landing-hero__headline,
@@ -10289,12 +10858,24 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   opacity: 0;
   animation: landing-rise 1s ease-out forwards;
 }
-.landing-hero__kicker { animation-delay: 0.2s; }
-.landing-hero__headline { animation-delay: 0.4s; }
-.landing-hero__subhead { animation-delay: 0.6s; }
-.landing-hero__pulse { animation-delay: 0.8s; }
-.landing-hero__cta-row { animation-delay: 1.0s; }
-.landing-hero__scroll-hint { animation-delay: 1.4s; }
+.landing-hero__kicker {
+  animation-delay: 0.2s;
+}
+.landing-hero__headline {
+  animation-delay: 0.4s;
+}
+.landing-hero__subhead {
+  animation-delay: 0.6s;
+}
+.landing-hero__pulse {
+  animation-delay: 0.8s;
+}
+.landing-hero__cta-row {
+  animation-delay: 1s;
+}
+.landing-hero__scroll-hint {
+  animation-delay: 1.4s;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .landing-hero__kicker,
@@ -10310,14 +10891,24 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 
 /* Scroll-hint hover bobbing (separate animation; also gated). */
 .landing-hero__scroll-hint {
-  animation: landing-rise 1s 1.4s ease-out forwards, landing-hover 2.5s 1.4s ease-in-out infinite;
+  animation:
+    landing-rise 1s 1.4s ease-out forwards,
+    landing-hover 2.5s 1.4s ease-in-out infinite;
 }
 @keyframes landing-hover {
-  0%, 100% { transform: translate(-50%, 0); }
-  50% { transform: translate(-50%, 4px); }
+  0%,
+  100% {
+    transform: translate(-50%, 0);
+  }
+  50% {
+    transform: translate(-50%, 4px);
+  }
 }
 @media (prefers-reduced-motion: reduce) {
-  .landing-hero__scroll-hint { animation: none; transform: translateX(-50%); }
+  .landing-hero__scroll-hint {
+    animation: none;
+    transform: translateX(-50%);
+  }
 }
 
 /* Wallpaper download trigger + hover popup, bottom-right of hero. */
@@ -10328,7 +10919,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   bottom: calc(22px + env(safe-area-inset-bottom, 0px));
   right: 28px;
   z-index: 2;
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
 }
 .landing-hero__wallpaper-trigger {
   display: inline-block;
@@ -10339,7 +10930,9 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
   padding: 8px 0;
   border-bottom: 1px dotted rgba(255, 248, 240, 0.25);
-  transition: color 0.2s ease, border-bottom-color 0.2s ease;
+  transition:
+    color 0.2s ease,
+    border-bottom-color 0.2s ease;
 }
 .landing-hero__wallpaper:hover .landing-hero__wallpaper-trigger,
 .landing-hero__wallpaper:focus-within .landing-hero__wallpaper-trigger {
@@ -10378,7 +10971,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
     visibility 0s linear 0s;
 }
 .landing-hero__wallpaper-popup-label {
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.32em;
@@ -10390,9 +10983,11 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   border-bottom: 1px solid rgba(255, 248, 240, 0.08);
 }
 .landing-hero__wallpaper-popup-label::after {
-  content: '';
+  content: "";
   position: absolute;
-  bottom: -1px; left: 0; right: 0;
+  bottom: -1px;
+  left: 0;
+  right: 0;
   height: 1px;
   background: linear-gradient(to right, rgba(255, 110, 60, 0.5), transparent);
 }
@@ -10411,9 +11006,11 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 .landing-hero__wallpaper-link + .landing-hero__wallpaper-link {
   border-top: 1px dashed rgba(255, 248, 240, 0.06);
 }
-.landing-hero__wallpaper-link:hover { color: var(--ember-light); }
+.landing-hero__wallpaper-link:hover {
+  color: var(--ember-light);
+}
 .landing-hero__wallpaper-link-meta {
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-weight: 400;
   font-size: 10px;
   letter-spacing: 0.22em;
@@ -10454,7 +11051,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   justify-content: center;
   gap: 18px;
   margin-bottom: 48px;
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-size: 14px;
   color: var(--ember-strong);
   letter-spacing: 0.4em;
@@ -10470,7 +11067,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   background: linear-gradient(90deg, var(--ember-strong), transparent);
 }
 .landing-about__prose {
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   text-align: left;
 }
 .landing-about__prose p {
@@ -10479,14 +11076,18 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   color: var(--text);
   letter-spacing: 0.02em;
 }
-.landing-about__prose p + p { margin-top: 24px; }
+.landing-about__prose p + p {
+  margin-top: 24px;
+}
 .landing-about__prose p:last-child {
   color: var(--text-dim);
   font-size: 16px;
 }
 
 @media (max-width: 720px) {
-  .landing-about { padding: 72px 20px 60px; }
+  .landing-about {
+    padding: 72px 20px 60px;
+  }
 }
 
 /* Section header pattern shared by Active Now / Recent Matches / Top Players. */
@@ -10500,20 +11101,23 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   position: relative;
 }
 .landing-section__head::after {
-  content: '';
+  content: "";
   position: absolute;
   bottom: -1px;
-  left: 0; right: 0;
+  left: 0;
+  right: 0;
   height: 1px;
-  background: linear-gradient(to right,
+  background: linear-gradient(
+    to right,
     transparent 0%,
     rgba(255, 110, 60, 0.3) 20%,
     rgba(255, 110, 60, 0.5) 50%,
     rgba(255, 110, 60, 0.3) 80%,
-    transparent 100%);
+    transparent 100%
+  );
 }
 .landing-section__title {
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-weight: 700;
   font-size: clamp(22px, 2.4vw, 30px);
   letter-spacing: 0.16em;
@@ -10554,7 +11158,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 }
 .landing-quiet__title {
   margin: 4px 0 0;
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-weight: 700;
   font-size: 14px;
   letter-spacing: 0.32em;
@@ -10562,7 +11166,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 }
 .landing-quiet__sub {
   margin: 0;
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 12px;
   letter-spacing: 0.04em;
   color: var(--text-dim);
@@ -10571,7 +11175,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-weight: 500;
   font-size: 11px;
   letter-spacing: 0.3em;
@@ -10581,7 +11185,9 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   border-bottom: 1px solid rgba(208, 200, 184, 0.2);
   padding-bottom: 2px;
   margin-top: 6px;
-  transition: color 0.15s, border-color 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
 }
 .landing-quiet__cta:hover {
   color: var(--accent);
@@ -10591,7 +11197,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-weight: 500;
   font-size: 11px;
   letter-spacing: 0.3em;
@@ -10600,7 +11206,9 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   text-decoration: none;
   border-bottom: 1px solid transparent;
   padding-bottom: 2px;
-  transition: color 0.2s ease, border-color 0.2s ease;
+  transition:
+    color 0.2s ease,
+    border-color 0.2s ease;
 }
 .landing-section__cta:hover {
   color: var(--ember-light);
@@ -10645,13 +11253,34 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   padding-right: 36px;
   scroll-padding-left: 36px;
   scroll-padding-right: 36px;
-  -webkit-mask-image: linear-gradient(to right, transparent 0, black 36px, black calc(100% - 36px), transparent 100%);
-          mask-image: linear-gradient(to right, transparent 0, black 36px, black calc(100% - 36px), transparent 100%);
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    black 36px,
+    black calc(100% - 36px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    black 36px,
+    black calc(100% - 36px),
+    transparent 100%
+  );
 }
-.landing-shelf-h__scroll::-webkit-scrollbar { height: 6px; }
-.landing-shelf-h__scroll::-webkit-scrollbar-track { background: transparent; }
-.landing-shelf-h__scroll::-webkit-scrollbar-thumb { background: rgba(255, 110, 60, 0.25); border-radius: var(--radius-sm); }
-.landing-shelf-h__scroll::-webkit-scrollbar-thumb:hover { background: rgba(255, 110, 60, 0.5); }
+.landing-shelf-h__scroll::-webkit-scrollbar {
+  height: 6px;
+}
+.landing-shelf-h__scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.landing-shelf-h__scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 110, 60, 0.25);
+  border-radius: var(--radius-sm);
+}
+.landing-shelf-h__scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 110, 60, 0.5);
+}
 .landing-shelf-h__slot {
   flex: 0 0 380px;
   scroll-snap-align: start;
@@ -10660,8 +11289,12 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 /* NavScroller chevrons inside a landing shelf — sit just inside the
    shelf wrapper's edge (which is the screen edge on full-bleed). The
    mask lives on the inner scroll container so chevrons aren't faded. */
-.landing-shelf-h .nav-scroller__edge--left  { left: 8px; }
-.landing-shelf-h .nav-scroller__edge--right { right: 8px; }
+.landing-shelf-h .nav-scroller__edge--left {
+  left: 8px;
+}
+.landing-shelf-h .nav-scroller__edge--right {
+  right: 8px;
+}
 
 /* Mobile: section padding tightens 36 → 20px (matches landing-about)
    for the prose. Same shelf pattern as desktop, but with 20px values
@@ -10683,8 +11316,20 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
     padding-right: 20px;
     scroll-padding-left: 20px;
     scroll-padding-right: 20px;
-    -webkit-mask-image: linear-gradient(to right, transparent 0, black 20px, black calc(100% - 20px), transparent 100%);
-            mask-image: linear-gradient(to right, transparent 0, black 20px, black calc(100% - 20px), transparent 100%);
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      black 20px,
+      black calc(100% - 20px),
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      black 20px,
+      black calc(100% - 20px),
+      transparent 100%
+    );
   }
   .landing-shelf-h__slot {
     flex-basis: calc(100vw - 40px);
@@ -10712,7 +11357,9 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   text-align: center;
   text-decoration: none;
   color: inherit;
-  transition: border-color 0.25s ease, transform 0.25s ease;
+  transition:
+    border-color 0.25s ease,
+    transform 0.25s ease;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -10727,13 +11374,15 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   position: absolute;
   top: 10px;
   left: 12px;
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-weight: 700;
   font-size: 11px;
   letter-spacing: 0.2em;
   color: var(--text-dim);
 }
-.landing-player-card__rank.top { color: var(--ember-light); }
+.landing-player-card__rank.top {
+  color: var(--ember-light);
+}
 .landing-player-card__avatar {
   width: 64px;
   height: 64px;
@@ -10742,7 +11391,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   display: grid;
   place-items: center;
   border: 1px solid rgba(255, 110, 60, 0.18);
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-weight: 700;
   font-size: 22px;
   color: var(--text);
@@ -10768,7 +11417,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   box-shadow: 0 0 14px rgba(255, 110, 60, 0.25);
 }
 .landing-player-card__name {
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-weight: 700;
   font-size: 14px;
   color: var(--text);
@@ -10779,7 +11428,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   max-width: 100%;
 }
 .landing-player-card__stat {
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-weight: 700;
   font-size: 26px;
   color: var(--accent);
@@ -10787,9 +11436,11 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
-.landing-player-card.top .landing-player-card__stat { color: var(--ember-light); }
+.landing-player-card.top .landing-player-card__stat {
+  color: var(--ember-light);
+}
 .landing-player-card__stat-label {
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-weight: 500;
   font-size: 10px;
   letter-spacing: 0.32em;
@@ -10802,17 +11453,20 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   position: relative;
 }
 .landing-doors::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
-  left: 0; right: 0;
+  left: 0;
+  right: 0;
   height: 1px;
-  background: linear-gradient(to right,
+  background: linear-gradient(
+    to right,
     transparent 0%,
     rgba(255, 110, 60, 0.3) 20%,
     rgba(255, 110, 60, 0.5) 50%,
     rgba(255, 110, 60, 0.3) 80%,
-    transparent 100%);
+    transparent 100%
+  );
 }
 .landing-doors__grid {
   display: grid;
@@ -10829,16 +11483,23 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   border-radius: var(--radius-sm);
   text-decoration: none;
   color: inherit;
-  transition: border-color 0.25s ease, transform 0.25s ease, background 0.25s ease;
+  transition:
+    border-color 0.25s ease,
+    transform 0.25s ease,
+    background 0.25s ease;
   position: relative;
   overflow: hidden;
   min-height: 180px;
 }
 .landing-door::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse at bottom right, rgba(255, 110, 60, 0.12), transparent 65%);
+  background: radial-gradient(
+    ellipse at bottom right,
+    rgba(255, 110, 60, 0.12),
+    transparent 65%
+  );
   opacity: 0;
   transition: opacity 0.3s ease;
   pointer-events: none;
@@ -10848,9 +11509,11 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   transform: translateY(-2px);
   background: rgba(28, 22, 18, 0.65);
 }
-.landing-door:hover::before { opacity: 1; }
+.landing-door:hover::before {
+  opacity: 1;
+}
 .landing-door__title {
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-weight: 700;
   font-size: 22px;
   letter-spacing: 0.14em;
@@ -10859,7 +11522,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   margin: 0 0 4px;
 }
 .landing-door__desc {
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 14px;
   color: var(--text-dim);
   letter-spacing: 0.04em;
@@ -10867,7 +11530,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   flex-grow: 1;
 }
 .landing-door__arrow {
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-weight: 600;
   font-size: 11px;
   letter-spacing: 0.32em;
@@ -10883,8 +11546,12 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 .landing-door__arrow svg {
   transition: transform 0.25s ease;
 }
-.landing-door:hover .landing-door__arrow { color: var(--ember-light); }
-.landing-door:hover .landing-door__arrow svg { transform: translateX(4px); }
+.landing-door:hover .landing-door__arrow {
+  color: var(--ember-light);
+}
+.landing-door:hover .landing-door__arrow svg {
+  transform: translateX(4px);
+}
 
 /* Ember-shifted in-game glyph, anchored bottom-right. Echoes the
    .stat-item-bg-icon "medal whisper" — same -20° rotation, scaled to
@@ -10904,18 +11571,34 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   transition: opacity 0.3s ease;
   z-index: 0;
 }
-.landing-door::before { z-index: 1; }
+.landing-door::before {
+  z-index: 1;
+}
 .landing-door__title,
 .landing-door__desc,
-.landing-door__arrow { position: relative; z-index: 2; }
+.landing-door__arrow {
+  position: relative;
+  z-index: 2;
+}
 /* Hover delta stays constant (+0.10) regardless of per-glyph base
    so the "catches fire" feel is the same across all doors. */
-.landing-door:hover .landing-door__glyph { opacity: calc(var(--glyph-opacity, 0.22) + 0.10); }
+.landing-door:hover .landing-door__glyph {
+  opacity: calc(var(--glyph-opacity, 0.22) + 0.1);
+}
 
 @media (max-width: 720px) {
-  .landing-doors { padding: 56px 20px 80px; }
-  .landing-doors__grid { grid-template-columns: 1fr; }
-  .landing-door__glyph { width: 160px; height: 160px; bottom: -16px; right: -16px; }
+  .landing-doors {
+    padding: 56px 20px 80px;
+  }
+  .landing-doors__grid {
+    grid-template-columns: 1fr;
+  }
+  .landing-door__glyph {
+    width: 160px;
+    height: 160px;
+    bottom: -16px;
+    right: -16px;
+  }
 }
 
 /* ── Rich chip — compound identifier ───────────────────── */
@@ -10927,7 +11610,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-weight: 600;
   font-size: 10px;
   letter-spacing: 0.22em;
@@ -10940,10 +11623,22 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   white-space: nowrap;
   max-width: 100%;
 }
-.rich-chip__source { color: var(--text-dim); font-weight: 500; }
-.rich-chip__sep { color: rgba(255, 248, 240, 0.25); font-weight: 400; }
-.rich-chip__server { color: var(--accent); }
-.rich-chip__extras { display: inline-flex; align-items: center; gap: 6px; }
+.rich-chip__source {
+  color: var(--text-dim);
+  font-weight: 500;
+}
+.rich-chip__sep {
+  color: rgba(255, 248, 240, 0.25);
+  font-weight: 400;
+}
+.rich-chip__server {
+  color: var(--accent);
+}
+.rich-chip__extras {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
 
 /* Mode icons nested inside the chip drop their outer margin and tighten
    the gap so the M/G letter labels and their icon thumbnails read as a
@@ -10955,22 +11650,35 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 
 /* ── Scoreboard (team) and Duelists (1v1) — share styles ─ */
 .scoreboard {
-  position: relative;  /* anchor for the absolutely-positioned 1FCTF `vs` */
+  position: relative; /* anchor for the absolutely-positioned 1FCTF `vs` */
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: 12px;
   margin-bottom: 14px;
 }
-.scoreboard__side { display: flex; flex-direction: column; align-items: center; gap: 2px; position: relative; }
-.scoreboard__label {
-  font-family: 'Barlow', sans-serif; font-weight: 500; font-size: 10px;
-  letter-spacing: 0.25em; text-transform: uppercase;
+.scoreboard__side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  position: relative;
 }
-.scoreboard__label.red { color: var(--red); }
+.scoreboard__label {
+  font-family: "Barlow", sans-serif;
+  font-weight: 500;
+  font-size: 10px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+}
+.scoreboard__label.red {
+  color: var(--red);
+}
 /* Drives off --blue so a single token controls every team-blue surface
    (player-row score, team-row border, this label). */
-.scoreboard__label.blue { color: var(--blue); }
+.scoreboard__label.blue {
+  color: var(--blue);
+}
 /* Score sits in a 3-column grid so it's always centered under the
    team label — the optional flag indicator lives in one of the
    flanking 1fr tracks without nudging the score off-center. */
@@ -10981,7 +11689,10 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   width: 100%;
   line-height: 1;
 }
-.scoreboard__score-line > .scoreboard__score { grid-column: 2; justify-self: center; }
+.scoreboard__score-line > .scoreboard__score {
+  grid-column: 2;
+  justify-self: center;
+}
 /* `relative` + `stretch`: anchor + full-row height for the
    absolutely-positioned obelisk HP bar (see .obelisk-hp). */
 .scoreboard__indicator {
@@ -11012,11 +11723,17 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   margin-right: 8px;
 }
 .scoreboard__score {
-  font-family: 'Cinzel', serif; font-weight: 700; font-size: 32px;
-  color: var(--accent); letter-spacing: 0.04em; line-height: 1;
+  font-family: "Cinzel", serif;
+  font-weight: 700;
+  font-size: 32px;
+  color: var(--accent);
+  letter-spacing: 0.04em;
+  line-height: 1;
   font-variant-numeric: tabular-nums;
 }
-.scoreboard__score.loser { color: var(--text-dim); }
+.scoreboard__score.loser {
+  color: var(--text-dim);
+}
 .scoreboard__score.winner {
   color: #facc15;
   text-shadow: 0 0 12px rgba(250, 204, 21, 0.35);
@@ -11049,7 +11766,10 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   left: 50%;
   transform: translateX(-50%);
 }
-.scoreboard__center-indicator { display: inline-flex; align-items: center; }
+.scoreboard__center-indicator {
+  display: inline-flex;
+  align-items: center;
+}
 /* 1FCTF neutral flag drifts toward whichever side currently carries
    it. Translate is on the .flag-indicator wrapper so the icon and
    any future siblings move together. */
@@ -11063,8 +11783,11 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   transform: translateX(60px);
 }
 .scoreboard__vs {
-  font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: 0.3em;
-  color: var(--ember-light); text-transform: uppercase;
+  font-family: "Cinzel", serif;
+  font-size: 12px;
+  letter-spacing: 0.3em;
+  color: var(--ember-light);
+  text-transform: uppercase;
   /* inline-flex keeps the ember rules + text on one line in narrow
      containers (default `inline` would let inline content wrap inside
      a tight grid track). */
@@ -11077,7 +11800,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
    block treatment without rules (already visually heavier). */
 .scoreboard__vs:not(:has(.scoreboard__state))::before,
 .scoreboard__vs:not(:has(.scoreboard__state))::after {
-  content: '';
+  content: "";
   display: inline-block;
   width: 14px;
   height: 1px;
@@ -11094,7 +11817,10 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 .scoreboard__vs:not(:has(.scoreboard__state))::after {
   margin-left: calc(6px - 0.3em);
 }
-.scoreboard__state.tie { color: var(--ember-light); letter-spacing: 0.4em; }
+.scoreboard__state.tie {
+  color: var(--ember-light);
+  letter-spacing: 0.4em;
+}
 .scoreboard__state.nc {
   display: inline-block;
   text-align: center;
@@ -11108,7 +11834,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
    inline scoreboard__state label that no longer fits between the
    sized-up duelist columns. */
 .duelists-state {
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-weight: 700;
   font-size: 11px;
   letter-spacing: 0.4em;
@@ -11116,8 +11842,12 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   text-transform: uppercase;
   margin: 6px 0 -2px;
 }
-.duelists-state.tie { color: var(--ember-light); }
-.duelists-state.nc { color: var(--text-dim); }
+.duelists-state.tie {
+  color: var(--ember-light);
+}
+.duelists-state.nc {
+  color: var(--text-dim);
+}
 
 /* 1v1 cards have only two players, so the body has more vertical and
    horizontal room than FFA/team. Sized up: bigger portraits + score
@@ -11143,19 +11873,34 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   top: 50%;
   transform: translateY(-50%);
   left: calc(100% + 10px); /* just outside right edge of left portrait */
-  display: flex; flex-direction: column; gap: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
 }
 .duelist-awards.right {
   left: auto;
   right: calc(100% + 10px); /* mirror onto inner edge of right portrait */
 }
-.duelist-awards .medal-icon { margin: 0; }
-.duelist-awards .medal-icon-sm img { width: 18px; height: 18px; }
+.duelist-awards .medal-icon {
+  margin: 0;
+}
+.duelist-awards .medal-icon-sm img {
+  width: 18px;
+  height: 18px;
+}
 /* Legacy stub-mockup color hooks — production uses MedalIcon imgs. */
-.medal-excellent { color: #facc15; }
-.medal-impressive { color: rgba(255, 248, 240, 0.7); }
-.medal-humiliation { color: var(--red); }
-.medal-gauntlet { color: var(--ember-strong); }
+.medal-excellent {
+  color: #facc15;
+}
+.medal-impressive {
+  color: rgba(255, 248, 240, 0.7);
+}
+.medal-humiliation {
+  color: var(--red);
+}
+.medal-gauntlet {
+  color: var(--ember-strong);
+}
 
 /* Push the duelist portraits apart by widening the VS auto-track —
    the ember rules need horizontal breathing room and the unscoped
@@ -11164,13 +11909,20 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 .duelists .scoreboard__vs {
   margin: 0 8px;
 }
-.duelist { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.duelist {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
 .duelist__portrait-wrap {
   position: relative;
-  width: 88px; height: 88px;
+  width: 88px;
+  height: 88px;
   border-radius: 50%;
   background: linear-gradient(135deg, #2a1f1a, #0a0808);
-  display: grid; place-items: center;
+  display: grid;
+  place-items: center;
   border: 1px solid rgba(255, 248, 240, 0.1);
   overflow: visible; /* badge overflows */
 }
@@ -11201,27 +11953,43 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   box-shadow: 0 0 14px rgba(250, 204, 21, 0.35);
 }
 .duelist__name {
-  font-family: 'Barlow', sans-serif; font-weight: 700; font-size: 15px;
-  color: var(--text); letter-spacing: 0.04em;
+  font-family: "Barlow", sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text);
+  letter-spacing: 0.04em;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.duelist__name.dim { color: var(--text-dim); }
-.duelist__score {
-  font-family: 'Cinzel', serif; font-weight: 700; font-size: 38px;
-  color: var(--accent); line-height: 1; letter-spacing: 0.04em; font-variant-numeric: tabular-nums;
+.duelist__name.dim {
+  color: var(--text-dim);
 }
-.duelist__score.loser { color: var(--text-dim); }
+.duelist__score {
+  font-family: "Cinzel", serif;
+  font-weight: 700;
+  font-size: 38px;
+  color: var(--accent);
+  line-height: 1;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+.duelist__score.loser {
+  color: var(--text-dim);
+}
 .duelist__score.winner {
   color: #facc15;
   text-shadow: 0 0 12px rgba(250, 204, 21, 0.35);
 }
 .duelist__sub {
-  font-family: 'Barlow', sans-serif; font-size: 11px;
-  letter-spacing: 0.16em; color: var(--text-dim); text-transform: uppercase;
-  display: flex; gap: 8px;
+  font-family: "Barlow", sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  display: flex;
+  gap: 8px;
 }
 
 /* ── FFA hero strip ─────────────────────────────────────── */
@@ -11254,14 +12022,23 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 }
 .ffa-hero__name {
   grid-area: name;
-  font-family: 'Cinzel', serif; font-weight: 600; font-size: 20px;
-  letter-spacing: 0.04em; line-height: 1.15;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: "Cinzel", serif;
+  font-weight: 600;
+  font-size: 20px;
+  letter-spacing: 0.04em;
+  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .ffa-hero__score {
   grid-area: score;
-  font-family: 'Cinzel', serif; font-weight: 700; font-size: 38px;
-  color: var(--accent); line-height: 1; letter-spacing: 0.04em;
+  font-family: "Cinzel", serif;
+  font-weight: 700;
+  font-size: 38px;
+  color: var(--accent);
+  line-height: 1;
+  letter-spacing: 0.04em;
   font-variant-numeric: tabular-nums;
   justify-self: start;
 }
@@ -11271,17 +12048,29 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 }
 .ffa-hero__medals {
   grid-area: medals;
-  display: flex; flex-direction: row; gap: 6px; flex-wrap: wrap;
+  display: flex;
+  flex-direction: row;
+  gap: 6px;
+  flex-wrap: wrap;
   align-items: center;
 }
-.ffa-hero__medals .medal-icon { margin: 0; }
-.ffa-hero__medals .medal-icon-sm img { width: 18px; height: 18px; }
+.ffa-hero__medals .medal-icon {
+  margin: 0;
+}
+.ffa-hero__medals .medal-icon-sm img {
+  width: 18px;
+  height: 18px;
+}
 .ffa-hero__sub {
   grid-area: sub;
-  font-family: 'Barlow', sans-serif; font-size: 11px;
-  letter-spacing: 0.16em; color: var(--text-dim); text-transform: uppercase;
+  font-family: "Barlow", sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--text-dim);
+  text-transform: uppercase;
   justify-self: end;
-  display: flex; gap: 8px;
+  display: flex;
+  gap: 8px;
 }
 /* Placeholder rendered between match-start and first-frag so the
    strip's vertical footprint never shifts when the king appears. */
@@ -11297,12 +12086,16 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   line-height: 1.25;
 }
 .ffa-hero__placeholder-icon {
-  width: 64px; height: 64px;
+  width: 64px;
+  height: 64px;
   object-fit: contain;
   opacity: 0.35;
   filter: grayscale(1);
 }
-.ffa-hero.clickable { cursor: pointer; transition: opacity 0.15s ease; }
+.ffa-hero.clickable {
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
 .ffa-hero.clickable:hover,
 .ffa-hero.clickable:focus-visible {
   outline: none;
@@ -11312,7 +12105,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 /* ── Player rows ────────────────────────────────────────── */
 .player-rows {
   display: grid;
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 13px;
   margin-bottom: 12px;
 }
@@ -11323,14 +12116,24 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   padding: 5px 4px;
   border-bottom: 1px dashed rgba(255, 248, 240, 0.05);
 }
-.player-row.live { grid-template-columns: 1fr 36px 36px; }
-.player-row.finished { grid-template-columns: 1fr 32px 32px 36px; }
-.player-row:last-child { border-bottom: none; }
+.player-row.live {
+  grid-template-columns: 1fr 36px 36px;
+}
+.player-row.finished {
+  grid-template-columns: 1fr 32px 32px 36px;
+}
+.player-row:last-child {
+  border-bottom: none;
+}
 .player-row.header {
-  font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
   color: var(--text-dim);
-  border-bottom-style: solid; border-bottom-color: rgba(255, 248, 240, 0.08);
-  padding-bottom: 6px; margin-bottom: 2px;
+  border-bottom-style: solid;
+  border-bottom-color: rgba(255, 248, 240, 0.08);
+  padding-bottom: 6px;
+  margin-bottom: 2px;
 }
 .player-row .pname-cell {
   position: relative;
@@ -11342,7 +12145,8 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 }
 .player-row .pname-cell .team-dot {
   display: inline-block;
-  width: 6px; height: 6px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -11357,13 +12161,21 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 .player-row .pname-cell .bot-badge {
   flex-shrink: 0;
 }
-.player-row .pname-cell .team-dot.red { background: var(--red); }
+.player-row .pname-cell .team-dot.red {
+  background: var(--red);
+}
 /* Single team-blue source of truth — see --blue token comment. */
-.player-row .pname-cell .team-dot.blue { background: var(--blue); }
-.player-row .pname-cell .team-dot.spec { background: rgba(255, 248, 240, 0.2); }
+.player-row .pname-cell .team-dot.blue {
+  background: var(--blue);
+}
+.player-row .pname-cell .team-dot.spec {
+  background: rgba(255, 248, 240, 0.2);
+}
 /* Free / FFA players still in the match — green so they read as
    "ended connected" rather than blending into the row. */
-.player-row .pname-cell .team-dot.free { background: var(--green); }
+.player-row .pname-cell .team-dot.free {
+  background: var(--green);
+}
 /* "Dropped before the match ended" — gray dot regardless of team. */
 .player-row .pname-cell .team-dot.dropped {
   background: rgba(255, 248, 240, 0.35);
@@ -11379,7 +12191,9 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   min-width: 0;
 }
 /* Bots: dim only — the BotBadge icon already identifies them. */
-.player-row .pname-cell .name.bot { color: var(--text-dim); }
+.player-row .pname-cell .name.bot {
+  color: var(--text-dim);
+}
 /* Awards extend from the right; left edge fades into the name area
    when the awards row overflows. justify-content: flex-end anchors
    the medals to the right edge so excess medals overflow off the LEFT
@@ -11400,7 +12214,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   margin-left: auto;
   overflow: hidden;
   -webkit-mask-image: linear-gradient(to right, transparent 0, black 16px);
-          mask-image: linear-gradient(to right, transparent 0, black 16px);
+  mask-image: linear-gradient(to right, transparent 0, black 16px);
 }
 .player-row .pname-cell .row-awards .medal-icon {
   margin: 0;
@@ -11450,8 +12264,12 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   width: 7px;
   height: 47px;
 }
-.scoreboard__side--red  .obelisk-hp { right: 0; }
-.scoreboard__side--blue .obelisk-hp { left:  0; }
+.scoreboard__side--red .obelisk-hp {
+  right: 0;
+}
+.scoreboard__side--blue .obelisk-hp {
+  left: 0;
+}
 .obelisk-hp__bar {
   display: block;
   position: relative;
@@ -11476,7 +12294,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   top: 100%;
   transform: translateX(calc(-50% + 3px));
   margin-top: 3px;
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-weight: 500;
   font-size: 9px;
   letter-spacing: 0.05em;
@@ -11492,8 +12310,12 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 .obelisk-hp--destroyed .obelisk-hp__pct {
   transform: translateX(-50%);
 }
-.obelisk-hp--red .obelisk-hp__fill  { background: #d2493a; }
-.obelisk-hp--blue .obelisk-hp__fill { background: #4076c8; }
+.obelisk-hp--red .obelisk-hp__fill {
+  background: #d2493a;
+}
+.obelisk-hp--blue .obelisk-hp__fill {
+  background: #4076c8;
+}
 /* Under-attack indicator — pulsing ember ring + halo. Scoped to the
    bar element (which only renders when an obelisk is actively being
    attacked), so the animation only runs when needed. */
@@ -11501,25 +12323,31 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   animation: obelisk-attack-pulse 1.4s ease-in-out infinite;
 }
 @keyframes obelisk-attack-pulse {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow:
       0 0 0 2px rgba(255, 110, 60, 0.55),
-      0 0 4px 1px rgba(255, 110, 60, 0.30);
+      0 0 4px 1px rgba(255, 110, 60, 0.3);
   }
   50% {
     box-shadow:
       0 0 0 2px var(--ember-strong),
-      0 0 9px 2px rgba(255, 110, 60, 0.90);
+      0 0 9px 2px rgba(255, 110, 60, 0.9);
   }
 }
 /* Destroyed obelisk pulses while waiting for respawn (~10s default). */
 .obelisk-hp--destroyed .obelisk-hp__bar {
   animation: obelisk-hp-pulse 1.2s ease-in-out infinite;
 }
-.obelisk-hp--red.obelisk-hp--destroyed  .obelisk-hp__bar { --pulse: 210, 73, 58; }
-.obelisk-hp--blue.obelisk-hp--destroyed .obelisk-hp__bar { --pulse: 64, 118, 200; }
+.obelisk-hp--red.obelisk-hp--destroyed .obelisk-hp__bar {
+  --pulse: 210, 73, 58;
+}
+.obelisk-hp--blue.obelisk-hp--destroyed .obelisk-hp__bar {
+  --pulse: 64, 118, 200;
+}
 @keyframes obelisk-hp-pulse {
-  0%, 100% {
+  0%,
+  100% {
     background: rgba(255, 255, 255, 0.12);
     box-shadow: 0 0 0 0 rgba(var(--pulse, 210, 73, 58), 0);
   }
@@ -11551,10 +12379,14 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 }
 /* Per-team accents on the harvester-skulls header count. */
 .harvester-skulls--red .harvester-skulls__count {
-  text-shadow: 0 0 3px rgba(255, 80, 80, 0.9), 0 0 2px #000;
+  text-shadow:
+    0 0 3px rgba(255, 80, 80, 0.9),
+    0 0 2px #000;
 }
 .harvester-skulls--blue .harvester-skulls__count {
-  text-shadow: 0 0 3px rgba(80, 150, 255, 0.9), 0 0 2px #000;
+  text-shadow:
+    0 0 3px rgba(80, 150, 255, 0.9),
+    0 0 2px #000;
 }
 
 /* Dimmed medal — transient events that reuse a cumulative-award glyph. */
@@ -11563,13 +12395,19 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   filter: saturate(0.6);
 }
 /* Clickable rows / duelists (humans only). Whole row is the target. */
-.player-row.clickable { cursor: pointer; transition: background 0.15s ease; }
+.player-row.clickable {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
 .player-row.clickable:hover,
 .player-row.clickable:focus-visible {
   background: rgba(255, 110, 60, 0.07);
   outline: none;
 }
-.duelist.clickable { cursor: pointer; transition: opacity 0.15s ease; }
+.duelist.clickable {
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
 .duelist.clickable:hover,
 .duelist.clickable:focus-visible {
   outline: none;
@@ -11585,7 +12423,9 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   color: var(--text);
   font-size: 13px;
 }
-.player-row .stat.dim { color: var(--text-dim); }
+.player-row .stat.dim {
+  color: var(--text-dim);
+}
 
 /* ── Card bottom row — spectator strip + optional right slot ─── */
 .card__bottom {
@@ -11604,7 +12444,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   align-items: center;
   gap: 8px;
   overflow: hidden;
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
 }
 .card__spectators-label {
   display: inline-flex;
@@ -11614,7 +12454,9 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   height: 14px;
   color: var(--ember-light);
 }
-.card__spectators-label.spec { color: var(--text-dim); }
+.card__spectators-label.spec {
+  color: var(--text-dim);
+}
 .card__spectators-list {
   font-size: 12px;
   letter-spacing: 0.04em;
@@ -11624,11 +12466,17 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   text-overflow: ellipsis;
   min-width: 0;
 }
-.card__spectators-list .next { color: var(--text); font-weight: 500; }
+.card__spectators-list .next {
+  color: var(--text);
+  font-weight: 500;
+}
 /* Pin actions slot (e.g. Watch / Download) to the right of the bottom row even
    when the spectator list isn't present — without this, justify-content:space-between
    leaves a sole child at flex-start. */
-.card__bottom-actions { margin-left: auto; flex-shrink: 0; }
+.card__bottom-actions {
+  margin-left: auto;
+  flex-shrink: 0;
+}
 
 /* ── Shared .card shell (Server + Match) ────────────────── */
 .card {
@@ -11642,25 +12490,34 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   flex-direction: column;
 }
 .card::before {
-  content: '';
+  content: "";
   position: absolute;
-  top: 0; left: 0; right: 0;
+  top: 0;
+  left: 0;
+  right: 0;
   height: 100px;
   background-image: var(--levelshot, linear-gradient(135deg, #2a1f1a, #0a0808));
   background-size: cover;
   background-position: center top;
   opacity: 0.3;
   -webkit-mask-image: linear-gradient(to bottom, black 0%, transparent 100%);
-          mask-image: linear-gradient(to bottom, black 0%, transparent 100%);
+  mask-image: linear-gradient(to bottom, black 0%, transparent 100%);
   pointer-events: none;
 }
-.card > * { position: relative; z-index: 1; }
+.card > * {
+  position: relative;
+  z-index: 1;
+}
 /* Topbar and header rise above body siblings so their hover popups
    (ModeIcons panel, levelshot preview) paint over the duelists /
    player rows below. Source order alone wouldn't do it since every
    .card > * shares z-index:1. */
-.card > .card__topbar { z-index: 3; }
-.card > .card__header { z-index: 2; }
+.card > .card__topbar {
+  z-index: 3;
+}
+.card > .card__header {
+  z-index: 2;
+}
 .card__topbar {
   display: flex;
   align-items: center;
@@ -11670,11 +12527,15 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 /* Right-side meta pins to the far right; chip + mode-icons stay grouped left. */
 .card__topbar > .card__state,
 .card__topbar > .card__time,
-.card__topbar > .card__feature-toggle { margin-left: auto; }
+.card__topbar > .card__feature-toggle {
+  margin-left: auto;
+}
 /* When the feature star is present, its auto-margin pushes it (and
    the time chip after it) right; the time follows on a normal flex
    gap, so they read as a paired right cluster. */
-.card__topbar > .card__feature-toggle + .card__time { margin-left: 0; }
+.card__topbar > .card__feature-toggle + .card__time {
+  margin-left: 0;
+}
 
 /* Admin-only: star to feature/unfeature a demo without navigating
    into the match detail page. Sits just left of the timestamp. */
@@ -11688,14 +12549,18 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   padding: 2px 4px;
   border-radius: var(--radius-sm);
   flex-shrink: 0;
-  transition: color 0.15s, transform 0.15s;
+  transition:
+    color 0.15s,
+    transform 0.15s;
 }
 .card__feature-toggle:hover:not(:disabled),
 .card__feature-toggle:focus-visible:not(:disabled) {
   color: var(--ember-light);
   outline: none;
 }
-.card__feature-toggle.is-featured { color: var(--ember-light); }
+.card__feature-toggle.is-featured {
+  color: var(--ember-light);
+}
 .card__feature-toggle:disabled {
   cursor: progress;
   opacity: 0.6;
@@ -11707,7 +12572,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   flex-direction: column;
   align-items: flex-end;
   gap: 2px;
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 11px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -11724,14 +12589,16 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   outline: none;
 }
 .card__time:hover .duration,
-.card__time:focus-visible .duration { color: var(--accent); }
+.card__time:focus-visible .duration {
+  color: var(--accent);
+}
 .card__time .duration {
   /* Barlow (not Cinzel) — duration is data, not ceremony. Cinzel is
      reserved for ceremonial numbers (scores, ranks, totals); arbitrary
      `mm:ss` reads cleaner in the sans data face. Differentiation from
      the relative-time line above comes from weight + color + case, not
      a font swap. */
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-weight: 600;
   font-size: 13px;
   letter-spacing: 0.04em;
@@ -11741,7 +12608,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   transition: color 0.15s ease;
 }
 .card__state {
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 9px;
   letter-spacing: 0.22em;
   font-weight: 700;
@@ -11751,13 +12618,34 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   white-space: nowrap;
   flex-shrink: 0;
 }
-.card__state.active { background: rgba(34, 197, 94, 0.25); color: #4ade80; }
-.card__state.warmup { background: rgba(255, 152, 0, 0.25); color: #ff9800; }
-.card__state.overtime { background: rgba(239, 68, 68, 0.25); color: #ef4444; }
-.card__state.waiting { background: rgba(158, 158, 158, 0.25); color: #9e9e9e; }
-.card__state.intermission { background: rgba(120, 120, 120, 0.25); color: #c0c0c0; }
-.card__state.state-offline { background: rgba(80, 80, 80, 0.45); color: #aaa; }
-.card__state.state-stale { background: rgba(255, 152, 0, 0.20); color: #ffb84d; }
+.card__state.active {
+  background: rgba(34, 197, 94, 0.25);
+  color: #4ade80;
+}
+.card__state.warmup {
+  background: rgba(255, 152, 0, 0.25);
+  color: #ff9800;
+}
+.card__state.overtime {
+  background: rgba(239, 68, 68, 0.25);
+  color: #ef4444;
+}
+.card__state.waiting {
+  background: rgba(158, 158, 158, 0.25);
+  color: #9e9e9e;
+}
+.card__state.intermission {
+  background: rgba(120, 120, 120, 0.25);
+  color: #c0c0c0;
+}
+.card__state.state-offline {
+  background: rgba(80, 80, 80, 0.45);
+  color: #aaa;
+}
+.card__state.state-stale {
+  background: rgba(255, 152, 0, 0.2);
+  color: #ffb84d;
+}
 .card__header {
   display: flex;
   justify-content: space-between;
@@ -11767,17 +12655,30 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   padding-bottom: 12px;
   border-bottom: 1px solid #2a2622;
 }
-.card__map { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; position: relative; }
+.card__map {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+  position: relative;
+}
 .card__map-short {
-  font-family: 'Barlow', sans-serif; font-weight: 500; font-size: 10px;
-  letter-spacing: 0.22em; color: var(--text-dim); text-transform: uppercase;
+  font-family: "Barlow", sans-serif;
+  font-weight: 500;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: var(--text-dim);
+  text-transform: uppercase;
 }
 .card__map-long {
   /* Cinzel regular treats map longnames as the card's ceremonial
      headline rather than tabular data. Lighter than the other Cinzel
      uses (which are 700 uppercase) because these run mixed-case at
      body size and need to stay scannable. */
-  font-family: 'Cinzel', serif; font-weight: 400; font-size: 17px;
+  font-family: "Cinzel", serif;
+  font-weight: 400;
+  font-size: 17px;
   color: var(--text);
   display: block;
   white-space: nowrap;
@@ -11787,7 +12688,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 }
 /* Levelshot preview on map-name hover. Reads --levelshot from the card root. */
 .card__map-long::after {
-  content: '';
+  content: "";
   position: absolute;
   top: 100%;
   left: 0;
@@ -11805,7 +12706,9 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.15s, visibility 0.15s;
+  transition:
+    opacity 0.15s,
+    visibility 0.15s;
   pointer-events: none;
   z-index: 100;
 }
@@ -11814,16 +12717,25 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   visibility: visible;
 }
 .card__limits {
-  font-family: 'Barlow', sans-serif; font-size: 11px; color: var(--text-dim);
-  text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap;
+  font-family: "Barlow", sans-serif;
+  font-size: 11px;
+  color: var(--text-dim);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
   flex-shrink: 0;
 }
 
 /* Demo actions (Watch + Download) — used by MatchCard and landing
    Recent Matches rows. Pair sits flush-right in card__bottom or row meta. */
-.demo-actions { display: inline-flex; align-items: center; gap: 14px; flex-shrink: 0; }
+.demo-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
 .demo-action {
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-weight: 500;
   font-size: 10px;
   letter-spacing: 0.3em;
@@ -11837,7 +12749,10 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   border-bottom: 1px solid transparent;
   padding-bottom: 1px;
 }
-.demo-action:hover { color: var(--ember-light); border-bottom-color: var(--ember-light); }
+.demo-action:hover {
+  color: var(--ember-light);
+  border-bottom-color: var(--ember-light);
+}
 /* Both demo actions render their glyphs inline (PlayIcon, ArrowIcon)
    so they share stroke-weight / vocabulary with the rest of the chrome
    icons. The .demo-action.download ::before pseudo-element was retired
@@ -11845,7 +12760,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 
 /* Match detail page — exit reason note (lives in .match-detail__meta) */
 .match-detail__exit {
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 12px;
   letter-spacing: 0.18em;
   color: var(--text-dim);
@@ -11861,11 +12776,11 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 .landing-shelf-h__scroll .card::before {
   -webkit-mask-image:
     linear-gradient(to bottom, black 0%, transparent 100%),
-    linear-gradient(to right, black 70%, rgba(0,0,0,0.4) 100%);
+    linear-gradient(to right, black 70%, rgba(0, 0, 0, 0.4) 100%);
   -webkit-mask-composite: source-in;
   mask-image:
     linear-gradient(to bottom, black 0%, transparent 100%),
-    linear-gradient(to right, black 70%, rgba(0,0,0,0.4) 100%);
+    linear-gradient(to right, black 70%, rgba(0, 0, 0, 0.4) 100%);
   mask-composite: intersect;
 }
 
@@ -11888,8 +12803,12 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   background: var(--ember-strong);
   box-shadow: 0 0 6px rgba(255, 110, 60, 0.45);
 }
-.landing-shelf-h__scroll .completion-dot.completed { background: var(--ember-strong); }
-.landing-shelf-h__scroll .completion-dot.spectator { background: var(--text-dim); }
+.landing-shelf-h__scroll .completion-dot.completed {
+  background: var(--ember-strong);
+}
+.landing-shelf-h__scroll .completion-dot.spectator {
+  background: var(--text-dim);
+}
 /* Free / FFA "still in the match" dot — green canonically, ember
    here to stay in the warm vocabulary. (Team-red and team-blue dots
    are inherited unchanged via the site-wide tokens.) */
@@ -11907,11 +12826,14 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   margin-left: auto;
 }
 
-
 /* Suppress admin-only and secondary affordances — landing is a public
    entry point, the only call to action that belongs is "Watch". */
-.landing-shelf-h__scroll .card__feature-toggle { display: none; }
-.landing-shelf-h__scroll .demo-action.download { display: none; }
+.landing-shelf-h__scroll .card__feature-toggle {
+  display: none;
+}
+.landing-shelf-h__scroll .demo-action.download {
+  display: none;
+}
 
 /* RecentMatchesShelf wraps each MatchCard in a <Link> so the whole
    card is a single click target → demo player. Internal interactive
@@ -11933,7 +12855,10 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 /* Hover lift unifies the three landing shelves (server/match cards
    here, .landing-door and .landing-player-card elsewhere). */
 .landing-shelf-h__scroll .card {
-  transition: border-color 0.25s ease, transform 0.25s ease, background 0.25s ease;
+  transition:
+    border-color 0.25s ease,
+    transform 0.25s ease,
+    background 0.25s ease;
 }
 .landing-shelf-h__scroll .card:hover {
   border-color: rgba(255, 110, 60, 0.45);
@@ -11946,7 +12871,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
    section head and the shelf so the head's ember underline still lands
    directly beneath the title row. */
 .landing-section__lead {
-  font-family: 'Barlow', sans-serif;
+  font-family: "Barlow", sans-serif;
   font-size: 13px;
   letter-spacing: 0.06em;
   color: var(--text-dim);
@@ -11964,7 +12889,10 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   text-wrap: pretty;
 }
 @media (max-width: 720px) {
-  .landing-section__lead { font-size: 12px; margin: -16px 0 24px; }
+  .landing-section__lead {
+    font-size: 12px;
+    margin: -16px 0 24px;
+  }
 }
 
 /* ─── Docs platform picker ────────────────────────────────────
@@ -11994,7 +12922,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 }
 
 .docs-platform-picker__title {
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-size: 1.625rem;
   margin: 0 0 12px;
   color: var(--text);
@@ -12022,7 +12950,9 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   padding: 14px 16px;
   cursor: pointer;
   text-align: left;
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
   color: var(--text);
   font-family: inherit;
 }
@@ -12090,7 +13020,10 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   font-family: inherit;
   font-size: 0.9375rem;
   color: var(--text-dim);
-  transition: color 0.15s, background 0.15s, box-shadow 0.15s;
+  transition:
+    color 0.15s,
+    background 0.15s,
+    box-shadow 0.15s;
 }
 
 .docs-platform-tabs__tab:hover {
@@ -12212,7 +13145,10 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   font-family: inherit;
   font-size: 0.75rem;
   cursor: pointer;
-  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  transition:
+    color 0.15s,
+    background 0.15s,
+    border-color 0.15s;
 }
 
 .docs-platform-badge__btn:hover {
@@ -12236,7 +13172,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
    ──────────────────────────────────────────────────────────── */
 
 .docs-welcome__title {
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-size: 2.25rem;
   margin: 0 0 12px;
   color: var(--text);
@@ -12273,7 +13209,10 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   border-radius: 10px;
   text-decoration: none;
   color: inherit;
-  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    transform 0.15s;
 }
 
 .docs-welcome__persona-card:hover,
@@ -12285,7 +13224,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 }
 
 .docs-welcome__persona-title {
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-size: 1.125rem;
   color: var(--text);
 }
@@ -12310,7 +13249,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
    ──────────────────────────────────────────────────────────── */
 
 .docs-play__title {
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-size: 2.25rem;
   margin: 0 0 12px;
   color: var(--text);
@@ -12329,7 +13268,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
    feature, slightly dimmer than the heading text so the name reads
    first. */
 .docs-play__feature-title {
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-size: 1.125rem;
   color: var(--text);
   margin: 24px 0 8px;
@@ -12373,7 +13312,10 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   font-family: inherit;
   font-size: 0.9375rem;
   color: var(--text-dim);
-  transition: color 0.15s, background 0.15s, box-shadow 0.15s;
+  transition:
+    color 0.15s,
+    background 0.15s,
+    box-shadow 0.15s;
 }
 
 .docs-mode-tabs__tab:hover {
@@ -12491,7 +13433,9 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
 
 .docs-zoomable-image__close:hover,
@@ -12599,7 +13543,9 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
 
 .docs-callout-image__zoom-close:hover,
@@ -12633,7 +13579,9 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   padding: 0;
   cursor: help;
   pointer-events: auto;
-  transition: background 120ms ease, border-color 120ms ease;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease;
 }
 
 .docs-callout-image__hotspot:hover,
@@ -12693,8 +13641,12 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
    appears on the same hover. The portrait preview is portaled (so
    it's not a descendant of .help-mode-root); PlayerPortrait
    suppresses that one imperatively via a closest() check. */
-.help-mode-root .card__map-long::after { content: none; }
-.help-mode-root .mode-panel { display: none; }
+.help-mode-root .card__map-long::after {
+  content: none;
+}
+.help-mode-root .mode-panel {
+  display: none;
+}
 
 .help-popover {
   position: fixed;
@@ -12770,7 +13722,9 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   border-left: 2px solid var(--rule);
   font-size: 0.95rem;
   color: var(--text-dim);
-  transition: background 0.12s, color 0.12s;
+  transition:
+    background 0.12s,
+    color 0.12s;
 }
 
 /* Older WebKit needs the vendor-prefixed marker pseudo-element
@@ -12839,7 +13793,9 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   border-left: 2px solid var(--rule);
   font-size: 1rem;
   color: var(--text-dim);
-  transition: background 0.12s, color 0.12s;
+  transition:
+    background 0.12s,
+    color 0.12s;
 }
 
 .about-section .docs-collapsible > summary::-webkit-details-marker {
@@ -12879,7 +13835,6 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   margin-top: 18px;
 }
 
-
 /* ─── /credits page ───────────────────────────────────────────
    Simple top-level credits, outside docs chrome.
    ──────────────────────────────────────────────────────────── */
@@ -12892,7 +13847,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 }
 
 .credits-page__title {
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-size: 2rem;
   margin: 0 0 20px;
   color: var(--text);
@@ -12927,7 +13882,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
 }
 
 .credits-page__legal-title {
-  font-family: 'Cinzel', serif;
+  font-family: "Cinzel", serif;
   font-size: 1rem;
   margin: 0 0 8px;
   color: var(--text-dim);
@@ -12967,13 +13922,30 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
     gap: 8px;
   }
   .docs-toc-rail__scroll.is-scroll-left {
-    mask-image: linear-gradient(to right, transparent 0, black 32px, black calc(100% - 32px), black 100%);
+    mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      black 32px,
+      black calc(100% - 32px),
+      black 100%
+    );
   }
   .docs-toc-rail__scroll.is-scroll-right {
-    mask-image: linear-gradient(to right, black 0, black calc(100% - 32px), transparent 100%);
+    mask-image: linear-gradient(
+      to right,
+      black 0,
+      black calc(100% - 32px),
+      transparent 100%
+    );
   }
   .docs-toc-rail__scroll.is-scroll-left.is-scroll-right {
-    mask-image: linear-gradient(to right, transparent 0, black 32px, black calc(100% - 32px), transparent 100%);
+    mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      black 32px,
+      black calc(100% - 32px),
+      transparent 100%
+    );
   }
 
   /* In the horizontal mobile layout, the desktop left-border accent
@@ -13003,7 +13975,9 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   color: var(--ember-tint-text);
   font-weight: 600;
   text-decoration: none;
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
 
 .install-download-link:hover,
@@ -13177,7 +14151,10 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   color: var(--text-dim);
   cursor: pointer;
   padding: 0;
-  transition: color 0.12s, border-color 0.12s, background 0.12s;
+  transition:
+    color 0.12s,
+    border-color 0.12s,
+    background 0.12s;
 }
 
 .hitsound-preview__play:hover,
@@ -13264,7 +14241,9 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   color: var(--text-dim);
   font-size: 0.75rem;
   cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
 }
 
 .docs-copyable-command__copy:hover {
@@ -13314,7 +14293,9 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   font-size: 1.2rem;
   line-height: 1;
   cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
 }
 
 .docs-reference-search__clear:hover {
@@ -13336,7 +14317,9 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   font-family: inherit;
   cursor: pointer;
   white-space: nowrap;
-  transition: color 0.15s, border-color 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
 }
 
 .docs-reference-search__platform-toggle:hover {
@@ -13567,7 +14550,7 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
    corner of the L (the chevron's tip) at the right; rotate(45deg)
    puts it at the bottom. */
 .install-trouble > summary::after {
-  content: '';
+  content: "";
   position: absolute;
   right: 16px;
   top: 50%;
@@ -13576,7 +14559,9 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   border-right: 2px solid var(--text-dim);
   border-bottom: 2px solid var(--text-dim);
   transform: translateY(-50%) rotate(-45deg);
-  transition: transform 150ms ease, border-color 120ms ease;
+  transition:
+    transform 150ms ease,
+    border-color 120ms ease;
 }
 
 .install-trouble > summary:hover {
@@ -13619,4 +14604,3 @@ h2.docs-h2:focus-within .docs-h2__anchor { opacity: 1; }
   padding-inline-start: 1.5em;
   margin: 8px 0;
 }
-

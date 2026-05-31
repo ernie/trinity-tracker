@@ -1,10 +1,10 @@
-import { PERIOD_LABELS } from '../constants/labels'
-import { NavScroller } from './NavScroller'
-import type { TimePeriod } from '../types'
+import { PERIOD_LABELS } from "../constants/labels";
+import { NavScroller } from "./NavScroller";
+import type { TimePeriod } from "../types";
 
 interface PeriodSelectorProps {
-  period: TimePeriod
-  onChange: (period: TimePeriod) => void
+  period: TimePeriod;
+  onChange: (period: TimePeriod) => void;
 }
 
 // Connected segmented control for time-window selection. NavScroller
@@ -19,7 +19,7 @@ export function PeriodSelector({ period, onChange }: PeriodSelectorProps) {
           {(Object.keys(PERIOD_LABELS) as TimePeriod[]).map((p) => (
             <button
               key={p}
-              className={`period-btn ${period === p ? 'active' : ''}`}
+              className={`period-btn ${period === p ? "active" : ""}`}
               onClick={() => onChange(p)}
             >
               {PERIOD_LABELS[p]}
@@ -28,5 +28,5 @@ export function PeriodSelector({ period, onChange }: PeriodSelectorProps) {
         </div>
       </NavScroller>
     </div>
-  )
+  );
 }

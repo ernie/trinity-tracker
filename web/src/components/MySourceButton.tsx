@@ -1,6 +1,6 @@
-import { useState } from 'react'
-import { useMySources } from '../hooks/useMySource'
-import { MyServersDrawer } from './MyServersDrawer'
+import { useState } from "react";
+import { useMySources } from "../hooks/useMySource";
+import { MyServersDrawer } from "./MyServersDrawer";
 
 // MySourceButton is the contextual header button driven by
 // /api/sources/mine. It picks one of three labels and opens the
@@ -13,20 +13,20 @@ import { MyServersDrawer } from './MyServersDrawer'
 //   any active (no pending)                → "My Servers" or "My Servers (N)"
 //   only rejected/left/revoked rows        → "Add Servers"
 export function MySourceButton() {
-  const { data, refresh } = useMySources()
-  const [open, setOpen] = useState(false)
+  const { data, refresh } = useMySources();
+  const [open, setOpen] = useState(false);
 
-  const actives = data.sources.filter((s) => s.status === 'active')
+  const actives = data.sources.filter((s) => s.status === "active");
 
-  let label = 'Add Servers'
-  let cls = 'my-source-btn'
+  let label = "Add Servers";
+  let cls = "my-source-btn";
   if (data.has_pending) {
-    label = 'Request Pending'
-    cls += ' my-source-btn-pending'
+    label = "Request Pending";
+    cls += " my-source-btn-pending";
   } else if (actives.length > 0) {
     label =
-      actives.length === 1 ? 'My Servers' : `My Servers (${actives.length})`
-    cls += ' my-source-btn-active'
+      actives.length === 1 ? "My Servers" : `My Servers (${actives.length})`;
+    cls += " my-source-btn-active";
   }
 
   return (
@@ -43,5 +43,5 @@ export function MySourceButton() {
         />
       )}
     </>
-  )
+  );
 }

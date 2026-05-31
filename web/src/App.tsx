@@ -1,11 +1,14 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, useMemo } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useMemo,
+} from "react";
 import { useAuth } from "./hooks/useAuth";
 import { useLiveData } from "./contexts/LiveDataContext";
-import {
-  ServerCard,
-  RconSidebar,
-  ServerFilters,
-} from "./components";
+import { ServerCard, RconSidebar, ServerFilters } from "./components";
 import {
   applyServerFilters,
   loadServerFilters,
@@ -22,16 +25,15 @@ const HELP_TOGGLE_STICK_TOP_PX = 58;
 
 function App() {
   const { auth } = useAuth();
-  const {
-    servers, liveness, manageable, loading,
-    showPlayer,
-  } = useLiveData();
+  const { servers, liveness, manageable, loading, showPlayer } = useLiveData();
 
   // Home-route-specific state: server selection drives the RCON sidebar,
   // and the on-page server filter strip is local to the home grid.
   const [selectedServerId, setSelectedServerId] = useState<number | null>(null);
   const [showRcon, setShowRcon] = useState(false);
-  const [serverFilters, setServerFilters] = useState<ServerFilterState>(() => loadServerFilters());
+  const [serverFilters, setServerFilters] = useState<ServerFilterState>(() =>
+    loadServerFilters(),
+  );
   // Help mode wraps the grid in <HelpModeRoot> so the data-help
   // attributes on ServerCard internals (state badge, flag indicators,
   // obelisk HP, skull counts, etc.) light up as hover/focus/tap
@@ -43,7 +45,10 @@ function App() {
   // react-hooks/set-state-in-effect). Old values persist when help
   // mode flips off and are masked by `effectiveFloatPos` below.
   const toolbarRef = useRef<HTMLDivElement>(null);
-  const [floatPos, setFloatPos] = useState<{ top: number; right: number } | null>(null);
+  const [floatPos, setFloatPos] = useState<{
+    top: number;
+    right: number;
+  } | null>(null);
 
   // Escape exits help mode — the toggle is floated when active, but a
   // keyboard escape is faster than a mouse hop and a more familiar
@@ -78,7 +83,8 @@ function App() {
     // include the scrollbar gutter on some browsers/configs. The
     // mismatch would land the floating button a scrollbar-width to
     // the left of the toolbar's right edge.
-    const naturalRight = document.documentElement.clientWidth - toolbarRect.right;
+    const naturalRight =
+      document.documentElement.clientWidth - toolbarRect.right;
 
     let raf = 0;
     const update = () => {
@@ -104,15 +110,19 @@ function App() {
   // help mode is currently off.
   const effectiveFloatPos = helpMode ? floatPos : null;
 
-  const handleServerSelect = useCallback((serverId: number) => {
-    setSelectedServerId(serverId);
-    if (auth.isAuthenticated) {
-      setShowRcon(true);
-    }
-  }, [auth.isAuthenticated]);
+  const handleServerSelect = useCallback(
+    (serverId: number) => {
+      setSelectedServerId(serverId);
+      if (auth.isAuthenticated) {
+        setShowRcon(true);
+      }
+    },
+    [auth.isAuthenticated],
+  );
 
   const selectedServer = useMemo(
-    () => (selectedServerId !== null ? servers.get(selectedServerId) || null : null),
+    () =>
+      selectedServerId !== null ? servers.get(selectedServerId) || null : null,
     [selectedServerId, servers],
   );
 
@@ -130,7 +140,9 @@ function App() {
   const serverList = applyServerFilters(fullServerList, serverFilters);
 
   return (
-    <div className={`app ${showRcon && auth.isAuthenticated ? "with-right-sidebar" : ""}`}>
+    <div
+      className={`app ${showRcon && auth.isAuthenticated ? "with-right-sidebar" : ""}`}
+    >
       <div className="app-layout">
         <div className="main-content">
           <div className="servers-toolbar" ref={toolbarRef}>
@@ -142,14 +154,25 @@ function App() {
             <button
               type="button"
               className={`servers-help-toggle${helpMode ? " active" : ""}${effectiveFloatPos ? " floating" : ""}`}
-              style={effectiveFloatPos ? { top: `${effectiveFloatPos.top}px`, right: `${effectiveFloatPos.right}px` } : undefined}
+              style={
+                effectiveFloatPos
+                  ? {
+                      top: `${effectiveFloatPos.top}px`,
+                      right: `${effectiveFloatPos.right}px`,
+                    }
+                  : undefined
+              }
               onClick={() => setHelpMode((h) => !h)}
               aria-pressed={helpMode}
-              title={helpMode
-                ? "Turn off help — hide tooltips on cards"
-                : "Turn on help — hover any card piece to learn what it means"}
+              title={
+                helpMode
+                  ? "Turn off help — hide tooltips on cards"
+                  : "Turn on help — hover any card piece to learn what it means"
+              }
             >
-              <span aria-hidden="true" className="servers-help-toggle__glyph">?</span>
+              <span aria-hidden="true" className="servers-help-toggle__glyph">
+                ?
+              </span>
               <span className="servers-help-toggle__label">
                 {helpMode ? "Exit help" : "What's this?"}
               </span>
@@ -164,13 +187,19 @@ function App() {
                       key={server.server_id}
                       server={server}
                       isSelected={selectedServerId === server.server_id}
-                      onSelect={!helpMode && manageable.get(server.server_id) ? handleServerSelect : undefined}
+                      onSelect={
+                        !helpMode && manageable.get(server.server_id)
+                          ? handleServerSelect
+                          : undefined
+                      }
                       onPlayerClick={helpMode ? undefined : showPlayer}
                       liveness={liveness.get(server.server_id)}
                     />
                   ))
                 ) : fullServerList.length > 0 ? (
-                  <div className="loading">No servers match the current filters</div>
+                  <div className="loading">
+                    No servers match the current filters
+                  </div>
                 ) : (
                   <div className="loading">No servers available</div>
                 )}

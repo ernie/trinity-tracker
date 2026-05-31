@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState } from "react";
 
 // useScrollSpy returns the id of the section the reader is most likely
 // looking at: the *last* one whose top edge has crossed above the
@@ -18,13 +18,13 @@ import { useEffect, useState } from 'react'
 //
 // rAF-throttled scroll handling costs effectively nothing while idle.
 export function useScrollSpy(ids: string[], offsetTop = 120): string | null {
-  const [activeId, setActiveId] = useState<string | null>(null)
-  const idsKey = ids.join('|')
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const idsKey = ids.join("|");
 
   useEffect(() => {
-    if (ids.length === 0) return  // no sections to spy on
+    if (ids.length === 0) return; // no sections to spy on
 
-    let raf = 0
+    let raf = 0;
     const update = () => {
       // Edge case: when the user clicks the *last* anchor, the browser
       // can only scroll until `scrollY + innerHeight = scrollHeight`.
@@ -34,53 +34,53 @@ export function useScrollSpy(ids: string[], offsetTop = 120): string | null {
       // page first and short-circuit to the last id.
       const atBottom =
         window.scrollY + window.innerHeight >=
-        document.documentElement.scrollHeight - 4
+        document.documentElement.scrollHeight - 4;
       if (atBottom) {
-        setActiveId(ids[ids.length - 1] ?? null)
-        return
+        setActiveId(ids[ids.length - 1] ?? null);
+        return;
       }
 
-      let active: string | null = null
+      let active: string | null = null;
       for (const id of ids) {
-        const el = document.getElementById(id)
-        if (!el) continue
+        const el = document.getElementById(id);
+        if (!el) continue;
         if (el.getBoundingClientRect().top <= offsetTop) {
-          active = id
+          active = id;
         } else {
           // ids are in document order; once we hit a section that hasn't
           // yet crossed the trigger, no later section has either.
-          break
+          break;
         }
       }
       // Before the first section reaches the trigger line, keep the
       // first one highlighted so the rail is never blank.
-      if (!active) active = ids[0] ?? null
-      setActiveId(active)
-    }
+      if (!active) active = ids[0] ?? null;
+      setActiveId(active);
+    };
 
     const onScroll = () => {
-      if (raf) return
+      if (raf) return;
       raf = requestAnimationFrame(() => {
-        raf = 0
-        update()
-      })
-    }
+        raf = 0;
+        update();
+      });
+    };
 
-    update()
-    window.addEventListener('scroll', onScroll, { passive: true })
-    window.addEventListener('resize', onScroll)
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
     return () => {
-      window.removeEventListener('scroll', onScroll)
-      window.removeEventListener('resize', onScroll)
-      if (raf) cancelAnimationFrame(raf)
-    }
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
     // idsKey turns the array dep into a stable scalar so we don't
     // rebind listeners on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idsKey, offsetTop])
+  }, [idsKey, offsetTop]);
 
   // When the caller has no ids to spy on, the listener didn't run, so
   // any value left in state is stale — return null so the consumer
   // doesn't act on it.
-  return ids.length === 0 ? null : activeId
+  return ids.length === 0 ? null : activeId;
 }

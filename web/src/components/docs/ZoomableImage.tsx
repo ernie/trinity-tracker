@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from "react";
 
 interface ZoomableImageProps {
-  src: string
-  alt: string
+  src: string;
+  alt: string;
 }
 
 // An image that opens to full size in a backdrop overlay on click.
@@ -16,32 +16,32 @@ interface ZoomableImageProps {
 // close. No focus trap beyond that — there's only one focusable element
 // in the open state.
 export function ZoomableImage({ src, alt }: ZoomableImageProps) {
-  const [zoomed, setZoomed] = useState(false)
-  const triggerRef = useRef<HTMLButtonElement>(null)
-  const closeRef = useRef<HTMLButtonElement>(null)
+  const [zoomed, setZoomed] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
 
   // Effect handles the side-effects of the open state — keyboard
   // listener for Escape, body scroll lock, and focus management. All
   // three are torn down together when zoomed flips back to false.
   useEffect(() => {
-    if (!zoomed) return
+    if (!zoomed) return;
     // Snapshot the trigger at setup so cleanup restores focus to the
     // button this effect "saw," not whatever the ref later points at
     // (react-hooks/exhaustive-deps).
-    const triggerEl = triggerRef.current
+    const triggerEl = triggerRef.current;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setZoomed(false)
-    }
-    document.addEventListener('keydown', onKey)
-    const prevOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    closeRef.current?.focus()
+      if (e.key === "Escape") setZoomed(false);
+    };
+    document.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeRef.current?.focus();
     return () => {
-      document.removeEventListener('keydown', onKey)
-      document.body.style.overflow = prevOverflow
-      triggerEl?.focus()
-    }
-  }, [zoomed])
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+      triggerEl?.focus();
+    };
+  }, [zoomed]);
 
   return (
     <>
@@ -75,5 +75,5 @@ export function ZoomableImage({ src, alt }: ZoomableImageProps) {
         </div>
       )}
     </>
-  )
+  );
 }

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { ReactNode } from "react";
 
 // Compound chip used as the top-left identifier on Server / Match cards:
 //   [extras · source · server · mode]
@@ -7,17 +7,23 @@ import type { ReactNode } from 'react'
 // default.
 
 interface RichChipProps {
-  source?: string
-  server: string
-  mode?: string  // e.g. "CPM · 1V1" or "VQ3 · TDM"
-  className?: string
-  children?: ReactNode
+  source?: string;
+  server: string;
+  mode?: string; // e.g. "CPM · 1V1" or "VQ3 · TDM"
+  className?: string;
+  children?: ReactNode;
 }
 
-export function RichChip({ source, server, mode, className, children }: RichChipProps) {
+export function RichChip({
+  source,
+  server,
+  mode,
+  className,
+  children,
+}: RichChipProps) {
   return (
     <span
-      className={`rich-chip ${className ?? ''}`}
+      className={`rich-chip ${className ?? ""}`}
       data-help={`Server identity:
 • Mode icons — Q3, CPMA, Quake Live, or QLT (one icon if movement & gameplay match; two if they differ)
 • Source — the host running this Q3 server. One host can serve multiple game servers.
@@ -44,5 +50,5 @@ export function RichChip({ source, server, mode, className, children }: RichChip
         </>
       )}
     </span>
-  )
+  );
 }

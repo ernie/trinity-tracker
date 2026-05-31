@@ -26,7 +26,14 @@ interface HeaderProps {
   solid?: boolean;
 }
 
-export function Header({ title, className, linkToHome, wordmark, transparent, solid }: HeaderProps) {
+export function Header({
+  title,
+  className,
+  linkToHome,
+  wordmark,
+  transparent,
+  solid,
+}: HeaderProps) {
   const { auth, login, logout } = useAuth();
   const { setCommandPaletteOpen } = useLiveData();
   // All Apple platforms (Mac, iPhone, iPad, iPod) use ⌘ for system
@@ -34,11 +41,14 @@ export function Header({ title, className, linkToHome, wordmark, transparent, so
   // earlier /mac/i check missed iPhone/iPad and showed "Ctrl K" there,
   // which reads as alien on iOS. Modern iPadOS reports "MacIntel" so
   // it already matches /mac/, but iPhone and older iPad don't.
-  const isApple = typeof navigator !== 'undefined' &&
+  const isApple =
+    typeof navigator !== "undefined" &&
     /mac|iphone|ipad|ipod/i.test(navigator.platform);
 
   return (
-    <header className={`${className ?? ''}${transparent ? ' app-header--transparent' : ''}${solid ? ' app-header--solid' : ''}`}>
+    <header
+      className={`${className ?? ""}${transparent ? " app-header--transparent" : ""}${solid ? " app-header--solid" : ""}`}
+    >
       <div className="app-header__brand">
         <AppLogo linkToHome={linkToHome} />
         <h1>
@@ -53,13 +63,22 @@ export function Header({ title, className, linkToHome, wordmark, transparent, so
             aria-label="Open command palette"
           >
             <span className="cmdk-trigger__icon" aria-hidden="true">
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <circle cx="7" cy="7" r="4.5" />
                 <path d="M14 14L10.5 10.5" />
               </svg>
             </span>
             <span className="cmdk-trigger__placeholder">Search</span>
-            <kbd className="cmdk-trigger__kbd">{isApple ? '⌘K' : 'Ctrl K'}</kbd>
+            <kbd className="cmdk-trigger__kbd">{isApple ? "⌘K" : "Ctrl K"}</kbd>
           </button>
         </div>
       </div>
@@ -71,8 +90,8 @@ export function Header({ title, className, linkToHome, wordmark, transparent, so
         <HamburgerMenu
           className={
             auth.isAuthenticated
-              ? `hamburger--authed${auth.isAdmin ? ' hamburger--admin' : ''}`
-              : ''
+              ? `hamburger--authed${auth.isAdmin ? " hamburger--admin" : ""}`
+              : ""
           }
         >
           <CommunityCluster />

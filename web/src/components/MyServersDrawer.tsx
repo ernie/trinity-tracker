@@ -1,15 +1,15 @@
-import { useState, type FormEvent } from 'react'
-import { useAuth } from '../hooks/useAuth'
-import { heartbeatHealth, healthLabel, timeAgo } from '../utils/sourceHealth'
-import { StatusDot } from './StatusDot'
-import { CloseIcon } from './CloseIcon'
-import type { MySourceEntry } from '../types'
+import { useState, type FormEvent } from "react";
+import { useAuth } from "../hooks/useAuth";
+import { heartbeatHealth, healthLabel, timeAgo } from "../utils/sourceHealth";
+import { StatusDot } from "./StatusDot";
+import { CloseIcon } from "./CloseIcon";
+import type { MySourceEntry } from "../types";
 
 export interface MyServersDrawerProps {
-  sources: MySourceEntry[]
-  hasPending: boolean
-  onClose: () => void
-  onRefresh: () => void
+  sources: MySourceEntry[];
+  hasPending: boolean;
+  onClose: () => void;
+  onRefresh: () => void;
 }
 
 // MyServersDrawer is the single owner-side surface for everything
@@ -24,21 +24,23 @@ export function MyServersDrawer({
   onClose,
   onRefresh,
 }: MyServersDrawerProps) {
-  const isEmpty = sources.length === 0
+  const isEmpty = sources.length === 0;
   const lastSetback = sources.find(
-    (s) => s.status === 'rejected' || s.status === 'left'
-  )
+    (s) => s.status === "rejected" || s.status === "left",
+  );
   const formInitial = lastSetback
-    ? { name: lastSetback.source, purpose: lastSetback.purpose ?? '' }
-    : undefined
+    ? { name: lastSetback.source, purpose: lastSetback.purpose ?? "" }
+    : undefined;
   const rejectionReason =
-    lastSetback?.status === 'rejected' ? lastSetback.rejection_reason : undefined
+    lastSetback?.status === "rejected"
+      ? lastSetback.rejection_reason
+      : undefined;
 
   const heading = isEmpty
-    ? 'Add Servers'
+    ? "Add Servers"
     : hasPending
-      ? 'Request Pending'
-      : 'My Servers'
+      ? "Request Pending"
+      : "My Servers";
 
   return (
     <div className="drawer-overlay" onClick={onClose}>
@@ -58,8 +60,7 @@ export function MyServersDrawer({
           ))}
           {hasPending ? (
             <p className="drawer-add-another muted">
-              You can submit another request once your pending one is
-              reviewed.
+              You can submit another request once your pending one is reviewed.
             </p>
           ) : (
             <RequestForm
@@ -73,86 +74,89 @@ export function MyServersDrawer({
         </div>
       </aside>
     </div>
-  )
+  );
 }
 
 interface SourceCardProps {
-  src: MySourceEntry
-  onUpdated: () => void
+  src: MySourceEntry;
+  onUpdated: () => void;
 }
 
 function SourceCard({ src, onUpdated }: SourceCardProps) {
-  const { auth } = useAuth()
-  const token = auth.token!
-  const [busy, setBusy] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const { auth } = useAuth();
+  const token = auth.token!;
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   async function downloadCreds() {
-    setBusy('download')
-    setError(null)
+    setBusy("download");
+    setError(null);
     try {
-      const r = await fetch(`/api/sources/mine/${encodeURIComponent(src.source)}/creds`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (!r.ok) throw new Error((await r.text()) || `HTTP ${r.status}`)
-      saveBlob(await r.blob(), `${src.source}.creds`)
+      const r = await fetch(
+        `/api/sources/mine/${encodeURIComponent(src.source)}/creds`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      if (!r.ok) throw new Error((await r.text()) || `HTTP ${r.status}`);
+      saveBlob(await r.blob(), `${src.source}.creds`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'download failed')
+      setError(e instanceof Error ? e.message : "download failed");
     } finally {
-      setBusy(null)
+      setBusy(null);
     }
   }
 
   async function rotateCreds() {
     if (
       !confirm(
-        `Rotate credentials for ${src.source}? The current .creds file will stop working immediately.`
+        `Rotate credentials for ${src.source}? The current .creds file will stop working immediately.`,
       )
     ) {
-      return
+      return;
     }
-    setBusy('rotate')
-    setError(null)
+    setBusy("rotate");
+    setError(null);
     try {
       const r = await fetch(
         `/api/sources/mine/${encodeURIComponent(src.source)}/rotate-creds`,
-        { method: 'POST', headers: { Authorization: `Bearer ${token}` } }
-      )
-      if (!r.ok) throw new Error((await r.text()) || `HTTP ${r.status}`)
-      saveBlob(await r.blob(), `${src.source}.creds`)
-      onUpdated()
+        { method: "POST", headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (!r.ok) throw new Error((await r.text()) || `HTTP ${r.status}`);
+      saveBlob(await r.blob(), `${src.source}.creds`);
+      onUpdated();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'rotate failed')
+      setError(e instanceof Error ? e.message : "rotate failed");
     } finally {
-      setBusy(null)
+      setBusy(null);
     }
   }
 
   async function leave() {
     if (
       !confirm(
-        `Leave the network for ${src.source}? Its servers come off the network. You can rejoin anytime — match history is preserved. Other sources you own are unaffected.`
+        `Leave the network for ${src.source}? Its servers come off the network. You can rejoin anytime — match history is preserved. Other sources you own are unaffected.`,
       )
     ) {
-      return
+      return;
     }
-    setBusy('leave')
-    setError(null)
+    setBusy("leave");
+    setError(null);
     try {
       const r = await fetch(
         `/api/sources/mine/${encodeURIComponent(src.source)}/leave`,
-        { method: 'POST', headers: { Authorization: `Bearer ${token}` } }
-      )
-      if (!r.ok) throw new Error((await r.text()) || `HTTP ${r.status}`)
-      onUpdated()
+        { method: "POST", headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (!r.ok) throw new Error((await r.text()) || `HTTP ${r.status}`);
+      onUpdated();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'leave failed')
-      setBusy(null)
+      setError(e instanceof Error ? e.message : "leave failed");
+      setBusy(null);
     }
   }
 
   // Pending / rejected / left / revoked cards are mostly informational.
-  if (src.status === 'pending') {
+  if (src.status === "pending") {
     return (
       <section className="source-card source-card-pending">
         <header className="source-card-header">
@@ -166,9 +170,9 @@ function SourceCard({ src, onUpdated }: SourceCardProps) {
           </p>
         )}
       </section>
-    )
+    );
   }
-  if (src.status === 'rejected') {
+  if (src.status === "rejected") {
     return (
       <section className="source-card source-card-rejected">
         <header className="source-card-header">
@@ -181,9 +185,9 @@ function SourceCard({ src, onUpdated }: SourceCardProps) {
           </p>
         )}
       </section>
-    )
+    );
   }
-  if (src.status === 'left') {
+  if (src.status === "left") {
     return (
       <section className="source-card source-card-left">
         <header className="source-card-header">
@@ -191,13 +195,13 @@ function SourceCard({ src, onUpdated }: SourceCardProps) {
           <span className="status-pill status-left">Left network</span>
         </header>
         <p className="muted">
-          You walked away from this source. Submit a new request with this
-          name to rejoin (auto-approved).
+          You walked away from this source. Submit a new request with this name
+          to rejoin (auto-approved).
         </p>
       </section>
-    )
+    );
   }
-  if (src.status === 'revoked') {
+  if (src.status === "revoked") {
     return (
       <section className="source-card source-card-revoked">
         <header className="source-card-header">
@@ -206,11 +210,11 @@ function SourceCard({ src, onUpdated }: SourceCardProps) {
         </header>
         <p className="muted">Contact a hub admin to re-enable this source.</p>
       </section>
-    )
+    );
   }
 
   // Active card — full controls.
-  const health = heartbeatHealth(src.last_heartbeat_at)
+  const health = heartbeatHealth(src.last_heartbeat_at);
   return (
     <section className="source-card source-card-active">
       <header className="source-card-header">
@@ -226,7 +230,7 @@ function SourceCard({ src, onUpdated }: SourceCardProps) {
         {src.version && <span>· engine {src.version}</span>}
         {src.demo_base_url && (
           <span>
-            ·{' '}
+            ·{" "}
             <a href={src.demo_base_url} target="_blank" rel="noreferrer">
               {src.demo_base_url}
             </a>
@@ -236,13 +240,13 @@ function SourceCard({ src, onUpdated }: SourceCardProps) {
 
       <div className="source-card-actions">
         <button onClick={downloadCreds} disabled={busy !== null}>
-          {busy === 'download' ? 'Downloading…' : 'Download .creds'}
+          {busy === "download" ? "Downloading…" : "Download .creds"}
         </button>
         <button className="warn" onClick={rotateCreds} disabled={busy !== null}>
-          {busy === 'rotate' ? 'Rotating…' : 'Rotate creds'}
+          {busy === "rotate" ? "Rotating…" : "Rotate creds"}
         </button>
         <button className="danger" onClick={leave} disabled={busy !== null}>
-          {busy === 'leave' ? 'Leaving…' : 'Leave network'}
+          {busy === "leave" ? "Leaving…" : "Leave network"}
         </button>
       </div>
       {error && <div className="error-message">{error}</div>}
@@ -252,16 +256,16 @@ function SourceCard({ src, onUpdated }: SourceCardProps) {
           // active means "in the source's registered roster" — it
           // doesn't track real-time liveness. If the source isn't
           // heartbeating we can't claim a server is running.
-          const live = s.active && health === 'green'
+          const live = s.active && health === "green";
           return (
-            <li key={s.key} className={live ? '' : 'inactive'}>
+            <li key={s.key} className={live ? "" : "inactive"}>
               <span className="server-key">{s.key}</span>
               <span className="server-addr">{s.address}</span>
-              <span className={`server-state ${live ? 'running' : 'idle'}`}>
-                <StatusDot active={live} /> {live ? 'running' : 'idle'}
+              <span className={`server-state ${live ? "running" : "idle"}`}>
+                <StatusDot active={live} /> {live ? "running" : "idle"}
               </span>
             </li>
-          )
+          );
         })}
         {(src.servers ?? []).length === 0 && (
           <li className="muted">
@@ -271,20 +275,20 @@ function SourceCard({ src, onUpdated }: SourceCardProps) {
         )}
       </ul>
     </section>
-  )
+  );
 }
 
 // Naming rules mirror the server-side validator: 3-16 chars, alnum +
 // underscore + hyphen.
-const NAME_PATTERN = /^[A-Za-z0-9_-]{3,16}$/
-const MAX_PURPOSE_LEN = 200
+const NAME_PATTERN = /^[A-Za-z0-9_-]{3,16}$/;
+const MAX_PURPOSE_LEN = 200;
 
 interface RequestFormProps {
-  startExpanded: boolean
-  showExplainer: boolean
-  initial?: { name: string; purpose: string }
-  rejectionReason?: string
-  onSubmitted: () => void
+  startExpanded: boolean;
+  showExplainer: boolean;
+  initial?: { name: string; purpose: string };
+  rejectionReason?: string;
+  onSubmitted: () => void;
 }
 
 function RequestForm({
@@ -294,55 +298,55 @@ function RequestForm({
   rejectionReason,
   onSubmitted,
 }: RequestFormProps) {
-  const { auth } = useAuth()
-  const [expanded, setExpanded] = useState(startExpanded)
-  const [name, setName] = useState(initial?.name ?? '')
-  const [purpose, setPurpose] = useState(initial?.purpose ?? '')
-  const [error, setError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
+  const { auth } = useAuth();
+  const [expanded, setExpanded] = useState(startExpanded);
+  const [name, setName] = useState(initial?.name ?? "");
+  const [purpose, setPurpose] = useState(initial?.purpose ?? "");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
-    e.preventDefault()
-    setError(null)
+    e.preventDefault();
+    setError(null);
     if (!NAME_PATTERN.test(name)) {
-      setError('Name must be 3-16 characters: letters, numbers, _ or -.')
-      return
+      setError("Name must be 3-16 characters: letters, numbers, _ or -.");
+      return;
     }
     if (purpose.length > MAX_PURPOSE_LEN) {
-      setError(`Purpose is over ${MAX_PURPOSE_LEN} characters`)
-      return
+      setError(`Purpose is over ${MAX_PURPOSE_LEN} characters`);
+      return;
     }
-    setSubmitting(true)
+    setSubmitting(true);
     try {
-      const r = await fetch('/api/sources/request', {
-        method: 'POST',
+      const r = await fetch("/api/sources/request", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           Authorization: `Bearer ${auth.token}`,
         },
         body: JSON.stringify({ name, purpose }),
-      })
+      });
       if (!r.ok) {
-        const text = await r.text()
-        let message = text
+        const text = await r.text();
+        let message = text;
         try {
-          const parsed = JSON.parse(text) as { error?: string }
-          if (parsed.error) message = parsed.error
+          const parsed = JSON.parse(text) as { error?: string };
+          if (parsed.error) message = parsed.error;
         } catch {
           // not JSON, use raw text
         }
-        setError(message || `HTTP ${r.status}`)
-        setSubmitting(false)
-        return
+        setError(message || `HTTP ${r.status}`);
+        setSubmitting(false);
+        return;
       }
-      setName('')
-      setPurpose('')
-      setExpanded(startExpanded)
-      onSubmitted()
+      setName("");
+      setPurpose("");
+      setExpanded(startExpanded);
+      onSubmitted();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'submission failed')
+      setError(e instanceof Error ? e.message : "submission failed");
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
   }
 
@@ -351,7 +355,7 @@ function RequestForm({
       <div className="drawer-add-another">
         <button onClick={() => setExpanded(true)}>+ Add another source</button>
       </div>
-    )
+    );
   }
 
   return (
@@ -366,8 +370,8 @@ function RequestForm({
           </p>
           <p>
             Joining requires the Trinity collector and trinity-engine on the
-            host. An admin will mint credentials once they approve your
-            request; the collector loads the .creds file on startup.
+            host. An admin will mint credentials once they approve your request;
+            the collector loads the .creds file on startup.
           </p>
         </div>
       )}
@@ -391,9 +395,9 @@ function RequestForm({
             required
           />
           <small>
-            3–16 characters: letters, numbers, _ or -. A name + location
-            code (e.g. <code>mygame-jfk</code>, <code>mygame-fra</code>) is
-            a good convention if you'll run hosts in multiple regions.
+            3–16 characters: letters, numbers, _ or -. A name + location code
+            (e.g. <code>mygame-jfk</code>, <code>mygame-fra</code>) is a good
+            convention if you'll run hosts in multiple regions.
           </small>
         </div>
         <div className="form-group">
@@ -407,7 +411,9 @@ function RequestForm({
             rows={3}
             disabled={submitting}
           />
-          <small>{purpose.length}/{MAX_PURPOSE_LEN}</small>
+          <small>
+            {purpose.length}/{MAX_PURPOSE_LEN}
+          </small>
         </div>
         {error && <div className="error-message">{error}</div>}
         <div className="request-form-actions">
@@ -416,8 +422,8 @@ function RequestForm({
               type="button"
               className="cancel-btn"
               onClick={() => {
-                setExpanded(false)
-                setError(null)
+                setExpanded(false);
+                setError(null);
               }}
               disabled={submitting}
             >
@@ -425,19 +431,19 @@ function RequestForm({
             </button>
           )}
           <button type="submit" disabled={submitting}>
-            {submitting ? 'Submitting…' : 'Submit request'}
+            {submitting ? "Submitting…" : "Submit request"}
           </button>
         </div>
       </form>
     </section>
-  )
+  );
 }
 
 function saveBlob(blob: Blob, name: string) {
-  const u = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = u
-  a.download = name
-  a.click()
-  URL.revokeObjectURL(u)
+  const u = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = u;
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(u);
 }

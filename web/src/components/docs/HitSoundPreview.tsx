@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react'
-import { PlayIcon } from '../PlayIcon'
+import { useRef, useState } from "react";
+import { PlayIcon } from "../PlayIcon";
 
 // Compact preview widget for a single hit sound — used in the
 // /docs/play Hit Sounds entry to let readers audition each
@@ -13,22 +13,22 @@ import { PlayIcon } from '../PlayIcon'
 // re-render mid-drag; volume state is tracked separately so
 // onPlay can read the latest value.
 export function HitSoundPreview({ src }: { src: string }) {
-  const audioRef = useRef<HTMLAudioElement>(null)
-  const [volume, setVolume] = useState(0.5)
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [volume, setVolume] = useState(0.5);
 
   const onPlay = () => {
-    const a = audioRef.current
-    if (!a) return
-    a.currentTime = 0
-    a.volume = volume
-    a.play()
-  }
+    const a = audioRef.current;
+    if (!a) return;
+    a.currentTime = 0;
+    a.volume = volume;
+    a.play();
+  };
 
   const onVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const v = Number(e.target.value) / 100
-    setVolume(v)
-    if (audioRef.current) audioRef.current.volume = v
-  }
+    const v = Number(e.target.value) / 100;
+    setVolume(v);
+    if (audioRef.current) audioRef.current.volume = v;
+  };
 
   return (
     <div className="hitsound-preview">
@@ -52,5 +52,5 @@ export function HitSoundPreview({ src }: { src: string }) {
       />
       <audio ref={audioRef} src={src} preload="none" />
     </div>
-  )
+  );
 }

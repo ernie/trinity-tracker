@@ -1,39 +1,41 @@
-import { useState, FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, FormEvent } from "react";
+import { Link } from "react-router-dom";
 
 interface LoginFormProps {
-  onLogin: (username: string, password: string) => Promise<boolean>
+  onLogin: (username: string, password: string) => Promise<boolean>;
 }
 
 export function LoginForm({ onLogin }: LoginFormProps) {
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [expanded, setExpanded] = useState(false)
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
+    e.preventDefault();
+    setError("");
+    setLoading(true);
 
-    const success = await onLogin(username, password)
+    const success = await onLogin(username, password);
 
     if (!success) {
-      setError('Invalid credentials')
+      setError("Invalid credentials");
     }
-    setLoading(false)
-  }
+    setLoading(false);
+  };
 
   if (!expanded) {
     return (
       <div className="login-collapsed">
-        <Link to="/claim" className="claim-link">Claim</Link>
+        <Link to="/claim" className="claim-link">
+          Claim
+        </Link>
         <button className="login-toggle" onClick={() => setExpanded(true)}>
           Login
         </button>
       </div>
-    )
+    );
   }
 
   return (
@@ -55,12 +57,16 @@ export function LoginForm({ onLogin }: LoginFormProps) {
         autoComplete="current-password"
       />
       <button type="submit" disabled={loading || !username || !password}>
-        {loading ? '...' : 'Login'}
+        {loading ? "..." : "Login"}
       </button>
-      <button type="button" className="cancel-btn" onClick={() => setExpanded(false)}>
+      <button
+        type="button"
+        className="cancel-btn"
+        onClick={() => setExpanded(false)}
+      >
         Cancel
       </button>
       {error && <span className="login-error">{error}</span>}
     </form>
-  )
+  );
 }

@@ -12,8 +12,8 @@ export function DownloadIcon({
   size = 12,
   className,
 }: {
-  size?: number
-  className?: string
+  size?: number;
+  className?: string;
 }) {
   return (
     <svg
@@ -30,5 +30,5 @@ export function DownloadIcon({
     >
       <path d="M8 2v8M5 7l3 3 3-3M3 12h10" />
     </svg>
-  )
+  );
 }

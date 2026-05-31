@@ -1,48 +1,51 @@
-import { useEffect, useState } from 'react'
-import { useDebouncedValue } from '../../hooks/useDebouncedValue'
-import { ColoredText } from '../ColoredText'
+import { useEffect, useState } from "react";
+import { useDebouncedValue } from "../../hooks/useDebouncedValue";
+import { ColoredText } from "../ColoredText";
 
 export interface UserOption {
-  id: number
-  username: string
-  is_admin: boolean
-  player_name?: string | null
+  id: number;
+  username: string;
+  is_admin: boolean;
+  player_name?: string | null;
 }
 
 interface Props {
-  token: string
-  selected: UserOption | null
-  onChange: (user: UserOption | null) => void
-  placeholder?: string
+  token: string;
+  selected: UserOption | null;
+  onChange: (user: UserOption | null) => void;
+  placeholder?: string;
   // excludeUserId disables the row in results (used for transfer-owner where
   // the current owner shouldn't be re-selectable).
-  excludeUserId?: number
-  autoFocus?: boolean
-  required?: boolean
+  excludeUserId?: number;
+  autoFocus?: boolean;
+  required?: boolean;
 }
 
 export function UserPicker({
   token,
   selected,
   onChange,
-  placeholder = 'Search users…',
+  placeholder = "Search users…",
   excludeUserId,
   autoFocus,
   required,
 }: Props) {
-  const [query, setQuery] = useState(selected?.username ?? '')
-  const [results, setResults] = useState<UserOption[]>([])
-  const debounced = useDebouncedValue(query.trim(), 200)
+  const [query, setQuery] = useState(selected?.username ?? "");
+  const [results, setResults] = useState<UserOption[]>([]);
+  const debounced = useDebouncedValue(query.trim(), 200);
 
   // Fire a search whenever the debounced query changes. Skip when the query
   // already matches the picked user's username — otherwise selecting a row
   // would re-trigger a search and re-open the dropdown a moment later.
   useEffect(() => {
-    if (debounced.length < 2) return
-    if (selected && debounced.toLowerCase() === selected.username.toLowerCase()) {
-      return
+    if (debounced.length < 2) return;
+    if (
+      selected &&
+      debounced.toLowerCase() === selected.username.toLowerCase()
+    ) {
+      return;
     }
-    const ctrl = new AbortController()
+    const ctrl = new AbortController();
     fetch(`/api/users?search=${encodeURIComponent(debounced)}&limit=10`, {
       headers: { Authorization: `Bearer ${token}` },
       signal: ctrl.signal,
@@ -51,28 +54,29 @@ export function UserPicker({
       .then((users: UserOption[]) => setResults(users ?? []))
       .catch(() => {
         /* aborted or network error — leave previous results in place */
-      })
-    return () => ctrl.abort()
-  }, [debounced, token, selected])
+      });
+    return () => ctrl.abort();
+  }, [debounced, token, selected]);
 
   // Hide stored results when the query is too short, or when the
   // current input already matches the picked user's name (otherwise
   // selecting a row would re-open the dropdown a moment later).
-  const showResults = debounced.length >= 2 &&
-    !(selected && debounced.toLowerCase() === selected.username.toLowerCase())
-  const displayResults = showResults ? results : []
+  const showResults =
+    debounced.length >= 2 &&
+    !(selected && debounced.toLowerCase() === selected.username.toLowerCase());
+  const displayResults = showResults ? results : [];
 
   const pick = (u: UserOption) => {
-    onChange(u)
-    setQuery(u.username)
-    setResults([])
-  }
+    onChange(u);
+    setQuery(u.username);
+    setResults([]);
+  };
 
   const clear = () => {
-    onChange(null)
-    setQuery('')
-    setResults([])
-  }
+    onChange(null);
+    setQuery("");
+    setResults([]);
+  };
 
   return (
     <div className="user-picker">
@@ -81,9 +85,9 @@ export function UserPicker({
         placeholder={placeholder}
         value={query}
         onChange={(e) => {
-          setQuery(e.target.value)
+          setQuery(e.target.value);
           if (selected && e.target.value !== selected.username) {
-            onChange(null)
+            onChange(null);
           }
         }}
         autoFocus={autoFocus}
@@ -94,27 +98,32 @@ export function UserPicker({
       {displayResults.length > 0 && (
         <ul className="player-results user-picker-results">
           {displayResults.map((u) => {
-            const disabled = excludeUserId !== undefined && u.id === excludeUserId
+            const disabled =
+              excludeUserId !== undefined && u.id === excludeUserId;
             return (
               <li
                 key={u.id}
-                className={disabled ? 'user-picker-disabled' : ''}
+                className={disabled ? "user-picker-disabled" : ""}
                 onClick={() => {
-                  if (!disabled) pick(u)
+                  if (!disabled) pick(u);
                 }}
               >
                 <span className="user-picker-username">
                   {u.username}
-                  {u.is_admin && <span className="user-picker-badge">admin</span>}
+                  {u.is_admin && (
+                    <span className="user-picker-badge">admin</span>
+                  )}
                 </span>
                 {u.player_name && (
                   <span className="user-picker-player">
                     (<ColoredText text={u.player_name} />)
                   </span>
                 )}
-                {disabled && <span className="user-picker-note">current owner</span>}
+                {disabled && (
+                  <span className="user-picker-note">current owner</span>
+                )}
               </li>
-            )
+            );
           })}
         </ul>
       )}
@@ -122,12 +131,12 @@ export function UserPicker({
         <div className="selected-player">
           <span>
             {selected.username}
-            {selected.is_admin && ' (admin)'}
+            {selected.is_admin && " (admin)"}
             {selected.player_name && (
               <>
-                {' ('}
+                {" ("}
                 <ColoredText text={selected.player_name} />
-                {')'}
+                {")"}
               </>
             )}
           </span>
@@ -137,6 +146,5 @@ export function UserPicker({
         </div>
       )}
     </div>
-  )
+  );
 }
-

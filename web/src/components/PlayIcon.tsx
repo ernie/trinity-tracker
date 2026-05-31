@@ -5,7 +5,13 @@
 // reads as a coherent set rather than two different icon styles.
 // currentColor on stroke lets callers drive the hue via CSS (text-dim
 // at rest, lifts to ember on hover).
-export function PlayIcon({ size = 11, className }: { size?: number; className?: string }) {
+export function PlayIcon({
+  size = 11,
+  className,
+}: {
+  size?: number;
+  className?: string;
+}) {
   return (
     <svg
       width={size}
@@ -20,5 +26,5 @@ export function PlayIcon({ size = 11, className }: { size?: number; className?: 
     >
       <polygon points="3.2,2.2 9.8,6 3.2,9.8" />
     </svg>
-  )
+  );
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState } from "react";
 
 interface CopyableCommandProps {
   /**
@@ -6,26 +6,26 @@ interface CopyableCommandProps {
    * formatting is handled by the component, the caller just supplies
    * the text.
    */
-  children: string
+  children: string;
 }
 
 // Block-level shell command with a copy-to-clipboard button. Mirrors
 // the DocsH2 anchor and AccountPage token-copy patterns: writeText →
 // flip a 'copied' flag → revert after 1500ms.
 export function CopyableCommand({ children }: CopyableCommandProps) {
-  const [copied, setCopied] = useState(false)
+  const [copied, setCopied] = useState(false);
 
   const copy = () => {
     void navigator.clipboard.writeText(children).then(
       () => {
-        setCopied(true)
-        setTimeout(() => setCopied(false), 1500)
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
       },
       () => {
         /* older browsers without clipboard API — silent no-op */
       },
-    )
-  }
+    );
+  };
 
   return (
     <div className="docs-copyable-command">
@@ -35,12 +35,12 @@ export function CopyableCommand({ children }: CopyableCommandProps) {
       <button
         type="button"
         className="docs-copyable-command__copy"
-        title={copied ? 'Copied!' : 'Copy command'}
+        title={copied ? "Copied!" : "Copy command"}
         aria-label="Copy command to clipboard"
         onClick={copy}
       >
-        {copied ? 'Copied!' : 'Copy'}
+        {copied ? "Copied!" : "Copy"}
       </button>
     </div>
-  )
+  );
 }

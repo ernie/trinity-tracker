@@ -1,4 +1,10 @@
-import { useState, useRef, useEffect, type ReactNode, type CSSProperties } from 'react'
+import {
+  useState,
+  useRef,
+  useEffect,
+  type ReactNode,
+  type CSSProperties,
+} from "react";
 
 // One annotated region in a screenshot. xPct/yPct mark the top-left
 // corner; wPct/hPct the size — all as percentages of the image's
@@ -6,19 +12,19 @@ import { useState, useRef, useEffect, type ReactNode, type CSSProperties } from 
 // title/body match the legend list rendered alongside; the same data
 // drives both surfaces.
 export interface CalloutData {
-  n: number
-  xPct: number
-  yPct: number
-  wPct: number
-  hPct: number
-  title: string
-  body: ReactNode
+  n: number;
+  xPct: number;
+  yPct: number;
+  wPct: number;
+  hPct: number;
+  title: string;
+  body: ReactNode;
 }
 
 interface CalloutImageProps {
-  src: string
-  alt: string
-  callouts: CalloutData[]
+  src: string;
+  alt: string;
+  callouts: CalloutData[];
 }
 
 // Collapsed-by-default numbered legend that pairs with a CalloutImage.
@@ -40,7 +46,7 @@ export function CalloutLegend({ callouts }: { callouts: CalloutData[] }) {
         ))}
       </ol>
     </details>
-  )
+  );
 }
 
 // Annotated screenshot with click-to-expand and hover/focus/tap-
@@ -64,19 +70,19 @@ export function CalloutLegend({ callouts }: { callouts: CalloutData[] }) {
 // stops click propagation so clicking the image area doesn't dismiss
 // the modal — only the dark backdrop or the close button do.
 export function CalloutImage({ src, alt, callouts }: CalloutImageProps) {
-  const [activeN, setActiveN] = useState<number | null>(null)
-  const [zoomed, setZoomed] = useState(false)
-  const closeTimerRef = useRef<number | null>(null)
-  const triggerRef = useRef<HTMLButtonElement>(null)
-  const closeRef = useRef<HTMLButtonElement>(null)
+  const [activeN, setActiveN] = useState<number | null>(null);
+  const [zoomed, setZoomed] = useState(false);
+  const closeTimerRef = useRef<number | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
 
   const show = (n: number) => {
     if (closeTimerRef.current !== null) {
-      clearTimeout(closeTimerRef.current)
-      closeTimerRef.current = null
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
     }
-    setActiveN(n)
-  }
+    setActiveN(n);
+  };
 
   // Small close delay bridges the gap between mouse leaving a hotspot
   // and entering the tooltip (which is positioned outside the
@@ -84,33 +90,33 @@ export function CalloutImage({ src, alt, callouts }: CalloutImageProps) {
   // tooltip flickers it off and on.
   const scheduleClose = () => {
     closeTimerRef.current = window.setTimeout(() => {
-      setActiveN(null)
-      closeTimerRef.current = null
-    }, 120)
-  }
+      setActiveN(null);
+      closeTimerRef.current = null;
+    }, 120);
+  };
 
   const togglePinned = (n: number) => {
     if (activeN === n) {
-      setActiveN(null)
+      setActiveN(null);
     } else {
-      show(n)
+      show(n);
     }
-  }
+  };
 
   // Esc dismisses the active tooltip first (if any), then the zoom
   // modal — the user's intuition is "Escape closes the topmost
   // thing." Keydown is wired on both the inline container and the
   // modal so it works in either context.
   const onKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key !== 'Escape') return
+    if (e.key !== "Escape") return;
     if (activeN !== null) {
-      e.preventDefault()
-      setActiveN(null)
+      e.preventDefault();
+      setActiveN(null);
     } else if (zoomed) {
-      e.preventDefault()
-      setZoomed(false)
+      e.preventDefault();
+      setZoomed(false);
     }
-  }
+  };
 
   // Body-scroll lock + focus management for the zoom modal. Mirrors
   // ZoomableImage's effect; lives here because CalloutImage owns
@@ -118,28 +124,29 @@ export function CalloutImage({ src, alt, callouts }: CalloutImageProps) {
   // focus isn't in our React tree (e.g., user clicked the modal
   // backdrop — focus is on body).
   useEffect(() => {
-    if (!zoomed) return
+    if (!zoomed) return;
     // Snapshot the trigger at effect setup so cleanup restores focus
     // to *this* render's button, not whatever the ref happens to be
     // pointing at later (react-hooks/exhaustive-deps).
-    const triggerEl = triggerRef.current
+    const triggerEl = triggerRef.current;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && activeN === null) {
-        setZoomed(false)
+      if (e.key === "Escape" && activeN === null) {
+        setZoomed(false);
       }
-    }
-    document.addEventListener('keydown', onKey)
-    const prevOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    closeRef.current?.focus()
+    };
+    document.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeRef.current?.focus();
     return () => {
-      document.removeEventListener('keydown', onKey)
-      document.body.style.overflow = prevOverflow
-      triggerEl?.focus()
-    }
-  }, [zoomed, activeN])
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+      triggerEl?.focus();
+    };
+  }, [zoomed, activeN]);
 
-  const activeCallout = activeN !== null ? callouts.find((c) => c.n === activeN) : null
+  const activeCallout =
+    activeN !== null ? callouts.find((c) => c.n === activeN) : null;
 
   // Shared overlay JSX. Rendered into both the inline view and the
   // zoom modal — both invocations bind to the same React state, so
@@ -150,7 +157,7 @@ export function CalloutImage({ src, alt, callouts }: CalloutImageProps) {
         <button
           key={c.n}
           type="button"
-          className={`docs-callout-image__hotspot ${activeN === c.n ? 'is-active' : ''}`}
+          className={`docs-callout-image__hotspot ${activeN === c.n ? "is-active" : ""}`}
           style={{
             left: `${c.xPct}%`,
             top: `${c.yPct}%`,
@@ -164,8 +171,8 @@ export function CalloutImage({ src, alt, callouts }: CalloutImageProps) {
           onClick={(e) => {
             // Stop propagation so clicks inside the zoom modal
             // don't bubble up to the backdrop and dismiss it.
-            e.stopPropagation()
-            togglePinned(c.n)
+            e.stopPropagation();
+            togglePinned(c.n);
           }}
           aria-label={`Callout ${c.n}: ${c.title}`}
           aria-expanded={activeN === c.n}
@@ -179,7 +186,7 @@ export function CalloutImage({ src, alt, callouts }: CalloutImageProps) {
         />
       )}
     </>
-  )
+  );
 
   return (
     <>
@@ -223,13 +230,13 @@ export function CalloutImage({ src, alt, callouts }: CalloutImageProps) {
         </div>
       )}
     </>
-  )
+  );
 }
 
 interface TooltipProps {
-  callout: CalloutData
-  onMouseEnter: () => void
-  onMouseLeave: () => void
+  callout: CalloutData;
+  onMouseEnter: () => void;
+  onMouseLeave: () => void;
 }
 
 // Tooltip placement is a two-axis heuristic on the callout's
@@ -251,31 +258,34 @@ interface TooltipProps {
 // or left edge, but only marginally compared to the previous
 // always-centered approach.
 function Tooltip({ callout: c, onMouseEnter, onMouseLeave }: TooltipProps) {
-  const centerPct = c.xPct + c.wPct / 2
+  const centerPct = c.xPct + c.wPct / 2;
 
-  let horiz: CSSProperties
+  let horiz: CSSProperties;
   if (centerPct >= 70) {
-    horiz = { right: `${100 - c.xPct - c.wPct}%` }
+    horiz = { right: `${100 - c.xPct - c.wPct}%` };
   } else if (centerPct <= 30) {
-    horiz = { left: `${c.xPct}%` }
+    horiz = { left: `${c.xPct}%` };
   } else {
-    horiz = { left: `${centerPct}%`, transform: 'translateX(-50%)' }
+    horiz = { left: `${centerPct}%`, transform: "translateX(-50%)" };
   }
 
-  const placeBelow = c.yPct + c.hPct < 60
+  const placeBelow = c.yPct + c.hPct < 60;
   const vert: CSSProperties = placeBelow
     ? { top: `${c.yPct + c.hPct + 1}%` }
-    : { bottom: `${100 - c.yPct + 1}%` }
+    : { bottom: `${100 - c.yPct + 1}%` };
 
   return (
     <div
       role="tooltip"
-      className={`docs-callout-image__tooltip ${placeBelow ? 'is-below' : 'is-above'}`}
+      className={`docs-callout-image__tooltip ${placeBelow ? "is-below" : "is-above"}`}
       style={{ ...horiz, ...vert }}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
-      <strong>{c.n}. {c.title}.</strong> {c.body}
+      <strong>
+        {c.n}. {c.title}.
+      </strong>{" "}
+      {c.body}
     </div>
-  )
+  );
 }

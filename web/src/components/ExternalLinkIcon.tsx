@@ -7,8 +7,8 @@ export function ExternalLinkIcon({
   size = 11,
   className,
 }: {
-  size?: number
-  className?: string
+  size?: number;
+  className?: string;
 }) {
   return (
     <svg
@@ -27,5 +27,5 @@ export function ExternalLinkIcon({
       <path d="M10 2h4v4" />
       <path d="M7 9 14 2" />
     </svg>
-  )
+  );
 }

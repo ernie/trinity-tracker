@@ -63,20 +63,20 @@ const CATEGORY_LABELS: Record<LeaderboardCategory, string> = {
 // DELIVERED, OBELISKS DESTROYED) spell out the full action so the banner
 // reads as a sentence-fragment rather than a single noun.
 const CATEGORY_TITLE: Record<LeaderboardCategory, string> = {
-  matches:            'MATCHES',
-  kd_ratio:           'K/D RATIO',
-  frags:              'FRAGS',
-  deaths:             'DEATHS',
-  victories:          'VICTORIES',
-  excellents:         'EXCELLENT',
-  impressives:        'IMPRESSIVE',
-  humiliations:       'HUMILIATION',
-  captures:           'CAPTURES',
-  flag_returns:       'RETURNS',
-  assists:            'ASSISTS',
-  defends:            'DEFENSE',
-  skulls_delivered:   'SKULLS DELIVERED',
-  obelisks_destroyed: 'OBELISKS DESTROYED',
+  matches: "MATCHES",
+  kd_ratio: "K/D RATIO",
+  frags: "FRAGS",
+  deaths: "DEATHS",
+  victories: "VICTORIES",
+  excellents: "EXCELLENT",
+  impressives: "IMPRESSIVE",
+  humiliations: "HUMILIATION",
+  captures: "CAPTURES",
+  flag_returns: "RETURNS",
+  assists: "ASSISTS",
+  defends: "DEFENSE",
+  skulls_delivered: "SKULLS DELIVERED",
+  obelisks_destroyed: "OBELISKS DESTROYED",
 };
 
 // Per-category eyebrow descriptors — what other regulars whisper about
@@ -84,31 +84,31 @@ const CATEGORY_TITLE: Record<LeaderboardCategory, string> = {
 // title in the standard. Tone: lyrical, ceremonial, slightly elliptical;
 // matches the landing-page voice ("the railgun waits, still humming").
 const CATEGORY_EYEBROW: Record<LeaderboardCategory, string> = {
-  matches:            'THE ARENA IS THEIR HOME',
-  kd_ratio:           'MORE GIVEN THAN TAKEN',
-  frags:              'STOPPED COUNTING LONG AGO',
-  deaths:             'NEVER LEARNED TO RETREAT',
-  victories:          'DEFEAT IS NOT AN OPTION',
-  excellents:         'ONE IS NEVER ENOUGH',
-  impressives:        'EVERY SHOT FINDS ITS MARK',
-  humiliations:       "YOU AREN'T WORTH A BULLET",
-  captures:           'THEY BEAR THE BURDEN HOME',
-  flag_returns:       "THEY WON'T LET A BANNER LIE",
-  assists:            'SHARED THE GLORY GLADLY',
-  defends:            'THEY DO NOT GIVE GROUND',
-  skulls_delivered:   'BONES, COLLECTED AND CAST',
-  obelisks_destroyed: 'PROLIFIC DEMOLITIONISTS',
+  matches: "THE ARENA IS THEIR HOME",
+  kd_ratio: "MORE GIVEN THAN TAKEN",
+  frags: "STOPPED COUNTING LONG AGO",
+  deaths: "NEVER LEARNED TO RETREAT",
+  victories: "DEFEAT IS NOT AN OPTION",
+  excellents: "ONE IS NEVER ENOUGH",
+  impressives: "EVERY SHOT FINDS ITS MARK",
+  humiliations: "YOU AREN'T WORTH A BULLET",
+  captures: "THEY BEAR THE BURDEN HOME",
+  flag_returns: "THEY WON'T LET A BANNER LIE",
+  assists: "SHARED THE GLORY GLADLY",
+  defends: "THEY DO NOT GIVE GROUND",
+  skulls_delivered: "BONES, COLLECTED AND CAST",
+  obelisks_destroyed: "PROLIFIC DEMOLITIONISTS",
 };
 
 // Banner tagline labels. Spell out the rolling window so visitors aren't
 // left guessing whether "Today" means "since midnight" (it doesn't —
 // the backend computes asOf - 24h; see storage/sqlite.go getTimePeriodBounds).
 const PERIOD_DISPLAY: Record<TimePeriod, string> = {
-  all: 'ALL-TIME',
-  year: 'PAST YEAR',
-  month: 'PAST 30 DAYS',
-  week: 'PAST 7 DAYS',
-  day: 'PAST 24 HOURS',
+  all: "ALL-TIME",
+  year: "PAST YEAR",
+  month: "PAST 30 DAYS",
+  week: "PAST 7 DAYS",
+  day: "PAST 24 HOURS",
 };
 
 // Renders the big emblem for the dramatic standard. Three variants:
@@ -119,10 +119,10 @@ const PERIOD_DISPLAY: Record<TimePeriod, string> = {
 function StandardEmblem({ category }: { category: LeaderboardCategory }) {
   const medalType = CATEGORY_MEDAL[category];
   if (medalType) {
-    const src = `/assets/medals/medal_${medalType === 'humiliation' ? 'gauntlet' : medalType}.png`;
+    const src = `/assets/medals/medal_${medalType === "humiliation" ? "gauntlet" : medalType}.png`;
     return <img className="leaderboard-standard__medal-img" src={src} alt="" />;
   }
-  if (category === 'flag_returns') {
+  if (category === "flag_returns") {
     // Crossed banners: red + blue overlapped at angles. The R+B duality
     // mirrors the obelisk medal's red+blue rings — both TA-mode emblems
     // share the "two teams' colors clashing" motif. Same emblem also
@@ -131,7 +131,13 @@ function StandardEmblem({ category }: { category: LeaderboardCategory }) {
   }
   // matches, kd_ratio, frags, deaths — the Quake-fundamentals, no medal.
   // Uses the flat Q3 brand silhouette as a heraldic emblem.
-  return <img className="leaderboard-standard__medal-img" src="/assets/q3-logo.png" alt="" />;
+  return (
+    <img
+      className="leaderboard-standard__medal-img"
+      src="/assets/q3-logo.png"
+      alt=""
+    />
+  );
 }
 
 // Base categories available for all game types
@@ -161,8 +167,15 @@ const ONE_FLAG_CTF_CATEGORIES: LeaderboardCategory[] = [
   "defends",
 ];
 
-const OVERLOAD_CATEGORIES: LeaderboardCategory[] = ["obelisks_destroyed", "defends"];
-const HARVESTER_CATEGORIES: LeaderboardCategory[] = ["skulls_delivered", "assists", "defends"];
+const OVERLOAD_CATEGORIES: LeaderboardCategory[] = [
+  "obelisks_destroyed",
+  "defends",
+];
+const HARVESTER_CATEGORIES: LeaderboardCategory[] = [
+  "skulls_delivered",
+  "assists",
+  "defends",
+];
 
 function getCategoriesForGameType(
   gameType: GameTypeFilter,
@@ -179,7 +192,12 @@ function getCategoriesForGameType(
     default:
       // 'all' aggregates every objective-mode category.
       return gameType === "all"
-        ? [...BASE_CATEGORIES, ...CTF_CATEGORIES, "skulls_delivered", "obelisks_destroyed"]
+        ? [
+            ...BASE_CATEGORIES,
+            ...CTF_CATEGORIES,
+            "skulls_delivered",
+            "obelisks_destroyed",
+          ]
         : BASE_CATEGORIES;
   }
 }
@@ -190,7 +208,10 @@ function getCategoriesForGameType(
 function formatSnapshotTime(asOf: string): string {
   const d = new Date(asOf);
   if (isNaN(d.getTime())) return asOf;
-  return d.toISOString().replace("T", " ").replace(/:\d{2}\.\d+Z$/, " UTC");
+  return d
+    .toISOString()
+    .replace("T", " ")
+    .replace(/:\d{2}\.\d+Z$/, " UTC");
 }
 
 export function LeaderboardPage() {
@@ -213,7 +234,9 @@ export function LeaderboardPage() {
 
   // Effective category — when a game type doesn't support the persisted
   // category, fall back to "frags" without ever storing the bad value.
-  const effectiveCategory = availableCategories.includes(category) ? category : "frags";
+  const effectiveCategory = availableCategories.includes(category)
+    ? category
+    : "frags";
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -245,7 +268,11 @@ export function LeaderboardPage() {
       {asOf && (
         <div className="leaderboard-snapshot-banner">
           <span>Snapshot · {formatSnapshotTime(asOf)}</span>
-          <button type="button" className="leaderboard-snapshot-exit" onClick={exitSnapshot}>
+          <button
+            type="button"
+            className="leaderboard-snapshot-exit"
+            onClick={exitSnapshot}
+          >
             <ArrowIcon direction="left" /> Live
           </button>
         </div>
@@ -296,23 +323,26 @@ export function LeaderboardPage() {
 
         <div className="leaderboard-main">
           <header key={effectiveCategory} className="leaderboard-standard">
-        <div className="leaderboard-standard__ribbon" aria-hidden />
-        <div className="leaderboard-standard__emblem">
-          <div className="leaderboard-standard__halo" aria-hidden />
-          <StandardEmblem category={effectiveCategory} />
-        </div>
-        <div className="leaderboard-standard__text">
-          <p className="leaderboard-standard__eyebrow">
-            <span>{CATEGORY_EYEBROW[effectiveCategory]}</span>
-          </p>
-          <h2 className="leaderboard-standard__title">
-            {CATEGORY_TITLE[effectiveCategory]}
-          </h2>
-          <p className="leaderboard-standard__tagline">
-            {PERIOD_DISPLAY[period]} · {gameType === "all" ? "ALL MODES" : formatGameType(gameType).toUpperCase()}
-          </p>
-        </div>
-      </header>
+            <div className="leaderboard-standard__ribbon" aria-hidden />
+            <div className="leaderboard-standard__emblem">
+              <div className="leaderboard-standard__halo" aria-hidden />
+              <StandardEmblem category={effectiveCategory} />
+            </div>
+            <div className="leaderboard-standard__text">
+              <p className="leaderboard-standard__eyebrow">
+                <span>{CATEGORY_EYEBROW[effectiveCategory]}</span>
+              </p>
+              <h2 className="leaderboard-standard__title">
+                {CATEGORY_TITLE[effectiveCategory]}
+              </h2>
+              <p className="leaderboard-standard__tagline">
+                {PERIOD_DISPLAY[period]} ·{" "}
+                {gameType === "all"
+                  ? "ALL MODES"
+                  : formatGameType(gameType).toUpperCase()}
+              </p>
+            </div>
+          </header>
 
           <div className="leaderboard-content">
             {loading ? (
@@ -332,7 +362,6 @@ export function LeaderboardPage() {
           </div>
         </div>
       </div>
-
     </div>
   );
 }
@@ -352,23 +381,41 @@ const CORE_STATS_CATEGORIES = [
 // Renders the sorted-by stat as the card's headline number. For
 // kd_ratio shows two decimals, everything else passes through
 // formatNumber.
-function getPrimary(entry: LeaderboardEntry, category: LeaderboardCategory): string {
+function getPrimary(
+  entry: LeaderboardEntry,
+  category: LeaderboardCategory,
+): string {
   switch (category) {
-    case "matches": return formatNumber(entry.completed_matches);
-    case "kd_ratio": return entry.kd_ratio.toFixed(2);
-    case "frags": return formatNumber(entry.total_frags);
-    case "deaths": return formatNumber(entry.total_deaths);
-    case "victories": return formatNumber(entry.victories);
-    case "excellents": return formatNumber(entry.excellents);
-    case "impressives": return formatNumber(entry.impressives);
-    case "humiliations": return formatNumber(entry.humiliations);
-    case "captures": return formatNumber(entry.captures);
-    case "flag_returns": return formatNumber(entry.flag_returns);
-    case "assists": return formatNumber(entry.assists);
-    case "defends": return formatNumber(entry.defends);
-    case "skulls_delivered": return formatNumber(entry.skulls_delivered);
-    case "obelisks_destroyed": return formatNumber(entry.obelisks_destroyed);
-    default: return "";
+    case "matches":
+      return formatNumber(entry.completed_matches);
+    case "kd_ratio":
+      return entry.kd_ratio.toFixed(2);
+    case "frags":
+      return formatNumber(entry.total_frags);
+    case "deaths":
+      return formatNumber(entry.total_deaths);
+    case "victories":
+      return formatNumber(entry.victories);
+    case "excellents":
+      return formatNumber(entry.excellents);
+    case "impressives":
+      return formatNumber(entry.impressives);
+    case "humiliations":
+      return formatNumber(entry.humiliations);
+    case "captures":
+      return formatNumber(entry.captures);
+    case "flag_returns":
+      return formatNumber(entry.flag_returns);
+    case "assists":
+      return formatNumber(entry.assists);
+    case "defends":
+      return formatNumber(entry.defends);
+    case "skulls_delivered":
+      return formatNumber(entry.skulls_delivered);
+    case "obelisks_destroyed":
+      return formatNumber(entry.obelisks_destroyed);
+    default:
+      return "";
   }
 }
 
@@ -387,7 +434,9 @@ function LeaderboardGrid({ entries, category }: LeaderboardGridProps) {
             to={`/players/${entry.player.id}`}
             className={`leaderboard-card${isTop ? " top" : ""}${isTop ? ` top-${index + 1}` : ""}`}
           >
-            <span className={`leaderboard-card__rank${isTop ? " top" : ""}`}>#{index + 1}</span>
+            <span className={`leaderboard-card__rank${isTop ? " top" : ""}`}>
+              #{index + 1}
+            </span>
             <span className="leaderboard-card__avatar">
               <PlayerPortrait model={entry.player.model} size="lg" />
               <PlayerBadge
@@ -398,27 +447,55 @@ function LeaderboardGrid({ entries, category }: LeaderboardGridProps) {
               />
             </span>
             <span className="leaderboard-card__name">
-              <ColoredText text={entry.player.is_vr ? stripVRPrefix(entry.player.name) : entry.player.name} />
+              <ColoredText
+                text={
+                  entry.player.is_vr
+                    ? stripVRPrefix(entry.player.name)
+                    : entry.player.name
+                }
+              />
             </span>
-            <span className="leaderboard-card__stat-label">{CATEGORY_LABELS[category]}</span>
-            <span className="leaderboard-card__stat">{getPrimary(entry, category)}</span>
+            <span className="leaderboard-card__stat-label">
+              {CATEGORY_LABELS[category]}
+            </span>
+            <span className="leaderboard-card__stat">
+              {getPrimary(entry, category)}
+            </span>
             {isCoreStats && (
               // Show the other three core stats as a compact secondary row
               // so each card carries the full stat picture, not just the
               // sorted column.
               <div className="leaderboard-card__secondary">
                 {category !== "matches" && (
-                  <span title={
-                    entry.uncompleted_matches > 0
-                      ? `${formatNumber(entry.completed_matches)} completed, ${formatNumber(entry.uncompleted_matches)} incomplete`
-                      : undefined
-                  }>
-                    <i>M</i>{formatNumber(entry.completed_matches)}
+                  <span
+                    title={
+                      entry.uncompleted_matches > 0
+                        ? `${formatNumber(entry.completed_matches)} completed, ${formatNumber(entry.uncompleted_matches)} incomplete`
+                        : undefined
+                    }
+                  >
+                    <i>M</i>
+                    {formatNumber(entry.completed_matches)}
                   </span>
                 )}
-                {category !== "kd_ratio" && <span><i>K/D</i>{entry.kd_ratio.toFixed(2)}</span>}
-                {category !== "frags" && <span><i>K</i>{formatNumber(entry.total_frags)}</span>}
-                {category !== "deaths" && <span><i>D</i>{formatNumber(entry.total_deaths)}</span>}
+                {category !== "kd_ratio" && (
+                  <span>
+                    <i>K/D</i>
+                    {entry.kd_ratio.toFixed(2)}
+                  </span>
+                )}
+                {category !== "frags" && (
+                  <span>
+                    <i>K</i>
+                    {formatNumber(entry.total_frags)}
+                  </span>
+                )}
+                {category !== "deaths" && (
+                  <span>
+                    <i>D</i>
+                    {formatNumber(entry.total_deaths)}
+                  </span>
+                )}
               </div>
             )}
           </Link>

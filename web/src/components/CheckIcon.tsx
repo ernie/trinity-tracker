@@ -5,8 +5,8 @@ export function CheckIcon({
   size = 12,
   className,
 }: {
-  size?: number
-  className?: string
+  size?: number;
+  className?: string;
 }) {
   return (
     <svg
@@ -23,5 +23,5 @@ export function CheckIcon({
     >
       <polyline points="2.5,6.5 5,9 9.5,3.5" />
     </svg>
-  )
+  );
 }

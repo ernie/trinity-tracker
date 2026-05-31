@@ -1,167 +1,175 @@
-import { useState, useCallback, useEffect } from 'react'
-import { Link } from 'react-router-dom'
-import { useAuth } from '../../hooks/useAuth'
-import { useDebouncedValue } from '../../hooks/useDebouncedValue'
-import { BotBadge } from '../BotBadge'
-import { ColoredText } from '../ColoredText'
-import { PlayerBadge } from '../PlayerBadge'
-import { PlayerPortrait } from '../PlayerPortrait'
-import { formatDate, formatDuration } from '../../utils/formatters'
-import { stripVRPrefix } from '../../utils'
-import type { PlayerProfile, PlayerGUID } from '../../types'
+import { useState, useCallback, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { useAuth } from "../../hooks/useAuth";
+import { useDebouncedValue } from "../../hooks/useDebouncedValue";
+import { BotBadge } from "../BotBadge";
+import { ColoredText } from "../ColoredText";
+import { PlayerBadge } from "../PlayerBadge";
+import { PlayerPortrait } from "../PlayerPortrait";
+import { formatDate, formatDuration } from "../../utils/formatters";
+import { stripVRPrefix } from "../../utils";
+import type { PlayerProfile, PlayerGUID } from "../../types";
 
 export function AdminPlayers() {
-  const { auth } = useAuth()
-  const token = auth.token!
+  const { auth } = useAuth();
+  const token = auth.token!;
 
   // Player search (target selection) — fires automatically as the admin types.
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<PlayerProfile[]>([])
-  const debouncedSearchQuery = useDebouncedValue(searchQuery, 200)
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<PlayerProfile[]>([]);
+  const debouncedSearchQuery = useDebouncedValue(searchQuery, 200);
 
   // Selected target player
-  const [selected, setSelected] = useState<PlayerProfile | null>(null)
-  const [guids, setGuids] = useState<PlayerGUID[]>([])
-  const [loadingGuids, setLoadingGuids] = useState(false)
+  const [selected, setSelected] = useState<PlayerProfile | null>(null);
+  const [guids, setGuids] = useState<PlayerGUID[]>([]);
+  const [loadingGuids, setLoadingGuids] = useState(false);
 
   // Merge state
-  const [mergeQuery, setMergeQuery] = useState('')
-  const [mergeResults, setMergeResults] = useState<PlayerProfile[]>([])
-  const debouncedMergeQuery = useDebouncedValue(mergeQuery, 200)
-  const [merging, setMerging] = useState(false)
-  const [splitting, setSplitting] = useState<number | null>(null)
-  const [error, setError] = useState('')
+  const [mergeQuery, setMergeQuery] = useState("");
+  const [mergeResults, setMergeResults] = useState<PlayerProfile[]>([]);
+  const debouncedMergeQuery = useDebouncedValue(mergeQuery, 200);
+  const [merging, setMerging] = useState(false);
+  const [splitting, setSplitting] = useState<number | null>(null);
+  const [error, setError] = useState("");
 
-  const headers = { Authorization: `Bearer ${token}` }
+  const headers = { Authorization: `Bearer ${token}` };
 
   useEffect(() => {
-    if (debouncedSearchQuery.trim().length < 2) return
-    const ctrl = new AbortController()
-    fetch(`/api/players?search=${encodeURIComponent(debouncedSearchQuery)}&limit=10`, {
-      headers: { Authorization: `Bearer ${token}` },
-      signal: ctrl.signal,
-    })
+    if (debouncedSearchQuery.trim().length < 2) return;
+    const ctrl = new AbortController();
+    fetch(
+      `/api/players?search=${encodeURIComponent(debouncedSearchQuery)}&limit=10`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: ctrl.signal,
+      },
+    )
       .then((res) => (res.ok ? res.json() : []))
       .then((data: PlayerProfile[]) => setSearchResults(data ?? []))
       .catch(() => {
         /* aborted or network error */
-      })
-    return () => ctrl.abort()
-  }, [debouncedSearchQuery, token])
+      });
+    return () => ctrl.abort();
+  }, [debouncedSearchQuery, token]);
 
   // Hide stored results once the query is too short — store keeps the
   // last fetch's data so a fresh ≥2-char query overwrites cleanly.
-  const displaySearchResults = debouncedSearchQuery.trim().length >= 2 ? searchResults : []
+  const displaySearchResults =
+    debouncedSearchQuery.trim().length >= 2 ? searchResults : [];
 
   const fetchGuids = useCallback(
     (playerId: number) => {
-      setLoadingGuids(true)
+      setLoadingGuids(true);
       fetch(`/api/players/${playerId}/guids`, { headers })
         .then((res) => (res.ok ? res.json() : []))
         .then((data) => setGuids(data || []))
         .catch(() => setGuids([]))
-        .finally(() => setLoadingGuids(false))
+        .finally(() => setLoadingGuids(false));
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [token],
-  )
+  );
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (selected) fetchGuids(selected.id)
-    else setGuids([])
-  }, [selected, fetchGuids])
+    if (selected) fetchGuids(selected.id);
+    else setGuids([]);
+  }, [selected, fetchGuids]);
 
   const selectPlayer = (p: PlayerProfile) => {
-    setSelected(p)
-    setSearchResults([])
-    setSearchQuery('')
-    setMergeQuery('')
-    setMergeResults([])
-    setError('')
-  }
+    setSelected(p);
+    setSearchResults([]);
+    setSearchQuery("");
+    setMergeQuery("");
+    setMergeResults([]);
+    setError("");
+  };
 
   useEffect(() => {
-    if (!selected || debouncedMergeQuery.trim().length < 2) return
-    const ctrl = new AbortController()
-    fetch(`/api/players?search=${encodeURIComponent(debouncedMergeQuery)}&limit=10`, {
-      headers: { Authorization: `Bearer ${token}` },
-      signal: ctrl.signal,
-    })
+    if (!selected || debouncedMergeQuery.trim().length < 2) return;
+    const ctrl = new AbortController();
+    fetch(
+      `/api/players?search=${encodeURIComponent(debouncedMergeQuery)}&limit=10`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: ctrl.signal,
+      },
+    )
       .then((res) => (res.ok ? res.json() : []))
       .then((data: PlayerProfile[]) => {
-        const filtered = (data ?? []).filter((p) => p.id !== selected.id)
-        setMergeResults(filtered)
+        const filtered = (data ?? []).filter((p) => p.id !== selected.id);
+        setMergeResults(filtered);
       })
       .catch(() => {
         /* aborted or network error */
-      })
-    return () => ctrl.abort()
-  }, [debouncedMergeQuery, selected, token])
+      });
+    return () => ctrl.abort();
+  }, [debouncedMergeQuery, selected, token]);
 
   // Hide stored merge results when no player is selected or the merge
   // query is too short — fresh fetches overwrite when both are valid.
-  const displayMergeResults = selected && debouncedMergeQuery.trim().length >= 2 ? mergeResults : []
+  const displayMergeResults =
+    selected && debouncedMergeQuery.trim().length >= 2 ? mergeResults : [];
 
   const handleMerge = async (mergePlayerId: number) => {
-    if (!selected) return
+    if (!selected) return;
     if (
       !confirm(
-        'Are you sure you want to merge this player? This will move all their GUIDs and stats to the selected player.',
+        "Are you sure you want to merge this player? This will move all their GUIDs and stats to the selected player.",
       )
     ) {
-      return
+      return;
     }
 
-    setMerging(true)
-    setError('')
+    setMerging(true);
+    setError("");
     try {
       const res = await fetch(`/api/admin/players/${selected.id}/merge`, {
-        method: 'POST',
-        headers: { ...headers, 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({ merge_player_id: mergePlayerId }),
-      })
+      });
       if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error || 'Merge failed')
+        const data = await res.json();
+        throw new Error(data.error || "Merge failed");
       }
-      setMergeQuery('')
-      setMergeResults([])
-      fetchGuids(selected.id)
+      setMergeQuery("");
+      setMergeResults([]);
+      fetchGuids(selected.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Merge failed')
+      setError(err instanceof Error ? err.message : "Merge failed");
     } finally {
-      setMerging(false)
+      setMerging(false);
     }
-  }
+  };
 
   const handleSplit = async (guidId: number) => {
-    if (!confirm('Split this GUID into a separate player?')) return
+    if (!confirm("Split this GUID into a separate player?")) return;
 
-    setSplitting(guidId)
-    setError('')
+    setSplitting(guidId);
+    setError("");
     try {
       const res = await fetch(`/api/admin/guids/${guidId}/split`, {
-        method: 'POST',
+        method: "POST",
         headers,
-      })
+      });
       if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error || 'Split failed')
+        const data = await res.json();
+        throw new Error(data.error || "Split failed");
       }
-      if (selected) fetchGuids(selected.id)
+      if (selected) fetchGuids(selected.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Split failed')
+      setError(err instanceof Error ? err.message : "Split failed");
     } finally {
-      setSplitting(null)
+      setSplitting(null);
     }
-  }
+  };
 
   // Right-pane priority mirrors PlayersPage: a fresh search hides the
   // selected detail panel so admins can pivot to a different player
   // without losing context. Gates on `displaySearchResults` so a stale
   // in-flight fetch resolving after a short-query gap can't reappear.
-  const showResults = displaySearchResults.length > 0
+  const showResults = displaySearchResults.length > 0;
 
   return (
     <div className="admin-players">
@@ -178,9 +186,12 @@ export function AdminPlayers() {
       />
 
       {showResults && (
-        <div className="player-cards-grid" style={{ marginTop: 'var(--space-3)' }}>
+        <div
+          className="player-cards-grid"
+          style={{ marginTop: "var(--space-3)" }}
+        >
           {displaySearchResults.map((p) => {
-            const displayName = p.is_vr ? stripVRPrefix(p.name) : p.name
+            const displayName = p.is_vr ? stripVRPrefix(p.name) : p.name;
             return (
               <button
                 key={p.id}
@@ -208,28 +219,41 @@ export function AdminPlayers() {
                   </span>
                 </div>
               </button>
-            )
+            );
           })}
         </div>
       )}
 
-      {error && <div className="error-message" style={{ marginTop: 'var(--space-3)' }}>{error}</div>}
+      {error && (
+        <div className="error-message" style={{ marginTop: "var(--space-3)" }}>
+          {error}
+        </div>
+      )}
 
       {!showResults && selected && (
         <div className="admin-player-detail">
           <h3>
             <PlayerPortrait model={selected.model} size="lg" />
             <Link to={`/players/${selected.id}`}>
-              <ColoredText text={selected.is_vr ? stripVRPrefix(selected.name) : selected.name} />
+              <ColoredText
+                text={
+                  selected.is_vr ? stripVRPrefix(selected.name) : selected.name
+                }
+              />
             </Link>
           </h3>
 
           <details className="filter-section" open>
             <summary className="filter-section__header">
-              <span className="filter-section__caret" aria-hidden="true">▸</span>
+              <span className="filter-section__caret" aria-hidden="true">
+                ▸
+              </span>
               <span className="filter-section__title">
                 Linked GUIDs
-                <span className="admin-section-header__count"> ({guids.length})</span>
+                <span className="admin-section-header__count">
+                  {" "}
+                  ({guids.length})
+                </span>
               </span>
             </summary>
             <div className="filter-section__body">
@@ -243,7 +267,8 @@ export function AdminPlayers() {
                         <ColoredText text={guid.name} />
                         <span className="guid-hash">{guid.guid}</span>
                         <span className="guid-dates">
-                          {formatDate(guid.first_seen)} – {formatDate(guid.last_seen)}
+                          {formatDate(guid.first_seen)} –{" "}
+                          {formatDate(guid.last_seen)}
                         </span>
                       </div>
                       {guids.length > 1 && (
@@ -252,7 +277,7 @@ export function AdminPlayers() {
                           onClick={() => handleSplit(guid.id)}
                           disabled={splitting === guid.id}
                         >
-                          {splitting === guid.id ? 'Splitting…' : 'Split'}
+                          {splitting === guid.id ? "Splitting…" : "Split"}
                         </button>
                       )}
                     </div>
@@ -264,8 +289,12 @@ export function AdminPlayers() {
 
           <details className="filter-section" open>
             <summary className="filter-section__header">
-              <span className="filter-section__caret" aria-hidden="true">▸</span>
-              <span className="filter-section__title">Merge another player into this one</span>
+              <span className="filter-section__caret" aria-hidden="true">
+                ▸
+              </span>
+              <span className="filter-section__title">
+                Merge another player into this one
+              </span>
             </summary>
             <div className="filter-section__body">
               <div className="merge-search-input">
@@ -281,11 +310,19 @@ export function AdminPlayers() {
                   {displayMergeResults.map((p) => (
                     <div key={p.id} className="merge-result-item">
                       <div className="merge-player-info">
-                        <ColoredText text={p.is_vr ? stripVRPrefix(p.name) : p.name} />
-                        <span className="merge-player-date">Last seen: {formatDate(p.last_seen)}</span>
+                        <ColoredText
+                          text={p.is_vr ? stripVRPrefix(p.name) : p.name}
+                        />
+                        <span className="merge-player-date">
+                          Last seen: {formatDate(p.last_seen)}
+                        </span>
                       </div>
-                      <button className="admin-btn-danger" onClick={() => handleMerge(p.id)} disabled={merging}>
-                        {merging ? 'Merging…' : 'Merge'}
+                      <button
+                        className="admin-btn-danger"
+                        onClick={() => handleMerge(p.id)}
+                        disabled={merging}
+                      >
+                        {merging ? "Merging…" : "Merge"}
                       </button>
                     </div>
                   ))}
@@ -296,5 +333,5 @@ export function AdminPlayers() {
         </div>
       )}
     </div>
-  )
+  );
 }

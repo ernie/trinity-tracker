@@ -1,28 +1,39 @@
-import { useState, useEffect, useCallback, createContext, useContext, createElement, type ReactNode } from 'react'
-import type { AuthState, LoginCredentials } from '../types'
+import {
+  useState,
+  useEffect,
+  useCallback,
+  createContext,
+  useContext,
+  createElement,
+  type ReactNode,
+} from "react";
+import type { AuthState, LoginCredentials } from "../types";
 
-const TOKEN_KEY = 'q3a_auth_token'
+const TOKEN_KEY = "q3a_auth_token";
 
 interface AuthContextType {
-  auth: AuthState
-  loading: boolean
-  login: (credentials: LoginCredentials) => Promise<boolean>
-  logout: () => void
-  changePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>
+  auth: AuthState;
+  loading: boolean;
+  login: (credentials: LoginCredentials) => Promise<boolean>;
+  logout: () => void;
+  changePassword: (
+    currentPassword: string,
+    newPassword: string,
+  ) => Promise<{ success: boolean; error?: string }>;
 }
 
-const AuthContext = createContext<AuthContextType | null>(null)
+const AuthContext = createContext<AuthContextType | null>(null);
 
 export function useAuth(): AuthContextType {
-  const context = useContext(AuthContext)
+  const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider')
+    throw new Error("useAuth must be used within an AuthProvider");
   }
-  return context
+  return context;
 }
 
 interface AuthProviderProps {
-  children: ReactNode
+  children: ReactNode;
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
@@ -33,24 +44,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isAdmin: false,
     playerId: null,
     passwordChangeRequired: false,
-  })
-  const [loading, setLoading] = useState(true)
+  });
+  const [loading, setLoading] = useState(true);
 
   // Check existing token on mount
   useEffect(() => {
-    const token = localStorage.getItem(TOKEN_KEY)
+    const token = localStorage.getItem(TOKEN_KEY);
     if (!token) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setLoading(false)
-      return
+      setLoading(false);
+      return;
     }
-    let cancelled = false
-    fetch('/api/auth/check', {
+    let cancelled = false;
+    fetch("/api/auth/check", {
       headers: { Authorization: `Bearer ${token}` },
     })
-      .then(res => res.json())
-      .then(data => {
-        if (cancelled) return
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return;
         if (data.authenticated) {
           setAuth({
             isAuthenticated: true,
@@ -59,48 +70,53 @@ export function AuthProvider({ children }: AuthProviderProps) {
             isAdmin: data.is_admin || false,
             playerId: data.player_id || null,
             passwordChangeRequired: data.password_change_required || false,
-          })
+          });
         } else {
-          localStorage.removeItem(TOKEN_KEY)
+          localStorage.removeItem(TOKEN_KEY);
         }
       })
       .catch(() => {
-        if (!cancelled) localStorage.removeItem(TOKEN_KEY)
+        if (!cancelled) localStorage.removeItem(TOKEN_KEY);
       })
       .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => { cancelled = true }
-  }, [])
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  const login = useCallback(async (credentials: LoginCredentials): Promise<boolean> => {
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(credentials),
-      })
+  const login = useCallback(
+    async (credentials: LoginCredentials): Promise<boolean> => {
+      try {
+        const res = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(credentials),
+        });
 
-      if (!res.ok) return false
+        if (!res.ok) return false;
 
-      const data = await res.json()
-      localStorage.setItem(TOKEN_KEY, data.token)
-      setAuth({
-        isAuthenticated: true,
-        username: data.username,
-        token: data.token,
-        isAdmin: data.is_admin || false,
-        playerId: data.player_id || null,
-        passwordChangeRequired: data.password_change_required || false,
-      })
-      return true
-    } catch {
-      return false
-    }
-  }, [])
+        const data = await res.json();
+        localStorage.setItem(TOKEN_KEY, data.token);
+        setAuth({
+          isAuthenticated: true,
+          username: data.username,
+          token: data.token,
+          isAdmin: data.is_admin || false,
+          playerId: data.player_id || null,
+          passwordChangeRequired: data.password_change_required || false,
+        });
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    [],
+  );
 
   const logout = useCallback(() => {
-    localStorage.removeItem(TOKEN_KEY)
+    localStorage.removeItem(TOKEN_KEY);
     setAuth({
       isAuthenticated: false,
       username: null,
@@ -108,44 +124,53 @@ export function AuthProvider({ children }: AuthProviderProps) {
       isAdmin: false,
       playerId: null,
       passwordChangeRequired: false,
-    })
-  }, [])
+    });
+  }, []);
 
-  const changePassword = useCallback(async (currentPassword: string, newPassword: string): Promise<{ success: boolean; error?: string }> => {
-    try {
-      const res = await fetch('/api/auth/change-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${auth.token}`,
-        },
-        body: JSON.stringify({
-          current_password: currentPassword,
-          new_password: newPassword,
-        }),
-      })
+  const changePassword = useCallback(
+    async (
+      currentPassword: string,
+      newPassword: string,
+    ): Promise<{ success: boolean; error?: string }> => {
+      try {
+        const res = await fetch("/api/auth/change-password", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${auth.token}`,
+          },
+          body: JSON.stringify({
+            current_password: currentPassword,
+            new_password: newPassword,
+          }),
+        });
 
-      const data = await res.json()
-      if (!res.ok) {
-        return { success: false, error: data.error || 'Failed to change password' }
+        const data = await res.json();
+        if (!res.ok) {
+          return {
+            success: false,
+            error: data.error || "Failed to change password",
+          };
+        }
+
+        // Update token after password change
+        if (data.token) {
+          localStorage.setItem(TOKEN_KEY, data.token);
+          setAuth((prev) => ({
+            ...prev,
+            token: data.token,
+            passwordChangeRequired: false,
+          }));
+        }
+        return { success: true };
+      } catch {
+        return { success: false, error: "Network error" };
       }
+    },
+    [auth.token],
+  );
 
-      // Update token after password change
-      if (data.token) {
-        localStorage.setItem(TOKEN_KEY, data.token)
-        setAuth(prev => ({
-          ...prev,
-          token: data.token,
-          passwordChangeRequired: false,
-        }))
-      }
-      return { success: true }
-    } catch {
-      return { success: false, error: 'Network error' }
-    }
-  }, [auth.token])
+  const value = { auth, loading, login, logout, changePassword };
 
-  const value = { auth, loading, login, logout, changePassword }
-
-  return createElement(AuthContext.Provider, { value }, children)
+  return createElement(AuthContext.Provider, { value }, children);
 }

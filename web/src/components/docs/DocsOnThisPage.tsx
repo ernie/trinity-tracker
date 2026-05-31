@@ -1,17 +1,17 @@
-import { useScrollSpy } from '../../hooks/useScrollSpy'
-import type { DocSection } from './DocsTocRail'
+import { useScrollSpy } from "../../hooks/useScrollSpy";
+import type { DocSection } from "./DocsTocRail";
 
 interface DocsOnThisPageProps {
-  sections: DocSection[]
+  sections: DocSection[];
 }
 
 // Right rail: scroll-spy-highlighted list of the current page's h2s.
 // The tri-point glyph marks the active section and scales as you read.
 export function DocsOnThisPage({ sections }: DocsOnThisPageProps) {
-  const ids = sections.map((s) => s.id)
-  const activeId = useScrollSpy(ids, 120)
+  const ids = sections.map((s) => s.id);
+  const activeId = useScrollSpy(ids, 120);
 
-  if (sections.length === 0) return null
+  if (sections.length === 0) return null;
 
   return (
     <nav className="docs-on-this-page" aria-label="On this page">
@@ -20,7 +20,7 @@ export function DocsOnThisPage({ sections }: DocsOnThisPageProps) {
         {sections.map((s) => (
           <li
             key={s.id}
-            className={`docs-on-this-page__item ${activeId === s.id ? 'docs-on-this-page__item--active' : ''}`}
+            className={`docs-on-this-page__item ${activeId === s.id ? "docs-on-this-page__item--active" : ""}`}
           >
             <a href={`#${s.id}`} className="docs-on-this-page__link">
               <img
@@ -35,5 +35,5 @@ export function DocsOnThisPage({ sections }: DocsOnThisPageProps) {
         ))}
       </ul>
     </nav>
-  )
+  );
 }

@@ -6,16 +6,16 @@ export function StatusDot({
   active = false,
   className,
 }: {
-  size?: number
-  active?: boolean
-  className?: string
+  size?: number;
+  active?: boolean;
+  className?: string;
 }) {
   return (
     <svg
       width={size}
       height={size}
       viewBox="0 0 8 8"
-      fill={active ? 'currentColor' : 'none'}
+      fill={active ? "currentColor" : "none"}
       stroke="currentColor"
       strokeWidth="1.2"
       className={className}
@@ -23,5 +23,5 @@ export function StatusDot({
     >
       <circle cx="4" cy="4" r="3" />
     </svg>
-  )
+  );
 }

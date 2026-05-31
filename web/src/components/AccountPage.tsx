@@ -1,331 +1,345 @@
-import { useState, useEffect, useRef, FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { ColoredText } from './ColoredText'
-import { DisplayNameEditor, useDisplayNameValidation } from './DisplayNameEditor'
-import { PlayerHero } from './PlayerHero'
-import { HonorsPanel } from './HonorsPanel'
-import { PlayerRecentMatches } from './PlayerRecentMatches'
-import { PeriodSelector } from './PeriodSelector'
-import { useAuth } from '../hooks/useAuth'
-import { usePlayerStats } from '../hooks/usePlayerStats'
-import { formatDate, formatDateTime } from '../utils/formatters'
-import { stripVRPrefix, canonicalizeDisplayName } from '../utils'
-import type { AccountProfile, TimePeriod } from '../types'
+import { useState, useEffect, useRef, FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
+import { ColoredText } from "./ColoredText";
+import {
+  DisplayNameEditor,
+  useDisplayNameValidation,
+} from "./DisplayNameEditor";
+import { PlayerHero } from "./PlayerHero";
+import { HonorsPanel } from "./HonorsPanel";
+import { PlayerRecentMatches } from "./PlayerRecentMatches";
+import { PeriodSelector } from "./PeriodSelector";
+import { useAuth } from "../hooks/useAuth";
+import { usePlayerStats } from "../hooks/usePlayerStats";
+import { formatDate, formatDateTime } from "../utils/formatters";
+import { stripVRPrefix, canonicalizeDisplayName } from "../utils";
+import type { AccountProfile, TimePeriod } from "../types";
 
 export function AccountPage() {
-  const navigate = useNavigate()
-  const { auth, loading: authLoading, changePassword } = useAuth()
+  const navigate = useNavigate();
+  const { auth, loading: authLoading, changePassword } = useAuth();
 
-  const [profile, setProfile] = useState<AccountProfile | null>(null)
-  const [period, setPeriod] = useState<TimePeriod>('all')
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const { stats, refetch: refetchStats, setFeaturedHonor } = usePlayerStats(profile?.player?.id, period)
+  const [profile, setProfile] = useState<AccountProfile | null>(null);
+  const [period, setPeriod] = useState<TimePeriod>("all");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const {
+    stats,
+    refetch: refetchStats,
+    setFeaturedHonor,
+  } = usePlayerStats(profile?.player?.id, period);
 
   // Link code state
-  const [linkCode, setLinkCode] = useState<string | null>(null)
-  const [expiresAt, setExpiresAt] = useState<Date | null>(null)
-  const [timeRemaining, setTimeRemaining] = useState(0)
-  const [generatingCode, setGeneratingCode] = useState(false)
-  const [linkError, setLinkError] = useState('')
-  const timerRef = useRef<number | null>(null)
+  const [linkCode, setLinkCode] = useState<string | null>(null);
+  const [expiresAt, setExpiresAt] = useState<Date | null>(null);
+  const [timeRemaining, setTimeRemaining] = useState(0);
+  const [generatingCode, setGeneratingCode] = useState(false);
+  const [linkError, setLinkError] = useState("");
+  const timerRef = useRef<number | null>(null);
 
   // Claim code state (for linking a claim code on this page)
-  const [claimCode, setClaimCode] = useState('')
-  const [claimLoading, setClaimLoading] = useState(false)
-  const [claimError, setClaimError] = useState('')
-  const [claimSuccess, setClaimSuccess] = useState(false)
+  const [claimCode, setClaimCode] = useState("");
+  const [claimLoading, setClaimLoading] = useState(false);
+  const [claimError, setClaimError] = useState("");
+  const [claimSuccess, setClaimSuccess] = useState(false);
 
   // Game token state
-  const [gameToken, setGameToken] = useState<string | null>(null)
-  const [gameTokenLoading, setGameTokenLoading] = useState(false)
-  const [gameTokenError, setGameTokenError] = useState('')
-  const [gameTokenCopied, setGameTokenCopied] = useState(false)
-  const [gameTokenVisible, setGameTokenVisible] = useState(false)
-  const [showRotateConfirm, setShowRotateConfirm] = useState(false)
+  const [gameToken, setGameToken] = useState<string | null>(null);
+  const [gameTokenLoading, setGameTokenLoading] = useState(false);
+  const [gameTokenError, setGameTokenError] = useState("");
+  const [gameTokenCopied, setGameTokenCopied] = useState(false);
+  const [gameTokenVisible, setGameTokenVisible] = useState(false);
+  const [showRotateConfirm, setShowRotateConfirm] = useState(false);
 
   // Display name state
-  const [editingDisplayName, setEditingDisplayName] = useState(false)
-  const [displayNameValue, setDisplayNameValue] = useState('')
-  const [displayNameError, setDisplayNameError] = useState('')
-  const [savingDisplayName, setSavingDisplayName] = useState(false)
+  const [editingDisplayName, setEditingDisplayName] = useState(false);
+  const [displayNameValue, setDisplayNameValue] = useState("");
+  const [displayNameError, setDisplayNameError] = useState("");
+  const [savingDisplayName, setSavingDisplayName] = useState(false);
 
   // Password change state
-  const [showPasswordForm, setShowPasswordForm] = useState(false)
-  const [currentPassword, setCurrentPassword] = useState('')
-  const [newPassword, setNewPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [passwordError, setPasswordError] = useState('')
-  const [changingPassword, setChangingPassword] = useState(false)
-  const [passwordSuccess, setPasswordSuccess] = useState(false)
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
 
   const displayNameValidation = useDisplayNameValidation(
     displayNameValue,
-    'restyle',
-    profile?.player ? canonicalizeDisplayName(
-      profile.player.is_vr ? stripVRPrefix(profile.player.name) : profile.player.name
-    ) : undefined
-  )
+    "restyle",
+    profile?.player
+      ? canonicalizeDisplayName(
+          profile.player.is_vr
+            ? stripVRPrefix(profile.player.name)
+            : profile.player.name,
+        )
+      : undefined,
+  );
 
   const handleSaveDisplayName = async () => {
-    setSavingDisplayName(true)
-    setDisplayNameError('')
+    setSavingDisplayName(true);
+    setDisplayNameError("");
     try {
-      const res = await fetch('/api/account/display-name', {
-        method: 'PATCH',
+      const res = await fetch("/api/account/display-name", {
+        method: "PATCH",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           Authorization: `Bearer ${auth.token}`,
         },
         body: JSON.stringify({ display_name: displayNameValidation.cleaned }),
-      })
+      });
       if (!res.ok) {
-        const data = await res.json()
-        setDisplayNameError(data.error || 'Failed to update display name')
-        return
+        const data = await res.json();
+        setDisplayNameError(data.error || "Failed to update display name");
+        return;
       }
-      setEditingDisplayName(false)
-      const profileRes = await fetch('/api/account/profile', {
+      setEditingDisplayName(false);
+      const profileRes = await fetch("/api/account/profile", {
         headers: { Authorization: `Bearer ${auth.token}` },
-      })
+      });
       if (profileRes.ok) {
-        setProfile(await profileRes.json())
+        setProfile(await profileRes.json());
       }
-      refetchStats()
+      refetchStats();
     } catch {
-      setDisplayNameError('Network error')
+      setDisplayNameError("Network error");
     } finally {
-      setSavingDisplayName(false)
+      setSavingDisplayName(false);
     }
-  }
+  };
 
   // Redirect if not authenticated (after auth check completes)
   useEffect(() => {
     if (!authLoading && !auth.isAuthenticated) {
-      navigate('/')
+      navigate("/");
     }
-  }, [authLoading, auth.isAuthenticated, navigate])
+  }, [authLoading, auth.isAuthenticated, navigate]);
 
   // Fetch profile on mount
   useEffect(() => {
-    if (!auth.token) return
+    if (!auth.token) return;
 
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLoading(true)
-    fetch('/api/account/profile', {
+    setLoading(true);
+    fetch("/api/account/profile", {
       headers: {
         Authorization: `Bearer ${auth.token}`,
       },
     })
       .then((res) => {
-        if (!res.ok) throw new Error('Failed to load profile')
-        return res.json()
+        if (!res.ok) throw new Error("Failed to load profile");
+        return res.json();
       })
       .then((data) => setProfile(data))
       .catch((err) => setError(err.message))
-      .finally(() => setLoading(false))
-  }, [auth.token])
+      .finally(() => setLoading(false));
+  }, [auth.token]);
 
   // Link code countdown timer
   useEffect(() => {
-    if (!expiresAt) return
+    if (!expiresAt) return;
 
     const updateTimer = () => {
-      const now = new Date()
-      const remaining = Math.max(0, Math.floor((expiresAt.getTime() - now.getTime()) / 1000))
-      setTimeRemaining(remaining)
+      const now = new Date();
+      const remaining = Math.max(
+        0,
+        Math.floor((expiresAt.getTime() - now.getTime()) / 1000),
+      );
+      setTimeRemaining(remaining);
 
       if (remaining === 0) {
-        setLinkCode(null)
-        setExpiresAt(null)
+        setLinkCode(null);
+        setExpiresAt(null);
       }
-    }
+    };
 
-    updateTimer()
-    timerRef.current = window.setInterval(updateTimer, 1000)
+    updateTimer();
+    timerRef.current = window.setInterval(updateTimer, 1000);
 
     return () => {
       if (timerRef.current) {
-        clearInterval(timerRef.current)
+        clearInterval(timerRef.current);
       }
-    }
-  }, [expiresAt])
+    };
+  }, [expiresAt]);
 
   // Fetch game token on mount
   useEffect(() => {
-    if (!auth.token) return
+    if (!auth.token) return;
 
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setGameTokenLoading(true)
-    fetch('/api/auth/game-token', {
+    setGameTokenLoading(true);
+    fetch("/api/auth/game-token", {
       headers: {
         Authorization: `Bearer ${auth.token}`,
       },
     })
       .then((res) => {
-        if (!res.ok) throw new Error('Failed to load game token')
-        return res.json()
+        if (!res.ok) throw new Error("Failed to load game token");
+        return res.json();
       })
       .then((data) => setGameToken(data.token))
       .catch((err) => setGameTokenError(err.message))
-      .finally(() => setGameTokenLoading(false))
-  }, [auth.token])
+      .finally(() => setGameTokenLoading(false));
+  }, [auth.token]);
 
   const handleCopyToken = async () => {
-    if (!gameToken) return
+    if (!gameToken) return;
     try {
-      await navigator.clipboard.writeText(gameToken)
-      setGameTokenCopied(true)
-      setTimeout(() => setGameTokenCopied(false), 2000)
+      await navigator.clipboard.writeText(gameToken);
+      setGameTokenCopied(true);
+      setTimeout(() => setGameTokenCopied(false), 2000);
     } catch {
-      setGameTokenError('Failed to copy to clipboard')
+      setGameTokenError("Failed to copy to clipboard");
     }
-  }
+  };
 
   const handleRotateToken = async () => {
-    if (!auth.token) return
+    if (!auth.token) return;
 
-    setGameTokenLoading(true)
-    setGameTokenError('')
-    setShowRotateConfirm(false)
+    setGameTokenLoading(true);
+    setGameTokenError("");
+    setShowRotateConfirm(false);
 
     try {
-      const res = await fetch('/api/auth/game-token', {
-        method: 'POST',
+      const res = await fetch("/api/auth/game-token", {
+        method: "POST",
         headers: {
           Authorization: `Bearer ${auth.token}`,
         },
-      })
+      });
 
       if (!res.ok) {
-        const data = await res.json()
-        setGameTokenError(data.error || 'Failed to rotate token')
-        return
+        const data = await res.json();
+        setGameTokenError(data.error || "Failed to rotate token");
+        return;
       }
 
-      const data = await res.json()
-      setGameToken(data.token)
+      const data = await res.json();
+      setGameToken(data.token);
     } catch {
-      setGameTokenError('Network error')
+      setGameTokenError("Network error");
     } finally {
-      setGameTokenLoading(false)
+      setGameTokenLoading(false);
     }
-  }
+  };
 
   const handleClaimLink = async () => {
-    if (!auth.token || claimCode.length !== 6) return
-    setClaimLoading(true)
-    setClaimError('')
-    setClaimSuccess(false)
+    if (!auth.token || claimCode.length !== 6) return;
+    setClaimLoading(true);
+    setClaimError("");
+    setClaimSuccess(false);
 
     try {
       // First validate the code
-      const validateRes = await fetch('/api/claim/validate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const validateRes = await fetch("/api/claim/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: claimCode }),
-      })
+      });
       if (!validateRes.ok) {
-        const data = await validateRes.json()
-        setClaimError(data.error || 'Invalid or expired claim code')
-        return
+        const data = await validateRes.json();
+        setClaimError(data.error || "Invalid or expired claim code");
+        return;
       }
 
       // Then link it
-      const res = await fetch('/api/claim/link', {
-        method: 'POST',
+      const res = await fetch("/api/claim/link", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           Authorization: `Bearer ${auth.token}`,
         },
         body: JSON.stringify({ code: claimCode }),
-      })
-      const data = await res.json()
+      });
+      const data = await res.json();
       if (!res.ok) {
-        setClaimError(data.error || 'Failed to link player')
-        return
+        setClaimError(data.error || "Failed to link player");
+        return;
       }
-      setClaimSuccess(true)
-      setClaimCode('')
+      setClaimSuccess(true);
+      setClaimCode("");
     } catch {
-      setClaimError('Network error')
+      setClaimError("Network error");
     } finally {
-      setClaimLoading(false)
+      setClaimLoading(false);
     }
-  }
+  };
 
   const generateCode = async () => {
-    if (!auth.token) return
+    if (!auth.token) return;
 
-    setGeneratingCode(true)
-    setLinkError('')
+    setGeneratingCode(true);
+    setLinkError("");
 
     try {
-      const res = await fetch('/api/account/link-code', {
-        method: 'POST',
+      const res = await fetch("/api/account/link-code", {
+        method: "POST",
         headers: {
           Authorization: `Bearer ${auth.token}`,
         },
-      })
+      });
 
       if (!res.ok) {
-        const data = await res.json()
-        setLinkError(data.error || 'Failed to generate code')
-        return
+        const data = await res.json();
+        setLinkError(data.error || "Failed to generate code");
+        return;
       }
 
-      const data = await res.json()
-      setLinkCode(data.code)
-      setExpiresAt(new Date(data.expires_at))
+      const data = await res.json();
+      setLinkCode(data.code);
+      setExpiresAt(new Date(data.expires_at));
     } catch {
-      setLinkError('Network error')
+      setLinkError("Network error");
     } finally {
-      setGeneratingCode(false)
+      setGeneratingCode(false);
     }
-  }
+  };
 
   const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins}:${secs.toString().padStart(2, '0')}`
-  }
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
 
   const handlePasswordSubmit = async (e: FormEvent) => {
-    e.preventDefault()
-    setPasswordError('')
-    setPasswordSuccess(false)
+    e.preventDefault();
+    setPasswordError("");
+    setPasswordSuccess(false);
 
     if (newPassword.length < 8) {
-      setPasswordError('Password must be at least 8 characters')
-      return
+      setPasswordError("Password must be at least 8 characters");
+      return;
     }
 
     if (newPassword !== confirmPassword) {
-      setPasswordError('Passwords do not match')
-      return
+      setPasswordError("Passwords do not match");
+      return;
     }
 
-    setChangingPassword(true)
-    const result = await changePassword(currentPassword, newPassword)
-    setChangingPassword(false)
+    setChangingPassword(true);
+    const result = await changePassword(currentPassword, newPassword);
+    setChangingPassword(false);
 
     if (!result.success) {
-      setPasswordError(result.error || 'Failed to change password')
+      setPasswordError(result.error || "Failed to change password");
     } else {
-      setPasswordSuccess(true)
-      setCurrentPassword('')
-      setNewPassword('')
-      setConfirmPassword('')
-      setShowPasswordForm(false)
+      setPasswordSuccess(true);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setShowPasswordForm(false);
     }
-  }
+  };
 
   if (authLoading || !auth.isAuthenticated) {
     return (
       <div className="account-page">
         <div className="loading">Loading...</div>
       </div>
-    )
+    );
   }
 
   return (
@@ -347,13 +361,20 @@ export function AccountPage() {
                       this view stays in lockstep with the others. */}
                   {stats ? (
                     <>
-                      <PlayerHero player={stats.player} stats={stats.stats} variant="page" />
+                      <PlayerHero
+                        player={stats.player}
+                        stats={stats.stats}
+                        variant="page"
+                      />
                       <PeriodSelector period={period} onChange={setPeriod} />
                       <HonorsPanel
                         stats={stats.stats}
                         featuredKey={stats.player.featured_honor}
                         isOwner
-                        onFeaturedChange={(key) => { if (auth.token) void setFeaturedHonor(key, auth.token) }}
+                        onFeaturedChange={(key) => {
+                          if (auth.token)
+                            void setFeaturedHonor(key, auth.token);
+                        }}
                       />
                     </>
                   ) : (
@@ -361,7 +382,9 @@ export function AccountPage() {
                   )}
                 </>
               ) : (
-                <p className="no-player">No player profile linked to this account.</p>
+                <p className="no-player">
+                  No player profile linked to this account.
+                </p>
               )}
             </section>
 
@@ -374,10 +397,13 @@ export function AccountPage() {
                     <div key={guid.id} className="guid-item">
                       <div className="guid-main">
                         <ColoredText text={guid.name} />
-                        <span className="guid-hash" title={guid.guid}>{guid.guid.slice(0, 8)}...</span>
+                        <span className="guid-hash" title={guid.guid}>
+                          {guid.guid.slice(0, 8)}...
+                        </span>
                       </div>
                       <div className="guid-dates">
-                        {formatDate(guid.first_seen)} - {formatDate(guid.last_seen)}
+                        {formatDate(guid.first_seen)} -{" "}
+                        {formatDate(guid.last_seen)}
                       </div>
                     </div>
                   ))}
@@ -409,23 +435,41 @@ export function AccountPage() {
                         value={displayNameValue}
                         onChange={setDisplayNameValue}
                         mode="restyle"
-                        originalCanonical={profile.player ? canonicalizeDisplayName(
-                          profile.player.is_vr ? stripVRPrefix(profile.player.name) : profile.player.name
-                        ) : ''}
+                        originalCanonical={
+                          profile.player
+                            ? canonicalizeDisplayName(
+                                profile.player.is_vr
+                                  ? stripVRPrefix(profile.player.name)
+                                  : profile.player.name,
+                              )
+                            : ""
+                        }
                         error={displayNameError}
-                        onSubmit={!displayNameValidation.canonicalMismatch && !displayNameValidation.isEmpty ? handleSaveDisplayName : undefined}
+                        onSubmit={
+                          !displayNameValidation.canonicalMismatch &&
+                          !displayNameValidation.isEmpty
+                            ? handleSaveDisplayName
+                            : undefined
+                        }
                       />
                       <div className="display-name-edit-actions">
                         <button
                           className="claim-primary-btn"
-                          disabled={savingDisplayName || displayNameValidation.canonicalMismatch || displayNameValidation.isEmpty}
+                          disabled={
+                            savingDisplayName ||
+                            displayNameValidation.canonicalMismatch ||
+                            displayNameValidation.isEmpty
+                          }
                           onClick={handleSaveDisplayName}
                         >
-                          {savingDisplayName ? 'Saving...' : 'Save'}
+                          {savingDisplayName ? "Saving..." : "Save"}
                         </button>
                         <button
                           className="claim-secondary-btn"
-                          onClick={() => { setEditingDisplayName(false); setDisplayNameError('') }}
+                          onClick={() => {
+                            setEditingDisplayName(false);
+                            setDisplayNameError("");
+                          }}
                         >
                           Cancel
                         </button>
@@ -442,9 +486,9 @@ export function AccountPage() {
                         <button
                           className="edit-icon-btn"
                           onClick={() => {
-                            setDisplayNameValue(profile.player!.name)
-                            setEditingDisplayName(true)
-                            setDisplayNameError('')
+                            setDisplayNameValue(profile.player!.name);
+                            setEditingDisplayName(true);
+                            setDisplayNameError("");
                           }}
                           title="Edit display name colors"
                         >
@@ -455,11 +499,15 @@ export function AccountPage() {
                   )}
                 </dd>
                 <dt>Role</dt>
-                <dd>{profile.user.is_admin ? 'Administrator' : 'User'}</dd>
+                <dd>{profile.user.is_admin ? "Administrator" : "User"}</dd>
                 <dt>Account Created</dt>
                 <dd>{formatDateTime(profile.user.created_at)}</dd>
                 <dt>Last Login</dt>
-                <dd>{profile.user.last_login ? formatDateTime(profile.user.last_login) : 'First login'}</dd>
+                <dd>
+                  {profile.user.last_login
+                    ? formatDateTime(profile.user.last_login)
+                    : "First login"}
+                </dd>
               </dl>
             </section>
 
@@ -467,7 +515,9 @@ export function AccountPage() {
             <section className="account-section account-password">
               <h2>Change Password</h2>
               {passwordSuccess && (
-                <div className="success-message">Password changed successfully!</div>
+                <div className="success-message">
+                  Password changed successfully!
+                </div>
               )}
               {showPasswordForm ? (
                 <form onSubmit={handlePasswordSubmit} className="password-form">
@@ -501,23 +551,30 @@ export function AccountPage() {
                       autoComplete="new-password"
                     />
                   </div>
-                  {passwordError && <div className="error-message">{passwordError}</div>}
+                  {passwordError && (
+                    <div className="error-message">{passwordError}</div>
+                  )}
                   <div className="form-actions">
                     <button
                       type="submit"
-                      disabled={changingPassword || !currentPassword || !newPassword || !confirmPassword}
+                      disabled={
+                        changingPassword ||
+                        !currentPassword ||
+                        !newPassword ||
+                        !confirmPassword
+                      }
                     >
-                      {changingPassword ? 'Changing...' : 'Change Password'}
+                      {changingPassword ? "Changing..." : "Change Password"}
                     </button>
                     <button
                       type="button"
                       className="cancel-btn"
                       onClick={() => {
-                        setShowPasswordForm(false)
-                        setCurrentPassword('')
-                        setNewPassword('')
-                        setConfirmPassword('')
-                        setPasswordError('')
+                        setShowPasswordForm(false);
+                        setCurrentPassword("");
+                        setNewPassword("");
+                        setConfirmPassword("");
+                        setPasswordError("");
                       }}
                     >
                       Cancel
@@ -525,7 +582,10 @@ export function AccountPage() {
                   </div>
                 </form>
               ) : (
-                <button onClick={() => setShowPasswordForm(true)} className="change-password-btn">
+                <button
+                  onClick={() => setShowPasswordForm(true)}
+                  className="change-password-btn"
+                >
                   Change Password
                 </button>
               )}
@@ -535,39 +595,48 @@ export function AccountPage() {
             <section className="account-section account-game-token">
               <h2>Game Token</h2>
               <p className="link-explanation-text">
-                Use this token with <code>cl_trinityToken</code> in your engine config, or log in from the game menu.
+                Use this token with <code>cl_trinityToken</code> in your engine
+                config, or log in from the game menu.
               </p>
 
-              {gameTokenError && <div className="error-message">{gameTokenError}</div>}
+              {gameTokenError && (
+                <div className="error-message">{gameTokenError}</div>
+              )}
 
               {gameTokenLoading && !gameToken ? (
                 <div className="loading">Loading...</div>
               ) : gameToken ? (
                 <div className="game-token-display">
-                  <div className={`game-token-value${gameTokenVisible ? '' : ' hidden'}`}>{gameToken}</div>
+                  <div
+                    className={`game-token-value${gameTokenVisible ? "" : " hidden"}`}
+                  >
+                    {gameToken}
+                  </div>
                   <div className="game-token-actions">
                     <button
                       className="generate-btn rotate-btn"
                       onClick={() => setGameTokenVisible(!gameTokenVisible)}
                     >
-                      {gameTokenVisible ? 'Hide' : 'Reveal'}
+                      {gameTokenVisible ? "Hide" : "Reveal"}
                     </button>
                     <button
                       className="generate-btn rotate-btn"
                       onClick={handleCopyToken}
                     >
-                      {gameTokenCopied ? 'Copied!' : 'Copy'}
+                      {gameTokenCopied ? "Copied!" : "Copy"}
                     </button>
                     {showRotateConfirm ? (
                       <div className="rotate-confirm">
-                        <span className="rotate-confirm-text">Invalidate current token?</span>
+                        <span className="rotate-confirm-text">
+                          Invalidate current token?
+                        </span>
                         <div className="rotate-confirm-actions">
                           <button
                             className="generate-btn"
                             onClick={handleRotateToken}
                             disabled={gameTokenLoading}
                           >
-                            {gameTokenLoading ? 'Rotating...' : 'Confirm'}
+                            {gameTokenLoading ? "Rotating..." : "Confirm"}
                           </button>
                           <button
                             className="cancel-btn"
@@ -597,17 +666,18 @@ export function AccountPage() {
               <div className="link-method">
                 <h3>From in-game</h3>
                 <p className="link-explanation-text">
-                  Type <code>!claim</code> in-game to get a code, then enter it here.
+                  Type <code>!claim</code> in-game to get a code, then enter it
+                  here.
                 </p>
                 <div className="claim-code-inline">
                   <input
                     type="text"
                     value={claimCode}
                     onChange={(e) => {
-                      const val = e.target.value.replace(/\D/g, '').slice(0, 6)
-                      setClaimCode(val)
-                      setClaimError('')
-                      setClaimSuccess(false)
+                      const val = e.target.value.replace(/\D/g, "").slice(0, 6);
+                      setClaimCode(val);
+                      setClaimError("");
+                      setClaimSuccess(false);
                     }}
                     placeholder="000000"
                     maxLength={6}
@@ -618,21 +688,30 @@ export function AccountPage() {
                     disabled={claimCode.length !== 6 || claimLoading}
                     className="generate-btn"
                   >
-                    {claimLoading ? 'Linking...' : 'Link'}
+                    {claimLoading ? "Linking..." : "Link"}
                   </button>
                 </div>
-                {claimError && <div className="error-message">{claimError}</div>}
-                {claimSuccess && <div className="success-message">Identity linked! Refresh to see changes.</div>}
+                {claimError && (
+                  <div className="error-message">{claimError}</div>
+                )}
+                {claimSuccess && (
+                  <div className="success-message">
+                    Identity linked! Refresh to see changes.
+                  </div>
+                )}
               </div>
 
               {profile.player && (
                 <div className="link-method">
                   <h3>From the web</h3>
                   <p className="link-explanation-text">
-                    Generate a code here, then type <code>!link &lt;code&gt;</code> in-game.
+                    Generate a code here, then type{" "}
+                    <code>!link &lt;code&gt;</code> in-game.
                   </p>
 
-                  {linkError && <div className="error-message">{linkError}</div>}
+                  {linkError && (
+                    <div className="error-message">{linkError}</div>
+                  )}
 
                   {linkCode ? (
                     <div className="code-display">
@@ -644,13 +723,21 @@ export function AccountPage() {
                       <div className="code-instruction">
                         In game, type: <code>!link {linkCode}</code>
                       </div>
-                      <button onClick={generateCode} disabled={generatingCode} className="generate-btn">
-                        {generatingCode ? 'Generating...' : 'Generate New Code'}
+                      <button
+                        onClick={generateCode}
+                        disabled={generatingCode}
+                        className="generate-btn"
+                      >
+                        {generatingCode ? "Generating..." : "Generate New Code"}
                       </button>
                     </div>
                   ) : (
-                    <button className="generate-btn" onClick={generateCode} disabled={generatingCode}>
-                      {generatingCode ? 'Generating...' : 'Generate Link Code'}
+                    <button
+                      className="generate-btn"
+                      onClick={generateCode}
+                      disabled={generatingCode}
+                    >
+                      {generatingCode ? "Generating..." : "Generate Link Code"}
                     </button>
                   )}
                 </div>
@@ -659,7 +746,6 @@ export function AccountPage() {
           </div>
         </div>
       )}
-
     </div>
-  )
+  );
 }

@@ -1,38 +1,45 @@
-import { useState, useEffect, useCallback } from 'react'
-import { Link } from 'react-router-dom'
-import { PeriodSelector } from './PeriodSelector'
-import { PlayerHero } from './PlayerHero'
-import { HonorsPanel } from './HonorsPanel'
-import { PlayerAkaList } from './PlayerAkaList'
-import { ArrowIcon } from './ArrowIcon'
-import { usePlayerStats } from '../hooks/usePlayerStats'
-import { useLiveData } from '../contexts/LiveDataContext'
-import type { TimePeriod, PlayerStatsResponse } from '../types'
+import { useState, useEffect, useCallback } from "react";
+import { Link } from "react-router-dom";
+import { PeriodSelector } from "./PeriodSelector";
+import { PlayerHero } from "./PlayerHero";
+import { HonorsPanel } from "./HonorsPanel";
+import { PlayerAkaList } from "./PlayerAkaList";
+import { ArrowIcon } from "./ArrowIcon";
+import { usePlayerStats } from "../hooks/usePlayerStats";
+import { useLiveData } from "../contexts/LiveDataContext";
+import type { TimePeriod, PlayerStatsResponse } from "../types";
 
 interface PlayerStatsModalProps {
-  playerName: string
-  playerId: number
-  onClose: () => void
+  playerName: string;
+  playerId: number;
+  onClose: () => void;
 }
 
 // Quick-look profile modal. Shares hero / honors / aka chrome with
 // the full /players/:id page; the page is the same shape at a larger
 // scale, plus admin sections + recent matches.
-export function PlayerStatsModal({ playerName, playerId, onClose }: PlayerStatsModalProps) {
-  const [period, setPeriod] = useState<TimePeriod>('all')
-  const { stats, loading, error } = usePlayerStats(playerId, period)
+export function PlayerStatsModal({
+  playerName,
+  playerId,
+  onClose,
+}: PlayerStatsModalProps) {
+  const [period, setPeriod] = useState<TimePeriod>("all");
+  const { stats, loading, error } = usePlayerStats(playerId, period);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [onClose])
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
 
-  const handleBackdropClick = useCallback((e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) onClose()
-  }, [onClose])
+  const handleBackdropClick = useCallback(
+    (e: React.MouseEvent) => {
+      if (e.target === e.currentTarget) onClose();
+    },
+    [onClose],
+  );
 
   return (
     <div className="modal-backdrop" onClick={handleBackdropClick}>
@@ -66,19 +73,25 @@ export function PlayerStatsModal({ playerName, playerId, onClose }: PlayerStatsM
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 interface ModalBodyProps {
-  stats: PlayerStatsResponse
-  fallbackName: string
-  period: TimePeriod
-  onPeriodChange: (p: TimePeriod) => void
-  onClose: () => void
+  stats: PlayerStatsResponse;
+  fallbackName: string;
+  period: TimePeriod;
+  onPeriodChange: (p: TimePeriod) => void;
+  onClose: () => void;
 }
 
-function ModalBody({ stats, fallbackName, period, onPeriodChange, onClose }: ModalBodyProps) {
-  const { notifyDrillIn } = useLiveData()
+function ModalBody({
+  stats,
+  fallbackName,
+  period,
+  onPeriodChange,
+  onClose,
+}: ModalBodyProps) {
+  const { notifyDrillIn } = useLiveData();
 
   return (
     <>
@@ -96,17 +109,24 @@ function ModalBody({ stats, fallbackName, period, onPeriodChange, onClose }: Mod
         featuredKey={stats.player.featured_honor}
       />
 
-      <PlayerAkaList names={stats.names} primaryName={stats.player.name} max={6} />
+      <PlayerAkaList
+        names={stats.names}
+        primaryName={stats.player.name}
+        max={6}
+      />
 
       <footer className="player-stats-modal__footer">
         <Link
           to={`/players/${stats.player.id}`}
           className="view-profile-link"
-          onClick={() => { notifyDrillIn(); onClose() }}
+          onClick={() => {
+            notifyDrillIn();
+            onClose();
+          }}
         >
           View full profile <ArrowIcon direction="right" />
         </Link>
       </footer>
     </>
-  )
+  );
 }

@@ -1,7 +1,7 @@
-import { Link } from 'react-router-dom'
-import { DiscordButton } from './DiscordButton'
-import { GitHubButton } from './GitHubButton'
-import { DownloadIcon } from './DownloadIcon'
+import { Link } from "react-router-dom";
+import { DiscordButton } from "./DiscordButton";
+import { GitHubButton } from "./GitHubButton";
+import { DownloadIcon } from "./DownloadIcon";
 
 // Groups external/social affordances together, separated from the
 // primary nav. Order: Install (gateway to the app — links to the
@@ -23,5 +23,5 @@ export function CommunityCluster() {
       <DiscordButton />
       <GitHubButton />
     </div>
-  )
+  );
 }

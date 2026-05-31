@@ -1,8 +1,8 @@
-import { type Platform } from './platformStorage'
-import { PLATFORM_LABELS } from './PlatformContext'
+import { type Platform } from "./platformStorage";
+import { PLATFORM_LABELS } from "./PlatformContext";
 
 interface PlatformChipProps {
-  platform: Platform | Platform[]
+  platform: Platform | Platform[];
 }
 
 // Compact platform-specific marker for inline use in headers,
@@ -12,7 +12,7 @@ interface PlatformChipProps {
 // surrounding content is already filtered (the chip just labels
 // what's being shown, it doesn't filter).
 export function PlatformChip({ platform }: PlatformChipProps) {
-  const platforms = Array.isArray(platform) ? platform : [platform]
-  const label = platforms.map((p) => PLATFORM_LABELS[p]).join(' · ')
-  return <span className="docs-platform-chip">{label}</span>
+  const platforms = Array.isArray(platform) ? platform : [platform];
+  const label = platforms.map((p) => PLATFORM_LABELS[p]).join(" · ");
+  return <span className="docs-platform-chip">{label}</span>;
 }

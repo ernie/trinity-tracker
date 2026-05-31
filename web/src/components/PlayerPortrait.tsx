@@ -1,20 +1,20 @@
-import { useState, useRef } from 'react'
-import { createPortal } from 'react-dom'
+import { useState, useRef } from "react";
+import { createPortal } from "react-dom";
 
 interface PlayerPortraitProps {
-  model?: string  // e.g., "sarge/default", "sarge", or "*james"
-  size?: 'sm' | 'md' | 'lg' | 'xl'
-  className?: string
+  model?: string; // e.g., "sarge/default", "sarge", or "*james"
+  size?: "sm" | "md" | "lg" | "xl";
+  className?: string;
 }
 
-const SIZE_CLASSES: Record<NonNullable<PlayerPortraitProps['size']>, string> = {
-  sm: 'portrait-sm',
-  md: 'portrait-md',
-  lg: 'portrait-lg',
-  xl: 'portrait-xl',
-}
+const SIZE_CLASSES: Record<NonNullable<PlayerPortraitProps["size"]>, string> = {
+  sm: "portrait-sm",
+  md: "portrait-md",
+  lg: "portrait-lg",
+  xl: "portrait-xl",
+};
 
-const PORTRAIT_HELP = `Player model — what they look like in-game.`
+const PORTRAIT_HELP = `Player model — what they look like in-game.`;
 
 /**
  * Parse a Q3A model string to get the portrait path.
@@ -26,14 +26,14 @@ const PORTRAIT_HELP = `Player model — what they look like in-game.`
  */
 function getPortraitPath(model: string): string {
   // Strip Team Arena asterisk prefix
-  const cleanModel = model.startsWith('*') ? model.slice(1) : model
+  const cleanModel = model.startsWith("*") ? model.slice(1) : model;
 
   // Split into model name and skin
-  const parts = cleanModel.split('/')
-  const modelName = parts[0].toLowerCase()
-  const skin = (parts[1] || 'default').toLowerCase()
+  const parts = cleanModel.split("/");
+  const modelName = parts[0].toLowerCase();
+  const skin = (parts[1] || "default").toLowerCase();
 
-  return `/assets/portraits/${modelName}/icon_${skin}.png`
+  return `/assets/portraits/${modelName}/icon_${skin}.png`;
 }
 
 // Head-and-shoulders silhouette shown when no model is provided or the
@@ -54,45 +54,52 @@ function DefaultPortraitSvg() {
         fill="var(--text-dim)"
       />
     </svg>
-  )
+  );
 }
 
-export function PlayerPortrait({ model, size = 'sm', className = '' }: PlayerPortraitProps) {
-  const [hasError, setHasError] = useState(false)
-  const [showPreview, setShowPreview] = useState(false)
-  const [previewPos, setPreviewPos] = useState({ x: 0, y: 0 })
-  const ref = useRef<HTMLSpanElement>(null)
-  const sizeClass = SIZE_CLASSES[size]
+export function PlayerPortrait({
+  model,
+  size = "sm",
+  className = "",
+}: PlayerPortraitProps) {
+  const [hasError, setHasError] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewPos, setPreviewPos] = useState({ x: 0, y: 0 });
+  const ref = useRef<HTMLSpanElement>(null);
+  const sizeClass = SIZE_CLASSES[size];
 
   if (!model) {
     return (
-      <span className={`player-portrait ${sizeClass} ${className}`} data-help={PORTRAIT_HELP}>
+      <span
+        className={`player-portrait ${sizeClass} ${className}`}
+        data-help={PORTRAIT_HELP}
+      >
         <DefaultPortraitSvg />
       </span>
-    )
+    );
   }
 
-  const showHoverPreview = size === 'sm' || size === 'md'
+  const showHoverPreview = size === "sm" || size === "md";
 
   const handleMouseEnter = () => {
-    if (!showHoverPreview || !ref.current) return
+    if (!showHoverPreview || !ref.current) return;
     // Inside a HelpModeRoot the help-popover *is* the preview-and-
     // explanation surface; suppress the magnified-portrait popup so
     // the two don't fight for the same screen space.
-    if (ref.current.closest('.help-mode-root')) return
-    const rect = ref.current.getBoundingClientRect()
+    if (ref.current.closest(".help-mode-root")) return;
+    const rect = ref.current.getBoundingClientRect();
     setPreviewPos({
       x: rect.left + rect.width / 2,
       y: rect.top,
-    })
-    setShowPreview(true)
-  }
+    });
+    setShowPreview(true);
+  };
 
   const handleMouseLeave = () => {
-    setShowPreview(false)
-  }
+    setShowPreview(false);
+  };
 
-  const portraitSrc = getPortraitPath(model)
+  const portraitSrc = getPortraitPath(model);
 
   return (
     <>
@@ -113,22 +120,23 @@ export function PlayerPortrait({ model, size = 'sm', className = '' }: PlayerPor
           />
         )}
       </span>
-      {showPreview && createPortal(
-        <div
-          className="portrait-preview"
-          style={{
-            left: previewPos.x,
-            top: previewPos.y,
-          }}
-        >
-          {hasError ? (
-            <DefaultPortraitSvg />
-          ) : (
-            <img src={portraitSrc} alt={model} />
-          )}
-        </div>,
-        document.body
-      )}
+      {showPreview &&
+        createPortal(
+          <div
+            className="portrait-preview"
+            style={{
+              left: previewPos.x,
+              top: previewPos.y,
+            }}
+          >
+            {hasError ? (
+              <DefaultPortraitSvg />
+            ) : (
+              <img src={portraitSrc} alt={model} />
+            )}
+          </div>,
+          document.body,
+        )}
     </>
-  )
+  );
 }

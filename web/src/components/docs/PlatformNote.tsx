@@ -1,10 +1,10 @@
-import { type ReactNode } from 'react'
-import { type Platform } from './platformStorage'
-import { PLATFORM_LABELS, usePlatform } from './PlatformContext'
+import { type ReactNode } from "react";
+import { type Platform } from "./platformStorage";
+import { PLATFORM_LABELS, usePlatform } from "./PlatformContext";
 
 interface PlatformNoteProps {
-  platform: Platform | Platform[]
-  children: ReactNode
+  platform: Platform | Platform[];
+  children: ReactNode;
 }
 
 // Inline callout for a small platform-specific aside. Renders only
@@ -14,11 +14,11 @@ interface PlatformNoteProps {
 // deviation is small enough that a full PlatformTabs block would be
 // overkill (e.g., a single asset path or gotcha).
 export function PlatformNote({ platform, children }: PlatformNoteProps) {
-  const { platform: active } = usePlatform()
-  const platforms = Array.isArray(platform) ? platform : [platform]
-  if (!platforms.includes(active)) return null
+  const { platform: active } = usePlatform();
+  const platforms = Array.isArray(platform) ? platform : [platform];
+  if (!platforms.includes(active)) return null;
 
-  const label = platforms.map((p) => PLATFORM_LABELS[p]).join(' · ')
+  const label = platforms.map((p) => PLATFORM_LABELS[p]).join(" · ");
 
   return (
     <aside className="docs-platform-note">
@@ -27,5 +27,5 @@ export function PlatformNote({ platform, children }: PlatformNoteProps) {
       </div>
       <div className="docs-platform-note__body">{children}</div>
     </aside>
-  )
+  );
 }

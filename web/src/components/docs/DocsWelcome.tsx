@@ -1,41 +1,44 @@
-import type React from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { DISCORD_INVITE_URL } from '../../constants/discord'
-import { DocsH2 } from './DocsH2'
-import { ArrowIcon } from '../ArrowIcon'
-import { useFeaturedMatches, pickRandomFeatured } from '../../hooks/useFeaturedMatches'
+import type React from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { DISCORD_INVITE_URL } from "../../constants/discord";
+import { DocsH2 } from "./DocsH2";
+import { ArrowIcon } from "../ArrowIcon";
+import {
+  useFeaturedMatches,
+  pickRandomFeatured,
+} from "../../hooks/useFeaturedMatches";
 
 // New /docs index. Replaces the previous redirect to
 // /docs/getting-started. First-time visitors see this after picking
 // a platform; the persona cards route them to the right deeper
 // surface.
 export function DocsWelcome() {
-  const { ids } = useFeaturedMatches()
-  const navigate = useNavigate()
+  const { ids } = useFeaturedMatches();
+  const navigate = useNavigate();
 
   // Mirrors the landing page's "Watch a fight" door — picks a random
   // featured match and opens its demo player. Falls back to /matches
   // if the featured pool is empty (e.g., a fresh deploy with nothing
   // flagged yet).
   const handleWatchFeatured = (e: React.MouseEvent) => {
-    e.preventDefault()
-    const id = pickRandomFeatured(ids)
+    e.preventDefault();
+    const id = pickRandomFeatured(ids);
     if (id !== null) {
-      navigate(`/matches/${id}/demo`, { state: { from: '/docs' } })
+      navigate(`/matches/${id}/demo`, { state: { from: "/docs" } });
     } else {
-      navigate('/matches')
+      navigate("/matches");
     }
-  }
+  };
 
   return (
     <>
       <div className="about-section docs-welcome__hero">
         <h1 className="docs-welcome__title">Welcome to Trinity</h1>
         <p className="docs-welcome__lead">
-          Trinity is Quake 3 with modern conveniences — VR, voice chat,
-          and shared stats — built on top of the original game you know.
-          It's backwards-compatible with vanilla Q3 servers, so installing
-          it never costs you the rest of the community.
+          Trinity is Quake 3 with modern conveniences — VR, voice chat, and
+          shared stats — built on top of the original game you know. It's
+          backwards-compatible with vanilla Q3 servers, so installing it never
+          costs you the rest of the community.
         </p>
       </div>
 
@@ -47,7 +50,11 @@ export function DocsWelcome() {
             <span className="docs-welcome__persona-teaser">
               You're just 3 steps away from playing Trinity.
             </span>
-            <ArrowIcon direction="right" size={14} className="docs-welcome__persona-arrow" />
+            <ArrowIcon
+              direction="right"
+              size={14}
+              className="docs-welcome__persona-arrow"
+            />
           </Link>
 
           <Link to="/docs/play" className="docs-welcome__persona-card">
@@ -55,7 +62,11 @@ export function DocsWelcome() {
             <span className="docs-welcome__persona-teaser">
               What you'll want to know to get the most out of Trinity.
             </span>
-            <ArrowIcon direction="right" size={14} className="docs-welcome__persona-arrow" />
+            <ArrowIcon
+              direction="right"
+              size={14}
+              className="docs-welcome__persona-arrow"
+            />
           </Link>
 
           <Link to="/docs/admin" className="docs-welcome__persona-card">
@@ -63,7 +74,11 @@ export function DocsWelcome() {
             <span className="docs-welcome__persona-teaser">
               Connect your Trinity server to the tracker network.
             </span>
-            <ArrowIcon direction="right" size={14} className="docs-welcome__persona-arrow" />
+            <ArrowIcon
+              direction="right"
+              size={14}
+              className="docs-welcome__persona-arrow"
+            />
           </Link>
         </div>
       </div>
@@ -71,10 +86,10 @@ export function DocsWelcome() {
       <div className="about-section">
         <DocsH2 id="watch-featured">Watch a featured match</DocsH2>
         <p>
-          Curious before you commit?{' '}
+          Curious before you commit?{" "}
           <a href="/matches" onClick={handleWatchFeatured}>
             Watch a match right here
-          </a>{' '}
+          </a>{" "}
           — replays a real Trinity match frame by frame, no install required.
         </p>
       </div>
@@ -82,10 +97,10 @@ export function DocsWelcome() {
       <div className="about-section">
         <DocsH2 id="get-help">Get help, get involved</DocsH2>
         <p>
-          Stuck on something or just want to say hi?{' '}
+          Stuck on something or just want to say hi?{" "}
           <a href={DISCORD_INVITE_URL}>Trinity Discord</a> is the place.
         </p>
       </div>
     </>
-  )
+  );
 }

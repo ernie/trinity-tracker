@@ -9,23 +9,30 @@ export function formatNumber(n: number): string {
 // the two regexes in sync.
 export function stripVRPrefix(name: string): string {
   return name
-    .replace(/^(\^[0-9])*\[VR\]\s*/i, '')
-    .replace(/\s*\[VR\](\^[0-9])*$/i, '')
+    .replace(/^(\^[0-9])*\[VR\]\s*/i, "")
+    .replace(/\s*\[VR\](\^[0-9])*$/i, "");
 }
 
 // Canonical display name for a player record. Strips the [VR] prefix
 // when the player is VR (the badge already conveys it). Anywhere a
 // player's name is rendered alongside its badges, prefer this over
 // inlining the ternary.
-export function displayPlayerName(player: { name: string; is_vr?: boolean }): string {
+export function displayPlayerName(player: {
+  name: string;
+  is_vr?: boolean;
+}): string {
   return player.is_vr ? stripVRPrefix(player.name) : player.name;
 }
 
 // serverDisplay composes the canonical UI string for a server from
 // its (source, key) identity. Single-source installs see just the
 // key; multi-source see "<source> / <key>".
-export function serverDisplay(source: string | undefined, key: string | undefined, opts?: { hasMultipleSources?: boolean }): string {
-  const k = key || '';
+export function serverDisplay(
+  source: string | undefined,
+  key: string | undefined,
+  opts?: { hasMultipleSources?: boolean },
+): string {
+  const k = key || "";
   if (!source) return k;
   if (opts && opts.hasMultipleSources === false) return k;
   return `${source} / ${k}`;
@@ -58,69 +65,69 @@ export function formatTimeParam(secs: number): string {
 // forbidden chars (\, ", ;), black color codes (colorIdx 0 via & 7),
 // non-printable, leading whitespace, >2 consecutive spaces, 31-byte limit.
 export function cleanQ3DisplayName(raw: string): string {
-  const maxBytes = 31
-  const buf: string[] = []
-  let len = 0
-  let colorlessLen = 0
-  let spaces = 0
-  let i = 0
+  const maxBytes = 31;
+  const buf: string[] = [];
+  let len = 0;
+  let colorlessLen = 0;
+  let spaces = 0;
+  let i = 0;
 
   while (i < raw.length) {
-    const ch = raw.charCodeAt(i)
+    const ch = raw.charCodeAt(i);
 
     if (buf.length === 0 && ch <= 32) {
-      i++
-      continue
+      i++;
+      continue;
     }
 
-    if (raw[i] === '^' && i + 1 < raw.length) {
-      const next = raw.charCodeAt(i + 1)
+    if (raw[i] === "^" && i + 1 < raw.length) {
+      const next = raw.charCodeAt(i + 1);
       if (next >= 48 && next <= 57) {
-        const colorIdx = (next - 48) & 7
+        const colorIdx = (next - 48) & 7;
         if (colorIdx === 0) {
-          i += 2
-          continue
+          i += 2;
+          continue;
         }
-        if (len > maxBytes - 2) break
-        buf.push(raw[i], raw[i + 1])
-        len += 2
-        i += 2
-        continue
+        if (len > maxBytes - 2) break;
+        buf.push(raw[i], raw[i + 1]);
+        len += 2;
+        i += 2;
+        continue;
       }
     }
 
     if (ch < 32 || ch > 126 || ch === 92 || ch === 34 || ch === 59) {
-      i++
-      continue
+      i++;
+      continue;
     }
 
     if (ch === 32) {
-      spaces++
+      spaces++;
       if (spaces > 2) {
-        i++
-        continue
+        i++;
+        continue;
       }
     } else {
-      spaces = 0
+      spaces = 0;
     }
 
-    if (len > maxBytes - 1) break
+    if (len > maxBytes - 1) break;
 
-    buf.push(raw[i])
-    colorlessLen++
-    len++
-    i++
+    buf.push(raw[i]);
+    colorlessLen++;
+    len++;
+    i++;
   }
 
-  if (colorlessLen === 0) return ''
-  return buf.join('')
+  if (colorlessLen === 0) return "";
+  return buf.join("");
 }
 
 // Strips [VR] prefix, color codes, and normalizes whitespace for
 // stable identity matching across client-reported name variants.
 export function canonicalizeDisplayName(raw: string): string {
-  let s = stripVRPrefix(raw)
-  s = s.replace(/\^[0-9]/g, '')
-  s = s.replace(/\s+/g, ' ')
-  return s.trim().toLowerCase()
+  let s = stripVRPrefix(raw);
+  s = s.replace(/\^[0-9]/g, "");
+  s = s.replace(/\s+/g, " ");
+  return s.trim().toLowerCase();
 }

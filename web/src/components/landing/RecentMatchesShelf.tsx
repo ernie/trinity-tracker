@@ -1,42 +1,51 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { MatchCard } from '../MatchCard'
-import { ArrowIcon } from '../ArrowIcon'
-import { NavScroller } from '../NavScroller'
-import type { MatchSummary } from '../../types'
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { MatchCard } from "../MatchCard";
+import { ArrowIcon } from "../ArrowIcon";
+import { NavScroller } from "../NavScroller";
+import type { MatchSummary } from "../../types";
 
 // How many cards we want on the shelf. Fetch wider than this so we can
 // filter down to demo-available matches and still hit the target slot
 // count when some recent matches don't have a demo URL yet.
-const SHELF_SIZE = 5
-const FETCH_LIMIT = 20
+const SHELF_SIZE = 5;
+const FETCH_LIMIT = 20;
 
 export function RecentMatchesShelf() {
-  const [matches, setMatches] = useState<MatchSummary[]>([])
+  const [matches, setMatches] = useState<MatchSummary[]>([]);
 
   useEffect(() => {
-    let cancelled = false
+    let cancelled = false;
     fetch(`/api/matches?limit=${FETCH_LIMIT}`)
       .then((res) => (res.ok ? res.json() : []))
       .then((data: MatchSummary[]) => {
-        if (cancelled) return
-        const withDemos = (data ?? []).filter((m) => !!m.demo_url).slice(0, SHELF_SIZE)
-        setMatches(withDemos)
+        if (cancelled) return;
+        const withDemos = (data ?? [])
+          .filter((m) => !!m.demo_url)
+          .slice(0, SHELF_SIZE);
+        setMatches(withDemos);
       })
-      .catch(() => { if (!cancelled) setMatches([]) })
-    return () => { cancelled = true }
-  }, [])
+      .catch(() => {
+        if (!cancelled) setMatches([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  if (matches.length === 0) return null
+  if (matches.length === 0) return null;
 
   return (
     <section className="landing-section">
       <header className="landing-section__head">
         <h2 className="landing-section__title">THE LAST FEW FIGHTS.</h2>
-        <Link to="/matches" className="landing-section__cta">All matches <ArrowIcon direction="right" /></Link>
+        <Link to="/matches" className="landing-section__cta">
+          All matches <ArrowIcon direction="right" />
+        </Link>
       </header>
       <p className="landing-section__lead">
-        Recently played. Click any to watch in your browser — no install required.
+        Recently played. Click any to watch in your browser — no install
+        required.
       </p>
       <div className="landing-shelf-h">
         <NavScroller scrollClassName="landing-shelf-h__scroll">
@@ -49,7 +58,7 @@ export function RecentMatchesShelf() {
             <Link
               key={m.id}
               to={`/matches/${m.id}/demo`}
-              state={{ from: '/' }}
+              state={{ from: "/" }}
               className="landing-shelf-h__slot landing-match-link"
             >
               <MatchCard match={m} />
@@ -58,5 +67,5 @@ export function RecentMatchesShelf() {
         </NavScroller>
       </div>
     </section>
-  )
+  );
 }

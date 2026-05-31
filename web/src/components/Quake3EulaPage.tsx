@@ -21,7 +21,8 @@ export function Quake3EulaPage() {
         if (!cancelled) setEula(text);
       })
       .catch((e) => {
-        if (!cancelled) setLoadError(e instanceof Error ? e.message : String(e));
+        if (!cancelled)
+          setLoadError(e instanceof Error ? e.message : String(e));
       });
     return () => {
       cancelled = true;
@@ -42,7 +43,10 @@ export function Quake3EulaPage() {
   function handleScroll() {
     const el = boxRef.current;
     if (!el) return;
-    if (el.scrollTop + el.clientHeight >= el.scrollHeight - SCROLL_TOLERANCE_PX) {
+    if (
+      el.scrollTop + el.clientHeight >=
+      el.scrollHeight - SCROLL_TOLERANCE_PX
+    ) {
       setScrolled(true);
     }
   }
@@ -54,11 +58,10 @@ export function Quake3EulaPage() {
           <h2>Quake 3 1.32 Patch Data</h2>
           <p>
             The 1.32 point-release patch data (<code>pak1.pk3</code>–
-            <code>pak8.pk3</code> for <code>baseq3</code>,{" "}
-            <code>pak1.pk3</code>–<code>pak3.pk3</code> for{" "}
-            <code>missionpack</code>) is distributed by id Software under the
-            license below. Read it through to the end, then check the box
-            and download.
+            <code>pak8.pk3</code> for <code>baseq3</code>, <code>pak1.pk3</code>
+            –<code>pak3.pk3</code> for <code>missionpack</code>) is distributed
+            by id Software under the license below. Read it through to the end,
+            then check the box and download.
           </p>
           {loadError && (
             <p className="eula-load-error">
