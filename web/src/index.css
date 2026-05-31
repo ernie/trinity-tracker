@@ -13294,13 +13294,18 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   margin: 16px 0 20px;
   border: 1px solid var(--rule);
   border-radius: 8px;
-  overflow: hidden;
+  /* No overflow:hidden here — it would shear off CalloutImage tooltips
+     that extend above the screenshot. Corner-clipping is done on the
+     inner strip/panel instead (7px = 8px outer radius minus the 1px
+     border that insets their padding box). */
 }
 
 .docs-mode-tabs__strip {
   display: flex;
   background: var(--bg-elev);
   border-bottom: 1px solid var(--rule);
+  border-radius: 7px 7px 0 0;
+  overflow: hidden;
 }
 
 .docs-mode-tabs__tab {
@@ -13336,6 +13341,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
 .docs-mode-tabs__panel {
   padding: 16px 18px;
   background: var(--bg-card);
+  border-radius: 0 0 7px 7px;
 }
 
 /* ─── Annotated screenshot figure + legend ────────────────────

@@ -840,6 +840,12 @@ export function DocsPlay() {
               seconds).
             </li>
             <li>
+              <strong>Persistent powerups</strong> <em>(Team Arena)</em> —
+              Guard, Ammo Regen, Scout, and Doubler. Unlike the timed powerups
+              above, these have no countdown: once picked up they stay with you
+              for the rest of your life, until you die.
+            </li>
+            <li>
               <strong>Holdables</strong> (use when ready) — Personal Teleporter,
               Medkit. Team Arena adds Kamikaze and Invulnerability.
             </li>
