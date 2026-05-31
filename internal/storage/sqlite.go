@@ -249,15 +249,26 @@ func (s *Store) UpsertPlayerGUID(ctx context.Context, guid, name, cleanName stri
 		}
 	}
 
-	_, err = tx.ExecContext(ctx, `
-		INSERT INTO player_names (player_guid_id, name, clean_name, first_seen, last_seen)
-		VALUES (?, ?, ?, ?, ?)
-		ON CONFLICT(player_guid_id, clean_name) DO UPDATE SET
-			name = excluded.name,
-			last_seen = excluded.last_seen
-	`, pg.ID, name, cleanName, formatTimestamp(now), formatTimestamp(now))
-	if err != nil {
-		return nil, fmt.Errorf("recording player name: %w", err)
+	// Only record names the player is entitled to. A bot name / the engine
+	// default (reserved), or a display name locked by another user, is a name
+	// a human only lands on transiently — the server forces a rename when the
+	// chosen name isn't theirs. Recording it would pollute their "also known
+	// as" list with a name they never really held, so skip the history write.
+	// Identity (players.name / player_guids.name) above still tracks the live
+	// in-game name; the next userinfo corrects it once the rename lands.
+	if entitled, err := nameEntitled(ctx, tx, name, pg.PlayerID); err != nil {
+		return nil, err
+	} else if entitled {
+		_, err = tx.ExecContext(ctx, `
+			INSERT INTO player_names (player_guid_id, name, clean_name, first_seen, last_seen)
+			VALUES (?, ?, ?, ?, ?)
+			ON CONFLICT(player_guid_id, clean_name) DO UPDATE SET
+				name = excluded.name,
+				last_seen = excluded.last_seen
+		`, pg.ID, name, cleanName, formatTimestamp(now), formatTimestamp(now))
+		if err != nil {
+			return nil, fmt.Errorf("recording player name: %w", err)
+		}
 	}
 
 	if err := tx.Commit(); err != nil {

@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -32,6 +33,31 @@ var reservedNames = func() map[string]bool {
 
 func isReservedName(canonical string) bool {
 	return reservedNames[strings.ToLower(canonical)]
+}
+
+// nameEntitled reports whether playerID may have rawName recorded in its
+// alias ("also known as") history. It is false for reserved names (bot names
+// + the engine default UnnamedPlayer), which nobody owns, and for a display
+// name locked by a *different* user — both are names a player only lands on
+// transiently before the server forces a rename. Runs on the caller's querier
+// (typically the in-flight tx) so the ownership read sees the same data the
+// surrounding write does.
+func nameEntitled(ctx context.Context, q sqlQuerier, rawName string, playerID int64) (bool, error) {
+	cano := CanonicalizeDisplayName(rawName)
+	if cano == "" {
+		return true, nil // no canonical form to match; record as before
+	}
+	if isReservedName(cano) {
+		return false, nil
+	}
+	var ownedByOther int
+	if err := q.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM users
+		WHERE display_name_canonical = ? AND (player_id IS NULL OR player_id != ?)
+	`, cano, playerID).Scan(&ownedByOther); err != nil {
+		return false, fmt.Errorf("checking display name ownership: %w", err)
+	}
+	return ownedByOther == 0, nil
 }
 
 // IsNameReserved reports whether a raw in-game name conflicts with a bot
