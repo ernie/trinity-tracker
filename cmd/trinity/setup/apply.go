@@ -150,7 +150,7 @@ func Apply(a *Answers, opts ApplyOptions) error {
 		if a.HasHubFields() {
 			mode = NginxModeHub
 		}
-		if err := InstallNginx(plan, mode, a.PublicURL, a.AdminEmail, a.StaticDir, a.Quake3Dir, a.SkipCert, a.SkipFirewall); err != nil {
+		if err := InstallNginx(plan, mode, a.PublicURL, a.AdminEmail, a.StaticDir, a.Quake3Dir, a.RunsLocalServers(), a.SkipCert, a.SkipFirewall); err != nil {
 			return err
 		}
 	}

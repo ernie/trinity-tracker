@@ -92,6 +92,30 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_read_timeout 86400;
     }
+
+    # TrinityVision live stream → owning collector's /tv/<key>. The /stream
+    # suffix keeps the bare two-segment player URL on the SPA fallback above.
+    location ~ ^/tv/[^/]+/[^/]+/stream$ {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+{{ if .HasLocalRelay }}
+    # This box also runs a local collector, so it serves the single-segment
+    # relay stream itself (combined install). Pure hubs omit this — they only
+    # route the two-segment form above to remote collectors.
+    location ~ ^/tv/[^/]+$ {
+        proxy_pass http://127.0.0.1:8081;
+        proxy_buffering off;
+        # The live relay can go >60s without bytes (intermission, engine stall);
+        # mirror the /ws block so nginx's default 60s timeout doesn't 504 the
+        # viewer mid-match.
+        proxy_http_version 1.1;
+        proxy_read_timeout 86400;
+        proxy_send_timeout 86400;
+        add_header Access-Control-Allow-Origin "*" always;
+    }
+{{ end }}
 }
 
 # Quake 3 fast-downloads.

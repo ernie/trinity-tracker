@@ -50,6 +50,21 @@ server {
         add_header Access-Control-Allow-Origin "*" always;
     }
 
+    # TrinityVision live: the hub 302s viewers here (single bare segment, no
+    # extension — live is a stream, not a .tvd recording). Proxies to the local
+    # relay; buffering off so the delayed edge isn't re-buffered by nginx.
+    location ~ ^/tv/[^/]+$ {
+        proxy_pass http://127.0.0.1:8081;
+        proxy_buffering off;
+        # The live relay can go >60s without bytes (intermission, engine stall);
+        # mirror the /ws block so nginx's default 60s timeout doesn't 504 the
+        # viewer mid-match.
+        proxy_http_version 1.1;
+        proxy_read_timeout 86400;
+        proxy_send_timeout 86400;
+        add_header Access-Control-Allow-Origin "*" always;
+    }
+
     # Everything else: this isn't an app, return 404.
     location / {
         return 404;

@@ -73,9 +73,9 @@ func TestAnswersValidate_CollectorOnly_Valid(t *testing.T) {
 
 func TestAnswersValidate_Errors(t *testing.T) {
 	cases := []struct {
-		name    string
-		mut     func(*Answers)
-		want    string
+		name string
+		mut  func(*Answers)
+		want string
 	}{
 		{"missing service user", func(a *Answers) { a.ServiceUser = "" }, "service user"},
 		{"bad port", func(a *Answers) { a.HTTPPort = 70000 }, "out of range"},
@@ -168,6 +168,13 @@ func TestToConfig_Combined_EmitsHubAndCollectorBlocks(t *testing.T) {
 	}
 	if cfg.Tracker.Collector.HubHost != "hub.example.com" {
 		t.Errorf("hub host: got %q (should be PublicURL hostname)", cfg.Tracker.Collector.HubHost)
+	}
+	// Live spectating is default-on for shipped collectors.
+	if cfg.Tracker.Collector.LiveRelayAddr != defaultLiveRelayAddr {
+		t.Errorf("live relay addr: got %q want %q", cfg.Tracker.Collector.LiveRelayAddr, defaultLiveRelayAddr)
+	}
+	if cfg.Tracker.Collector.LiveDelay != config.Duration(defaultLiveDelay) {
+		t.Errorf("live delay: got %v want %v", cfg.Tracker.Collector.LiveDelay, defaultLiveDelay)
 	}
 	// Default (no remote collectors) → localhost-only NATS, no TLS.
 	if cfg.Tracker.NATS.URL != "nats://127.0.0.1:4222" {

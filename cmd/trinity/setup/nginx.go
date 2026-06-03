@@ -28,6 +28,11 @@ type NginxFields struct {
 	PublicHost string
 	StaticDir  string
 	Quake3Dir  string
+	// HasLocalRelay is true when this box runs a local collector (and thus a
+	// TrinityVision relay on :8081). The hub template gates the single-segment
+	// /tv/<key> relay location on it: a combined box serves it locally; a pure
+	// hub has no relay and only 302-routes the two-segment /tv/<source>/<key>.
+	HasLocalRelay bool
 }
 
 // RenderHubNginxConfig renders the embedded hub.conf.tmpl to bytes.
@@ -82,7 +87,7 @@ const (
 // On failure the script's stdout/stderr have already streamed to the
 // operator's terminal — we wrap the exit error with the script path
 // so they can re-run it manually for diagnosis.
-func InstallNginx(plan *Plan, mode NginxMode, publicURL, adminEmail, staticDir, quake3Dir string, skipCert, skipFirewall bool) error {
+func InstallNginx(plan *Plan, mode NginxMode, publicURL, adminEmail, staticDir, quake3Dir string, hasLocalRelay, skipCert, skipFirewall bool) error {
 	publicHost := HostFromURL(publicURL)
 	if plan.DryRun {
 		plan.Say("would render %s nginx config for %s", mode, publicHost)
@@ -122,7 +127,7 @@ func InstallNginx(plan *Plan, mode NginxMode, publicURL, adminEmail, staticDir, 
 		return fmt.Errorf("close bootstrap-nginx: %w", err)
 	}
 
-	siteFile, err := stageSiteConf(mode, publicHost, staticDir, quake3Dir)
+	siteFile, err := stageSiteConf(mode, publicHost, staticDir, quake3Dir, hasLocalRelay)
 	if err != nil {
 		return err
 	}
@@ -160,11 +165,12 @@ func InstallNginx(plan *Plan, mode NginxMode, publicURL, adminEmail, staticDir, 
 // stageSiteConf renders the mode-appropriate template into a temp file
 // readable by root and returns the path. Caller is responsible for
 // removing it.
-func stageSiteConf(mode NginxMode, publicHost, staticDir, quake3Dir string) (string, error) {
+func stageSiteConf(mode NginxMode, publicHost, staticDir, quake3Dir string, hasLocalRelay bool) (string, error) {
 	fields := NginxFields{
-		PublicHost: publicHost,
-		StaticDir:  staticDir,
-		Quake3Dir:  quake3Dir,
+		PublicHost:    publicHost,
+		StaticDir:     staticDir,
+		Quake3Dir:     quake3Dir,
+		HasLocalRelay: hasLocalRelay,
 	}
 	var body []byte
 	var err error

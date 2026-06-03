@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/ernie/trinity-tracker/internal/config"
 )
@@ -246,6 +247,15 @@ func (a *Answers) Validate() error {
 	return nil
 }
 
+// Live match spectating is default-on for every collector we ship: the relay
+// binds this loopback address and viewers watch this far behind real time.
+// Seeded explicitly (not left to config defaults) so operators see the knobs
+// in the generated config and can tune or disable them.
+const (
+	defaultLiveRelayAddr = "127.0.0.1:8081"
+	defaultLiveDelay     = 5 * time.Second
+)
+
 // ToConfig builds a *config.Config from the wizard's answers. It does
 // not write anything; the caller serializes via config.Save and runs
 // config.Load round-trip validation.
@@ -305,10 +315,12 @@ func (a *Answers) ToConfig() *config.Config {
 		cfg.Tracker = &config.TrackerConfig{
 			Hub: &config.HubConfig{},
 			Collector: &config.CollectorConfig{
-				SourceID:  a.SourceID,
-				DataDir:   "/var/lib/trinity",
-				PublicURL: a.PublicURL,
-				HubHost:   HostFromURL(a.PublicURL),
+				SourceID:      a.SourceID,
+				DataDir:       "/var/lib/trinity",
+				PublicURL:     a.PublicURL,
+				HubHost:       HostFromURL(a.PublicURL),
+				LiveRelayAddr: defaultLiveRelayAddr,
+				LiveDelay:     config.Duration(defaultLiveDelay),
 			},
 			NATS: hubNATSConfig(a.RemoteCollectorsExpected),
 		}
@@ -320,10 +332,12 @@ func (a *Answers) ToConfig() *config.Config {
 	case ModeCollector:
 		cfg.Tracker = &config.TrackerConfig{
 			Collector: &config.CollectorConfig{
-				SourceID:  a.SourceID,
-				DataDir:   "/var/lib/trinity",
-				PublicURL: a.PublicURL,
-				HubHost:   a.HubHost,
+				SourceID:      a.SourceID,
+				DataDir:       "/var/lib/trinity",
+				PublicURL:     a.PublicURL,
+				HubHost:       a.HubHost,
+				LiveRelayAddr: defaultLiveRelayAddr,
+				LiveDelay:     config.Duration(defaultLiveDelay),
 			},
 			NATS: config.NATSConfig{
 				CredentialsFile: "/etc/trinity/source.creds",

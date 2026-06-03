@@ -29,6 +29,8 @@ func TestRenderHubNginxConfig_ContainsExpectedDirectives(t *testing.T) {
 		"location /assets/levelshots/    { try_files $uri @trinity_fallback; }",
 		"location /demopk3s/maps/        { try_files $uri @trinity_fallback; }",
 		"location @trinity_fallback {",
+		// TrinityVision live: two-segment router is always present (beats the SPA).
+		"location ~ ^/tv/[^/]+/[^/]+/stream$ {",
 		"location @spa {",
 		"rewrite ^ /index.html last;",
 		// /q3/ pak/tvd alias on the main vhost (used by the in-browser engine).
@@ -51,6 +53,38 @@ func TestRenderHubNginxConfig_ContainsExpectedDirectives(t *testing.T) {
 	// trinity.ernie.io ahead of the migration).
 	if strings.Contains(rendered, "trinity.ernie.io") {
 		t.Errorf("rendered hub.conf still references the legacy hostname:\n%s", rendered)
+	}
+
+	// Pure hub (HasLocalRelay default false): no local relay, so no
+	// single-segment /tv proxy to :8081 — it only routes the two-segment form.
+	if strings.Contains(rendered, "127.0.0.1:8081") {
+		t.Errorf("pure hub.conf must not proxy to the relay :8081:\n%s", rendered)
+	}
+}
+
+func TestRenderHubNginxConfig_CombinedIncludesRelay(t *testing.T) {
+	out, err := RenderHubNginxConfig(NginxFields{
+		PublicHost:    "trinity.run",
+		StaticDir:     "/var/lib/trinity/web",
+		Quake3Dir:     "/usr/lib/quake3",
+		HasLocalRelay: true,
+	})
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	rendered := string(out)
+	// A combined box serves the single-segment relay stream itself. The relay
+	// can go >60s without bytes (intermission/engine stall); without long
+	// timeouts nginx 504s the viewer. proxy_send_timeout is the discriminator —
+	// the /ws block carries only proxy_read_timeout.
+	for _, want := range []string{
+		"location ~ ^/tv/[^/]+$ {",
+		"proxy_pass http://127.0.0.1:8081;",
+		"proxy_send_timeout 86400;",
+	} {
+		if !strings.Contains(rendered, want) {
+			t.Errorf("combined hub.conf missing %q\n--- output ---\n%s", want, rendered)
+		}
 	}
 }
 
@@ -100,6 +134,13 @@ func TestRenderCollectorNginxConfig_ContainsExpectedDirectives(t *testing.T) {
 		"location /assets/levelshots/ {",
 		"expires 30d;",
 		"location /demopk3s/ {",
+		// TrinityVision live: collectors always serve the single-segment relay.
+		"location ~ ^/tv/[^/]+$ {",
+		"proxy_pass http://127.0.0.1:8081;",
+		// Long timeouts + HTTP/1.1 so a quiet spell (intermission) doesn't 504.
+		"proxy_http_version 1.1;",
+		"proxy_read_timeout 86400;",
+		"proxy_send_timeout 86400;",
 		"return 404;",
 		// fastdl block (dl.<host> on :80 + :443)
 		"server_name dl.q3.example.com;",

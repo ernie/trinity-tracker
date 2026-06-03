@@ -103,10 +103,13 @@ func TestGametype_IsTeamArenaOnly(t *testing.T) {
 	}
 }
 
-// TestStartingMapIsInRotation guards against a footgun where the cfg
-// boots a map that's not in g_rotation — the operator would never see
-// it again after the first match ends, surprising them.
-func TestStartingMapIsInRotation(t *testing.T) {
+// TestStartingMapIsFirstInRotation enforces that the cfg's boot `map` is the
+// FIRST entry of g_rotation. At startup the mod forces sessionMapIndex=1 and
+// only skips the redundant reload (denyMapRestart) when the boot map already
+// equals rotation[0]; a mismatch double-loads the map — a phantom ~0s match
+// and, with live TV, a tap that attaches to the throwaway boot map. Equality
+// also subsumes the weaker "boot map is somewhere in the rotation" guard.
+func TestStartingMapIsFirstInRotation(t *testing.T) {
 	for _, c := range GametypeChoices {
 		t.Run(c.Label(), func(t *testing.T) {
 			cfg, err := RenderServerCfg(c.Gametype, c.UseMissionpack, "test-rcon")
@@ -128,14 +131,23 @@ func TestStartingMapIsInRotation(t *testing.T) {
 			if startMap == "" {
 				t.Fatalf("no `map X` line in rendered cfg")
 			}
-			rotationMaps := map[string]bool{}
+			// First rotation entry, mirroring ParseMapRotation: skip blanks,
+			// comments, $cvar= assignments, and { } scope braces.
+			firstMap := ""
 			for _, line := range strings.Split(string(rot), "\n") {
-				if m := strings.TrimSpace(line); m != "" {
-					rotationMaps[m] = true
+				tok := strings.TrimSpace(line)
+				if tok == "" || strings.HasPrefix(tok, "//") ||
+					strings.HasPrefix(tok, "$") || tok == "{" || tok == "}" {
+					continue
 				}
+				firstMap = strings.Fields(tok)[0]
+				break
 			}
-			if !rotationMaps[startMap] {
-				t.Errorf("starting map %q not in rotation %v", startMap, rotationMaps)
+			if firstMap == "" {
+				t.Fatalf("no map entries in rendered rotation")
+			}
+			if startMap != firstMap {
+				t.Errorf("boot map %q must equal rotation[0] %q (mismatch double-loads at startup)", startMap, firstMap)
 			}
 		})
 	}
@@ -247,9 +259,9 @@ func TestListSystemdUnits(t *testing.T) {
 		t.Fatalf("ListSystemdUnits: %v", err)
 	}
 	want := map[string]bool{
-		"trinity.service":         true,
-		"quake3-server@.service":  true,
-		"quake3-servers.target":   true,
+		"trinity.service":        true,
+		"quake3-server@.service": true,
+		"quake3-servers.target":  true,
 	}
 	got := map[string]bool{}
 	for _, n := range names {

@@ -33,15 +33,16 @@ import (
 	"github.com/ernie/trinity-tracker/internal/auth"
 	"github.com/ernie/trinity-tracker/internal/collector"
 	"github.com/ernie/trinity-tracker/internal/config"
+	"github.com/ernie/trinity-tracker/internal/directory"
 	"github.com/ernie/trinity-tracker/internal/discord"
 	"github.com/ernie/trinity-tracker/internal/domain"
 	"github.com/ernie/trinity-tracker/internal/hub"
-	"github.com/ernie/trinity-tracker/internal/directory"
+	"github.com/ernie/trinity-tracker/internal/livestream"
 	"github.com/ernie/trinity-tracker/internal/natsbus"
 	"github.com/ernie/trinity-tracker/internal/notify"
 	"github.com/ernie/trinity-tracker/internal/storage"
-	"github.com/nats-io/nats.go"
 	"github.com/ftrvxmtrx/tga"
+	"github.com/nats-io/nats.go"
 	flag "github.com/spf13/pflag"
 	"golang.org/x/image/draw"
 	"golang.org/x/term"
@@ -381,6 +382,9 @@ func cmdServe(args []string) {
 	}
 
 	var writer *hub.Writer
+	// One shared LiveState feeds both the writer (which Sets it from
+	// registration heartbeats) and the poller (which stamps is_live).
+	var liveState *hub.LiveState
 	if hasHub {
 		// Tell the writer the local-collector source name (if any) so
 		// the Greet handler can grant the local-admin rcon shortcut
@@ -388,6 +392,8 @@ func cmdServe(args []string) {
 		if hasCollector && collectorSource != "" {
 			writerOpts = append(writerOpts, hub.WithLocalSource(collectorSource))
 		}
+		liveState = hub.NewLiveState()
+		writerOpts = append(writerOpts, hub.WithLiveState(liveState))
 		writer = hub.NewWriter(store, writerOpts...)
 		writer.Start(ctx)
 		defer writer.Stop()
@@ -431,6 +437,7 @@ func cmdServe(args []string) {
 	// Hub-side UDP poller: feeds live cards and /api/servers/{id}/status.
 	if hasHub {
 		remotePoller = hub.NewRemotePoller(store, collector.NewQ3Client(), cfg.Server.PollInterval, writer.Presence(), writer, ns)
+		remotePoller.SetLiveState(liveState)
 		remotePoller.Start(ctx)
 		log.Printf("Hub polling every %v", cfg.Server.PollInterval)
 	}
@@ -506,9 +513,13 @@ func cmdServe(args []string) {
 		rpcClient = writer
 		factPub = writer
 	}
+	liveReg := livestream.NewRegistry()
 	manager := collector.NewServerManager(cfg, serverClient, rpcClient, factPub)
 	if livePublisher != nil {
 		manager.SetLivePublisher(livePublisher)
+	}
+	if cfg.Tracker.Collector.LiveRelayAddr != "" {
+		manager.SetLiveRegistry(liveReg)
 	}
 
 	// Replay cutoff: the collector's NATS publisher watermark says,
@@ -548,6 +559,10 @@ func cmdServe(args []string) {
 		})
 	}
 
+	// liveRelaySrv is declared here so both the collector startup block and
+	// the shutdown branches below share scope.
+	var liveRelaySrv *http.Server
+
 	// Start the heartbeat registrar after the manager so the initial
 	// publish reflects the actual roster.
 	if hasCollector {
@@ -566,6 +581,10 @@ func cmdServe(args []string) {
 		registrar.Start(ctx)
 		log.Printf("Collector heartbeating every %v", cfg.Tracker.Collector.HeartbeatInterval.D())
 
+		// Let live tap open/close trigger an immediate heartbeat so the
+		// per-server is_live flag flips fast (not just on the periodic tick).
+		manager.SetRegistrarKick(registrar.Kick)
+
 		// Subscribe to RCON proxy requests addressed to this collector's
 		// source. The hub publishes here when a user with auth'd access
 		// asks to RCON one of this collector's servers; the handler
@@ -577,6 +596,20 @@ func cmdServe(args []string) {
 		} else {
 			defer rconServer.Stop()
 		}
+
+		// Live-spectating relay: serve in-progress matches to browsers on a
+		// delay. The Registry is populated by the match-lifecycle wiring
+		// (later plan); until then this returns 404, which is correct.
+		if addr := cfg.Tracker.Collector.LiveRelayAddr; addr != "" {
+			relay := livestream.NewRelayServer(liveReg)
+			liveRelaySrv = &http.Server{Addr: addr, Handler: relay}
+			go func() {
+				log.Printf("Live relay listening on %s (configured viewer delay %v, applied per match)", addr, cfg.Tracker.Collector.LiveDelay.D())
+				if err := liveRelaySrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+					log.Printf("Live relay server error: %v", err)
+				}
+			}()
+		}
 	}
 
 	// Collector-only mode: no HTTP UI, just wait for signal.
@@ -586,6 +619,12 @@ func cmdServe(args []string) {
 		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 		sig := <-sigCh
 		log.Printf("Received signal %v, shutting down...", sig)
+		if liveRelaySrv != nil {
+			// Abrupt Close, not graceful Shutdown: live streams never end on
+			// their own, so Shutdown would block until its deadline. Viewers
+			// watch a delayed replay buffer — there's nothing to drain.
+			_ = liveRelaySrv.Close()
+		}
 		log.Println("Stopping server manager...")
 		manager.Stop()
 		collectorShutdown()
@@ -671,6 +710,9 @@ func cmdServe(args []string) {
 	defer httpCancel()
 	if err := server.Shutdown(httpCtx); err != nil {
 		log.Printf("HTTP server shutdown error: %v", err)
+	}
+	if liveRelaySrv != nil {
+		_ = liveRelaySrv.Close()
 	}
 
 	log.Println("Stopping server manager...")
@@ -2472,7 +2514,6 @@ func cmdDemobake(args []string) {
 
 	fmt.Println("Demobake complete")
 }
-
 
 // dropPrivileges switches to the given service user. No-op if not root.
 func dropPrivileges(username string) error {
