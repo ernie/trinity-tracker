@@ -206,4 +206,3 @@ func TestRPCIdentityRoundTrip(t *testing.T) {
 		t.Errorf("expected Found=false for unknown GUID, got %+v", missing)
 	}
 }
-

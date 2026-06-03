@@ -20,10 +20,10 @@ type ClaimValidateRequest struct {
 
 // ClaimValidateResponse is the response for a valid claim code
 type ClaimValidateResponse struct {
-	CodeID   int64                      `json:"code_id"`
-	PlayerID int64                      `json:"player_id"`
-	Player   *domain.Player             `json:"player"`
-	Stats    *domain.AggregatedStats    `json:"stats,omitempty"`
+	CodeID   int64                   `json:"code_id"`
+	PlayerID int64                   `json:"player_id"`
+	Player   *domain.Player          `json:"player"`
+	Stats    *domain.AggregatedStats `json:"stats,omitempty"`
 }
 
 // handleClaimValidate validates a claim code and returns player info

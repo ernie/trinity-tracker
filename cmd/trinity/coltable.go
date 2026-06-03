@@ -98,4 +98,3 @@ func renderTable(w io.Writer, cols []column) {
 		emit(row)
 	}
 }
-

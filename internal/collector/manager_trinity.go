@@ -167,4 +167,3 @@ func (m *ServerManager) sendTrinityNameConflict(serverID int64, clientNum int) {
 		}
 	}()
 }
-

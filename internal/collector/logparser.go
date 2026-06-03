@@ -60,10 +60,10 @@ const (
 	// EventTypeRconExec is the engine-side audit of an accepted /rcon
 	// command. The engine logs the source address, the connected
 	// client's GUID (or "-" when none matched), and the command.
-	EventTypeRconExec         = "rcon_exec"
+	EventTypeRconExec = "rcon_exec"
 	// EventTypeRconDenied is the engine-side audit of a rejected /rcon
 	// attempt (bad password). Carries only the source address.
-	EventTypeRconDenied       = "rcon_denied"
+	EventTypeRconDenied = "rcon_denied"
 )
 
 // DemoSavedData carries the structured payload from a trinity-engine
@@ -325,21 +325,21 @@ var (
 	obeliskDestroyRegex   = regexp.MustCompile(`^ObeliskDestroy: (\d+) (-?\d+): (.*)$`)
 	// Mod emits Start on off→on transition, Stop after a quiet window
 	// (Team_CheckObeliskAttacks in g_team.c). One log line per transition.
-	obeliskDamageRegex    = regexp.MustCompile(`^ObeliskDamage(Start|Stop): (\d+) (\d+): (.*)$`)
-	skullPickupRegex      = regexp.MustCompile(`^SkullPickup: (\d+) (\d+) (\d+): (.+)$`)
-	skullScoreRegex       = regexp.MustCompile(`^SkullScore: (\d+) (\d+) (\d+): (.+)$`)
-	teamChangeRegex       = regexp.MustCompile(`^TeamChange: (\d+) (\d+) (\d+): (.+)$`)
-	assistRegex           = regexp.MustCompile(`^Assist: (\d+) (\d+) (return|frag): (.+)$`)
-	awardRegex            = regexp.MustCompile(`^Award: (\d+) (impressive|excellent|gauntlet|defend|assist): (.+)$`)
+	obeliskDamageRegex = regexp.MustCompile(`^ObeliskDamage(Start|Stop): (\d+) (\d+): (.*)$`)
+	skullPickupRegex   = regexp.MustCompile(`^SkullPickup: (\d+) (\d+) (\d+): (.+)$`)
+	skullScoreRegex    = regexp.MustCompile(`^SkullScore: (\d+) (\d+) (\d+): (.+)$`)
+	teamChangeRegex    = regexp.MustCompile(`^TeamChange: (\d+) (\d+) (\d+): (.+)$`)
+	assistRegex        = regexp.MustCompile(`^Assist: (\d+) (\d+) (return|frag): (.+)$`)
+	awardRegex         = regexp.MustCompile(`^Award: (\d+) (impressive|excellent|gauntlet|defend|assist): (.+)$`)
 	// Chat patterns: Say: <clientID> "<name>": <message>
-	sayRegex              = regexp.MustCompile(`^Say: (\d+) "(.+)": (.+)$`)
-	sayTeamRegex          = regexp.MustCompile(`^SayTeam: (\d+) "(.+)": (.+)$`)
-	tellRegex             = regexp.MustCompile(`^Tell: (\d+) (\d+) "(.+)" "(.+)": (.+)$`)
-	commandRegex          = regexp.MustCompile(`^Command: (\d+) "(.+)": (.+)$`)
-	sayRconRegex          = regexp.MustCompile(`^SayRcon: (.+)$`)
-	serverStartupRegex    = regexp.MustCompile(`^ServerStartup:$`)
-	serverShutdownRegex   = regexp.MustCompile(`^ServerShutdown:$`)
-	cvarChangeRegex       = regexp.MustCompile(`^CvarChange: (\w+)\\(.+)$`)
+	sayRegex                  = regexp.MustCompile(`^Say: (\d+) "(.+)": (.+)$`)
+	sayTeamRegex              = regexp.MustCompile(`^SayTeam: (\d+) "(.+)": (.+)$`)
+	tellRegex                 = regexp.MustCompile(`^Tell: (\d+) (\d+) "(.+)" "(.+)": (.+)$`)
+	commandRegex              = regexp.MustCompile(`^Command: (\d+) "(.+)": (.+)$`)
+	sayRconRegex              = regexp.MustCompile(`^SayRcon: (.+)$`)
+	serverStartupRegex        = regexp.MustCompile(`^ServerStartup:$`)
+	serverShutdownRegex       = regexp.MustCompile(`^ServerShutdown:$`)
+	cvarChangeRegex           = regexp.MustCompile(`^CvarChange: (\w+)\\(.+)$`)
 	trinityChallengeRegex     = regexp.MustCompile(`^TrinityChallenge: (\d+) (\S+) (\S+)$`)
 	trinityHandshakeAuthRegex = regexp.MustCompile(`^TrinityHandshake: (\d+) (\d+) (\S+) (\S+) (\S+) (\S+)$`)
 	trinityHandshakeRegex     = regexp.MustCompile(`^TrinityHandshake: (\d+) (\d+) (\S+) (\S+)$`)

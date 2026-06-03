@@ -4,11 +4,11 @@ import "testing"
 
 func TestParseOOB(t *testing.T) {
 	cases := []struct {
-		name      string
-		input     []byte
-		wantCmd   string
-		wantRest  string
-		wantOK    bool
+		name     string
+		input    []byte
+		wantCmd  string
+		wantRest string
+		wantOK   bool
 	}{
 		{
 			name:     "heartbeat with tag",

@@ -62,8 +62,6 @@ func (s *Store) Close() error {
 	return s.db.Close()
 }
 
-
-
 // --- Server methods ---
 
 // UpsertServer creates or updates a server scoped to source. Identity
@@ -1962,7 +1960,7 @@ func (s *Store) GetRecentMatchSummaries(ctx context.Context, limit int) ([]domai
 // GetPlayerRecentMatches returns recent finished matches that a specific player participated in
 func (s *Store) GetPlayerRecentMatches(ctx context.Context, playerID int64, limit int, beforeID *int64) ([]domain.MatchSummary, error) {
 	query := `
-		SELECT DISTINCT `+matchSummaryColumns+`
+		SELECT DISTINCT ` + matchSummaryColumns + `
 		FROM matches m
 		JOIN servers s ON m.server_id = s.id
 		JOIN match_player_stats mps ON m.id = mps.match_id
@@ -2366,7 +2364,7 @@ func (s *Store) GetFilteredMatchSummaries(ctx context.Context, filter MatchFilte
 	}
 
 	query := `
-		SELECT DISTINCT `+matchSummaryColumns+`
+		SELECT DISTINCT ` + matchSummaryColumns + `
 		FROM matches m
 		JOIN servers s ON m.server_id = s.id
 		JOIN match_player_stats mps ON m.id = mps.match_id

@@ -12,7 +12,7 @@ import (
 // ArenaMeta is the parsed shape of one { map ... longname ... } block from a
 // Quake III arena definition file (scripts/arenas.txt or scripts/<map>.arena).
 type ArenaMeta struct {
-	Map       string `json:"-"`                    // lowercase map id; key in the output map, not serialised
+	Map       string `json:"-"` // lowercase map id; key in the output map, not serialised
 	LongName  string `json:"longname,omitempty"`
 	Type      string `json:"type,omitempty"`
 	FragLimit int    `json:"fraglimit,omitempty"`

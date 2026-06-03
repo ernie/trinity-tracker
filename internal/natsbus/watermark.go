@@ -98,9 +98,9 @@ func SaveWatermark(dataDir string, wm Watermark) error {
 type WatermarkTracker struct {
 	dataDir string
 
-	mu          sync.Mutex
-	current     Watermark
-	lastSaved   Watermark
+	mu           sync.Mutex
+	current      Watermark
+	lastSaved    Watermark
 	updatesSince int
 	lastFlush    time.Time
 }

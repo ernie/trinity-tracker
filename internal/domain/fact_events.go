@@ -7,26 +7,26 @@ import "time"
 // GUIDs and match UUIDs, never DB row IDs.
 
 const (
-	FactMatchStart           = "match_start"
-	FactMatchEnd             = "match_end"
-	FactMatchSettingsUpdate  = "match_settings_update"
-	FactMatchCrashed         = "match_crashed"
-	FactPlayerJoin           = "player_join"
-	FactPlayerLeave          = "player_leave"
-	FactPresenceSnapshot     = "presence_snapshot"
-	FactTrinityHandshake     = "trinity_handshake"
-	FactServerStartup        = "server_startup"
-	FactServerShutdown       = "server_shutdown"
-	FactDemoFinalized        = "demo_finalized"
+	FactMatchStart          = "match_start"
+	FactMatchEnd            = "match_end"
+	FactMatchSettingsUpdate = "match_settings_update"
+	FactMatchCrashed        = "match_crashed"
+	FactPlayerJoin          = "player_join"
+	FactPlayerLeave         = "player_leave"
+	FactPresenceSnapshot    = "presence_snapshot"
+	FactTrinityHandshake    = "trinity_handshake"
+	FactServerStartup       = "server_startup"
+	FactServerShutdown      = "server_shutdown"
+	FactDemoFinalized       = "demo_finalized"
 	// FactRconExec is one accepted /rcon command observed by the engine
 	// (sv_main.c::SVC_RemoteCommand). Drives a source_audit row with
 	// action "rcon.exec" — same column the web-dispatched rcon path
 	// writes — so both surfaces share an audit view.
-	FactRconExec             = "rcon_exec"
+	FactRconExec = "rcon_exec"
 	// FactRconDenied is one rejected /rcon attempt (bad password / no
 	// password set). Drives a source_audit row with action "rcon.denied".
 	// Source IP only — never the attempted password.
-	FactRconDenied           = "rcon_denied"
+	FactRconDenied = "rcon_denied"
 )
 
 // FactEvent is the in-process envelope carrying a payload from the
@@ -74,17 +74,17 @@ type MatchEndData struct {
 // MatchEndPlayer carries one player's final stats for a match. Identity
 // is by GUID; the hub writer resolves it to player_guid_id.
 type MatchEndPlayer struct {
-	GUID         string    `json:"guid"`
-	ClientID     int       `json:"client_id"`
-	Name         string    `json:"name"`
-	CleanName    string    `json:"clean_name"`
-	Frags        int       `json:"frags"`
-	Deaths       int       `json:"deaths"`
-	Completed    bool      `json:"completed"`
-	Score        *int      `json:"score,omitempty"`
-	Team         *int      `json:"team,omitempty"`
-	Model        string    `json:"model,omitempty"`
-	Skill        float64   `json:"skill,omitempty"`
+	GUID              string    `json:"guid"`
+	ClientID          int       `json:"client_id"`
+	Name              string    `json:"name"`
+	CleanName         string    `json:"clean_name"`
+	Frags             int       `json:"frags"`
+	Deaths            int       `json:"deaths"`
+	Completed         bool      `json:"completed"`
+	Score             *int      `json:"score,omitempty"`
+	Team              *int      `json:"team,omitempty"`
+	Model             string    `json:"model,omitempty"`
+	Skill             float64   `json:"skill,omitempty"`
 	Victory           bool      `json:"victory"`
 	Captures          int       `json:"captures"`
 	FlagReturns       int       `json:"flag_returns"`
@@ -96,9 +96,9 @@ type MatchEndPlayer struct {
 	SkullsDelivered   int       `json:"skulls_delivered"`   // Harvester (skulls deposited at enemy obelisk)
 	ObelisksDestroyed int       `json:"obelisks_destroyed"` // Overload
 	IsBot             bool      `json:"is_bot"`
-	JoinedLate   bool      `json:"joined_late"`
-	JoinedAt     time.Time `json:"joined_at"`
-	IsVR         bool      `json:"is_vr"`
+	JoinedLate        bool      `json:"joined_late"`
+	JoinedAt          time.Time `json:"joined_at"`
+	IsVR              bool      `json:"is_vr"`
 }
 
 // MatchSettingsUpdateData is emitted when `g_movement` or `g_gameplay`
@@ -123,14 +123,14 @@ type MatchCrashedData struct {
 // client_engine / client_version are NOT set here — they arrive later
 // via TrinityHandshakeData once the handshake completes.
 type PlayerJoinData struct {
-	MatchUUID string    `json:"match_uuid,omitempty"`
-	GUID      string    `json:"guid"`
-	Name      string    `json:"name"`
-	CleanName string    `json:"clean_name"`
-	Model     string    `json:"model,omitempty"`
-	IP        string    `json:"ip,omitempty"`
-	IsBot     bool      `json:"is_bot"`
-	IsVR      bool      `json:"is_vr"`
+	MatchUUID string `json:"match_uuid,omitempty"`
+	GUID      string `json:"guid"`
+	Name      string `json:"name"`
+	CleanName string `json:"clean_name"`
+	Model     string `json:"model,omitempty"`
+	IP        string `json:"ip,omitempty"`
+	IsBot     bool   `json:"is_bot"`
+	IsVR      bool   `json:"is_vr"`
 	// Skill is the bot's q3 skill level (1-5). Zero for humans.
 	// Carried so the hub's presence tracker can render the bot badge
 	// tier on the live dashboard.
@@ -149,21 +149,21 @@ type PlayerJoinData struct {
 // no one is actually joining: no session creation, no "X joined"
 // broadcast, just a state refresh keyed on (ServerID, ClientNum).
 type PresenceSnapshotData struct {
-	GUID         string  `json:"guid"`
-	Name         string  `json:"name"`
-	CleanName    string  `json:"clean_name"`
-	Model        string  `json:"model,omitempty"`
-	IsBot        bool    `json:"is_bot"`
-	IsVR         bool    `json:"is_vr"`
-	Skill        float64 `json:"skill,omitempty"`
-	ClientNum    int     `json:"client_num"`
-	Impressives     int `json:"impressives,omitempty"`
-	Excellents      int `json:"excellents,omitempty"`
-	Humiliations    int `json:"humiliations,omitempty"`
-	Defends         int `json:"defends,omitempty"`
-	Captures        int `json:"captures,omitempty"`
-	Assists         int `json:"assists,omitempty"`
-	SkullsDelivered int `json:"skulls_delivered,omitempty"`
+	GUID            string  `json:"guid"`
+	Name            string  `json:"name"`
+	CleanName       string  `json:"clean_name"`
+	Model           string  `json:"model,omitempty"`
+	IsBot           bool    `json:"is_bot"`
+	IsVR            bool    `json:"is_vr"`
+	Skill           float64 `json:"skill,omitempty"`
+	ClientNum       int     `json:"client_num"`
+	Impressives     int     `json:"impressives,omitempty"`
+	Excellents      int     `json:"excellents,omitempty"`
+	Humiliations    int     `json:"humiliations,omitempty"`
+	Defends         int     `json:"defends,omitempty"`
+	Captures        int     `json:"captures,omitempty"`
+	Assists         int     `json:"assists,omitempty"`
+	SkullsDelivered int     `json:"skulls_delivered,omitempty"`
 }
 
 // PlayerLeaveData is emitted on ClientDisconnect. DurationSeconds is

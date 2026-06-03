@@ -6,9 +6,9 @@ import (
 	"testing"
 
 	"github.com/ernie/trinity-tracker/internal/config"
+	"github.com/ernie/trinity-tracker/internal/crypto"
 	"github.com/ernie/trinity-tracker/internal/domain"
 	"github.com/ernie/trinity-tracker/internal/hub"
-	"github.com/ernie/trinity-tracker/internal/crypto"
 )
 
 func TestFormatRconsetCommand(t *testing.T) {

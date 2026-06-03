@@ -13,8 +13,8 @@ import (
 type rateLimiter struct {
 	mu       sync.Mutex
 	now      func() time.Time
-	capacity float64       // max tokens
-	refill   float64       // tokens added per second
+	capacity float64 // max tokens
+	refill   float64 // tokens added per second
 	buckets  map[netip.Addr]*bucket
 	lastGC   time.Time
 	gcEvery  time.Duration

@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ernie/trinity-tracker/internal/crypto"
 	"github.com/ernie/trinity-tracker/internal/domain"
 	"github.com/ernie/trinity-tracker/internal/storage"
-	"github.com/ernie/trinity-tracker/internal/crypto"
 )
 
 type rconFixture struct {

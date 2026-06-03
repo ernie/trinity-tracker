@@ -9,11 +9,11 @@ import (
 
 // Wire-format constants. Mirror the engine's cl_trinity_rconset.c.
 const (
-	RconsetVersion       byte = 1
-	RconsetMaxPlaintext       = 64
-	RconsetNonceLen           = 16
-	RconsetMACLen             = 8
-	RconsetHeaderLen          = 2 + RconsetNonceLen // version + ct_len + nonce
+	RconsetVersion      byte = 1
+	RconsetMaxPlaintext      = 64
+	RconsetNonceLen          = 16
+	RconsetMACLen            = 8
+	RconsetHeaderLen         = 2 + RconsetNonceLen // version + ct_len + nonce
 )
 
 // Domain-separation labels. Must match cl_trinity_rconset.c byte-for-byte.

@@ -5,8 +5,8 @@ import (
 	"crypto/rand"
 	"log"
 
-	"github.com/ernie/trinity-tracker/internal/storage"
 	"github.com/ernie/trinity-tracker/internal/crypto"
+	"github.com/ernie/trinity-tracker/internal/storage"
 )
 
 // evaluateRconStuff returns a populated RconStuff iff the authenticated

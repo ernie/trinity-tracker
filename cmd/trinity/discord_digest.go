@@ -36,15 +36,15 @@ func fmtInt(n int64) string  { return fmt.Sprintf("%d", n) }
 func fmtKD(r float64) string { return fmt.Sprintf("%.2f", r) }
 
 var digestCategoryRegistry = map[string]digestCategory{
-	"frags":        {Title: "🔥 Frags", CLILabel: "FRAGS", Headline: "most frags", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.TotalFrags) }},
-	"deaths":       {Title: "🪦 Deaths", CLILabel: "DEATHS", Headline: "most deaths", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.TotalDeaths) }},
-	"kd_ratio":     {Title: "⚖️ K/D Ratio", CLILabel: "K/D", Headline: "best K/D", Format: func(e domain.LeaderboardEntry) string { return fmtKD(e.KDRatio) }},
-	"matches":      {Title: "🎮 Matches", CLILabel: "MATCHES", Headline: "most matches", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.CompletedMatches) }},
-	"victories":    {Title: "🏆 Victories", CLILabel: "VICTORIES", Headline: "most victories", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.Victories) }},
-	"captures":     {Title: "🚩 Captures", CLILabel: "CAPTURES", Headline: "most flag captures", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.Captures) }},
-	"flag_returns": {Title: "🔁 Flag Returns", CLILabel: "RETURNS", Headline: "most flag returns", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.FlagReturns) }},
-	"assists":      {Title: "🤝 Assists", CLILabel: "ASSISTS", Headline: "most assists", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.Assists) }},
-	"defends":      {Title: "🛡️ Defends", CLILabel: "DEFENDS", Headline: "most defends", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.Defends) }},
+	"frags":              {Title: "🔥 Frags", CLILabel: "FRAGS", Headline: "most frags", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.TotalFrags) }},
+	"deaths":             {Title: "🪦 Deaths", CLILabel: "DEATHS", Headline: "most deaths", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.TotalDeaths) }},
+	"kd_ratio":           {Title: "⚖️ K/D Ratio", CLILabel: "K/D", Headline: "best K/D", Format: func(e domain.LeaderboardEntry) string { return fmtKD(e.KDRatio) }},
+	"matches":            {Title: "🎮 Matches", CLILabel: "MATCHES", Headline: "most matches", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.CompletedMatches) }},
+	"victories":          {Title: "🏆 Victories", CLILabel: "VICTORIES", Headline: "most victories", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.Victories) }},
+	"captures":           {Title: "🚩 Captures", CLILabel: "CAPTURES", Headline: "most flag captures", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.Captures) }},
+	"flag_returns":       {Title: "🔁 Flag Returns", CLILabel: "RETURNS", Headline: "most flag returns", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.FlagReturns) }},
+	"assists":            {Title: "🤝 Assists", CLILabel: "ASSISTS", Headline: "most assists", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.Assists) }},
+	"defends":            {Title: "🛡️ Defends", CLILabel: "DEFENDS", Headline: "most defends", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.Defends) }},
 	"impressives":        {Title: "⚡ Impressives", CLILabel: "IMPRESSIVES", Headline: "most impressives", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.Impressives) }},
 	"excellents":         {Title: "💎 Excellents", CLILabel: "EXCELLENTS", Headline: "most excellents", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.Excellents) }},
 	"humiliations":       {Title: "😂 Humiliations", CLILabel: "HUMILIATIONS", Headline: "most humiliations", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.Humiliations) }},
@@ -304,7 +304,6 @@ func playerPlatformBadge(isVR bool) string {
 	}
 	return "🖥️"
 }
-
 
 // portraitExists checks whether the URL path's portrait file is
 // present on disk. The digest runs on the hub host so we can stat

@@ -20,15 +20,15 @@ type metrics struct {
 
 // Stats is a point-in-time snapshot of the counters.
 type Stats struct {
-	HeartbeatsReceived  uint64
-	HeartbeatsRejected  uint64
-	ProbesSent          uint64
+	HeartbeatsReceived    uint64
+	HeartbeatsRejected    uint64
+	ProbesSent            uint64
 	InfoResponsesReceived uint64
-	Validations         uint64
-	GetserversReceived  uint64
-	GetserversReplied   uint64
-	RateLimited         uint64
-	ParseErrors         uint64
-	RegistrySize        int
-	GateSize            int
+	Validations           uint64
+	GetserversReceived    uint64
+	GetserversReplied     uint64
+	RateLimited           uint64
+	ParseErrors           uint64
+	RegistrySize          int
+	GateSize              int
 }

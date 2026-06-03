@@ -42,26 +42,26 @@ const (
 // 0 = float, positive = unsigned int bits, from msg.c entityStateFields[].
 var entityFieldBits = [numEntityFields]int{
 	32, 0, 0, 0, 0, 0, 0, 0, 0, // pos.trTime, pos.trBase[0..2], pos.trDelta[0..2], apos.trBase[1], apos.trBase[0]
-	10, 0, 8, 8, 8, 8,          // event, angles2[1], eType, torsoAnim, eventParm, legsAnim
-	10, 8, 19, 10, 8, 8, 0,     // groundEntityNum, pos.trType, eFlags, otherEntityNum, weapon, clientNum, angles[1]
-	32, 8, 0, 0, 0, 24, 16,     // pos.trDuration, apos.trType, origin[0..2], solid, powerups
-	8, 10, 8, 8,                 // modelindex, otherEntityNum2, loopSound, generic1
-	0, 0, 0, 8, 0,              // origin2[2], origin2[0], origin2[1], modelindex2, angles[0]
-	32, 32, 32,                  // time, apos.trTime, apos.trDuration
-	0, 0, 0, 0,                 // apos.trBase[2], apos.trDelta[0..2]
-	32, 0, 0, 0, 32, 16,        // time2, angles[2], angles2[0], angles2[2], constantLight, frame
+	10, 0, 8, 8, 8, 8, // event, angles2[1], eType, torsoAnim, eventParm, legsAnim
+	10, 8, 19, 10, 8, 8, 0, // groundEntityNum, pos.trType, eFlags, otherEntityNum, weapon, clientNum, angles[1]
+	32, 8, 0, 0, 0, 24, 16, // pos.trDuration, apos.trType, origin[0..2], solid, powerups
+	8, 10, 8, 8, // modelindex, otherEntityNum2, loopSound, generic1
+	0, 0, 0, 8, 0, // origin2[2], origin2[0], origin2[1], modelindex2, angles[0]
+	32, 32, 32, // time, apos.trTime, apos.trDuration
+	0, 0, 0, 0, // apos.trBase[2], apos.trDelta[0..2]
+	32, 0, 0, 0, 32, 16, // time2, angles[2], angles2[0], angles2[2], constantLight, frame
 }
 
 // playerFieldBits defines the bit width for each playerState_t netField.
 // 0 = float, negative = signed int, from msg.c playerStateFields[].
 var playerFieldBits = [numPlayerFields]int{
-	32, 0, 0, 8, 0, 0, 0, 0,    // commandTime, origin[0..1], bobCycle, velocity[0..1], viewangles[1..0]
-	-16, 0, 0, 8, -16, 16,      // weaponTime, origin[2], velocity[2], legsTimer, pm_time, eventSequence
-	8, 4, 8, 8, 8, 16,          // torsoAnim, movementDir, events[0], legsAnim, events[1], pm_flags
-	10, 4, 16, 10, 16, 16, 16,  // groundEntityNum, weaponstate, eFlags, externalEvent, gravity, speed, delta_angles[1]
-	8, -8, 8, 8, 8, 8, 8,       // externalEventParm, viewheight, damageEvent, damageYaw, damagePitch, damageCount, generic1
-	8, 16, 16, 12, 8, 8,        // pm_type, delta_angles[0], delta_angles[2], torsoTimer, eventParms[0], eventParms[1]
-	8, 5, 0, 0, 0, 0, 10, 16,   // clientNum, weapon, viewangles[2], grapplePoint[0..2], jumppad_ent, loopSound
+	32, 0, 0, 8, 0, 0, 0, 0, // commandTime, origin[0..1], bobCycle, velocity[0..1], viewangles[1..0]
+	-16, 0, 0, 8, -16, 16, // weaponTime, origin[2], velocity[2], legsTimer, pm_time, eventSequence
+	8, 4, 8, 8, 8, 16, // torsoAnim, movementDir, events[0], legsAnim, events[1], pm_flags
+	10, 4, 16, 10, 16, 16, 16, // groundEntityNum, weaponstate, eFlags, externalEvent, gravity, speed, delta_angles[1]
+	8, -8, 8, 8, 8, 8, 8, // externalEventParm, viewheight, damageEvent, damageYaw, damagePitch, damageCount, generic1
+	8, 16, 16, 12, 8, 8, // pm_type, delta_angles[0], delta_angles[2], torsoTimer, eventParms[0], eventParms[1]
+	8, 5, 0, 0, 0, 0, 10, 16, // clientNum, weapon, viewangles[2], grapplePoint[0..2], jumppad_ent, loopSound
 }
 
 // DemoInfo holds extracted asset references from a demo file.
@@ -448,4 +448,3 @@ func parseBackslashKV(s string) map[string]string {
 	}
 	return result
 }
-

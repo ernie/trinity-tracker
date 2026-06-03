@@ -105,26 +105,26 @@ func TestRunWizard_CombinedDefaults(t *testing.T) {
 	p := &scriptedPrompter{
 		t: t,
 		answers: []string{
-			"1",                 // mode → ModeCombined (override the new collector default)
-			"",                  // service user → quake
-			"",                  // database path → default
-			"",                  // static dir → default
+			"1",               // mode → ModeCombined (override the new collector default)
+			"",                // service user → quake
+			"",                // database path → default
+			"",                // static dir → default
 			"hub.example.com", // public hostname (we prepend https://)
-			"y",                 // continue past DNS warning (host does not resolve)
-			"ops@example.com",   // admin email
-			"",                  // local source id → "hub" (default)
-			"y",                 // expect remote collectors
-			"n",                 // skip Discord digest
-			"y",                 // install engine
-			"",                  // quake3 dir → default
-			"y",                 // add a server now
-			"",                  // gametype → FFA (default)
-			"",                  // server key → ffa (default for FFA)
-			"",                  // address → default 127.0.0.1:27960
-			"",                  // rcon password → generate
-			"",                  // log path → default
-			"",                  // allow hub admin rcon → default no
-			"n",                 // add another? → no
+			"y",               // continue past DNS warning (host does not resolve)
+			"ops@example.com", // admin email
+			"",                // local source id → "hub" (default)
+			"y",               // expect remote collectors
+			"n",               // skip Discord digest
+			"y",               // install engine
+			"",                // quake3 dir → default
+			"y",               // add a server now
+			"",                // gametype → FFA (default)
+			"",                // server key → ffa (default for FFA)
+			"",                // address → default 127.0.0.1:27960
+			"",                // rcon password → generate
+			"",                // log path → default
+			"",                // allow hub admin rcon → default no
+			"n",               // add another? → no
 		},
 	}
 	var buf bytes.Buffer
@@ -207,24 +207,24 @@ func TestRunWizard_CollectorOnly(t *testing.T) {
 	p := &scriptedPrompter{
 		t: t,
 		answers: []string{
-			"y",                      // creds prereqs in hand
-			"",                       // service user → quake
-			"",                       // install engine? → yes (default)
-			"",                       // quake3 dir → default
+			"y",                   // creds prereqs in hand
+			"",                    // service user → quake
+			"",                    // install engine? → yes (default)
+			"",                    // quake3 dir → default
 			"trinity.example.com", // hub host
 			"q3.example.com",      // public hostname (we prepend https://)
 			"y",                   // continue past DNS warning (q3.example.com does not resolve)
-			"ops@example.com",        // admin email
-			"mygame",                 // source ID
-			credsPath,                // creds file (exists)
-			"y",                      // add a server now
-			"",                       // gametype → FFA (default)
-			"ffa",                    // server key
-			"",                       // address → default q3.example.com:27960
-			"hunter2",                // rcon password (provided, not generated)
-			"",                       // log path → default
-			"y",                      // allow hub admin rcon → yes (exercise the opt-in)
-			"n",                      // no more servers
+			"ops@example.com",     // admin email
+			"mygame",              // source ID
+			credsPath,             // creds file (exists)
+			"y",                   // add a server now
+			"",                    // gametype → FFA (default)
+			"ffa",                 // server key
+			"",                    // address → default q3.example.com:27960
+			"hunter2",             // rcon password (provided, not generated)
+			"",                    // log path → default
+			"y",                   // allow hub admin rcon → yes (exercise the opt-in)
+			"n",                   // no more servers
 		},
 	}
 	var buf bytes.Buffer
@@ -262,17 +262,17 @@ func TestRunWizard_HubOnly_DiscordAccepted(t *testing.T) {
 	p := &scriptedPrompter{
 		t: t,
 		answers: []string{
-			"2",                 // mode → ModeHubOnly
-			"",                  // service user → quake
-			"",                  // database path → default
-			"",                  // static dir → default
-			"hub.example.com",   // public hostname
-			"y",                 // continue past DNS warning
-			"ops@example.com",   // admin email
-			"n",                 // expect remote collectors → no
-			"y",                 // enable Discord digest
+			"2",               // mode → ModeHubOnly
+			"",                // service user → quake
+			"",                // database path → default
+			"",                // static dir → default
+			"hub.example.com", // public hostname
+			"y",               // continue past DNS warning
+			"ops@example.com", // admin email
+			"n",               // expect remote collectors → no
+			"y",               // enable Discord digest
 			"https://discord.com/api/webhooks/12345/abcDEF-_xyz",
-			"",                  // schedule → default "Mon 00:00"
+			"", // schedule → default "Mon 00:00"
 		},
 	}
 	var buf bytes.Buffer
@@ -446,15 +446,15 @@ func TestRunWizard_HubOnly_NoServerPrompts(t *testing.T) {
 	p := &scriptedPrompter{
 		t: t,
 		answers: []string{
-			"2",                 // mode → ModeHubOnly
-			"",                  // service user → quake
-			"",                  // database path → default
-			"",                  // static dir → default
+			"2",               // mode → ModeHubOnly
+			"",                // service user → quake
+			"",                // database path → default
+			"",                // static dir → default
 			"hub.example.com", // public hostname
-			"y",                 // continue past DNS warning
-			"ops@example.com",   // admin email
-			"n",                 // expect remote collectors → no
-			"n",                 // skip Discord digest
+			"y",               // continue past DNS warning
+			"ops@example.com", // admin email
+			"n",               // expect remote collectors → no
+			"n",               // skip Discord digest
 		},
 	}
 	var buf bytes.Buffer

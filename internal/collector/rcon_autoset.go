@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/ernie/trinity-tracker/internal/hub"
 	"github.com/ernie/trinity-tracker/internal/crypto"
+	"github.com/ernie/trinity-tracker/internal/hub"
 )
 
 // sendRconAutoset stuffs an encrypted rconPassword down to a single

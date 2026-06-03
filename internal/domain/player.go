@@ -7,23 +7,23 @@ import (
 
 // Player represents a logical person (can have multiple GUIDs)
 type Player struct {
-	ID                   int64        `json:"id"`
-	Name                 string       `json:"name"`
-	CleanName            string       `json:"clean_name"`
-	FirstSeen            time.Time    `json:"first_seen"`
-	LastSeen             time.Time    `json:"last_seen"`
-	TotalPlaytimeSeconds int64        `json:"total_playtime_seconds"`
-	IsBot                bool         `json:"is_bot"`
-	IsVR                 bool         `json:"is_vr"`
-	Model                string       `json:"model,omitempty"`  // most recent model used
-	Skill                float64      `json:"skill,omitempty"`  // bot skill level (1-5), 0 if human
-	IsVerified           bool         `json:"is_verified"`
-	IsAdmin              bool         `json:"is_admin"`
+	ID                   int64     `json:"id"`
+	Name                 string    `json:"name"`
+	CleanName            string    `json:"clean_name"`
+	FirstSeen            time.Time `json:"first_seen"`
+	LastSeen             time.Time `json:"last_seen"`
+	TotalPlaytimeSeconds int64     `json:"total_playtime_seconds"`
+	IsBot                bool      `json:"is_bot"`
+	IsVR                 bool      `json:"is_vr"`
+	Model                string    `json:"model,omitempty"` // most recent model used
+	Skill                float64   `json:"skill,omitempty"` // bot skill level (1-5), 0 if human
+	IsVerified           bool      `json:"is_verified"`
+	IsAdmin              bool      `json:"is_admin"`
 	// FeaturedHonor is the linked user's chosen honor key (e.g. "victories",
 	// "captures") for the profile hero card. nil = no linked user, or linked
 	// user hasn't chosen — the frontend falls back to 'victories'.
-	FeaturedHonor        *string      `json:"featured_honor,omitempty"`
-	GUIDs                []PlayerGUID `json:"guids,omitempty"`  // populated when fetching with details
+	FeaturedHonor *string      `json:"featured_honor,omitempty"`
+	GUIDs         []PlayerGUID `json:"guids,omitempty"` // populated when fetching with details
 }
 
 // PlayerGUID represents a single GUID belonging to a player
@@ -96,24 +96,24 @@ type PlayerStats struct {
 
 // LeaderboardEntry represents a player's position on a leaderboard
 type LeaderboardEntry struct {
-	Rank         int     `json:"rank"`
-	Player       Player  `json:"player"`
-	TotalFrags   int64   `json:"total_frags"`
-	TotalDeaths  int64   `json:"total_deaths"`
+	Rank               int     `json:"rank"`
+	Player             Player  `json:"player"`
+	TotalFrags         int64   `json:"total_frags"`
+	TotalDeaths        int64   `json:"total_deaths"`
 	TotalMatches       int64   `json:"total_matches"`
 	CompletedMatches   int64   `json:"completed_matches"`
 	UncompletedMatches int64   `json:"uncompleted_matches"`
 	KDRatio            float64 `json:"kd_ratio"`
-	Captures          int64   `json:"captures"`
-	FlagReturns       int64   `json:"flag_returns"`
-	Assists           int64   `json:"assists"`
-	Impressives       int64   `json:"impressives"`
-	Excellents        int64   `json:"excellents"`
-	Humiliations      int64   `json:"humiliations"`
-	Defends           int64   `json:"defends"`
-	SkullsDelivered   int64   `json:"skulls_delivered"`
-	ObelisksDestroyed int64   `json:"obelisks_destroyed"`
-	Victories         int64   `json:"victories"`
+	Captures           int64   `json:"captures"`
+	FlagReturns        int64   `json:"flag_returns"`
+	Assists            int64   `json:"assists"`
+	Impressives        int64   `json:"impressives"`
+	Excellents         int64   `json:"excellents"`
+	Humiliations       int64   `json:"humiliations"`
+	Defends            int64   `json:"defends"`
+	SkullsDelivered    int64   `json:"skulls_delivered"`
+	ObelisksDestroyed  int64   `json:"obelisks_destroyed"`
+	Victories          int64   `json:"victories"`
 }
 
 // LeaderboardResponse is the API response for leaderboard data

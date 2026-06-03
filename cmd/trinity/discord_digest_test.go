@@ -109,8 +109,8 @@ func TestRenderDigestEmbed_FullWeek(t *testing.T) {
 func TestRenderDigestEmbed_OddCountAddsTwoTrailingSpacers(t *testing.T) {
 	now := time.Date(2026, 5, 6, 20, 0, 0, 0, time.UTC)
 	results := map[string]*domain.LeaderboardResponse{
-		"frags":    mkLeaderboard("week", mkEntry(1, "a", 100, 1)),
-		"kd_ratio": mkLeaderboard("week", mkEntry(1, "a", 100, 1)),
+		"frags":     mkLeaderboard("week", mkEntry(1, "a", 100, 1)),
+		"kd_ratio":  mkLeaderboard("week", mkEntry(1, "a", 100, 1)),
 		"victories": mkLeaderboard("week", mkEntry(1, "a", 100, 1)),
 	}
 	embed := renderDigestEmbed(results,
@@ -128,13 +128,12 @@ func TestRenderDigestEmbed_OddCountAddsTwoTrailingSpacers(t *testing.T) {
 	}
 }
 
-
 // Empty / missing categories collapse to "_(no activity)_" so the
 // embed's shape is stable week-to-week even on quiet weeks.
 func TestRenderDigestEmbed_EmptyCategories(t *testing.T) {
 	results := map[string]*domain.LeaderboardResponse{
 		"frags":    mkLeaderboard("week"), // no entries
-		"captures": nil,                    // missing entirely
+		"captures": nil,                   // missing entirely
 	}
 	embed := renderDigestEmbed(results, []string{"frags", "captures"}, 5,
 		"https://trinity.example.com/leaderboard", "", "", time.Now())
@@ -364,4 +363,3 @@ func TestPortraitPath(t *testing.T) {
 		})
 	}
 }
-

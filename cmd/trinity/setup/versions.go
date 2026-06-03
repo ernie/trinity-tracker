@@ -38,8 +38,8 @@ var semverCore = regexp.MustCompile(`^v?(\d+)\.(\d+)\.(\d+)`)
 //   - If installed core > latest core → StateDiverged (operator is
 //     somehow ahead of the latest published tag).
 //   - If cores tie:
-//     • neither has a suffix → StateCurrent.
-//     • either has a suffix (the git-describe "-N-g<hash>[-dirty]"
+//   - neither has a suffix → StateCurrent.
+//   - either has a suffix (the git-describe "-N-g<hash>[-dirty]"
 //     extended form, or a "-rc/-beta" pre-release marker) →
 //     StateDiverged. The operator built or installed deliberately;
 //     don't silently overwrite.

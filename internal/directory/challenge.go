@@ -20,11 +20,11 @@ var challengeAlphabet = []byte("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuv
 // heartbeats. Each entry expires after challengeTimeout. The cap on
 // total entries (max) bounds memory under a heartbeat-spoof flood.
 type challengeTracker struct {
-	mu        sync.Mutex
-	now       func() time.Time
-	timeout   time.Duration
-	max       int
-	pending   map[netip.AddrPort]challengeEntry
+	mu      sync.Mutex
+	now     func() time.Time
+	timeout time.Duration
+	max     int
+	pending map[netip.AddrPort]challengeEntry
 }
 
 type challengeEntry struct {

@@ -90,11 +90,11 @@ func (c *fakeClock) pendingLen() int {
 // can assert on fire counts and order. Posts get sequential ids
 // so the editor can match by message id.
 type capturePoster struct {
-	mu          sync.Mutex
-	embeds      []discord.Embed
-	nextID      int
-	edits       []editRecord
-	editErr     error // returned by next edit call, if non-nil
+	mu      sync.Mutex
+	embeds  []discord.Embed
+	nextID  int
+	edits   []editRecord
+	editErr error // returned by next edit call, if non-nil
 }
 
 type editRecord struct {

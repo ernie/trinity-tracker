@@ -79,4 +79,3 @@ type IsNameReservedReply struct {
 	Reserved bool   `json:"reserved"`
 	Error    string `json:"error,omitempty"`
 }
-

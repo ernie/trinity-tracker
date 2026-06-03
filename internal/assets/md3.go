@@ -8,10 +8,10 @@ import (
 )
 
 const (
-	md3Magic       = "IDP3"
-	md3Version     = 15
-	md3HeaderSize  = 108
-	md3ShaderSize  = 68 // 64-byte name + int32 index
+	md3Magic      = "IDP3"
+	md3Version    = 15
+	md3HeaderSize = 108
+	md3ShaderSize = 68 // 64-byte name + int32 index
 )
 
 // ParseMD3Shaders parses an MD3 model file and extracts surface shader references.

@@ -9,13 +9,13 @@ import (
 )
 
 const (
-	bspMagic         = "IBSP"
-	bspVersion       = 0x2E
-	bspLumpEntities  = 0
-	bspLumpShaders   = 1
-	bspNumLumps      = 17
-	bspShaderSize    = 72  // 64 bytes name + 2x int32
-	bspHeaderSize    = 8 + bspNumLumps*8 // magic(4) + version(4) + 17 lumps * (offset(4) + length(4))
+	bspMagic        = "IBSP"
+	bspVersion      = 0x2E
+	bspLumpEntities = 0
+	bspLumpShaders  = 1
+	bspNumLumps     = 17
+	bspShaderSize   = 72                // 64 bytes name + 2x int32
+	bspHeaderSize   = 8 + bspNumLumps*8 // magic(4) + version(4) + 17 lumps * (offset(4) + length(4))
 )
 
 // BSPAssets holds asset references extracted from a BSP file.

@@ -13,13 +13,13 @@ const OOBHeader = "\xff\xff\xff\xff"
 // Command tokens we send or accept on the wire. Values match dpmaster
 // and the ioquake3 fork at ../trinity-engine.
 const (
-	cmdHeartbeat            = "heartbeat"
-	cmdGetinfo              = "getinfo"
-	cmdInfoResponse         = "infoResponse"
-	cmdGetservers           = "getservers"
-	cmdGetserversExt        = "getserversExt"
-	cmdGetserversResponse   = "getserversResponse"
-	cmdGetserversExtResp    = "getserversExtResponse"
+	cmdHeartbeat          = "heartbeat"
+	cmdGetinfo            = "getinfo"
+	cmdInfoResponse       = "infoResponse"
+	cmdGetservers         = "getservers"
+	cmdGetserversExt      = "getserversExt"
+	cmdGetserversResponse = "getserversResponse"
+	cmdGetserversExtResp  = "getserversExtResponse"
 )
 
 // Accepted heartbeat tags. `QuakeArena-1` is what ioquake3 (and the

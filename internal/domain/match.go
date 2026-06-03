@@ -54,30 +54,30 @@ func GameTypeFromInt(gt int) string {
 
 // MatchPlayerSummary represents a player's participation in a match
 type MatchPlayerSummary struct {
-	PlayerID     int64    `json:"player_id"`
-	Name         string   `json:"name"`
-	CleanName    string   `json:"clean_name"`
-	Frags        int      `json:"frags"`
-	Deaths       int      `json:"deaths"`
-	Completed    bool     `json:"completed"`
-	IsBot        bool     `json:"is_bot"`
-	IsVR         bool     `json:"is_vr"`
-	IsVerified   bool     `json:"is_verified"`
-	IsAdmin      bool     `json:"is_admin"`
-	Skill        *float64 `json:"skill,omitempty"`
-	Score        *int     `json:"score,omitempty"`
-	Team         *int     `json:"team,omitempty"`
-	Model        string   `json:"model,omitempty"`
-	Impressives       int `json:"impressives,omitempty"`
-	Excellents        int `json:"excellents,omitempty"`
-	Humiliations      int `json:"humiliations,omitempty"`
-	Defends           int `json:"defends,omitempty"`
-	Victories         int `json:"victories,omitempty"`
-	Captures          int `json:"captures,omitempty"`
-	Assists           int `json:"assists,omitempty"`
-	FlagReturns       int `json:"flag_returns,omitempty"`
-	SkullsDelivered   int `json:"skulls_delivered,omitempty"`
-	ObelisksDestroyed int `json:"obelisks_destroyed,omitempty"`
+	PlayerID          int64    `json:"player_id"`
+	Name              string   `json:"name"`
+	CleanName         string   `json:"clean_name"`
+	Frags             int      `json:"frags"`
+	Deaths            int      `json:"deaths"`
+	Completed         bool     `json:"completed"`
+	IsBot             bool     `json:"is_bot"`
+	IsVR              bool     `json:"is_vr"`
+	IsVerified        bool     `json:"is_verified"`
+	IsAdmin           bool     `json:"is_admin"`
+	Skill             *float64 `json:"skill,omitempty"`
+	Score             *int     `json:"score,omitempty"`
+	Team              *int     `json:"team,omitempty"`
+	Model             string   `json:"model,omitempty"`
+	Impressives       int      `json:"impressives,omitempty"`
+	Excellents        int      `json:"excellents,omitempty"`
+	Humiliations      int      `json:"humiliations,omitempty"`
+	Defends           int      `json:"defends,omitempty"`
+	Victories         int      `json:"victories,omitempty"`
+	Captures          int      `json:"captures,omitempty"`
+	Assists           int      `json:"assists,omitempty"`
+	FlagReturns       int      `json:"flag_returns,omitempty"`
+	SkullsDelivered   int      `json:"skulls_delivered,omitempty"`
+	ObelisksDestroyed int      `json:"obelisks_destroyed,omitempty"`
 }
 
 // MatchSummary represents a match with server and player info.
@@ -97,13 +97,13 @@ type MatchSummary struct {
 	MapName       string               `json:"map_name"`
 	DemoAvailable bool                 `json:"demo_available"`
 	IsFeatured    bool                 `json:"is_featured"`
-	GameType   string               `json:"game_type"`
-	StartedAt  time.Time            `json:"started_at"`
-	EndedAt    *time.Time           `json:"ended_at,omitempty"`
-	ExitReason string               `json:"exit_reason,omitempty"`
-	Players    []MatchPlayerSummary `json:"players"`
-	RedScore   *int                 `json:"red_score,omitempty"`
-	BlueScore  *int                 `json:"blue_score,omitempty"`
-	Movement   string               `json:"movement,omitempty"`
-	Gameplay   string               `json:"gameplay,omitempty"`
+	GameType      string               `json:"game_type"`
+	StartedAt     time.Time            `json:"started_at"`
+	EndedAt       *time.Time           `json:"ended_at,omitempty"`
+	ExitReason    string               `json:"exit_reason,omitempty"`
+	Players       []MatchPlayerSummary `json:"players"`
+	RedScore      *int                 `json:"red_score,omitempty"`
+	BlueScore     *int                 `json:"blue_score,omitempty"`
+	Movement      string               `json:"movement,omitempty"`
+	Gameplay      string               `json:"gameplay,omitempty"`
 }
