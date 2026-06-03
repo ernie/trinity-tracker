@@ -22,6 +22,7 @@ import { DocsPlay } from "./components/docs/DocsPlay";
 import { DocsAccount } from "./components/docs/DocsAccount";
 import { DocsCustomize } from "./components/docs/DocsCustomize";
 import { DocsReference } from "./components/docs/DocsReference";
+import { LivePlayerPage } from "./components/LivePlayerPage";
 import { CreditsPage } from "./components/CreditsPage";
 import { AdminPage } from "./components/admin/AdminPage";
 import { AdminUsers } from "./components/admin/AdminUsers";
@@ -54,6 +55,7 @@ createRoot(document.getElementById("root")!).render(
                 <Route path="/players/:id" element={<PlayersPage />} />
                 <Route path="/matches" element={<MatchesPage />} />
                 <Route path="/matches/:id/demo" element={<DemoPlayerPage />} />
+                <Route path="/tv/:source/:key" element={<LivePlayerPage />} />
                 <Route path="/play" element={<PlayPage />} />
                 <Route path="/matches/:id" element={<MatchDetailPage />} />
                 <Route path="/leaderboard" element={<LeaderboardPage />} />

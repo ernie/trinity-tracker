@@ -68,6 +68,9 @@ export interface ServerStatus {
   server_vars?: Record<string, string>;
   match_state?: "waiting" | "warmup" | "active" | "overtime" | "intermission";
   warmup_remaining?: number; // milliseconds remaining in warmup
+  /** A live-stream tap is active; /tv/<source>/<key> is connectable. */
+  is_live?: boolean;
+  live_delay_seconds?: number; // collector's configured viewer delay; 0/undefined when unknown
 }
 
 export interface Server {

@@ -12,6 +12,7 @@ function deriveTitle(
   if (pathname === "/") return null;
   if (pathname === "/play") return null;
   if (/^\/matches\/\d+\/demo$/.test(pathname)) return null;
+  if (pathname.startsWith("/tv/")) return null;
 
   if (/^\/matches\/\d+/.test(pathname)) return { title: "Match Details" };
   if (pathname.startsWith("/matches")) return { title: "Matches" };

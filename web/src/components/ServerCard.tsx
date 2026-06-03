@@ -1,4 +1,5 @@
 import { memo, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import type { ServerStatus, Player } from "../types";
 import { FlagIcon } from "./FlagIcon";
 import { SkullIcon } from "./SkullIcon";
@@ -553,12 +554,33 @@ const ServerCardImpl = memo(function ServerCardImpl({
             gameplay={server.server_vars?.g_gameplay}
           />
         </RichChip>
-        <span
-          className={`card__state ${stateBadge.className}`}
-          data-help={STATE_HELP}
-        >
-          {stateBadge.label}
-        </span>
+        <div className="card__status-row">
+          {/* Live-spectate pill, just left of the status badge; the pulsing
+              dot + LIVE mirror the in-viewer badge and link to the player. */}
+          {server.is_live && (
+            <Link
+              to={`/tv/${server.source}/${server.key}`}
+              reloadDocument
+              className="card__watch"
+              onClick={(e) => e.stopPropagation()}
+              aria-label="Watch live"
+              title={
+                server.live_delay_seconds
+                  ? `Watch live (delayed ~${server.live_delay_seconds}s)`
+                  : "Watch live"
+              }
+            >
+              <span className="card__watch-dot" aria-hidden="true" />
+              LIVE
+            </Link>
+          )}
+          <span
+            className={`card__state ${stateBadge.className}`}
+            data-help={STATE_HELP}
+          >
+            {stateBadge.label}
+          </span>
+        </div>
       </div>
 
       <div className="card__header">

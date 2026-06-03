@@ -22,7 +22,8 @@ export function Chrome() {
   const hidePill =
     pathname === "/" ||
     pathname === "/play" ||
-    /^\/matches\/\d+\/demo$/.test(pathname);
+    /^\/matches\/\d+\/demo$/.test(pathname) ||
+    pathname.startsWith("/tv/");
 
   // ⌘K / Ctrl+K opens the palette from anywhere.
   useHotkey(

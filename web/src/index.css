@@ -9249,13 +9249,15 @@ h2.docs-h2:focus-within .docs-h2__anchor {
 .demo-move-pad {
   display: none;
   position: fixed;
-  /* Sits above the controls bar; both account for safe-area inset. */
+  /* Sits above the controls bar (safe-area inset). Stacks BELOW the bar and its
+     follow-player flyout so an open flyout captures taps rather than letting them
+     fall through to the W/A/S/D buttons. */
   bottom: calc(56px + env(safe-area-inset-bottom, 0px));
   left: 8px;
   grid-template-columns: repeat(3, 48px);
   grid-template-rows: repeat(2, 48px);
   gap: 4px;
-  z-index: 20;
+  z-index: 15;
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
@@ -12537,6 +12539,15 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   margin-left: 0;
 }
 
+/* LIVE pill + status badge on one row so the bar height (and the map name below)
+   never shifts. margin-left:auto pins the pair right. */
+.card__status-row {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 /* Admin-only: star to feature/unfeature a demo without navigating
    into the match detail page. Sits just left of the timestamp. */
 .card__feature-toggle {
@@ -12618,6 +12629,44 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   white-space: nowrap;
   flex-shrink: 0;
 }
+/* Live-spectate pill (same shape as .card__state); pulsing dot mirrors the in-viewer LIVE badge. */
+.card__watch {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: "Barlow", sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  /* 2/7 + 1px border = the same box as .card__state's 3/8 no-border pill. */
+  padding: 2px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  flex-shrink: 0;
+  text-decoration: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  transition:
+    border-color 0.15s,
+    color 0.15s,
+    background 0.15s;
+}
+.card__watch:hover {
+  border-color: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.95);
+}
+.card__watch-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #e23b3b;
+  animation: live-pulse 2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
 .card__state.active {
   background: rgba(34, 197, 94, 0.25);
   color: #4ade80;
@@ -14609,4 +14658,44 @@ h2.docs-h2:focus-within .docs-h2__anchor {
 .install-trouble__body ul {
   padding-inline-start: 1.5em;
   margin: 8px 0;
+}
+
+/* Right-anchored (mirrors .demo-back-link) to keep clear of the engine HUD (clock/chat) on canvas. */
+.live-badge {
+  position: absolute;
+  right: 12px;
+  top: 0;
+  height: 48px;
+  z-index: 21;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: rgba(255, 255, 255, 0.85);
+  font: 600 11px/1.4 monospace;
+  letter-spacing: 0.08em;
+}
+
+.live-badge__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #e23b3b;
+  animation: live-pulse 2s ease-in-out infinite;
+}
+
+@keyframes live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-badge__dot,
+  .card__watch-dot {
+    animation: none;
+  }
 }

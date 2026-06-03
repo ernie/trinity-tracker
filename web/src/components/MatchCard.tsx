@@ -245,6 +245,7 @@ export function MatchCard({
       <Link
         to={`/matches/${match.id}/demo`}
         state={{ from: location.pathname }}
+        reloadDocument
         className="demo-action watch"
       >
         <PlayIcon size={10} />

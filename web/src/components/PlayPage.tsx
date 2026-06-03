@@ -20,7 +20,6 @@ export function PlayPage() {
 
     async function init() {
       try {
-        // @ts-expect-error — runtime module from WASM engine, not in TS source tree
         const { loadEngine } = await import("/engine/loader.js");
         if (aborted) return;
 
@@ -31,7 +30,7 @@ export function PlayPage() {
           statusEl: statusRef.current!,
           enginePath: "/engine/",
           configUrl: "/engine/client-config.json",
-          authToken: auth.token,
+          authToken: auth.token ?? undefined,
           extraArgs: `+set r_mode -1 +set r_customwidth ${Math.round(rect.width * dpr)} +set r_customheight ${Math.round(rect.height * dpr)}`,
           onProgress: (loaded: number, total: number) =>
             setProgress({ loaded, total }),

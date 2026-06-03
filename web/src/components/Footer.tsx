@@ -5,7 +5,7 @@ import { GITHUB_REPO_URL } from "../constants/github";
 
 // Routes where the footer overlaps fullscreen content (demo player
 // WASM canvas). Add patterns here for new immersive surfaces.
-const HIDDEN_FOOTER_ROUTES = ["/matches/:id/demo"];
+const HIDDEN_FOOTER_ROUTES = ["/matches/:id/demo", "/tv/:source/:key"];
 
 // Persistent footer band on every route. Surfaces the binary's version
 // (fetched from /api/version), external community links, and authorship.
