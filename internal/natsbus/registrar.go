@@ -29,6 +29,7 @@ type Registrar struct {
 	demoBaseURL string
 	roster      RosterProvider
 	interval    time.Duration
+	kickCh      chan struct{}
 
 	stopOnce sync.Once
 	stopCh   chan struct{}
@@ -55,6 +56,7 @@ func NewRegistrar(nc *nats.Conn, source, version, demoBaseURL string, roster Ros
 		demoBaseURL: demoBaseURL,
 		roster:      roster,
 		interval:    interval,
+		kickCh:      make(chan struct{}, 1),
 		stopCh:      make(chan struct{}),
 		doneCh:      make(chan struct{}),
 	}, nil
@@ -70,6 +72,18 @@ func (r *Registrar) Stop() {
 	<-r.doneCh
 }
 
+// Kick requests an immediate out-of-band publish — e.g. when a server's
+// live-stream tap opens or closes, so the hub's is_live flips within ~1s
+// instead of waiting up to a full heartbeat interval. Non-blocking: if a
+// kick is already pending, this is a no-op and the pending publish reflects
+// the latest roster anyway.
+func (r *Registrar) Kick() {
+	select {
+	case r.kickCh <- struct{}{}:
+	default:
+	}
+}
+
 func (r *Registrar) run(ctx context.Context) {
 	defer close(r.doneCh)
 	r.publish()
@@ -82,6 +96,8 @@ func (r *Registrar) run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-t.C:
+			r.publish()
+		case <-r.kickCh:
 			r.publish()
 		}
 	}

@@ -233,12 +233,27 @@ tracker:
 	}
 }
 
+func TestCollectorLiveDelayDefault(t *testing.T) {
+	cfg := &Config{
+		Tracker: &TrackerConfig{
+			Collector: &CollectorConfig{
+				SourceID:  "c1",
+				PublicURL: "https://c1.example.com",
+			},
+		},
+	}
+	applyTrackerDefaults(cfg)
+	if cfg.Tracker.Collector.LiveDelay != Duration(5*time.Second) {
+		t.Fatalf("LiveDelay default = %v, want 5s", cfg.Tracker.Collector.LiveDelay)
+	}
+}
+
 func TestDurationParsesDaysSuffix(t *testing.T) {
 	cases := map[string]time.Duration{
-		"10d":  10 * 24 * time.Hour,
-		"30m":  30 * time.Minute,
-		"30s":  30 * time.Second,
-		"2h":   2 * time.Hour,
+		"10d":   10 * 24 * time.Hour,
+		"30m":   30 * time.Minute,
+		"30s":   30 * time.Second,
+		"2h":    2 * time.Hour,
 		"500ms": 500 * time.Millisecond,
 	}
 	for in, want := range cases {

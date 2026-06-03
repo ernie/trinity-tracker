@@ -158,6 +158,14 @@ type CollectorConfig struct {
 	HeartbeatInterval Duration `yaml:"heartbeat_interval"`
 	PublicURL         string   `yaml:"public_url"`
 	HubHost           string   `yaml:"hub_host"`
+
+	// LiveRelayAddr is the host:port the collector's live-spectating relay
+	// listens on (e.g. "127.0.0.1:8081"). Empty disables the relay.
+	LiveRelayAddr string `yaml:"live_relay_addr,omitempty"`
+	// LiveDelay is how far behind real time viewers watch (jitter buffer +
+	// smoothing). Defaults to 5s. Don't drop below ~1.5× the engine's keyframe
+	// interval (sv_tvLiveKeyframeMsec, default 2s) or viewers hitch.
+	LiveDelay Duration `yaml:"live_delay,omitempty"`
 }
 
 // AuthConfig holds authentication settings
@@ -466,6 +474,9 @@ func applyTrackerDefaults(cfg *Config) {
 	if t.Collector != nil {
 		if t.Collector.HeartbeatInterval == 0 {
 			t.Collector.HeartbeatInterval = Duration(30 * time.Second)
+		}
+		if t.Collector.LiveDelay == 0 {
+			t.Collector.LiveDelay = Duration(5 * time.Second)
 		}
 		if t.Collector.DataDir == "" {
 			// Default alongside the SQLite DB; main.go already creates

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"sort"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"github.com/ernie/trinity-tracker/internal/config"
 	"github.com/ernie/trinity-tracker/internal/domain"
 	"github.com/ernie/trinity-tracker/internal/hub"
+	"github.com/ernie/trinity-tracker/internal/livestream"
 )
 
 // ServerManager orchestrates log parsing for all configured Q3 servers.
@@ -22,8 +24,12 @@ type ServerManager struct {
 	rpc      hub.RPCClient
 	pub      hub.FactPublisher
 	livePub  hub.LiveEventPublisher
+	liveReg  *livestream.Registry
 	q3client *Q3Client
-	events   chan domain.Event
+
+	kickRegistrar func() // wired by SetRegistrarKick; nil until then
+
+	events chan domain.Event
 
 	// replayCutoffs holds the per-RemoteServerID replay/live boundary.
 	// Set from the publisher's persisted Watermark.PerServer on
@@ -41,6 +47,19 @@ type ServerManager struct {
 	done            chan struct{}
 	wg              sync.WaitGroup
 	startupComplete bool
+
+	// liveTapHdrTimeout bounds the first-header read of a live-tap dial.
+	// Zero means defaultLiveTapHeaderTimeout; tests shrink it.
+	liveTapHdrTimeout time.Duration
+
+	// liveTapRedialBase overrides the first mid-match redial backoff.
+	// Zero means defaultLiveTapRedialBase; tests shrink it.
+	liveTapRedialBase time.Duration
+
+	// inflightDials holds connected-but-not-yet-stored live-tap conns (parked in
+	// the header parse). Stop() closes them so a parked read unblocks at once
+	// instead of waiting out the read deadline. Guarded by mu.
+	inflightDials map[net.Conn]struct{}
 }
 
 type serverState struct {
@@ -52,17 +71,17 @@ type serverState struct {
 	// the welcome), and match_start is refused for any server not
 	// setting the cvar.
 	handshakeRequired bool
-	clients          map[int]*clientState    // client ID -> client state
-	previousClients  map[string]*clientState // GUID -> accumulated stats from previous stints
-	lastInitGame     time.Time               // dedupe InitGame and skip fake ShutdownGame at same timestamp
-	matchState       string                  // "waiting", "warmup", "active", "overtime", "intermission"
-	matchStarted     bool                    // true once MatchStart has been published (at WarmupEnd)
-	matchFlushed     bool                    // true once match stats have been flushed
-	warmupDuration   int                     // warmup duration in seconds (set when warmup starts)
-	pendingExit      *string                 // exit reason from Exit event (deferred until scores captured)
-	pendingExitAt    time.Time               // timestamp of Exit event
-	pendingRedScore  *int                    // team scores captured at Exit time (before server resets)
-	pendingBlueScore *int
+	clients           map[int]*clientState    // client ID -> client state
+	previousClients   map[string]*clientState // GUID -> accumulated stats from previous stints
+	lastInitGame      time.Time               // dedupe InitGame and skip fake ShutdownGame at same timestamp
+	matchState        string                  // "waiting", "warmup", "active", "overtime", "intermission"
+	matchStarted      bool                    // true once MatchStart has been published (at WarmupEnd)
+	matchFlushed      bool                    // true once match stats have been flushed
+	warmupDuration    int                     // warmup duration in seconds (set when warmup starts)
+	pendingExit       *string                 // exit reason from Exit event (deferred until scores captured)
+	pendingExitAt     time.Time               // timestamp of Exit event
+	pendingRedScore   *int                    // team scores captured at Exit time (before server resets)
+	pendingBlueScore  *int
 
 	// GUIDs the collector knows have an open session on this server.
 	// Mirrors the hub's sessions table for live, on-server players;
@@ -72,6 +91,10 @@ type serverState struct {
 	// continuation: emit FactPresenceSnapshot, no greet. When unset,
 	// it's a genuine join: emit FactPlayerJoin and greet.
 	openSessions map[string]bool
+
+	liveTap        *liveTap // persistent live-stream tap for this server, if open
+	liveTapDialing bool     // a tap dial is in flight; guards against a second
+	// concurrent dial racing on the registry (e.g. two InitGames in quick succession)
 
 	// Trinity handshake state
 	trinityNonces    map[int]string           // map[clientNum]nonce
@@ -135,6 +158,270 @@ func NewServerManager(cfg *config.Config, server hub.ServerClient, rpc hub.RPCCl
 // collector-only mode; unset in hub+collector to avoid a self-loop.
 func (m *ServerManager) SetLivePublisher(p hub.LiveEventPublisher) {
 	m.livePub = p
+}
+
+// SetLiveRegistry injects the live-stream relay registry. When set, the
+// collector opens a tap to each co-located game server on match-go-live and
+// registers the resulting Buffer so the relay can serve it.
+func (m *ServerManager) SetLiveRegistry(r *livestream.Registry) {
+	m.liveReg = r
+}
+
+// SetRegistrarKick wires the heartbeat registrar's Kick so the manager can
+// request an immediate is_live re-publish when a live tap opens or closes.
+// The setter writes under m.mu because the openLiveTap dial goroutine reads
+// kickRegistrar under the same lock. The callback must be non-blocking and
+// must not re-acquire m.mu (registrar.Kick is a non-blocking channel send).
+// Optional; nil until wired (the periodic heartbeat still carries is_live).
+func (m *ServerManager) SetRegistrarKick(fn func()) {
+	m.mu.Lock()
+	m.kickRegistrar = fn
+	m.mu.Unlock()
+}
+
+// openLiveTap ensures a persistent live-stream tap is open for the server (if the
+// live registry is configured). Idempotent and a no-op once a tap is open or a
+// dial is in flight — the in-flight guard makes two InitGames in quick succession
+// safe (no second concurrent dial racing on the registry). Best-effort: a server
+// without sv_tvLive refuses the connection and we log+move on. Dials in a goroutine
+// so a slow/refused connect never stalls log processing. Callers (handleLogEvent) hold m.mu.
+func (m *ServerManager) openLiveTap(state *serverState) {
+	if m.liveReg == nil || state.match == nil || state.match.UUID == "" {
+		return
+	}
+	if state.liveTap != nil || state.liveTapDialing {
+		return // tap open, or a dial is already in flight
+	}
+	_, portStr, err := net.SplitHostPort(state.server.Address)
+	if err != nil {
+		log.Printf("collector: live tap: bad server address %q: %v", state.server.Address, err)
+		return
+	}
+	// Don't start a dial during/after shutdown. Stop() closes m.done before it
+	// waits on m.wg; the caller holds m.mu here, so checking m.done and calling
+	// wg.Add(1) under the lock orders the Add before Stop()'s closeLiveTap-loop
+	// lock (and thus before wg.Wait()), so the dial is always awaited.
+	select {
+	case <-m.done:
+		return
+	default:
+	}
+	state.liveTapDialing = true
+	addr := net.JoinHostPort("127.0.0.1", portStr)
+	key := state.server.Key
+	serverID := state.server.ID
+	delay := m.cfg.Tracker.Collector.LiveDelay.D()
+	hdrTimeout := m.liveTapHdrTimeout
+	if hdrTimeout <= 0 {
+		hdrTimeout = defaultLiveTapHeaderTimeout
+	}
+
+	// Connect off the lock; on success, store the handle back under the lock,
+	// then start the consume loop (so its onClose can't fire before the handle
+	// is observable). Tracked by m.wg so Stop() can't report "shutdown complete"
+	// while a dial is still parked in the header read.
+	m.wg.Add(1)
+	go func() {
+		defer m.wg.Done()
+		m.dialStoreStart(state, addr, key, serverID, hdrTimeout, delay)
+	}()
+}
+
+// dialStoreStart performs one live-tap dial off the lock. On success it stores
+// the handle and starts the consume loop under the lock, returning true; on any
+// failure (dial/header error, shutdown raced the dial, server removed) it stops
+// the late tap and returns false. It clears state.liveTapDialing under the lock
+// on every path, so a caller that set the in-flight guard before dialing has it
+// released exactly once here. Runs OFF m.mu.
+func (m *ServerManager) dialStoreStart(state *serverState, addr, key string, serverID int64, hdrTimeout, delay time.Duration) bool {
+	conn, err := dialLiveTap(addr)
+	if err != nil {
+		m.mu.Lock()
+		state.liveTapDialing = false
+		m.mu.Unlock()
+		log.Printf("collector: live tap to %s for key=%s not available: %v", addr, key, err)
+		return false
+	}
+	// Register the in-flight conn so Stop() can close it to interrupt a parked
+	// header read immediately, rather than waiting out the read deadline. Bail
+	// now if shutdown already began.
+	m.mu.Lock()
+	select {
+	case <-m.done:
+		state.liveTapDialing = false
+		m.mu.Unlock()
+		conn.Close()
+		return false
+	default:
+	}
+	if m.inflightDials == nil {
+		m.inflightDials = make(map[net.Conn]struct{})
+	}
+	m.inflightDials[conn] = struct{}{}
+	m.mu.Unlock()
+
+	tap, err := parseLiveTapHeader(conn, addr, key, m.liveReg, hdrTimeout, delay)
+
+	m.mu.Lock()
+	delete(m.inflightDials, conn)
+	state.liveTapDialing = false
+	if err != nil {
+		m.mu.Unlock()
+		log.Printf("collector: live tap to %s for key=%s not available: %v", addr, key, err)
+		return false
+	}
+	// Shutdown raced the dial: bail and stop the late tap before it can register
+	// a buffer or spawn a consume goroutine past Stop().
+	select {
+	case <-m.done:
+		m.mu.Unlock()
+		tap.stop()
+		return false
+	default:
+	}
+	// The server may have been removed (reconfigured) while we were dialing.
+	if _, ok := m.servers[serverID]; !ok {
+		m.mu.Unlock()
+		tap.stop()
+		return false
+	}
+	state.liveTap = tap
+	kick := m.kickRegistrar // capture under the lock; call after unlock
+	// Track the consume goroutine so Stop() waits for its teardown (RemoveIf +
+	// onClose) instead of reporting "shutdown complete" microseconds early. The
+	// Add is ordered before Stop()'s wg.Wait: the dial goroutine that runs this
+	// is itself still in m.wg here, so the counter can't have hit zero.
+	m.wg.Add(1)
+	m.mu.Unlock()
+	tap.start(func(closed *liveTap) {
+		defer m.wg.Done()
+		m.onLiveTapClosed(state, closed)
+	})
+	if kick != nil {
+		kick() // publish-on-change: flip is_live fast
+	}
+	log.Printf("collector: live tap open for key=%s via %s", key, addr)
+	return true
+}
+
+const (
+	// defaultLiveTapRedialBase is the first redial backoff after a mid-match tap
+	// drop; it doubles each failed attempt up to liveTapRedialMaxBackoff.
+	defaultLiveTapRedialBase = 250 * time.Millisecond
+	// liveTapRedialMaxBackoff caps the redial interval. The redial persists for the
+	// LIFE OF THE MATCH rather than giving up after a fixed count, so a longer
+	// same-match outage still recovers. It stops when the match ends, the tap
+	// returns, another dialer takes over, or the collector shuts down.
+	liveTapRedialMaxBackoff = 30 * time.Second
+)
+
+// onLiveTapClosed is invoked once by a liveTap's run loop when its connection
+// drops. Clear the handle and re-publish is_live. Identity-checked so a stale
+// tap can't clear a newer one a redial may have already installed. If the match
+// is still active and we're not shutting down, the drop was an unsolicited
+// mid-match loss, not an end-of-match teardown — kick off a persistent
+// capped-backoff redial so live doesn't stay black for the rest of the match.
+func (m *ServerManager) onLiveTapClosed(state *serverState, closed *liveTap) {
+	m.mu.Lock()
+	if state.liveTap != closed {
+		m.mu.Unlock()
+		return
+	}
+	state.liveTap = nil
+	kick := m.kickRegistrar
+	// Decide redial under the lock. The m.done check + wg.Add here order the Add
+	// before Stop()'s wg.Wait the same way openLiveTap does. Don't claim
+	// liveTapDialing yet — the loop claims it per-attempt, so a racing InitGame
+	// openLiveTap during a backoff sleep can take over and the loop then yields.
+	redial := false
+	if state.match != nil && state.match.UUID != "" && !m.isShuttingDown() {
+		redial = true
+		m.wg.Add(1)
+	}
+	m.mu.Unlock()
+	if kick != nil {
+		kick()
+	}
+	if redial {
+		go m.redialLiveTap(state)
+	}
+}
+
+// redialLiveTap re-opens a dropped mid-match tap with capped exponential
+// backoff, persisting until the match ends rather than giving up after a fixed
+// count (so a longer same-match outage still recovers). Each attempt claims the
+// in-flight guard under the lock (yielding if the match ended, a tap already
+// returned, another dial is in flight, or we're shutting down), then dials; on
+// success the loop exits, on failure it backs off (doubling, capped) and retries.
+func (m *ServerManager) redialLiveTap(state *serverState) {
+	defer m.wg.Done()
+	backoff := m.liveTapRedialBase
+	if backoff <= 0 {
+		backoff = defaultLiveTapRedialBase
+	}
+	for {
+		select {
+		case <-m.done:
+			return
+		case <-time.After(backoff):
+		}
+		backoff *= 2
+		if backoff > liveTapRedialMaxBackoff {
+			backoff = liveTapRedialMaxBackoff
+		}
+		m.mu.Lock()
+		if m.isShuttingDown() || state.match == nil || state.match.UUID == "" ||
+			state.liveTap != nil || state.liveTapDialing {
+			m.mu.Unlock()
+			return // match ended, tap already back, or another dialer took over
+		}
+		_, portStr, err := net.SplitHostPort(state.server.Address)
+		if err != nil {
+			m.mu.Unlock()
+			log.Printf("collector: live tap redial: bad server address %q: %v", state.server.Address, err)
+			return
+		}
+		state.liveTapDialing = true
+		addr := net.JoinHostPort("127.0.0.1", portStr)
+		key := state.server.Key
+		serverID := state.server.ID
+		delay := m.cfg.Tracker.Collector.LiveDelay.D()
+		hdrTimeout := m.liveTapHdrTimeout
+		if hdrTimeout <= 0 {
+			hdrTimeout = defaultLiveTapHeaderTimeout
+		}
+		m.mu.Unlock()
+		if m.dialStoreStart(state, addr, key, serverID, hdrTimeout, delay) {
+			return // live is back
+		}
+		// dialStoreStart cleared liveTapDialing; back off and try again.
+	}
+}
+
+// isShuttingDown reports whether Stop() has begun (m.done closed). A nil m.done
+// (some test fixtures) reads as not shutting down.
+func (m *ServerManager) isShuttingDown() bool {
+	select {
+	case <-m.done:
+		return true
+	default:
+		return false
+	}
+}
+
+// closeLiveTap tears down the server's persistent live tap. This is for genuine
+// teardown (collector shutdown or server removal), NOT map rotation — the tap
+// persists across matches and re-keys itself. The run loop deregisters its
+// buffer when the connection closes; clearing the handle here flips is_live
+// immediately. Callers hold m.mu.
+func (m *ServerManager) closeLiveTap(state *serverState) {
+	if state.liveTap != nil {
+		state.liveTap.stop()
+		state.liveTap = nil
+		if m.kickRegistrar != nil {
+			m.kickRegistrar() // publish-on-change
+		}
+	}
 }
 
 // SetReplayCutoffs pins per-server replay/live boundaries. Each
@@ -327,6 +614,17 @@ func (m *ServerManager) Stop() {
 	for _, tailer := range tailers {
 		tailer.Stop()
 	}
+	// Tear down persistent live taps (they otherwise live until the conn drops).
+	// Also close any in-flight dial conns so a goroutine parked in the header
+	// parse unblocks immediately instead of waiting out its read deadline.
+	m.mu.Lock()
+	for _, state := range m.servers {
+		m.closeLiveTap(state)
+	}
+	for conn := range m.inflightDials {
+		conn.Close()
+	}
+	m.mu.Unlock()
 	m.wg.Wait()
 	log.Println("ServerManager: shutdown complete")
 }
@@ -372,6 +670,15 @@ func (m *ServerManager) attachTailer(ctx context.Context, key, path string, serv
 	default:
 	}
 	m.tailers[serverID] = tailer
+	// If the replayed log shows a match already in progress — the collector
+	// restarted while the game server kept running — tap it now instead of
+	// waiting for the next InitGame (next map). The engine streams header +
+	// keyframe to a mid-joining consumer, so a viewer reconnects within the
+	// delay window rather than staying black for the rest of the match.
+	// openLiveTap is a no-op when there's no active match or no relay configured.
+	if st, ok := m.servers[serverID]; ok {
+		m.openLiveTap(st)
+	}
 	m.mu.Unlock()
 	m.wg.Add(1)
 	go m.processLogEvents(ctx, serverID, tailer)
@@ -515,6 +822,12 @@ func (m *ServerManager) Roster() []domain.RegdServer {
 	for _, srv := range m.cfg.Q3Servers {
 		delegationByAddress[srv.Address] = srv.AllowHubAdminRcon
 	}
+	// Collector-wide viewer delay, stamped on every server so the hub can
+	// surface it per (source, key) to the live player.
+	delaySec := 0
+	if m.cfg.Tracker != nil && m.cfg.Tracker.Collector != nil {
+		delaySec = int(m.cfg.Tracker.Collector.LiveDelay.D().Seconds())
+	}
 	out := make([]domain.RegdServer, 0, len(m.servers))
 	for _, state := range m.servers {
 		out = append(out, domain.RegdServer{
@@ -522,6 +835,8 @@ func (m *ServerManager) Roster() []domain.RegdServer {
 			Key:                    state.server.Key,
 			Address:                state.server.Address,
 			AdminDelegationEnabled: delegationByAddress[state.server.Address],
+			IsLive:                 state.liveTap != nil,
+			LiveDelaySeconds:       delaySec,
 		})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].LocalID < out[j].LocalID })
@@ -560,6 +875,13 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 	case EventTypeInitGame:
 		data := event.Data.(InitGameData)
 		m.handleMatchChange(ctx, state, data.MapName, data.GameType, data.UUID, data.Settings["g_movement"], data.Settings["g_gameplay"], data.Settings["g_trinityhandshake"] == "1", event.Timestamp, replayMode)
+		// Ensure the server's persistent tap is open so warmup streams live — the
+		// engine streams from spawn (sv_tvLive), decoupled from .tvd recording.
+		// Idempotent and in-flight-guarded, so two InitGames in quick succession
+		// still open exactly one tap; it then re-keys across rotations on its own.
+		if !replayMode && state.match != nil && state.match.UUID != "" {
+			m.openLiveTap(state)
+		}
 
 	case EventTypeWarmupEnd:
 		if state.match != nil {
@@ -603,6 +925,7 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 			}
 		}
 		state.matchState = "active"
+		// (live tap already opened at InitGame so warmup streams; nothing to do here)
 
 	case EventTypeWarmup:
 		data := event.Data.(WarmupData)
@@ -640,6 +963,11 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 				},
 			})
 			state.matchFlushed = true
+			// Stats are final at intermission, but the live stream must NOT end
+			// here: the intermission scoreboard is part of the match (it's in the
+			// .tvd VOD), so live viewers must see it too. The persistent tap's
+			// buffer ends when the engine sends TVLe at the next map's spawn —
+			// after the scoreboard plus the delayed tail have streamed.
 		}
 
 	case EventTypeClientConnect:
@@ -1023,6 +1351,7 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 				log.Printf("Discarding match %s: never reached active play", state.match.UUID)
 			}
 		}
+		// Tap NOT closed here — it persists across the rotation and re-keys itself (see liveTap).
 		state.match = nil
 		state.matchStarted = false
 		state.matchFlushed = false
@@ -1603,6 +1932,9 @@ func (m *ServerManager) handleMatchChange(ctx context.Context, state *serverStat
 		})
 	}
 
+	// The live tap is left open across the match change: it's per-server and
+	// re-keys onto the new map itself (see closeLiveTap).
+
 	// Defer DB persistence until WarmupEnd so warmup-only matches
 	// don't create orphaned rows.
 	match := &domain.Match{
@@ -1634,7 +1966,6 @@ func (m *ServerManager) handleMatchChange(ctx context.Context, state *serverStat
 		},
 	})
 }
-
 
 // savePreviousClient accumulates per-GUID counters from a completed stint.
 func (state *serverState) savePreviousClient(client *clientState) {
@@ -2096,4 +2427,3 @@ func indexSpace(s string) int {
 	}
 	return -1
 }
-
