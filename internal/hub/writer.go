@@ -31,6 +31,10 @@ type Writer struct {
 
 	sources *SourceRegistry
 
+	// liveState (if set) is updated from each heartbeat's per-server IsLive
+	// flag. Shared with the poller, which stamps it onto ServerStatus.IsLive.
+	liveState *LiveState
+
 	// localSource is the collector source colocated with this hub
 	// (when hub+collector run on the same box). Empty for hub-only
 	// deployments. Drives the local-admin shortcut in rcon authorization.
@@ -85,6 +89,12 @@ func WithFactPublisher(p FactPublisher) Option {
 // admin_delegation_enabled on every local server.
 func WithLocalSource(source string) Option {
 	return func(w *Writer) { w.localSource = source }
+}
+
+// WithLiveState injects the shared live-stream state holder. HandleRegistration
+// updates it from each heartbeat's per-server IsLive flag.
+func WithLiveState(ls *LiveState) Option {
+	return func(w *Writer) { w.liveState = ls }
 }
 
 const eventBufferSize = 1024

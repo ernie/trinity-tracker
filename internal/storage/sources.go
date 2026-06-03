@@ -271,6 +271,27 @@ func (s *Store) FindSourcePublicURLForDemo(ctx context.Context, uuid string) (st
 	return url, nil
 }
 
+// FindSourcePublicURL returns the demo_base_url of the named source, or
+// empty string + nil error if the source is unknown or has none set. The
+// live relay's hub-side router uses it to 302 a viewer to the collector
+// that owns the server (mirrors FindSourcePublicURLForDemo, but keyed by
+// source directly since the live URL carries the source).
+func (s *Store) FindSourcePublicURL(ctx context.Context, source string) (string, error) {
+	var url string
+	err := s.db.QueryRowContext(ctx, `
+		SELECT COALESCE(demo_base_url, '')
+		FROM sources
+		WHERE source = ?
+	`, source).Scan(&url)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("storage: FindSourcePublicURL(%q): %w", source, err)
+	}
+	return url, nil
+}
+
 // ResolveServerIDForSource maps (source, remote_local_id) to the hub's
 // own servers.id. Returns 0 and no error if no row matches. The
 // subscriber uses this to translate Envelope.RemoteServerID before

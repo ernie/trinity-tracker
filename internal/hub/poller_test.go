@@ -33,8 +33,8 @@ func seedOwnerID(t *testing.T, store *storage.Store) *int64 {
 }
 
 type fakeQuerier struct {
-	mu       sync.Mutex
-	calls    []string
+	mu        sync.Mutex
+	calls     []string
 	responses map[string]*domain.ServerStatus
 }
 
@@ -110,6 +110,139 @@ func TestRemotePollerPollsRegisteredServers(t *testing.T) {
 	q.mu.Unlock()
 	if len(calls) == 0 {
 		t.Error("expected at least one QueryStatus call")
+	}
+}
+
+// TestPollerStampsIsLive verifies the online path stamps ServerStatus.IsLive
+// from the shared LiveState holder, keyed by the server's (source, key).
+func TestPollerStampsIsLive(t *testing.T) {
+	_, store := newTestWriter(t)
+	ctx := context.Background()
+
+	reg := domain.Registration{
+		Source:  "remote",
+		Servers: []domain.RegdServer{{LocalID: 1, Key: "r1", Address: "live.example:27960"}},
+	}
+	if err := store.CreateSource(ctx, reg.Source, true, seedOwnerID(t, store)); err != nil {
+		t.Fatalf("create source: %v", err)
+	}
+	if err := store.UpsertRemoteServers(ctx, reg); err != nil {
+		t.Fatalf("upsert roster: %v", err)
+	}
+	var serverID int64
+	for _, s := range reg.Servers {
+		id, _ := store.ResolveServerIDForSource(ctx, reg.Source, s.LocalID)
+		serverID = id
+		if err := store.SetServerHandshakeRequired(ctx, id, true); err != nil {
+			t.Fatalf("SetServerHandshakeRequired: %v", err)
+		}
+	}
+
+	ls := NewLiveState()
+	ls.Set(reg.Source, "r1", true)
+
+	q := &fakeQuerier{responses: map[string]*domain.ServerStatus{
+		"live.example:27960": {
+			Map:        "q3dm17",
+			ServerVars: map[string]string{"engine": "trinity-engine/0.4.2"},
+		},
+	}}
+	poller := NewRemotePoller(store, q, 50*time.Millisecond, nil, nil, nil)
+	poller.SetLiveState(ls)
+	pctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	poller.Start(pctx)
+	defer poller.Stop()
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		st := poller.GetServerStatus(serverID)
+		if st != nil && st.Online {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	st := poller.GetServerStatus(serverID)
+	if st == nil {
+		t.Fatal("no status cached")
+	}
+	if !st.IsLive {
+		t.Fatal("IsLive not stamped from LiveState")
+	}
+}
+
+// TestPollerClearsLiveDelayWhenOffline pins that the offline branch resets
+// LiveDelaySeconds along with IsLive. Leaving a stale delay behind is an
+// inconsistent snapshot (a non-live server reporting a viewer delay).
+func TestPollerClearsLiveDelayWhenOffline(t *testing.T) {
+	_, store := newTestWriter(t)
+	ctx := context.Background()
+	reg := domain.Registration{
+		Source:  "remote",
+		Servers: []domain.RegdServer{{LocalID: 1, Key: "r1", Address: "flap.example:27960"}},
+	}
+	if err := store.CreateSource(ctx, reg.Source, true, seedOwnerID(t, store)); err != nil {
+		t.Fatalf("create source: %v", err)
+	}
+	if err := store.UpsertRemoteServers(ctx, reg); err != nil {
+		t.Fatalf("upsert roster: %v", err)
+	}
+	var serverID int64
+	for _, s := range reg.Servers {
+		id, _ := store.ResolveServerIDForSource(ctx, reg.Source, s.LocalID)
+		serverID = id
+		if err := store.SetServerHandshakeRequired(ctx, id, true); err != nil {
+			t.Fatalf("SetServerHandshakeRequired: %v", err)
+		}
+	}
+
+	ls := NewLiveState()
+	ls.Set(reg.Source, "r1", true)
+	ls.SetDelay(reg.Source, "r1", 5)
+
+	q := &fakeQuerier{responses: map[string]*domain.ServerStatus{
+		"flap.example:27960": {Map: "q3dm17", ServerVars: map[string]string{"engine": "trinity-engine/0.4.2"}},
+	}}
+	poller := NewRemotePoller(store, q, 50*time.Millisecond, nil, nil, nil)
+	poller.SetLiveState(ls)
+	pctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	poller.Start(pctx)
+	defer poller.Stop()
+
+	// Online first: the delay must get stamped.
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if st := poller.GetServerStatus(serverID); st != nil && st.Online && st.LiveDelaySeconds == 5 {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if st := poller.GetServerStatus(serverID); st == nil || st.LiveDelaySeconds != 5 {
+		t.Fatalf("precondition not met: live delay not stamped while online: %+v", st)
+	}
+
+	// Server goes unreachable.
+	q.mu.Lock()
+	q.responses = map[string]*domain.ServerStatus{}
+	q.mu.Unlock()
+
+	deadline = time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if st := poller.GetServerStatus(serverID); st != nil && !st.Online {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	st := poller.GetServerStatus(serverID)
+	if st == nil {
+		t.Fatal("no status cached")
+	}
+	if st.IsLive {
+		t.Error("IsLive not cleared when offline")
+	}
+	if st.LiveDelaySeconds != 0 {
+		t.Errorf("LiveDelaySeconds = %d when offline, want 0 (stale live delay survived)", st.LiveDelaySeconds)
 	}
 }
 

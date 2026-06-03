@@ -34,4 +34,16 @@ type RegdServer struct {
 	Key                    string `json:"key"`
 	Address                string `json:"address"`
 	AdminDelegationEnabled bool   `json:"admin_delegation_enabled,omitempty"`
+
+	// IsLive reports whether this server currently has an active live-stream tap
+	// (a viewer can connect to /tv/<source>/<key>). It rides every heartbeat
+	// and is pushed out-of-band on tap open/close. Ephemeral match state, not
+	// roster config — the hub keeps it in memory only.
+	IsLive bool `json:"is_live,omitempty"`
+
+	// LiveDelaySeconds is the collector's configured viewer delay (live_delay)
+	// in whole seconds. The same for every server a collector serves; it rides
+	// the heartbeat so the live player can honestly show the feed's lag. In
+	// memory only, like IsLive.
+	LiveDelaySeconds int `json:"live_delay_seconds,omitempty"`
 }

@@ -30,6 +30,12 @@ func (w *Writer) HandleRegistration(ctx context.Context, reg domain.Registration
 	if err := w.store.TouchSourceHeartbeat(ctx, reg.Source, time.Now().UTC(), reg.Version, reg.DemoBaseURL); err != nil {
 		return err
 	}
+	if w.liveState != nil {
+		for _, srv := range reg.Servers {
+			w.liveState.Set(reg.Source, srv.Key, srv.IsLive)
+			w.liveState.SetDelay(reg.Source, srv.Key, srv.LiveDelaySeconds)
+		}
+	}
 	if len(reg.Servers) == 0 {
 		return nil
 	}

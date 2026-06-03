@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -17,6 +18,12 @@ import (
 	"github.com/ernie/trinity-tracker/internal/natsbus"
 	"github.com/ernie/trinity-tracker/internal/storage"
 )
+
+// liveKeyPattern bounds a server key to the charset the collector relay
+// accepts. handleLive concatenates the key raw into a redirect Location, so
+// rejecting anything else (e.g. a decoded %2F, or other URL metacharacters) is
+// defense-in-depth against a malformed 302.
+var liveKeyPattern = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
 
 // Router holds the HTTP routes and dependencies
 type Router struct {
@@ -36,12 +43,12 @@ type Router struct {
 	// requests for a remote source go via rconClient (NATS request/
 	// reply), requests for localSource short-circuit through the
 	// in-process ServerManager. See SetRconClient / SetLocalSource.
-	rconClient    *natsbus.RconClient
-	localSource   string
+	rconClient  *natsbus.RconClient
+	localSource string
 	// Version string surfaced to the frontend via /api/version. Set by
 	// main.go after NewRouter so binary builds report their git-describe
 	// tag; unset = "dev".
-	version       string
+	version string
 }
 
 // SetVersion records the running binary's version for /api/version.
@@ -155,9 +162,12 @@ func NewRouter(store *storage.Store, manager *collector.ServerManager, writer *h
 	// is on disk; on a miss it forwards the request here via try_files
 	// → @trinity_fallback. The handler then either 404s or 302s to the
 	// source that owns the asset.
-	r.mux.HandleFunc("GET /demos/{filename}",            r.handleDemo)
+	r.mux.HandleFunc("GET /demos/{filename}", r.handleDemo)
+	// 3-segment so the bare /tv/{source}/{key} stays the SPA player (a full nav
+	// to it must serve the app, not download the relay stream).
+	r.mux.HandleFunc("GET /tv/{source}/{key}/stream", r.handleLive)
 	r.mux.HandleFunc("GET /assets/levelshots/{filename}", r.handleLevelshot)
-	r.mux.HandleFunc("GET /demopk3s/maps/{filename}",    r.handleMapPk3)
+	r.mux.HandleFunc("GET /demopk3s/maps/{filename}", r.handleMapPk3)
 
 	// Player management routes (admin only)
 	r.mux.HandleFunc("GET /api/players/{id}/guids", r.handleGetPlayerGUIDs)
@@ -418,6 +428,35 @@ func (r *Router) handleDemo(w http.ResponseWriter, req *http.Request) {
 	}
 	http.Redirect(w, req,
 		strings.TrimRight(base, "/")+"/demos/"+uuid+".tvd",
+		http.StatusFound)
+}
+
+// handleLive 302-redirects a TrinityVision live request to the collector that
+// owns the server. Unlike /demos there is never a local file and no extension —
+// live is a stream (TVL1), not a .tvd recording; the bytes always come from the
+// owning collector's relay listener (behind its nginx /tv/<key> location), so
+// this is a pure router. The collector's relay serves the single-segment
+// /tv/<key>; this /tv/<source>/<key>/stream route is the hub's stream entry
+// point (the bare /tv/<source>/<key> renders the SPA player).
+func (r *Router) handleLive(w http.ResponseWriter, req *http.Request) {
+	source := req.PathValue("source")
+	key := req.PathValue("key")
+	if source == "" || !liveKeyPattern.MatchString(key) {
+		http.NotFound(w, req)
+		return
+	}
+	base, err := r.store.FindSourcePublicURL(req.Context(), source)
+	if err != nil {
+		log.Printf("handleLive: %v", err)
+		http.Error(w, "lookup error", http.StatusInternalServerError)
+		return
+	}
+	if base == "" {
+		http.NotFound(w, req)
+		return
+	}
+	http.Redirect(w, req,
+		strings.TrimRight(base, "/")+"/tv/"+key,
 		http.StatusFound)
 }
 

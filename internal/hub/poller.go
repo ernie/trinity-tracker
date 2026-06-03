@@ -54,9 +54,10 @@ type RemotePoller struct {
 	identity IdentityResolver
 	conns    SourceConns
 
-	mu       sync.RWMutex
-	statuses map[int64]*domain.ServerStatus
-	sink     LiveEventSink
+	mu        sync.RWMutex
+	statuses  map[int64]*domain.ServerStatus
+	sink      LiveEventSink
+	liveState *LiveState
 	// warnedNonTrinity tracks server IDs we've already logged a
 	// non-trinity-engine warning for. Without this dedup the poll loop
 	// would spam the log every poll_interval for every misconfigured
@@ -121,6 +122,15 @@ func (p *RemotePoller) pollTarget(r storage.RemoteServer) string {
 func (p *RemotePoller) SetSink(sink LiveEventSink) {
 	p.mu.Lock()
 	p.sink = sink
+	p.mu.Unlock()
+}
+
+// SetLiveState attaches the shared live-stream state holder so polled
+// statuses carry the per-server is_live flag. Optional; LiveState.Get is
+// nil-safe. Safe to call before or after Start (write guarded by p.mu).
+func (p *RemotePoller) SetLiveState(ls *LiveState) {
+	p.mu.Lock()
+	p.liveState = ls
 	p.mu.Unlock()
 }
 
@@ -201,6 +211,8 @@ func (p *RemotePoller) pollAll(ctx context.Context) {
 			}
 			existing.Source = r.Source
 			existing.Online = false
+			existing.IsLive = false       // an unreachable server is never live-watchable
+			existing.LiveDelaySeconds = 0 // and carries no viewer delay — clear the stale value
 			existing.LastUpdated = now
 			// Preserve LastSeenAt — it represents the last successful
 			// UDP query, used to compute offline duration.
@@ -231,6 +243,8 @@ func (p *RemotePoller) pollAll(ctx context.Context) {
 			}
 			existing.Source = r.Source
 			existing.Online = false
+			existing.IsLive = false
+			existing.LiveDelaySeconds = 0 // non-trinity → not live-watchable; clear stale delay
 			existing.LastUpdated = now
 			snapshot := *existing
 			sink := p.sink
@@ -251,6 +265,8 @@ func (p *RemotePoller) pollAll(ctx context.Context) {
 		status.BotCount = 0
 		p.enrichPlayers(ctx, r.ID, &status.HumanCount, &status.BotCount, status.Players)
 		p.mu.Lock()
+		status.IsLive = p.liveState.Get(r.Source, r.Key)
+		status.LiveDelaySeconds = p.liveState.GetDelay(r.Source, r.Key)
 		p.statuses[r.ID] = status
 		snapshot := *status
 		sink := p.sink

@@ -30,6 +30,36 @@ func TestHandleRegistrationUnknownSourceIsRefused(t *testing.T) {
 	}
 }
 
+func TestHandleRegistrationUpdatesLiveState(t *testing.T) {
+	_, store := newTestWriter(t)
+	ctx := context.Background()
+	ls := NewLiveState()
+	w := NewWriter(store, WithLiveState(ls))
+
+	if err := store.CreateSource(ctx, "hub", true, seedOwnerID(t, store)); err != nil {
+		t.Fatalf("create source: %v", err)
+	}
+
+	reg := domain.Registration{
+		Source:  "hub",
+		Servers: []domain.RegdServer{{LocalID: 1, Key: "ffa", IsLive: true}},
+	}
+	if err := w.HandleRegistration(ctx, reg); err != nil {
+		t.Fatalf("HandleRegistration: %v", err)
+	}
+	if !ls.Get("hub", "ffa") {
+		t.Fatal("LiveState not updated from heartbeat")
+	}
+
+	reg.Servers[0].IsLive = false
+	if err := w.HandleRegistration(ctx, reg); err != nil {
+		t.Fatalf("HandleRegistration #2: %v", err)
+	}
+	if ls.Get("hub", "ffa") {
+		t.Fatal("LiveState not cleared when IsLive=false")
+	}
+}
+
 func TestHandleRegistrationKnownSourceUpdatesHeartbeatAndRoster(t *testing.T) {
 	w, store := newTestWriter(t)
 	ctx := context.Background()

@@ -35,6 +35,45 @@ func TestBuildActiveEmbed_TitleAndIdentity(t *testing.T) {
 	}
 }
 
+// When a server is being live-tapped, the active embed's title links
+// straight to the in-browser player at /tv/<source>/<key> and invites
+// the click.
+func TestBuildActiveEmbed_LiveLink(t *testing.T) {
+	s := mkStatus()
+	s.IsLive = true
+	embed := buildActiveEmbed(s, "https://trinity.example.com", nil)
+	if embed.URL != "https://trinity.example.com/tv/local/dm-hub" {
+		t.Errorf("live title should link to the player: %q", embed.URL)
+	}
+	if !strings.Contains(embed.Title, "(click to watch)") {
+		t.Errorf("live title should invite the click: %q", embed.Title)
+	}
+}
+
+// No tap → title points at the server list, no "click to watch" cue.
+func TestBuildActiveEmbed_NoLiveLinkWhenNotLive(t *testing.T) {
+	embed := buildActiveEmbed(mkStatus(), "https://trinity.example.com", nil)
+	if embed.URL != "https://trinity.example.com/servers" {
+		t.Errorf("non-live title should link to the server list: %q", embed.URL)
+	}
+	if strings.Contains(embed.Title, "click to watch") {
+		t.Errorf("non-live server should not invite a watch: %q", embed.Title)
+	}
+}
+
+// No public URL → no link even when live (nothing to link to).
+func TestBuildActiveEmbed_NoLiveLinkWithoutPublicURL(t *testing.T) {
+	s := mkStatus()
+	s.IsLive = true
+	embed := buildActiveEmbed(s, "", nil)
+	if embed.URL != "" {
+		t.Errorf("without a public URL there is no link: %q", embed.URL)
+	}
+	if strings.Contains(embed.Title, "click to watch") {
+		t.Errorf("without a public URL there is nothing to watch: %q", embed.Title)
+	}
+}
+
 // Map gets its long name when mapMeta has it; short id when not.
 func TestBuildActiveEmbed_MapLongName(t *testing.T) {
 	mapMeta := map[string]string{"q3dm17": "The Longest Yard"}
@@ -204,5 +243,9 @@ func TestBuildInactiveEmbed_TitleAndDesc(t *testing.T) {
 	}
 	if embed.Color != inactiveColor {
 		t.Errorf("color: got %#x", embed.Color)
+	}
+	// An idle server has nothing to watch or join, so the embed carries no link.
+	if embed.URL != "" {
+		t.Errorf("idle embed should have no link: %q", embed.URL)
 	}
 }

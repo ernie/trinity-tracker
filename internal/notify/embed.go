@@ -51,11 +51,20 @@ const embedMinWidthPad = "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀" +
 
 // buildActiveEmbed renders the "going active" snapshot for s.
 func buildActiveEmbed(s *domain.ServerStatus, publicURL string, mapMeta map[string]string) discord.Embed {
+	title := "🟢  " + serverDisplay(s) + " is active"
+	url := serverLink(publicURL, s.ServerID)
+	// When a live tap is open, point the (already clickable) title straight
+	// at the in-browser player and invite the click. Re-evaluated on every
+	// PATCH refresh, so it reverts to the server list if the tap later drops.
+	if link := liveLink(publicURL, s); link != "" {
+		title += " (click to watch)"
+		url = link
+	}
 	embed := discord.Embed{
-		Title:       "🟢  " + serverDisplay(s) + " is active",
+		Title:       title,
 		Description: describeMatch(s, mapMeta) + embedMinWidthPad,
 		Color:       activeColor,
-		URL:         serverLink(publicURL, s.ServerID),
+		URL:         url,
 		Timestamp:   time.Now().UTC().Format(time.RFC3339),
 	}
 	red, blue, free, specs := bucketRoster(s.Players)
@@ -78,8 +87,9 @@ func buildActiveEmbed(s *domain.ServerStatus, publicURL string, mapMeta map[stri
 }
 
 // buildInactiveEmbed renders the "going inactive" notice for s.
-// No roster — the server is empty by definition.
-func buildInactiveEmbed(s *domain.ServerStatus, publicURL string, mapMeta map[string]string) discord.Embed {
+// No roster — the server is empty by definition — and no link: there's
+// nothing to watch or join on an idle server.
+func buildInactiveEmbed(s *domain.ServerStatus, _ string, mapMeta map[string]string) discord.Embed {
 	desc := "Server is empty"
 	if s.Map != "" {
 		desc = "Empty on " + mapDisplayName(s.Map, mapMeta)
@@ -88,7 +98,6 @@ func buildInactiveEmbed(s *domain.ServerStatus, publicURL string, mapMeta map[st
 		Title:       "⚪  " + serverDisplay(s) + " is idle",
 		Description: desc,
 		Color:       inactiveColor,
-		URL:         serverLink(publicURL, s.ServerID),
 		Timestamp:   time.Now().UTC().Format(time.RFC3339),
 	}
 }
@@ -108,6 +117,17 @@ func serverLink(publicURL string, _ int64) string {
 		return ""
 	}
 	return publicURL + "/servers"
+}
+
+// liveLink is the in-browser live-spectate URL for s, or "" when the
+// server isn't currently being tapped (or no public URL is configured).
+// Mirrors the SPA's /tv/:source/:key route (web/src/main.tsx); source and
+// key are validated [A-Za-z0-9._-] upstream, so no URL-escaping is needed.
+func liveLink(publicURL string, s *domain.ServerStatus) string {
+	if publicURL == "" || !s.IsLive {
+		return ""
+	}
+	return publicURL + "/tv/" + s.Source + "/" + s.Key
 }
 
 func describeMatch(s *domain.ServerStatus, mapMeta map[string]string) string {
