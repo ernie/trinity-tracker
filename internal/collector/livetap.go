@@ -92,6 +92,12 @@ func (t *liveTap) run() {
 	if t.onClose != nil {
 		defer t.onClose(t)
 	}
+	// Close the viewer-facing feed when the tap is gone for good so relay
+	// responses waiting for the next session end (true end -> browsers fall to
+	// the VOD path). Deferred AFTER onClose so it runs BEFORE it: a redial fired
+	// from onClose re-registers a fresh buffer, which must happen after this
+	// Close or it would clobber the reopened feed.
+	defer t.reg.Close(t.key)
 	hdrBytes := t.firstHdr
 	for {
 		buf := livestream.NewBuffer(hdrBytes, t.delay)
