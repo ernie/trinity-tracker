@@ -8833,13 +8833,23 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding-bottom: 48px;
+  /* Reserve the controls-bar height so the canvas (object-fit: contain) bottoms
+     out at the bar's top edge, not under it. Must track the bar's own
+     48px + safe-area-inset-bottom (.demo-controls-bar) or the HUD hides behind
+     the bar's safe-area growth on home-indicator phones. */
+  padding-bottom: calc(48px + env(safe-area-inset-bottom, 0px));
 }
 
 .demo-canvas {
   width: 100%;
   height: 100%;
-  max-height: 75vw;
+  /* The framebuffer is quantized to a supported aspect ratio (see useTvEngine),
+     so contain letter/pillarboxes it instead of stretching — and lets most
+     resizes be pure CSS rather than a vid_restart. Black bars read as
+     intentional against the page's #000. (Replaces the old max-height:75vw
+     portrait hack; selectAspect now yields 4:3 for portrait containers.) */
+  object-fit: contain;
+  background: #000;
 }
 
 .demo-canvas.no-pointerlock {

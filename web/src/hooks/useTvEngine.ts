@@ -83,6 +83,67 @@ function consoleScale(fbWidth: number, fbHeight: number): number {
   return Math.round(Math.max(0.5, Math.min(8, s)) * 100) / 100;
 }
 
+// Supported framebuffer aspect ratios (ascending). Resizes within a ratio are
+// pure CSS (object-fit: contain letter/pillarboxes the fixed-aspect buffer); a
+// vid_restart only fires when the resize crosses to a different ratio or outgrows
+// the framebuffer resolution. The game view is landscape, so there's no portrait
+// ratio — a portrait container gets 4:3, letterboxed.
+const RATIOS = [4 / 3, 16 / 9, 21 / 9, 32 / 9];
+const HYST = 0.08; // narrower-switch deadband, so we don't flap at a boundary
+const TIER_FACTOR = 1.4; // resolution-reinit deadband (implicit crispness tiers)
+const MAX_FB = { w: 3840, h: 2160 };
+
+// Pick the widest ratio R with R <= C (else the narrowest) — prefers pillarbox
+// over letterbox, filling width while keeping full height. `current` enables
+// anti-flap hysteresis: widening adopts the base pick immediately (the
+// widest-R<=C rule already gates it on C reaching that ratio), but narrowing only
+// switches once C drops a clear margin below the held ratio.
+function selectAspect(
+  containerAspect: number,
+  current?: number | null,
+): number {
+  const fits = RATIOS.filter((r) => r <= containerAspect);
+  const base = fits.length ? Math.max(...fits) : Math.min(...RATIOS);
+  if (current == null || base > current) return base;
+  if (base < current)
+    return containerAspect < current * (1 - HYST) ? base : current;
+  return current;
+}
+
+// Framebuffer dims for the displayed content (not the whole box, so no pixels go
+// to the bars): height-limited when pillarboxed, width-limited when letterboxed.
+// Scaled by DPR and capped to MAX_FB while preserving aspect.
+function targetFramebuffer(
+  ratio: number,
+  boxW: number,
+  boxH: number,
+  dpr: number,
+): { w: number; h: number } {
+  const c = boxW / boxH;
+  const w = ratio <= c ? boxH * ratio : boxW;
+  const h = ratio <= c ? boxH : boxW / ratio;
+  let fbW = Math.round(w * dpr);
+  let fbH = Math.round(h * dpr);
+  if (fbW > MAX_FB.w || fbH > MAX_FB.h) {
+    const s = Math.min(MAX_FB.w / fbW, MAX_FB.h / fbH);
+    fbW = Math.round(fbW * s);
+    fbH = Math.round(fbH * s);
+  }
+  return { w: fbW, h: fbH };
+}
+
+// True when a new target stays close enough to the current framebuffer to just
+// rescale via CSS — both dimensions within the tier deadband [1/F, F].
+function withinTier(
+  target: { w: number; h: number },
+  cur: { w: number; h: number },
+): boolean {
+  const rw = target.w / cur.w;
+  const rh = target.h / cur.h;
+  const lo = 1 / TIER_FACTOR;
+  return rw >= lo && rw <= TIER_FACTOR && rh >= lo && rh <= TIER_FACTOR;
+}
+
 export function useTvEngine(opts: UseTvEngineOptions): UseTvEngine {
   const {
     demoUrl,
@@ -107,6 +168,10 @@ export function useTvEngine(opts: UseTvEngineOptions): UseTvEngine {
   const [transitioning, setTransitioning] = useState(false);
   const [scrubActive, setScrubActive] = useState(false);
   const scrubRef = useRef(false);
+  // Current aspect bucket + framebuffer, tracked in refs (not state) so resize
+  // ticks don't churn renders. Seeded at boot, updated only on an actual reinit.
+  const currentRatioRef = useRef<number | null>(null);
+  const currentFBRef = useRef<{ w: number; h: number } | null>(null);
 
   // Latest callbacks via refs so they don't retrigger the boot effect; assigned
   // in an effect, not during render.
@@ -226,9 +291,13 @@ export function useTvEngine(opts: UseTvEngineOptions): UseTvEngine {
         if (aborted || !canvasRef.current || !statusRef.current) return;
         const rect = canvasRef.current.getBoundingClientRect();
         const dpr = window.devicePixelRatio || 1;
-        const fbW = Math.round(rect.width * dpr);
-        const fbH = Math.round(rect.height * dpr);
-        const sizeArgs = `+set r_mode -1 +set r_customwidth ${fbW} +set r_customheight ${fbH} +set con_scale ${consoleScale(fbW, fbH)}`;
+        // Seed the framebuffer through the aspect selector so first paint already
+        // uses a supported ratio (not the raw box), matching the resize path.
+        const ratio = selectAspect(rect.width / rect.height);
+        const fb = targetFramebuffer(ratio, rect.width, rect.height, dpr);
+        currentRatioRef.current = ratio;
+        currentFBRef.current = fb;
+        const sizeArgs = `+set r_mode -1 +set r_customwidth ${fb.w} +set r_customheight ${fb.h} +set con_scale ${consoleScale(fb.w, fb.h)}`;
         const mod = await loadEngine({
           canvas: canvasRef.current,
           statusEl: statusRef.current,
@@ -327,54 +396,66 @@ export function useTvEngine(opts: UseTvEngineOptions): UseTvEngine {
     return () => clearInterval(iv);
   }, [liveUrl, engineReady, readCvarNumber, readCvarString, refreshPlayerList]);
 
-  // Re-initialize video on resize so the framebuffer matches the CSS box
+  // On resize, quantize the framebuffer to a supported aspect bucket and let CSS
+  // (object-fit: contain) scale within it — so dragging, the mobile URL bar, and
+  // minor reflow are pure CSS, no engine call. A vid_restart fires only when the
+  // resize crosses to a different aspect bucket or outgrows/undergrows the
+  // framebuffer resolution past the tier deadband.
   useEffect(() => {
     const canvas = canvasRef.current;
     const mod = moduleRef.current;
     if (!canvas || !mod) return;
     let timer: ReturnType<typeof setTimeout> | null = null;
-    const dpr = window.devicePixelRatio || 1;
-    let initW = Math.round(canvas.getBoundingClientRect().width * dpr);
-    let initH = Math.round(canvas.getBoundingClientRect().height * dpr);
-    const observer = new ResizeObserver(() => {
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => {
-        const rect = canvas.getBoundingClientRect();
-        const w = Math.round(rect.width * dpr);
-        const h = Math.round(rect.height * dpr);
-        if (w === initW && h === initH) return;
-        initW = w;
-        initH = h;
-        flushSync(() => setEngineReady(false));
-        canvas.style.visibility = "hidden";
-        if (statusRef.current) {
-          statusRef.current.style.display = "";
-          statusRef.current.textContent = "Restarting video...";
-        }
-        // Defer vid_restart so browser paints the overlay first
-        requestAnimationFrame(() => {
-          mod.ccall(
-            "Cbuf_AddText",
-            null,
-            ["string"],
-            [
-              `r_mode -1\nr_customwidth ${w}\nr_customheight ${h}\ncon_scale ${consoleScale(w, h)}\nvid_restart\n`,
-            ],
-          );
-          // Schedule after Cbuf_AddText so the reveal fires on the engine frame
-          // AFTER vid_restart (our rAF runs after the engine's, so the next
-          // postMainLoop is post-restart).
-          mod.onNextFrame?.(() => {
-            canvas.style.visibility = "";
-            setEngineReady(true);
-            if (statusRef.current) statusRef.current.style.display = "none";
-          });
+    const settle = () => {
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+      const dpr = window.devicePixelRatio || 1; // re-read: monitor moves change it
+      const prevRatio = currentRatioRef.current;
+      const ratio = selectAspect(rect.width / rect.height, prevRatio);
+      const target = targetFramebuffer(ratio, rect.width, rect.height, dpr);
+      const cur = currentFBRef.current;
+      const bucketChanged = ratio !== prevRatio;
+      if (!bucketChanged && cur && withinTier(target, cur)) return; // CSS handles it
+      currentRatioRef.current = ratio;
+      currentFBRef.current = target;
+      flushSync(() => setEngineReady(false));
+      canvas.style.visibility = "hidden";
+      if (statusRef.current) {
+        statusRef.current.style.display = "";
+        statusRef.current.textContent = "Restarting video...";
+      }
+      // Defer vid_restart so browser paints the overlay first
+      requestAnimationFrame(() => {
+        mod.ccall(
+          "Cbuf_AddText",
+          null,
+          ["string"],
+          [
+            `r_mode -1\nr_customwidth ${target.w}\nr_customheight ${target.h}\ncon_scale ${consoleScale(target.w, target.h)}\nvid_restart\n`,
+          ],
+        );
+        // Schedule after Cbuf_AddText so the reveal fires on the engine frame
+        // AFTER vid_restart (our rAF runs after the engine's, so the next
+        // postMainLoop is post-restart).
+        mod.onNextFrame?.(() => {
+          canvas.style.visibility = "";
+          setEngineReady(true);
+          if (statusRef.current) statusRef.current.style.display = "none";
         });
-      }, 200);
-    });
+      });
+    };
+    const debounced = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(settle, 200);
+    };
+    const observer = new ResizeObserver(debounced);
     observer.observe(canvas);
+    // Phone rotate: object-fit handles the box reflow, but the bucket changes
+    // (portrait 4:3 → landscape 16:9), so route it through the same settle path.
+    window.addEventListener("orientationchange", debounced);
     return () => {
       observer.disconnect();
+      window.removeEventListener("orientationchange", debounced);
       if (timer) clearTimeout(timer);
     };
   }, [loading]);
