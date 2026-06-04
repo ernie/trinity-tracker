@@ -8,6 +8,7 @@ import { useTvEngine } from "../hooks/useTvEngine";
 import { useLiveData } from "../contexts/LiveDataContext";
 import { stripVRPrefix } from "../utils";
 import { initialLive, reduce } from "./live/reconnect";
+import { connectionUnstable, recordDrop } from "./live/connectionHealth";
 
 export function LivePlayerPage() {
   const { source, key } = useParams<{ source: string; key: string }>();
@@ -32,6 +33,12 @@ export function LivePlayerPage() {
     initialLive(Date.now()),
   );
   const [playerListOpen, setPlayerListOpen] = useState(false);
+
+  // Connection-health verdict for THIS page life. Each abrupt reconnect reloads
+  // the page (see the reboot action below), so the drop history lives in
+  // sessionStorage and we read it once at mount — a fresh mount per drop keeps it
+  // current without polling. True ⇒ enough recent drops to warn the user.
+  const [unstableConnection] = useState(() => connectionUnstable(Date.now()));
 
   const {
     canvasRef,
@@ -101,6 +108,11 @@ export function LivePlayerPage() {
       return () => clearTimeout(t);
     }
     if (a.kind === "reboot") {
+      // An abrupt reconnect (stream was still live — our connection dropped, not a
+      // confirmed inter-match gap) is a connection-health signal; stamp it before
+      // the reload so a pattern of drops survives into the next page life and can
+      // escalate the warning. A clean next-match advance (gapConfirmed) is not.
+      if (!sm.gapConfirmed) recordDrop(Date.now());
       // Full reload onto the next match, not an in-document re-boot — each
       // engine needs a fresh document (iOS can't hold two WASM heaps).
       window.location.reload();
@@ -127,12 +139,30 @@ export function LivePlayerPage() {
     }
   }, [error, sm.phase]);
 
-  // Only the give-up terminal state shows "finished"; transient gaps poll.
+  // Two terminal states after we give up reconnecting (see reconnect.ts): "ended"
+  // means the relay confirmed the match is over; "lost" means we never reached the
+  // relay (the viewer's connection dropped) — don't claim the match finished, and
+  // offer a manual retry since we've stopped auto-probing.
   if (sm.phase === "ended") {
     return (
       <div className="demo-player-page">
         <div className="demo-player-error">
           <p>This match has finished.</p>
+        </div>
+      </div>
+    );
+  }
+  if (sm.phase === "lost") {
+    return (
+      <div className="demo-player-page">
+        <div className="demo-player-error">
+          <p>Connection lost.</p>
+          <button
+            className="demo-retry-btn"
+            onClick={() => window.location.reload()}
+          >
+            Try again
+          </button>
         </div>
       </div>
     );
@@ -154,8 +184,23 @@ export function LivePlayerPage() {
       <div ref={statusRef} className="demo-status">
         {loading ? "Connecting…" : ""}
       </div>
-      {(reconnecting || transitioning) && (
+      {/* transitioning = an in-place map change (engine cl_tvMapName) — genuinely
+          loading the next map. reconnecting = the stream drained and we're re-
+          probing the relay: a non-200 answer (gapConfirmed) means the match ended
+          and we're between matches; otherwise the stream is still live and it was
+          OUR connection that dropped — so don't claim a map change. */}
+      {transitioning ? (
         <div className="demo-status">Loading next map…</div>
+      ) : reconnecting ? (
+        <div className="demo-status">
+          {sm.gapConfirmed ? "Waiting for the next match…" : "Reconnecting…"}
+        </div>
+      ) : null}
+      {/* Repeated drop→reload cycles this session ⇒ name the likely cause. Shown
+          only while a status overlay is up (booting or reconnecting) — exactly when
+          the user is waiting and wondering why; hidden once playback resumes. */}
+      {unstableConnection && (loading || reconnecting) && (
+        <div className="demo-conn-warning">Your connection is unstable</div>
       )}
       {progress.total > 0 && (
         <div

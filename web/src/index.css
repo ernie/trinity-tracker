@@ -8896,6 +8896,27 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   transition: width 0.15s ease-out;
 }
 
+/* Connection-health warning, sat just below the centered .demo-status box (whose
+   bottom padding reserves room for the progress bar above this). Amber to read as
+   caution without alarm; only shown during a loading/reconnecting overlay. */
+.demo-conn-warning {
+  position: fixed;
+  top: calc(50% + clamp(56px, 8vw, 96px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 11;
+  max-width: min(90vw, 480px);
+  text-align: center;
+  font-family: monospace;
+  font-size: clamp(13px, 1.8vw, 16px);
+  line-height: 1.4;
+  color: var(--ember-light);
+  background: rgba(0, 0, 0, 0.7);
+  padding: 8px 16px;
+  border-radius: 6px;
+  box-sizing: border-box;
+}
+
 .demo-levelshot {
   position: fixed;
   inset: 0;
@@ -8955,10 +8976,23 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   text-align: center;
 }
 
-.demo-player-error a {
+.demo-player-error a,
+.demo-retry-btn {
   color: var(--ember-strong);
   display: block;
   margin-top: 1rem;
+}
+
+/* Retry on the connection-lost terminal state — a link, not a chrome button:
+   borderless, inheriting the error block's monospace, centered via auto margins. */
+.demo-retry-btn {
+  margin-left: auto;
+  margin-right: auto;
+  background: none;
+  border: none;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
 }
 
 /* Controls bar — grows by safe-area inset on iOS so the 48px control
