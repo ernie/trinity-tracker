@@ -522,6 +522,25 @@ const ServerCardImpl = memo(function ServerCardImpl({
   const isFfa = isFreeForAll(server.game_type);
   const heroKey = isFfa && ffaHero ? ffaHero.key : null;
 
+  // Live "Watch" deep-link target: open the viewer already following the current
+  // leader (?f=<client slot>). FFA reuses the king-of-the-hill incumbent (holds
+  // through ties until strictly surpassed); other modes take the top score
+  // outright. client_num is the engine slot tv_view takes and is only valid
+  // "now", so this is live-only — match cards never carry it (a late-joining
+  // winner's slot maps to someone else at t=0). null ⇒ no clear leader yet
+  // (warmup / pre-first-frag), so open at the engine's default viewpoint.
+  const liveLeader = isFfa
+    ? ffaHero
+      ? Number(ffaHero.key)
+      : null
+    : (activePlayers.reduce<Player | null>(
+        (best, p) => ((p.score ?? 0) > (best?.score ?? 0) ? p : best),
+        null,
+      )?.client_num ?? null);
+  const liveTo =
+    `/tv/${server.source}/${server.key}` +
+    (liveLeader != null ? `?f=${liveLeader}` : "");
+
   // Intermission: the match is over, the engine is showing the
   // final scoreboard, and the next map hasn't loaded yet. Drop the
   // "live" suppression from Scoreboard/Duelists so they apply their
@@ -559,7 +578,7 @@ const ServerCardImpl = memo(function ServerCardImpl({
               dot + LIVE mirror the in-viewer badge and link to the player. */}
           {server.is_live && (
             <Link
-              to={`/tv/${server.source}/${server.key}`}
+              to={liveTo}
               reloadDocument
               className="card__watch"
               onClick={(e) => e.stopPropagation()}

@@ -50,6 +50,15 @@ export function parseTimeParam(raw: string): number | null {
   return Number(m[1] ?? 0) * 60 + Number(m[2] ?? 0);
 }
 
+// Parse a follow-target client number (the engine slot tv_view takes) from a
+// URL param. Out-of-range or non-numeric returns null so the receiver silently
+// ignores garbage links.
+export function parseClientNum(raw: string): number | null {
+  if (!/^\d+$/.test(raw)) return null;
+  const n = Number(raw);
+  return n >= 0 && n < 64 ? n : null;
+}
+
 // Inverse of parseTimeParam: produce the short form Share emits.
 // 90 -> "1m30s", 120 -> "2m", 45 -> "45s".
 export function formatTimeParam(secs: number): string {

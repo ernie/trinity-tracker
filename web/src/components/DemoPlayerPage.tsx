@@ -5,15 +5,12 @@ import { EngineVolume } from "./EngineVolume";
 import { PlayerPortrait } from "./PlayerPortrait";
 import { TvMovePad } from "./TvMovePad";
 import { useTvEngine } from "../hooks/useTvEngine";
-import { parseTimeParam, formatTimeParam, stripVRPrefix } from "../utils";
-
-// Parse a follow-target client number from the URL. Out-of-range or
-// non-numeric returns null so the receiver silently ignores garbage links.
-function parseClientNum(raw: string): number | null {
-  if (!/^\d+$/.test(raw)) return null;
-  const n = Number(raw);
-  return n >= 0 && n < 64 ? n : null;
-}
+import {
+  parseTimeParam,
+  formatTimeParam,
+  parseClientNum,
+  stripVRPrefix,
+} from "../utils";
 
 interface MatchData {
   id: number;
@@ -30,6 +27,12 @@ export function DemoPlayerPage() {
   // Declared before the hook so it can wire the canvas-touch overlay dismiss.
   const [playerListOpen, setPlayerListOpen] = useState(false);
 
+  // Deep-link URL params: ?t=<time>&f=<clientnum>. The hook applies them once the
+  // engine is live and the first snapshot has arrived, then flips initialViewApplied.
+  const [search] = useSearchParams();
+  const initialSeek = parseTimeParam(search.get("t") ?? "");
+  const initialFollow = parseClientNum(search.get("f") ?? "");
+
   const {
     canvasRef,
     statusRef,
@@ -40,6 +43,7 @@ export function DemoPlayerPage() {
     error: engineError,
     playerList,
     viewpoint,
+    initialViewApplied,
     refreshPlayerList,
     follow,
     sendKey,
@@ -51,24 +55,14 @@ export function DemoPlayerPage() {
   } = useTvEngine({
     demoUrl,
     extraArgs: "+set cl_demoPlayer 1",
+    initialFollow,
+    initialSeek,
     onCanvasTouchStart: () => setPlayerListOpen(false),
   });
   const error = fetchError ?? engineError;
 
   const playerWrapRef = useRef<HTMLDivElement>(null);
   const [shareCopied, setShareCopied] = useState(false);
-
-  // Deep-link URL params: ?t=<time>&f=<clientnum>. Applied once after the
-  // engine is live and the first snapshot has arrived (tv_view needs the
-  // player table populated to validate the target).
-  const [search] = useSearchParams();
-  const initialSeek = parseTimeParam(search.get("t") ?? "");
-  const initialFollow = parseClientNum(search.get("f") ?? "");
-  const hasDeepLink = initialSeek !== null || initialFollow !== null;
-  const paramsAppliedRef = useRef(false);
-  // Keep the levelshot covering the canvas while we wait to seek/follow,
-  // so the viewer never sees the demo's default viewpoint flash.
-  const [paramsApplied, setParamsApplied] = useState(!hasDeepLink);
 
   // Fetch the match to resolve the demo URL + map name; setting demoUrl boots
   // the engine via useTvEngine (its boot effect no-ops until demoUrl is defined).
@@ -121,53 +115,6 @@ export function DemoPlayerPage() {
     window.addEventListener("keydown", onDown, true);
     return () => window.removeEventListener("keydown", onDown, true);
   }, [moduleRef]);
-
-  // Apply ?t=&f= deep-link params once the engine is live and a snapshot
-  // has arrived. We poll CL_TV_GetPlayerList because there's no JS-side
-  // "first snap" hook — the player list is empty until the engine has
-  // processed at least one snapshot, which is when tv_view's target table
-  // is valid.
-  useEffect(() => {
-    if (!engineReady || paramsAppliedRef.current) return;
-    if (initialSeek === null && initialFollow === null) {
-      paramsAppliedRef.current = true;
-      return;
-    }
-    const mod = moduleRef.current;
-    if (!mod?.ccall) return;
-    const interval = setInterval(() => {
-      let raw: string | null = null;
-      try {
-        raw = mod.ccall("CL_TV_GetPlayerList", "string", [], []);
-      } catch (e) {
-        console.debug("CL_TV_GetPlayerList failed", e);
-        return;
-      }
-      if (!raw) return;
-      const lines = raw.split("\n").filter(Boolean);
-      if (lines.length < 2) return;
-      paramsAppliedRef.current = true;
-      clearInterval(interval);
-      // follow() issues tv_view + tracks viewpoint; tv_seek is VOD-only.
-      if (initialFollow !== null) follow(initialFollow);
-      if (initialSeek !== null) {
-        try {
-          mod.ccall(
-            "Cbuf_AddText",
-            null,
-            ["string"],
-            [`tv_seek ${initialSeek}\n`],
-          );
-        } catch (e) {
-          console.debug("apply URL params failed", e);
-        }
-      }
-      // Wait one engine frame so the cbuf processes tv_view + tv_seek before
-      // we drop the levelshot and reveal the canvas.
-      mod.onNextFrame?.(() => setParamsApplied(true));
-    }, 100);
-    return () => clearInterval(interval);
-  }, [engineReady, initialSeek, initialFollow, follow, moduleRef]);
 
   // Close player list when tapping outside on mobile
   useEffect(() => {
@@ -266,7 +213,7 @@ export function DemoPlayerPage() {
           />
         </div>
       )}
-      {mapName && (!engineReady || !paramsApplied) && (
+      {mapName && (!engineReady || !initialViewApplied) && (
         <div
           className="demo-levelshot"
           style={{

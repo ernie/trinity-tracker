@@ -30,6 +30,12 @@ export interface UseTvEngineOptions {
   fsGame?: string;
   /** Caller-specific engine args, e.g. "+set cl_demoPlayer 1". */
   extraArgs?: string;
+  /** Deep-link initial view, applied once after the first snapshot arrives — the
+   *  tv_view target table is empty until then. initialFollow = client slot to
+   *  POV (live: the leader at click time; VOD: the shared ?f=). initialSeek =
+   *  VOD seek seconds; ignored for live (no seek in a live stream). */
+  initialFollow?: number | null;
+  initialSeek?: number | null;
   /** Bump to tear down the current module and re-boot onto the same canvas. */
   reloadKey?: number;
   onReady?: () => void;
@@ -59,6 +65,10 @@ export interface UseTvEngine {
   /** True from the start of an in-place live map change (cl_tvMapName changed)
    *  until it completes (cl_tvMapSerial bumped) — gates the transition overlay. */
   transitioning: boolean;
+  /** False until the initialFollow/initialSeek deep-link has been applied (true
+   *  immediately when there is none). Pages keep the levelshot up while false so
+   *  the engine's default viewpoint never flashes before the requested POV. */
+  initialViewApplied: boolean;
   refreshPlayerList: () => void;
   follow: (clientNum: number) => void;
   runCmd: (cmd: string) => void;
@@ -150,6 +160,8 @@ export function useTvEngine(opts: UseTvEngineOptions): UseTvEngine {
     liveUrl,
     fsGame,
     extraArgs,
+    initialFollow,
+    initialSeek,
     reloadKey,
     onReady,
     onStreamClosed,
@@ -166,6 +178,10 @@ export function useTvEngine(opts: UseTvEngineOptions): UseTvEngine {
   const [viewpoint, setViewpoint] = useState(-1);
   const [liveMapName, setLiveMapName] = useState("");
   const [transitioning, setTransitioning] = useState(false);
+  // Init true when there's no deep-link to apply, so pages reveal immediately.
+  const [initialViewApplied, setInitialViewApplied] = useState(
+    () => initialFollow == null && initialSeek == null,
+  );
   const [scrubActive, setScrubActive] = useState(false);
   const scrubRef = useRef(false);
   // Current aspect bucket + framebuffer, tracked in refs (not state) so resize
@@ -395,6 +411,43 @@ export function useTvEngine(opts: UseTvEngineOptions): UseTvEngine {
     }, 250);
     return () => clearInterval(iv);
   }, [liveUrl, engineReady, readCvarNumber, readCvarString, refreshPlayerList]);
+
+  // Apply the initialFollow/initialSeek deep-link once the engine is live AND a
+  // snapshot has arrived — tv_view/tv_seek need the player table populated to
+  // validate the target, and there's no JS-side "first snap" hook, so we poll
+  // CL_TV_GetPlayerList (empty until the first snapshot) until it lists a player.
+  // Once-ever per mount (the ref guard survives the engineReady cycling a resize
+  // causes); a live reconnect is a full document reload, so it re-arms there.
+  const initialViewAppliedRef = useRef(false);
+  useEffect(() => {
+    if (!engineReady || initialViewAppliedRef.current) return;
+    if (initialFollow == null && initialSeek == null) {
+      initialViewAppliedRef.current = true;
+      return;
+    }
+    const mod = moduleRef.current;
+    if (!mod?.ccall) return;
+    const iv = setInterval(() => {
+      let raw: string | null = null;
+      try {
+        raw = mod.ccall("CL_TV_GetPlayerList", "string", [], []);
+      } catch (e) {
+        console.debug("CL_TV_GetPlayerList failed", e);
+        return;
+      }
+      if (!raw) return;
+      // header line + at least one player ⇒ the target table is valid.
+      if (raw.split("\n").filter(Boolean).length < 2) return;
+      initialViewAppliedRef.current = true;
+      clearInterval(iv);
+      if (initialFollow != null) follow(initialFollow);
+      if (initialSeek != null) runCmd(`tv_seek ${initialSeek}`); // VOD-only
+      // One engine frame so the cbuf runs tv_view/tv_seek before the page drops
+      // the levelshot and reveals the canvas at the requested POV.
+      mod.onNextFrame?.(() => setInitialViewApplied(true));
+    }, 100);
+    return () => clearInterval(iv);
+  }, [engineReady, initialFollow, initialSeek, follow, runCmd]);
 
   // On resize, quantize the framebuffer to a supported aspect bucket and let CSS
   // (object-fit: contain) scale within it — so dragging, the mobile URL bar, and
@@ -699,6 +752,7 @@ export function useTvEngine(opts: UseTvEngineOptions): UseTvEngine {
     viewpoint,
     liveMapName,
     transitioning,
+    initialViewApplied,
     refreshPlayerList,
     follow,
     runCmd,

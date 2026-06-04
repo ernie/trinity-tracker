@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { ColoredText } from "./ColoredText";
 import { PlayerPortrait } from "./PlayerPortrait";
 import { EngineVolume } from "./EngineVolume";
 import { TvMovePad } from "./TvMovePad";
 import { useTvEngine } from "../hooks/useTvEngine";
 import { useLiveData } from "../contexts/LiveDataContext";
-import { stripVRPrefix } from "../utils";
+import { parseClientNum, stripVRPrefix } from "../utils";
 import { initialLive, reduce } from "./live/reconnect";
 import { connectionUnstable, recordDrop } from "./live/connectionHealth";
 
@@ -27,6 +27,22 @@ export function LivePlayerPage() {
   }, [servers, source, key]);
   const liveMap = liveServer?.map;
   const liveDelay = liveServer?.live_delay_seconds;
+
+  // ?f=<clientnum>: open already following the leader the server card picked at
+  // click time. Captured once — a client slot is only meaningful "now", so a
+  // reconnect (which fully reloads the page) must not re-apply a now-stale slot.
+  // We scrub ?f from the URL after reading it, leaving a clean URL for the
+  // reconnect reload to land on. (Match cards never emit ?f for this reason.)
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [initialFollow] = useState(() =>
+    parseClientNum(searchParams.get("f") ?? ""),
+  );
+  useEffect(() => {
+    if (!searchParams.has("f")) return;
+    const next = new URLSearchParams(searchParams);
+    next.delete("f");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   // useReducer for a stable dispatch; each transition's action runs in the effect below.
   const [sm, dispatchEvent] = useReducer(reduce, undefined, () =>
@@ -52,6 +68,7 @@ export function LivePlayerPage() {
     viewpoint,
     liveMapName,
     transitioning,
+    initialViewApplied,
     refreshPlayerList,
     follow,
     runCmd,
@@ -60,6 +77,7 @@ export function LivePlayerPage() {
   } = useTvEngine({
     liveUrl,
     extraArgs: "+set cl_demoPlayer 1",
+    initialFollow,
     onStreamClosed: () =>
       dispatchEvent({ type: "streamEnded", now: Date.now() }),
     onCanvasTouchStart: () => setPlayerListOpen(false),
@@ -220,14 +238,18 @@ export function LivePlayerPage() {
           canvas and the engine's "Connection Interrupted" during a pk3 download. The
           engine-reported map (liveMapName) is authoritative and in-sync with the
           actual change; fall back to the /api/servers map before the engine reports. */}
-      {backdropMap && (!engineReady || reconnecting || transitioning) && (
-        <div
-          className="demo-levelshot"
-          style={{
-            backgroundImage: `url(/assets/levelshots/${backdropMap.toLowerCase()}.jpg)`,
-          }}
-        />
-      )}
+      {backdropMap &&
+        (!engineReady ||
+          reconnecting ||
+          transitioning ||
+          !initialViewApplied) && (
+          <div
+            className="demo-levelshot"
+            style={{
+              backgroundImage: `url(/assets/levelshots/${backdropMap.toLowerCase()}.jpg)`,
+            }}
+          />
+        )}
 
       <div
         className="demo-controls-bar"
