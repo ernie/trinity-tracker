@@ -43,6 +43,8 @@ export function LivePlayerPage() {
     error,
     playerList,
     viewpoint,
+    liveMapName,
+    transitioning,
     refreshPlayerList,
     follow,
     runCmd,
@@ -55,6 +57,14 @@ export function LivePlayerPage() {
       dispatchEvent({ type: "streamEnded", now: Date.now() }),
     onCanvasTouchStart: () => setPlayerListOpen(false),
   });
+
+  // Hand the relay's configured delay to the engine (ms) so its map-change
+  // catch-up trims a download backlog to exactly this buffer depth — stable across
+  // reloads, vs the engine deriving it. See cl_tv.c TVRing_CatchUp / cl_tvDelay.
+  useEffect(() => {
+    if (!engineReady || liveDelay == null) return;
+    runCmd(`set cl_tvDelay ${Math.round(liveDelay * 1000)}`);
+  }, [engineReady, liveDelay, runCmd]);
 
   // Perform the reducer's one action per transition; each branch's follow-up
   // dispatchEvent advances the machine, re-running this.
@@ -129,6 +139,9 @@ export function LivePlayerPage() {
   }
 
   const reconnecting = sm.phase === "probing" || sm.phase === "waiting";
+  // Engine-reported map wins (crisp, in-sync with an in-place change); the
+  // /api/servers map seeds the backdrop before the engine has reported one.
+  const backdropMap = liveMapName || liveMap;
 
   return (
     <div className="demo-player-page">
@@ -141,7 +154,9 @@ export function LivePlayerPage() {
       <div ref={statusRef} className="demo-status">
         {loading ? "Connecting…" : ""}
       </div>
-      {reconnecting && <div className="demo-status">Loading next map…</div>}
+      {(reconnecting || transitioning) && (
+        <div className="demo-status">Loading next map…</div>
+      )}
       {progress.total > 0 && (
         <div
           className="demo-progress"
@@ -155,13 +170,16 @@ export function LivePlayerPage() {
           />
         </div>
       )}
-      {/* Map levelshot backdrop while the engine boots (and between maps),
-          covering the blank/frozen canvas — same treatment as the VOD player. */}
-      {liveMap && (!engineReady || reconnecting) && (
+      {/* Map levelshot backdrop while the engine boots, between maps (VOD-fallback
+          reconnect), and across an in-place map change — covering the blank/frozen
+          canvas and the engine's "Connection Interrupted" during a pk3 download. The
+          engine-reported map (liveMapName) is authoritative and in-sync with the
+          actual change; fall back to the /api/servers map before the engine reports. */}
+      {backdropMap && (!engineReady || reconnecting || transitioning) && (
         <div
           className="demo-levelshot"
           style={{
-            backgroundImage: `url(/assets/levelshots/${liveMap.toLowerCase()}.jpg)`,
+            backgroundImage: `url(/assets/levelshots/${backdropMap.toLowerCase()}.jpg)`,
           }}
         />
       )}

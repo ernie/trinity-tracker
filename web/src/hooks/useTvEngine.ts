@@ -53,6 +53,12 @@ export interface UseTvEngine {
   error: string | null;
   playerList: TvPlayer[];
   viewpoint: number;
+  /** Engine-reported current/target live map (cl_tvMapName). Drives the levelshot
+   *  backdrop, and crosses an in-place map change without the /api/servers lag. */
+  liveMapName: string;
+  /** True from the start of an in-place live map change (cl_tvMapName changed)
+   *  until it completes (cl_tvMapSerial bumped) — gates the transition overlay. */
+  transitioning: boolean;
   refreshPlayerList: () => void;
   follow: (clientNum: number) => void;
   runCmd: (cmd: string) => void;
@@ -97,6 +103,8 @@ export function useTvEngine(opts: UseTvEngineOptions): UseTvEngine {
   const [error, setError] = useState<string | null>(null);
   const [playerList, setPlayerList] = useState<TvPlayer[]>([]);
   const [viewpoint, setViewpoint] = useState(-1);
+  const [liveMapName, setLiveMapName] = useState("");
+  const [transitioning, setTransitioning] = useState(false);
   const [scrubActive, setScrubActive] = useState(false);
   const scrubRef = useRef(false);
 
@@ -134,6 +142,19 @@ export function useTvEngine(opts: UseTvEngineOptions): UseTvEngine {
     } catch (e) {
       console.debug("readCvarNumber failed", name, e);
       return 0;
+    }
+  }, []);
+
+  const readCvarString = useCallback((name: string) => {
+    const mod = moduleRef.current;
+    if (!mod?.ccall) return "";
+    try {
+      return (
+        mod.ccall("Cvar_VariableString", "string", ["string"], [name]) || ""
+      );
+    } catch (e) {
+      console.debug("readCvarString failed", name, e);
+      return "";
     }
   }, []);
 
@@ -279,6 +300,32 @@ export function useTvEngine(opts: UseTvEngineOptions): UseTvEngine {
     }, 500);
     return () => clearInterval(iv);
   }, [liveUrl, engineReady, readCvarNumber]);
+
+  // Live: cross an in-place map change without a reload. The engine sets
+  // cl_tvMapName at the START of a change (raise the levelshot overlay covering the
+  // pk3 download) and bumps cl_tvMapSerial at the END (refresh the roster). See
+  // cl_tv.c CL_TV_LiveMapChange. The initial map (first read) seeds the name
+  // without flagging a transition — the boot loading state already covers it.
+  useEffect(() => {
+    if (!liveUrl || !engineReady) return;
+    let prevName: string | null = null;
+    let prevSerial = readCvarNumber("cl_tvMapSerial");
+    const iv = setInterval(() => {
+      const name = readCvarString("cl_tvMapName");
+      if (name && name !== prevName) {
+        if (prevName !== null) setTransitioning(true);
+        setLiveMapName(name);
+        prevName = name;
+      }
+      const serial = readCvarNumber("cl_tvMapSerial");
+      if (serial !== prevSerial) {
+        prevSerial = serial;
+        setTransitioning(false);
+        refreshPlayerList();
+      }
+    }, 250);
+    return () => clearInterval(iv);
+  }, [liveUrl, engineReady, readCvarNumber, readCvarString, refreshPlayerList]);
 
   // Re-initialize video on resize so the framebuffer matches the CSS box
   useEffect(() => {
@@ -569,6 +616,8 @@ export function useTvEngine(opts: UseTvEngineOptions): UseTvEngine {
     error,
     playerList,
     viewpoint,
+    liveMapName,
+    transitioning,
     refreshPlayerList,
     follow,
     runCmd,
