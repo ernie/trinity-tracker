@@ -83,14 +83,6 @@ export function LivePlayerPage() {
     onCanvasTouchStart: () => setPlayerListOpen(false),
   });
 
-  // Hand the relay's configured delay to the engine (ms) so its map-change
-  // catch-up trims a download backlog to exactly this buffer depth — stable across
-  // reloads, vs the engine deriving it. See cl_tv.c TVRing_CatchUp / cl_tvDelay.
-  useEffect(() => {
-    if (!engineReady || liveDelay == null) return;
-    runCmd(`set cl_tvDelay ${Math.round(liveDelay * 1000)}`);
-  }, [engineReady, liveDelay, runCmd]);
-
   // Perform the reducer's one action per transition; each branch's follow-up
   // dispatchEvent advances the machine, re-running this.
   useEffect(() => {
