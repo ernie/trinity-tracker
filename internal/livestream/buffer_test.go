@@ -45,11 +45,11 @@ func TestBufferDerivesHoldbackFromKeyframeInterval(t *testing.T) {
 	b := NewBuffer([]byte("HDR"), 10*time.Second)
 	b.clk = clk
 
-	// Before any interval is observed, the buffer assumes the engine default (2s):
-	// holdback = target(10s) − 2s = 8s.
+	// Before any interval is observed, the buffer assumes the engine default (1s):
+	// holdback = target(10s) − 1s = 9s.
 	b.Append(Segment{KeyframeServerTime: 0})
-	if got := b.holdback(); got != 8*time.Second {
-		t.Fatalf("unmeasured holdback = %v, want 8s (target − default 2s)", got)
+	if got := b.holdback(); got != 9*time.Second {
+		t.Fatalf("unmeasured holdback = %v, want 9s (target − default 1s)", got)
 	}
 
 	// Two more segments 2s apart ⇒ measured interval 2s ⇒ holdback stays 8s.

@@ -43,7 +43,7 @@ const defaultEvictMargin = 30 * time.Second
 const (
 	kfMinPlausibleMs = 250
 	kfMaxPlausibleMs = 10000
-	kfDefaultMs      = 2000 // sv_tvLiveKeyframeMsec default; used until measured
+	kfDefaultMs      = 1000 // sv_tvLiveKeyframeMsec default; used until measured
 )
 
 // Buffer ingests a live stream's segments and serves each viewer a delayed,

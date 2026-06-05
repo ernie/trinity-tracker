@@ -449,6 +449,27 @@ export function useTvEngine(opts: UseTvEngineOptions): UseTvEngine {
     return () => clearInterval(iv);
   }, [engineReady, initialFollow, initialSeek, follow, runCmd]);
 
+  // Tab foreground re-sync (live only). A backgrounded tab has its rAF/timers
+  // throttled, so the engine stops pumping while the relay keeps feeding the
+  // byte-feed ring — on return there's a backlog. tv_resync re-arms the engine's
+  // one-shot catch-up so it snaps back to ~the live cushion instead of grinding
+  // through the backlog. Inert on VOD and when nothing is buffered (engine-side).
+  useEffect(() => {
+    if (!engineReady) return;
+    let hiddenAt = 0;
+    const onVisibility = () => {
+      if (document.hidden) {
+        hiddenAt = performance.now();
+        return;
+      }
+      // Only after a real throttling gap; quick tab flips don't starve the ring.
+      if (hiddenAt && performance.now() - hiddenAt > 1000) runCmd("tv_resync");
+      hiddenAt = 0;
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [engineReady, runCmd]);
+
   // On resize, quantize the framebuffer to a supported aspect bucket and let CSS
   // (object-fit: contain) scale within it — so dragging, the mobile URL bar, and
   // minor reflow are pure CSS, no engine call. A vid_restart fires only when the

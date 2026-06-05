@@ -230,9 +230,9 @@ func RenderTrinityCfg(publicURL string) (string, error) {
 func fastdlBlock(publicURL string) string {
 	host := HostFromURL(publicURL)
 	if host == "" {
-		return `// (Set sv_dlURL to your collector's dl.<hostname> to enable
-// fast-download. Without it, players can't fetch maps they don't
-// already have.)
+		return `// (Fast-download is required for participation in the hub network:
+// set sv_dlURL to your collector's dl.<hostname>. Without it, players
+// can't fetch missing maps and matches can't offer .tvd downloads.)
 // set sv_tvDownload         1
 // set sv_dlURL              "https://dl.your-hostname"`
 	}
