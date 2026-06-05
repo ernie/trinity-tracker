@@ -20,21 +20,68 @@ func TestBufferLatestReleasable(t *testing.T) {
 	b := NewBuffer([]byte("HDR"), 10*time.Second)
 	b.clk = clk
 
-	// Three segments arriving at t=0,3,6.
+	// Three segments arriving at t=0,3,6. Keyframe times 3s apart, so the buffer
+	// measures a 3s keyframe interval ⇒ holdback = target(10s) − 3s = 7s.
 	b.Append(Segment{KeyframeServerTime: 0})
 	clk.now = time.Unix(3, 0)
 	b.Append(Segment{KeyframeServerTime: 3000})
 	clk.now = time.Unix(6, 0)
 	b.Append(Segment{KeyframeServerTime: 6000})
 
-	// At t=6 nothing is 10s old yet.
+	// At t=6 nothing is 7s old yet.
 	if got := b.latestReleasable(clk.Now()); got != -1 {
 		t.Fatalf("at t=6 latestReleasable = %d, want -1", got)
 	}
-	// At t=14: seg0 (age 14) and seg1 (age 11) are >=10s; seg2 (age 8) is not.
+	// At t=14 (holdback 7s): seg0 (age 14), seg1 (age 11), seg2 (age 8) are all
+	// >=7s; the newest qualifying is seg2.
 	clk.now = time.Unix(14, 0)
-	if got := b.latestReleasable(clk.Now()); got != 1 {
-		t.Fatalf("at t=14 latestReleasable = %d, want 1", got)
+	if got := b.latestReleasable(clk.Now()); got != 2 {
+		t.Fatalf("at t=14 latestReleasable = %d, want 2", got)
+	}
+}
+
+func TestBufferDerivesHoldbackFromKeyframeInterval(t *testing.T) {
+	clk := &fakeClock{now: time.Unix(0, 0)}
+	b := NewBuffer([]byte("HDR"), 10*time.Second)
+	b.clk = clk
+
+	// Before any interval is observed, the buffer assumes the engine default (2s):
+	// holdback = target(10s) − 2s = 8s.
+	b.Append(Segment{KeyframeServerTime: 0})
+	if got := b.holdback(); got != 8*time.Second {
+		t.Fatalf("unmeasured holdback = %v, want 8s (target − default 2s)", got)
+	}
+
+	// Two more segments 2s apart ⇒ measured interval 2s ⇒ holdback stays 8s.
+	clk.now = time.Unix(2, 0)
+	b.Append(Segment{KeyframeServerTime: 2000})
+	clk.now = time.Unix(4, 0)
+	b.Append(Segment{KeyframeServerTime: 4000})
+	if got := b.holdback(); got != 8*time.Second {
+		t.Fatalf("measured-2s holdback = %v, want 8s", got)
+	}
+
+	// A forced early keyframe (500ms after the last) must NOT shrink the measured
+	// interval — max-tracking ignores deltas below the running max — so holdback
+	// is unchanged.
+	clk.now = time.Unix(4, 500*1e6)
+	b.Append(Segment{KeyframeServerTime: 4500})
+	if got := b.holdback(); got != 8*time.Second {
+		t.Fatalf("after forced keyframe holdback = %v, want 8s (max-tracking ignores the short delta)", got)
+	}
+}
+
+func TestBufferHoldbackClampsWhenTargetBelowInterval(t *testing.T) {
+	clk := &fakeClock{now: time.Unix(0, 0)}
+	b := NewBuffer([]byte("HDR"), 1500*time.Millisecond) // below a 2s keyframe interval
+	b.clk = clk
+	b.Append(Segment{KeyframeServerTime: 0})
+	clk.now = time.Unix(2, 0)
+	b.Append(Segment{KeyframeServerTime: 2000})
+	// target (1.5s) <= interval (2s): the encode latency alone already overshoots,
+	// so holdback floors at 0 (realized delay ≈ the 2s interval).
+	if got := b.holdback(); got != 0 {
+		t.Fatalf("holdback = %v, want 0 (target below the keyframe interval clamps to 0)", got)
 	}
 }
 
@@ -55,7 +102,9 @@ func TestBufferStreamEntryAndPacing(t *testing.T) {
 	}
 	b.End()
 
-	// A viewer connects at t=14. Releasable: seg0(age14),seg1(age11) >=10; entry=seg1.
+	// Keyframe times are 3s apart ⇒ measured interval 3s ⇒ holdback = 10s−3s = 7s.
+	// A viewer connects at t=14. Releasable (age>=7): seg0(14),seg1(11),seg2(8);
+	// the newest is seg2, so entry=seg2.
 	clk.now = time.Unix(14, 0)
 	var out collectWriter
 	err := b.Stream(context.Background(), &out, out.flush, 1*time.Second)
@@ -63,12 +112,11 @@ func TestBufferStreamEntryAndPacing(t *testing.T) {
 		t.Fatalf("Stream: %v", err)
 	}
 
-	// Expect: header, then seg1, seg2, seg3 (each released as it ages to 10s),
-	// since the stream already ended and all remaining segments will age out
-	// as the fake clock advances via Sleep.
+	// Expect: header, then seg2, seg3 (each released as it ages to 7s), since the
+	// stream already ended and the remaining segments age out as the fake clock
+	// advances via Sleep.
 	want := bytes.Buffer{}
 	want.Write([]byte("HDR"))
-	want.Write(Segment{KeyframeServerTime: 3000, Payload: []byte("B")}.Marshal())
 	want.Write(Segment{KeyframeServerTime: 6000, Payload: []byte("C")}.Marshal())
 	want.Write(Segment{KeyframeServerTime: 9000, Payload: []byte("D")}.Marshal())
 
@@ -206,10 +254,11 @@ func TestBufferIndexTranslationAcrossEviction(t *testing.T) {
 		t.Fatalf("segAt(%d) returned the wrong segment after rebase:\n got %v\nwant %v", id, raw, want)
 	}
 
-	// latestReleasable returns an absolute ID: newest with age >= 5s (arrival
-	// <= 14) is segment 14.
-	if lr := b.latestReleasable(clk.Now()); lr != 14 {
-		t.Fatalf("latestReleasable = %d, want 14 (absolute ID, not slice index)", lr)
+	// Keyframe times are 1s apart ⇒ measured interval 1s ⇒ holdback = 5s−1s = 4s.
+	// latestReleasable returns an absolute ID: newest with age >= 4s (arrival
+	// <= 15) is segment 15.
+	if lr := b.latestReleasable(clk.Now()); lr != 15 {
+		t.Fatalf("latestReleasable = %d, want 15 (absolute ID, not slice index)", lr)
 	}
 }
 

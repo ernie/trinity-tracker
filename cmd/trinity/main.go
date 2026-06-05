@@ -604,7 +604,7 @@ func cmdServe(args []string) {
 			relay := livestream.NewRelayServer(liveReg)
 			liveRelaySrv = &http.Server{Addr: addr, Handler: relay}
 			go func() {
-				log.Printf("Live relay listening on %s (configured viewer delay %v, applied per match)", addr, cfg.Tracker.Collector.LiveDelay.D())
+				log.Printf("Live relay listening on %s (target viewer delay %v; per-match holdback derived from the keyframe interval)", addr, cfg.Tracker.Collector.LiveDelay.D())
 				if err := liveRelaySrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 					log.Printf("Live relay server error: %v", err)
 				}

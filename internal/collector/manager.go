@@ -822,8 +822,10 @@ func (m *ServerManager) Roster() []domain.RegdServer {
 	for _, srv := range m.cfg.Q3Servers {
 		delegationByAddress[srv.Address] = srv.AllowHubAdminRcon
 	}
-	// Collector-wide viewer delay, stamped on every server so the hub can
-	// surface it per (source, key) to the live player.
+	// Collector-wide target viewer delay (encode + holdback), stamped on every
+	// server so the hub can surface it per (source, key) to the live player. This
+	// is the target, which already includes the encode latency the per-match
+	// holdback is derived against — so it's the honest end-to-end-ish number.
 	delaySec := 0
 	if m.cfg.Tracker != nil && m.cfg.Tracker.Collector != nil {
 		delaySec = int(m.cfg.Tracker.Collector.LiveDelay.D().Seconds())

@@ -162,9 +162,14 @@ type CollectorConfig struct {
 	// LiveRelayAddr is the host:port the collector's live-spectating relay
 	// listens on (e.g. "127.0.0.1:8081"). Empty disables the relay.
 	LiveRelayAddr string `yaml:"live_relay_addr,omitempty"`
-	// LiveDelay is how far behind real time viewers watch (jitter buffer +
-	// smoothing). Defaults to 5s. Don't drop below ~1.5× the engine's keyframe
-	// interval (sv_tvLiveKeyframeMsec, default 2s) or viewers hitch.
+	// LiveDelay is the TARGET server-side viewer delay — how far behind real
+	// game-time the bytes the relay releases should be (encode latency + relay
+	// holdback). Defaults to 5s. The relay subtracts the keyframe interval it
+	// observes on the wire (the encode latency the target already accounts for)
+	// to get the actual per-segment holdback, floored at 0. So it's safe to set
+	// this near the keyframe interval (sv_tvLiveKeyframeMsec): when the target is
+	// at or below the interval the holdback clamps to 0 and the realized delay is
+	// ~one interval — the relay logs once rather than hitching.
 	LiveDelay Duration `yaml:"live_delay,omitempty"`
 }
 

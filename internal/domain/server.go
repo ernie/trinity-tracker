@@ -62,7 +62,7 @@ type ServerStatus struct {
 	MatchState       string            `json:"match_state,omitempty"`        // "waiting", "warmup", "active", "overtime", "intermission"
 	WarmupRemaining  int               `json:"warmup_remaining,omitempty"`   // milliseconds remaining in warmup
 	IsLive           bool              `json:"is_live"`                      // a live-stream tap is active; /tv/<source>/<key> is connectable
-	LiveDelaySeconds int               `json:"live_delay_seconds,omitempty"` // collector's configured viewer delay (live_delay), whole seconds; 0 when unknown
+	LiveDelaySeconds int               `json:"live_delay_seconds,omitempty"` // collector's target viewer delay (live_delay): encode + holdback, whole seconds; 0 when unknown
 }
 
 // TeamScores represents team scores for team game modes

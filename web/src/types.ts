@@ -70,7 +70,7 @@ export interface ServerStatus {
   warmup_remaining?: number; // milliseconds remaining in warmup
   /** A live-stream tap is active; /tv/<source>/<key> is connectable. */
   is_live?: boolean;
-  live_delay_seconds?: number; // collector's configured viewer delay; 0/undefined when unknown
+  live_delay_seconds?: number; // collector's target viewer delay (encode + holdback); 0/undefined when unknown
 }
 
 export interface Server {

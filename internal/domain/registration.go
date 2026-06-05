@@ -41,9 +41,9 @@ type RegdServer struct {
 	// roster config — the hub keeps it in memory only.
 	IsLive bool `json:"is_live,omitempty"`
 
-	// LiveDelaySeconds is the collector's configured viewer delay (live_delay)
-	// in whole seconds. The same for every server a collector serves; it rides
-	// the heartbeat so the live player can honestly show the feed's lag. In
-	// memory only, like IsLive.
+	// LiveDelaySeconds is the collector's target viewer delay (live_delay), the
+	// encode latency + relay holdback, in whole seconds. The same for every server
+	// a collector serves; it rides the heartbeat so the live player can honestly
+	// show the feed's lag. In memory only, like IsLive.
 	LiveDelaySeconds int `json:"live_delay_seconds,omitempty"`
 }
