@@ -1,4 +1,4 @@
-package discord
+package q3color
 
 import "testing"
 
@@ -30,8 +30,8 @@ func TestAnsiVisibleWidth(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.in, func(t *testing.T) {
-			if got := AnsiVisibleWidth(tc.in); got != tc.want {
-				t.Errorf("AnsiVisibleWidth(%q) = %d, want %d", tc.in, got, tc.want)
+			if got := VisibleWidth(tc.in); got != tc.want {
+				t.Errorf("VisibleWidth(%q) = %d, want %d", tc.in, got, tc.want)
 			}
 		})
 	}

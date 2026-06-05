@@ -9,6 +9,7 @@ import (
 
 	"github.com/ernie/trinity-tracker/internal/discord"
 	"github.com/ernie/trinity-tracker/internal/domain"
+	"github.com/ernie/trinity-tracker/internal/q3color"
 )
 
 // digestCategory describes how to render one leaderboard category for
@@ -226,7 +227,7 @@ func blankInlineField() discord.Field {
 //	<rank>. <verif badge> <platform badge> <name>   <value>
 //
 // Both columns (name and value) are left-aligned at fixed positions
-// computed from the widest row in this field. discord.AnsiVisibleWidth
+// computed from the widest row in this field. q3color.VisibleWidth
 // keeps the math honest in the face of ANSI codes and emoji widths.
 func renderCategoryField(r *domain.LeaderboardResponse, spec digestCategory, topN int) string {
 	if r == nil || len(r.Entries) == 0 {
@@ -251,8 +252,8 @@ func renderCategoryField(r *domain.LeaderboardResponse, spec digestCategory, top
 	for i := 0; i < n; i++ {
 		e := r.Entries[i]
 		name := discord.DisplayName(e.Player.Name, e.Player.IsVR)
-		prefix := fmt.Sprintf("%d. %s", e.Rank, discord.Q3ToANSIDiscord(name))
-		if w := discord.AnsiVisibleWidth(prefix); w > maxPrefixWidth {
+		prefix := fmt.Sprintf("%d. %s", e.Rank, q3color.ToANSIDiscord(name))
+		if w := q3color.VisibleWidth(prefix); w > maxPrefixWidth {
 			maxPrefixWidth = w
 		}
 		rows[i] = rowParts{prefix: prefix, value: spec.Format(e)}
@@ -261,7 +262,7 @@ func renderCategoryField(r *domain.LeaderboardResponse, spec digestCategory, top
 	var b strings.Builder
 	b.WriteString("```ansi\n")
 	for _, row := range rows {
-		padding := maxPrefixWidth - discord.AnsiVisibleWidth(row.prefix)
+		padding := maxPrefixWidth - q3color.VisibleWidth(row.prefix)
 		if padding < 0 {
 			padding = 0
 		}

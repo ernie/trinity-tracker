@@ -1,4 +1,8 @@
-package discord
+// Package q3color translates Quake 3 caret color codes (^0..^7) into
+// ANSI escapes (terminal and Discord palettes), strips them, and
+// measures ANSI-aware visible width. Shared by the CLI, Discord
+// digests, and notify embeds.
+package q3color
 
 import "strings"
 
@@ -17,8 +21,8 @@ const ansiReset = "\x1b[0m"
 //
 // Discord's ```ansi``` parser only honors 30-37 — passing 90-97
 // strips color entirely. So we keep two tables and pick at the call
-// site: terminals use Q3ToANSI (bright); the Discord embed renderer
-// uses Q3ToANSIDiscord (standard, with the known yellow=amber quirk).
+// site: terminals use ToANSI (bright); the Discord embed renderer
+// uses ToANSIDiscord (standard, with the known yellow=amber quirk).
 //
 // The canonical Q3 set has exactly 8 colors — see
 // ../trinity-engine/code/qcommon/q_shared.h lines 466-474
@@ -52,26 +56,26 @@ var q3ColorANSIDiscord = map[byte]string{
 	'7': "\x1b[37m",
 }
 
-// Q3ToANSI translates Q3 color codes (^0..^7) inside name into ANSI
+// ToANSI translates Q3 color codes (^0..^7) inside name into ANSI
 // escape sequences appropriate for a modern terminal. Any other caret
 // sequence (^^, ^a, ^9, trailing ^) passes through literally — that
 // diverges from the engine's permissive parser but avoids surprising
 // viewers with implicit colors on non-canonical codes. Output ends
 // with a reset whenever any color was emitted.
-func Q3ToANSI(name string) string {
+func ToANSI(name string) string {
 	return q3Translate(name, q3ColorANSITerm)
 }
 
-// Q3ToANSIDiscord is Q3ToANSI's variant for Discord ```ansi``` blocks,
+// ToANSIDiscord is ToANSI's variant for Discord ```ansi``` blocks,
 // which only render the standard ANSI codes (30-37).
-func Q3ToANSIDiscord(name string) string {
+func ToANSIDiscord(name string) string {
 	return q3Translate(name, q3ColorANSIDiscord)
 }
 
-// StripQ3Colors removes all ^N caret-color sequences from name,
+// Strip removes all ^N caret-color sequences from name,
 // returning the bare text. Useful for Discord embed fields that don't
 // render ANSI (titles, descriptions, author names).
-func StripQ3Colors(name string) string {
+func Strip(name string) string {
 	var b strings.Builder
 	for i := 0; i < len(name); i++ {
 		if name[i] == '^' && i+1 < len(name) {

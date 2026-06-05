@@ -1,8 +1,8 @@
-package discord
+package q3color
 
 import "unicode/utf8"
 
-// AnsiVisibleWidth returns the printable cell width of s — what a
+// VisibleWidth returns the printable cell width of s — what a
 // monospace font actually paints — accounting for:
 //
 //   - ANSI CSI escapes (ESC [ ... letter): zero width
@@ -15,7 +15,7 @@ import "unicode/utf8"
 // fonts render those at 1 cell despite their visual emoji-ness. Not
 // a full East Asian Width implementation — trinity output doesn't
 // render CJK.
-func AnsiVisibleWidth(s string) int {
+func VisibleWidth(s string) int {
 	width := 0
 	i := 0
 	for i < len(s) {

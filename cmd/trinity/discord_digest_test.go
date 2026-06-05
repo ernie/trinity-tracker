@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ernie/trinity-tracker/internal/discord"
+	"github.com/ernie/trinity-tracker/internal/q3color"
 	"github.com/ernie/trinity-tracker/internal/domain"
 )
 
@@ -201,7 +201,7 @@ func TestPlayerBadges_StableWidths(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := discord.AnsiVisibleWidth(tc.in); got != tc.want {
+			if got := q3color.VisibleWidth(tc.in); got != tc.want {
 				t.Errorf("%s width: got %d, want %d (badge=%q)", tc.name, got, tc.want, tc.in)
 			}
 		})

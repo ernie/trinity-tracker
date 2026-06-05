@@ -1,4 +1,4 @@
-package discord
+package q3color
 
 import "testing"
 
@@ -32,14 +32,14 @@ func TestQ3ToANSI(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := Q3ToANSI(tc.in); got != tc.want {
-				t.Errorf("Q3ToANSI(%q) = %q, want %q", tc.in, got, tc.want)
+			if got := ToANSI(tc.in); got != tc.want {
+				t.Errorf("ToANSI(%q) = %q, want %q", tc.in, got, tc.want)
 			}
 		})
 	}
 }
 
-// Q3ToANSIDiscord uses the standard codes (30-37) because Discord's
+// ToANSIDiscord uses the standard codes (30-37) because Discord's
 // ansi parser strips the bright variants. Same parsing logic, just
 // a different lookup table.
 func TestQ3ToANSIDiscord(t *testing.T) {
@@ -57,8 +57,8 @@ func TestQ3ToANSIDiscord(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.in, func(t *testing.T) {
-			if got := Q3ToANSIDiscord(tc.in); got != tc.want {
-				t.Errorf("Q3ToANSIDiscord(%q) = %q, want %q", tc.in, got, tc.want)
+			if got := ToANSIDiscord(tc.in); got != tc.want {
+				t.Errorf("ToANSIDiscord(%q) = %q, want %q", tc.in, got, tc.want)
 			}
 		})
 	}
@@ -80,8 +80,8 @@ func TestStripQ3Colors(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.in, func(t *testing.T) {
-			if got := StripQ3Colors(tc.in); got != tc.want {
-				t.Errorf("StripQ3Colors(%q) = %q, want %q", tc.in, got, tc.want)
+			if got := Strip(tc.in); got != tc.want {
+				t.Errorf("Strip(%q) = %q, want %q", tc.in, got, tc.want)
 			}
 		})
 	}

@@ -5,7 +5,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/ernie/trinity-tracker/internal/discord"
+	"github.com/ernie/trinity-tracker/internal/q3color"
 )
 
 // colAlign is right-padded by default; numeric/right-aligned columns
@@ -19,7 +19,7 @@ const (
 )
 
 // column is one column's header + cells + alignment. Cells may
-// contain ANSI escape sequences; discord.AnsiVisibleWidth measures
+// contain ANSI escape sequences; q3color.VisibleWidth measures
 // only printable runes so layout stays correct.
 type column struct {
 	header string
@@ -42,9 +42,9 @@ func renderTable(w io.Writer, cols []column) {
 	visibleWidths := make([]int, len(cols))
 	nRows := 0
 	for i, c := range cols {
-		visibleWidths[i] = discord.AnsiVisibleWidth(c.header)
+		visibleWidths[i] = q3color.VisibleWidth(c.header)
 		for _, cell := range c.cells {
-			if cw := discord.AnsiVisibleWidth(cell); cw > visibleWidths[i] {
+			if cw := q3color.VisibleWidth(cell); cw > visibleWidths[i] {
 				visibleWidths[i] = cw
 			}
 		}
@@ -58,7 +58,7 @@ func renderTable(w io.Writer, cols []column) {
 	// already pads on the left.
 	emit := func(values []string) {
 		for i, v := range values {
-			padding := visibleWidths[i] - discord.AnsiVisibleWidth(v)
+			padding := visibleWidths[i] - q3color.VisibleWidth(v)
 			if padding < 0 {
 				padding = 0
 			}

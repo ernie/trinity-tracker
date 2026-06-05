@@ -9,6 +9,7 @@ import (
 
 	"github.com/ernie/trinity-tracker/internal/discord"
 	"github.com/ernie/trinity-tracker/internal/domain"
+	"github.com/ernie/trinity-tracker/internal/q3color"
 )
 
 const (
@@ -199,8 +200,8 @@ func sortRosterBucket(ps []domain.PlayerStatus) {
 		if ps[i].IsBot != ps[j].IsBot {
 			return !ps[i].IsBot
 		}
-		return strings.ToLower(discord.StripQ3Colors(discord.DisplayName(ps[i].Name, ps[i].IsVR))) <
-			strings.ToLower(discord.StripQ3Colors(discord.DisplayName(ps[j].Name, ps[j].IsVR)))
+		return strings.ToLower(q3color.Strip(discord.DisplayName(ps[i].Name, ps[i].IsVR))) <
+			strings.ToLower(q3color.Strip(discord.DisplayName(ps[j].Name, ps[j].IsVR)))
 	})
 }
 
@@ -249,7 +250,7 @@ func writeRosterLines(b *strings.Builder, ps []domain.PlayerStatus) {
 		if emitted >= rosterCap {
 			break
 		}
-		b.WriteString(discord.Q3ToANSIDiscord(discord.DisplayName(p.Name, p.IsVR)))
+		b.WriteString(q3color.ToANSIDiscord(discord.DisplayName(p.Name, p.IsVR)))
 		if p.IsBot {
 			b.WriteString("  (bot)")
 		}
@@ -275,7 +276,7 @@ func writeRosterColumns(b *strings.Builder, ps []domain.PlayerStatus, cols, cell
 		if ps[i].IsBot {
 			suffix = " (bot)"
 		}
-		b.WriteString(discord.Q3ToANSIDiscord(name))
+		b.WriteString(q3color.ToANSIDiscord(name))
 		b.WriteString(suffix)
 		endOfRow := (i+1)%cols == 0
 		endOfList := i == n-1
@@ -283,7 +284,7 @@ func writeRosterColumns(b *strings.Builder, ps []domain.PlayerStatus, cols, cell
 			b.WriteByte('\n')
 			continue
 		}
-		visible := utf8.RuneCountInString(discord.StripQ3Colors(name)) + utf8.RuneCountInString(suffix)
+		visible := utf8.RuneCountInString(q3color.Strip(name)) + utf8.RuneCountInString(suffix)
 		pad := cellWidth - visible
 		if pad < 1 {
 			pad = 1
