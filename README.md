@@ -567,10 +567,12 @@ sudo systemctl restart quake3-servers.target  # Restart all
 sudo systemctl status 'quake3-server@*'       # Status of all instances
 ```
 
-**Attach to a server console** (detach with `Ctrl-A D`):
+**Control a server / watch its console:**
 
 ```bash
-sudo -u quake screen -r quake3-ffa
+trinity console ffa                       # interactive console (rcon-backed; needs trinity login)
+trinity console ffa status                # one-shot command
+sudo journalctl -fu quake3-server@ffa     # follow raw console output
 ```
 
 **Adding a new server instance:**
@@ -596,9 +598,9 @@ The new instance automatically joins the `quake3-servers.target` group and will 
 **Handy shell aliases** (zsh):
 
 ```bash
-# Auto-create q3<name> aliases for attaching to server consoles
+# Auto-create q3<name> aliases for opening server consoles
 for f in /etc/trinity/*.env(N); do
-  alias q3${f:t:r}="sudo -u quake screen -r quake3-${f:t:r}"
+  alias q3${f:t:r}="trinity console ${f:t:r}"
 done
 
 # Manage all servers
