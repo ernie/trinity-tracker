@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ernie/trinity-tracker/internal/auth"
@@ -45,6 +46,14 @@ type Router struct {
 	// in-process ServerManager. See SetRconClient / SetLocalSource.
 	rconClient  *natsbus.RconClient
 	localSource string
+	// testRconDispatch, when non-nil, replaces dispatchRcon's transport
+	// step. Test seam only: the real transports are concrete types
+	// (ServerManager, NATS RconClient) that need live infrastructure.
+	testRconDispatch func(server *domain.Server, command string, role natsbus.RconRole) (string, error)
+	// patTouch throttles pat.last_used_at writes (~1/min per token) so
+	// a chatty CLI session doesn't write-amplify SQLite.
+	patTouchMu   sync.Mutex
+	patTouchSeen map[int64]time.Time
 	// Version string surfaced to the frontend via /api/version. Set by
 	// main.go after NewRouter so binary builds report their git-describe
 	// tag; unset = "dev".
@@ -95,6 +104,7 @@ func NewRouter(store *storage.Store, manager *collector.ServerManager, writer *h
 		rotateLimiter: newRotationLimiter(5, 24*time.Hour),
 		staticDir:     staticDir,
 		quake3Dir:     quake3Dir,
+		patTouchSeen:  make(map[int64]time.Time),
 	}
 
 	// API routes
@@ -124,6 +134,16 @@ func NewRouter(store *storage.Store, manager *collector.ServerManager, writer *h
 	r.mux.HandleFunc("POST /api/auth/logout", r.handleLogout)
 	r.mux.HandleFunc("GET /api/auth/check", r.handleAuthCheck)
 	r.mux.HandleFunc("POST /api/auth/change-password", r.requireAuth(r.handleChangePassword))
+
+	// CLI auth: PAT mint (password-verified, same limiter as login)
+	// and self-revoke. See cli_login.go.
+	r.mux.HandleFunc("POST /api/auth/cli-login", r.rateLimit(r.loginLimiter, r.handleCLILogin))
+	r.mux.HandleFunc("DELETE /api/auth/cli-login", r.handleCLILogout)
+
+	// Console: (source, key)-addressed control surface for the CLI.
+	// See console.go.
+	r.mux.HandleFunc("GET /api/console/servers", r.requireAuth(r.handleConsoleServers))
+	r.mux.HandleFunc("POST /api/console/rcon", r.requireAuth(r.handleConsoleRcon))
 
 	// Game auth (public - no JWT required)
 	r.mux.HandleFunc("POST /api/auth/game-login", r.rateLimit(r.loginLimiter, r.handleGameLogin))

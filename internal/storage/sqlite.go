@@ -146,6 +146,32 @@ func (s *Store) GetServerByID(ctx context.Context, id int64) (*domain.Server, er
 	return &srv, nil
 }
 
+// GetServerBySourceKey resolves a server by its (source, key) identity —
+// the addressing the console CLI speaks (it has no DB ids). Same COLLATE
+// NOCASE key matching as UpsertServer.
+func (s *Store) GetServerBySourceKey(ctx context.Context, source, key string) (*domain.Server, error) {
+	var srv domain.Server
+	var lastMatchUUID sql.NullString
+	var lastMatchEndedAt sql.NullTime
+	var lastHeartbeatAt sql.NullTime
+	err := s.db.QueryRowContext(ctx, `
+		SELECT id, source, key, address, active, handshake_required, last_match_uuid, last_match_ended_at, last_heartbeat_at, admin_delegation_enabled, created_at FROM servers WHERE source = ? AND key = ? COLLATE NOCASE
+	`, source, key).Scan(&srv.ID, &srv.Source, &srv.Key, &srv.Address, &srv.Active, &srv.HandshakeRequired, &lastMatchUUID, &lastMatchEndedAt, &lastHeartbeatAt, &srv.AdminDelegationEnabled, &srv.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	if lastMatchUUID.Valid {
+		srv.LastMatchUUID = &lastMatchUUID.String
+	}
+	if lastMatchEndedAt.Valid {
+		srv.LastMatchEndedAt = &lastMatchEndedAt.Time
+	}
+	if lastHeartbeatAt.Valid {
+		srv.LastHeartbeatAt = &lastHeartbeatAt.Time
+	}
+	return &srv, nil
+}
+
 // SetServerHandshakeRequired sets servers.handshake_required for a single
 // row. The hub calls this on every observed match_start (both accept and
 // reject paths), so the column tracks the most recent g_trinityHandshake

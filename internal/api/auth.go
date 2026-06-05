@@ -1,7 +1,9 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -118,7 +120,11 @@ func (r *Router) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// getAuthClaims extracts and validates JWT from Authorization header
+// getAuthClaims extracts and validates the bearer credential from the
+// Authorization header. Two credential types share the header: PATs
+// (CLI, "trin_" prefix — resolved against the live user row so claims
+// reflect current privileges) and JWTs (web sessions — stateless,
+// claims as minted).
 func (r *Router) getAuthClaims(req *http.Request) *auth.Claims {
 	authHeader := req.Header.Get("Authorization")
 	if !strings.HasPrefix(authHeader, "Bearer ") {
@@ -126,12 +132,55 @@ func (r *Router) getAuthClaims(req *http.Request) *auth.Claims {
 	}
 
 	token := strings.TrimPrefix(authHeader, "Bearer ")
+	if auth.IsPAT(token) {
+		return r.getPATClaims(req, token)
+	}
+
 	claims, err := r.auth.ValidateToken(token)
 	if err != nil {
 		return nil
 	}
 
 	return claims
+}
+
+// getPATClaims resolves a personal access token to claims built from
+// the user's current DB state: revocation, user deletion, and admin
+// flips all take effect on the next request, no re-login involved.
+func (r *Router) getPATClaims(req *http.Request, token string) *auth.Claims {
+	if r.store == nil {
+		return nil
+	}
+	id, err := r.store.LookupPATByHash(req.Context(), auth.HashPAT(token))
+	if err != nil {
+		return nil
+	}
+	r.touchPAT(req.Context(), id.PATID)
+	return &auth.Claims{
+		Username:               id.Username,
+		UserID:                 id.UserID,
+		IsAdmin:                id.IsAdmin,
+		PlayerID:               id.PlayerID,
+		PasswordChangeRequired: id.PasswordChangeRequired,
+	}
+}
+
+// touchPAT records token activity, throttled to one write per token
+// per minute.
+func (r *Router) touchPAT(ctx context.Context, patID int64) {
+	r.patTouchMu.Lock()
+	last, seen := r.patTouchSeen[patID]
+	now := time.Now()
+	if seen && now.Sub(last) < time.Minute {
+		r.patTouchMu.Unlock()
+		return
+	}
+	r.patTouchSeen[patID] = now
+	r.patTouchMu.Unlock()
+
+	if err := r.store.TouchPATLastUsed(ctx, patID); err != nil {
+		log.Printf("pat: last_used_at update failed: %v", err)
+	}
 }
 
 // ChangePasswordRequest is the request body for password change

@@ -208,6 +208,23 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_users_display_name_canonical
     ON users(display_name_canonical)
     WHERE display_name_canonical != '';
 
+-- Personal access tokens: the CLI credential (web sessions use JWTs).
+-- Only the SHA-256 of the token is stored; the plaintext is returned
+-- once at mint. Revocation is the lifetime control: expires_at stays
+-- NULL by default. See docs: trinity-console design.
+CREATE TABLE IF NOT EXISTS pat (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL DEFAULT '',
+    token_hash TEXT NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_used_at TIMESTAMP,
+    expires_at TIMESTAMP,
+    revoked_at TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_pat_user_id ON pat(user_id);
+
 -- Link codes for account linking via game chat
 -- user_id is nullable: NULL = claim code (player-initiated), NOT NULL = link code (user-initiated)
 CREATE TABLE IF NOT EXISTS link_codes (

@@ -81,6 +81,12 @@ func main() {
 		cmdDiscordDigest(os.Args[2:])
 	case "user":
 		cmdUser(os.Args[2:])
+	case "login":
+		cmdLogin(os.Args[2:])
+	case "logout":
+		cmdLogout(os.Args[2:])
+	case "console":
+		cmdConsole(os.Args[2:])
 	case "levelshots":
 		cmdLevelshots(os.Args[2:])
 	case "portraits":
@@ -133,6 +139,10 @@ func printUsage() {
 	fmt.Println("  user list                           List all users")
 	fmt.Println("  user reset <username>               Reset a user's password")
 	fmt.Println("  user admin <username>               Toggle admin status for a user")
+	fmt.Println("  login [--url <hub>]                 Log in and store a personal access token")
+	fmt.Println("  logout                              Revoke and discard the stored token")
+	fmt.Println("  console                             List servers you can control")
+	fmt.Println("  console <key> [command...]          Send rcon (interactive console without command)")
 	fmt.Println("  levelshots [path]                   Extract levelshots from pk3 file(s)")
 	fmt.Println("  portraits [path]                    Extract player portraits from pk3 file(s)")
 	fmt.Println("  medals [path]                       Extract medal icons from pk3 file(s)")

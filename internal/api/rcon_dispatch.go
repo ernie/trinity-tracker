@@ -30,6 +30,9 @@ func (r *Router) SetLocalSource(source string) {
 // source, NATS for everything else. Caller is responsible for having
 // already authorized the request.
 func (r *Router) dispatchRcon(ctx context.Context, server *domain.Server, command string, claims *auth.Claims, role natsbus.RconRole) (string, error) {
+	if r.testRconDispatch != nil {
+		return r.testRconDispatch(server, command, role)
+	}
 	if r.localSource != "" && server.Source == r.localSource && r.manager != nil {
 		return r.manager.ExecuteRconByKey(server.Key, command)
 	}
