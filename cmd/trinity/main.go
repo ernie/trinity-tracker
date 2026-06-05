@@ -139,6 +139,8 @@ func printUsage() {
 	fmt.Println("  user list                           List all users")
 	fmt.Println("  user reset <username>               Reset a user's password")
 	fmt.Println("  user admin <username>               Toggle admin status for a user")
+	fmt.Println("  user disable <username>             Disable an account (soft-delete; keeps audit history)")
+	fmt.Println("  user enable <username>              Re-enable a disabled account")
 	fmt.Println("  login [--url <hub>]                 Log in and store a personal access token")
 	fmt.Println("  logout                              Revoke and discard the stored token")
 	fmt.Println("  console                             List servers you can control")
@@ -1396,7 +1398,7 @@ func cmdDiscordDigest(args []string) {
 // subcommand flags are pre-parsed by a global FlagSet.
 func cmdUser(args []string) {
 	if len(args) < 1 {
-		fmt.Fprintf(os.Stderr, "Error: user subcommand required: add, remove, list, reset, admin\n")
+		fmt.Fprintf(os.Stderr, "Error: user subcommand required: add, remove, list, reset, admin, disable, enable\n")
 		os.Exit(1)
 	}
 	subCmd := args[0]
@@ -1416,8 +1418,12 @@ func cmdUser(args []string) {
 		err = cmdUserReset(ctx, subArgs)
 	case "admin":
 		err = cmdUserAdmin(ctx, subArgs)
+	case "disable":
+		err = cmdUserDisable(ctx, subArgs, true)
+	case "enable":
+		err = cmdUserDisable(ctx, subArgs, false)
 	default:
-		fmt.Fprintf(os.Stderr, "Error: unknown user command: %s (use: add, remove, list, reset, admin)\n", subCmd)
+		fmt.Fprintf(os.Stderr, "Error: unknown user command: %s (use: add, remove, list, reset, admin, disable, enable)\n", subCmd)
 		os.Exit(1)
 	}
 	if err != nil {
@@ -1519,10 +1525,44 @@ func cmdUserRemove(ctx context.Context, args []string) error {
 	defer store.Close()
 
 	if err := store.DeleteUser(ctx, username); err != nil {
+		// The audit-trail FK (source_audit.actor_user_id) intentionally
+		// blocks deleting users with history — point at the soft-delete.
+		if strings.Contains(err.Error(), "FOREIGN KEY") {
+			return fmt.Errorf("user %q has audit history and cannot be deleted; use: trinity user disable %s", username, username)
+		}
 		return fmt.Errorf("failed to remove user: %w", err)
 	}
 
 	fmt.Printf("User '%s' removed\n", username)
+	return nil
+}
+
+// cmdUserDisable soft-deletes (disabled=true) or restores a user.
+// Disabled accounts fail every credential path — web, CLI, game —
+// while the row (and its audit history) stays intact.
+func cmdUserDisable(ctx context.Context, args []string, disabled bool) error {
+	verb := "disable"
+	if !disabled {
+		verb = "enable"
+	}
+	fs := flag.NewFlagSet("user "+verb, flag.ExitOnError)
+	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
+	url := fs.String("url", "", "base URL of the trinity server")
+	fs.Parse(args)
+
+	remaining := fs.Args()
+	if len(remaining) < 1 {
+		return fmt.Errorf("usage: trinity user %s <username>", verb)
+	}
+	username := remaining[0]
+
+	store := openStoreForCLI(*configPath, *url)
+	defer store.Close()
+
+	if err := store.SetUserDisabled(ctx, username, disabled); err != nil {
+		return fmt.Errorf("failed to %s user: %w", verb, err)
+	}
+	fmt.Printf("User '%s' %sd\n", username, verb)
 	return nil
 }
 
@@ -1559,6 +1599,9 @@ func cmdUserList(ctx context.Context, args []string) error {
 			// admin is the row-distinguishing flag; cyan keeps it
 			// scannable without screaming.
 			role = cyan("admin")
+		}
+		if user.DisabledAt != nil {
+			role = red("disabled")
 		}
 		playerID := dim("-")
 		if user.PlayerID != nil {

@@ -43,6 +43,10 @@ func (r *Router) handleGameLogin(w http.ResponseWriter, req *http.Request) {
 		writeError(w, http.StatusUnauthorized, "invalid credentials")
 		return
 	}
+	if user.DisabledAt != nil {
+		writeError(w, http.StatusForbidden, "account disabled")
+		return
+	}
 
 	token, err := r.store.EnsureGameToken(req.Context(), user.ID)
 	if err != nil {

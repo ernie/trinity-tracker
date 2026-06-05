@@ -746,6 +746,9 @@ func (w *Writer) Greet(ctx context.Context, req GreetRequest) (GreetReply, error
 		case authErr != nil:
 			log.Printf("hub: greet auth no user for %q: %v", req.Auth.Username, authErr)
 			reply.AuthResult = AuthFailed
+		case user.DisabledAt != nil:
+			log.Printf("hub: greet auth disabled account %q", req.Auth.Username)
+			reply.AuthResult = AuthFailed
 		case user.GameToken == "" || user.PlayerID == nil:
 			log.Printf("hub: greet auth no token/player for user %q", req.Auth.Username)
 			reply.AuthResult = AuthFailed

@@ -46,6 +46,10 @@ func (r *Router) handleLogin(w http.ResponseWriter, req *http.Request) {
 		writeError(w, http.StatusUnauthorized, "invalid credentials")
 		return
 	}
+	if user.DisabledAt != nil {
+		writeError(w, http.StatusForbidden, "account disabled")
+		return
+	}
 
 	token, err := r.auth.GenerateToken(user.ID, user.Username, user.IsAdmin, user.PlayerID, user.PasswordChangeRequired)
 	if err != nil {

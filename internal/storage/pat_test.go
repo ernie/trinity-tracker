@@ -77,6 +77,26 @@ func TestPATLookupReflectsLiveUserRow(t *testing.T) {
 		t.Error("lookup returned stale is_admin after demotion")
 	}
 
+	// Disabling the user kills its tokens immediately; enabling
+	// restores them (the token itself was never revoked).
+	if err := store.SetUserDisabled(ctx, "pat-user", true); err != nil {
+		t.Fatalf("SetUserDisabled: %v", err)
+	}
+	if _, err := store.LookupPATByHash(ctx, "hash-2"); !errors.Is(err, ErrPATNotFound) {
+		t.Errorf("disabled user: want ErrPATNotFound, got %v", err)
+	}
+	if err := store.SetUserDisabled(ctx, "pat-user", false); err != nil {
+		t.Fatalf("SetUserDisabled(enable): %v", err)
+	}
+	if _, err := store.LookupPATByHash(ctx, "hash-2"); err != nil {
+		t.Errorf("re-enabled user: lookup failed: %v", err)
+	}
+
+	// Unknown user errors.
+	if err := store.SetUserDisabled(ctx, "nobody", true); err == nil {
+		t.Error("SetUserDisabled(unknown): want error")
+	}
+
 	// Deleting the user takes the token with it (FK cascade + join).
 	if err := store.DeleteUser(ctx, "pat-user"); err != nil {
 		t.Fatalf("DeleteUser: %v", err)

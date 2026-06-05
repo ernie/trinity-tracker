@@ -46,6 +46,10 @@ func (r *Router) handleCLILogin(w http.ResponseWriter, req *http.Request) {
 		writeError(w, http.StatusUnauthorized, "invalid credentials")
 		return
 	}
+	if user.DisabledAt != nil {
+		writeError(w, http.StatusForbidden, "account disabled")
+		return
+	}
 	if user.PasswordChangeRequired {
 		writeError(w, http.StatusForbidden, "password change required: log in to the web UI first")
 		return

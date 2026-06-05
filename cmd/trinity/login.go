@@ -122,11 +122,15 @@ func cmdLogin(args []string) {
 	case http.StatusUnauthorized:
 		fmt.Fprintln(os.Stderr, "Error: invalid credentials")
 		os.Exit(1)
-	case http.StatusForbidden:
-		fmt.Fprintln(os.Stderr, "Error: password change required — log in to the web UI first, then retry")
-		os.Exit(1)
 	default:
-		fmt.Fprintf(os.Stderr, "Error: login failed (%s)\n", resp.Status)
+		// 403 carries a reason (password change required, account
+		// disabled) — surface the server's message rather than guessing.
+		var ae apiError
+		if json.NewDecoder(resp.Body).Decode(&ae) == nil && ae.Error != "" {
+			fmt.Fprintf(os.Stderr, "Error: %s\n", ae.Error)
+		} else {
+			fmt.Fprintf(os.Stderr, "Error: login failed (%s)\n", resp.Status)
+		}
 		os.Exit(1)
 	}
 

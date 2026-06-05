@@ -199,7 +199,13 @@ CREATE TABLE IF NOT EXISTS users (
     display_name_canonical TEXT NOT NULL DEFAULT '',
     -- NULL = no explicit choice; frontend falls back to 'victories'.
     -- See migrations/2026-05-13-users-featured-honor.sql.
-    featured_honor TEXT
+    featured_honor TEXT,
+    -- Soft-delete: non-NULL blocks every credential path (web login,
+    -- cli-login, game-login, in-game auth, PAT lookup). User rows are
+    -- never hard-deleted once referenced by source_audit — disable
+    -- instead. Existing installs: ALTER TABLE users ADD COLUMN
+    -- disabled_at TIMESTAMP; before deploying this schema.
+    disabled_at TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);

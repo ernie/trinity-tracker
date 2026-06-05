@@ -42,6 +42,7 @@ func (s *Store) LookupPATByHash(ctx context.Context, tokenHash string) (*PATIden
 		FROM pat p JOIN users u ON u.id = p.user_id
 		WHERE p.token_hash = ?
 		  AND p.revoked_at IS NULL
+		  AND u.disabled_at IS NULL
 		  AND (p.expires_at IS NULL OR p.expires_at > CURRENT_TIMESTAMP)
 	`, tokenHash).Scan(&id.PATID, &id.UserID, &id.Username, &id.IsAdmin, &playerID, &id.PasswordChangeRequired)
 	if errors.Is(err, sql.ErrNoRows) {

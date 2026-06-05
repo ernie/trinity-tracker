@@ -1559,6 +1559,10 @@ type User struct {
 	LastLogin              *time.Time
 	GameToken              string
 	DisplayName            string
+	// DisabledAt non-nil = soft-deleted: every credential path rejects
+	// the account. Rows are never hard-deleted once source_audit
+	// references them — disable instead.
+	DisabledAt *time.Time
 }
 
 func (s *Store) SetUserDisplayName(ctx context.Context, userID int64, displayName string) error {
@@ -1675,7 +1679,7 @@ func (s *Store) CreateUser(ctx context.Context, username, passwordHash string, i
 // GetUserByUsername retrieves a user by username
 func (s *Store) GetUserByUsername(ctx context.Context, username string) (*User, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, username, password_hash, is_admin, player_id, password_change_required, created_at, last_login, game_token, display_name
+		SELECT id, username, password_hash, is_admin, player_id, password_change_required, created_at, last_login, game_token, display_name, disabled_at
 		FROM users WHERE username = ?
 	`, username)
 	return scanUser(row)
@@ -1684,7 +1688,7 @@ func (s *Store) GetUserByUsername(ctx context.Context, username string) (*User, 
 // GetUserByID retrieves a user by ID
 func (s *Store) GetUserByID(ctx context.Context, id int64) (*User, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, username, password_hash, is_admin, player_id, password_change_required, created_at, last_login, game_token, display_name
+		SELECT id, username, password_hash, is_admin, player_id, password_change_required, created_at, last_login, game_token, display_name, disabled_at
 		FROM users WHERE id = ?
 	`, id)
 	return scanUser(row)
@@ -1706,7 +1710,7 @@ func (s *Store) DeleteUser(ctx context.Context, username string) error {
 // ListUsers returns all users with details
 func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, username, password_hash, is_admin, player_id, password_change_required, created_at, last_login, game_token, display_name
+		SELECT id, username, password_hash, is_admin, player_id, password_change_required, created_at, last_login, game_token, display_name, disabled_at
 		FROM users ORDER BY username
 	`)
 	if err != nil {
@@ -1736,7 +1740,7 @@ func (s *Store) ListUsersWithPlayer(ctx context.Context) ([]UserWithPlayer, erro
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT u.id, u.username, u.password_hash, u.is_admin, u.player_id,
 		       u.password_change_required, u.created_at, u.last_login, u.game_token,
-		       p.name
+		       u.disabled_at, p.name
 		FROM users u
 		LEFT JOIN players p ON p.id = u.player_id
 		ORDER BY u.username
@@ -1751,11 +1755,12 @@ func (s *Store) ListUsersWithPlayer(ctx context.Context) ([]UserWithPlayer, erro
 		var u User
 		var playerID sql.NullInt64
 		var lastLogin sql.NullTime
+		var disabledAt sql.NullTime
 		var playerName sql.NullString
 		if err := rows.Scan(
 			&u.ID, &u.Username, &u.PasswordHash, &u.IsAdmin, &playerID,
 			&u.PasswordChangeRequired, &u.CreatedAt, &lastLogin, &u.GameToken,
-			&playerName,
+			&disabledAt, &playerName,
 		); err != nil {
 			return nil, err
 		}
@@ -1765,6 +1770,7 @@ func (s *Store) ListUsersWithPlayer(ctx context.Context) ([]UserWithPlayer, erro
 		if lastLogin.Valid {
 			u.LastLogin = &lastLogin.Time
 		}
+		u.DisabledAt = scanNullTime(disabledAt)
 		entry := UserWithPlayer{User: u}
 		if playerName.Valid {
 			name := playerName.String
@@ -1785,7 +1791,7 @@ func (s *Store) SearchUsersWithPlayer(ctx context.Context, query string, limit i
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT u.id, u.username, u.password_hash, u.is_admin, u.player_id,
 		       u.password_change_required, u.created_at, u.last_login, u.game_token,
-		       p.name
+		       u.disabled_at, p.name
 		FROM users u
 		LEFT JOIN players p ON p.id = u.player_id
 		WHERE u.username LIKE ? OR p.clean_name LIKE ? OR p.name LIKE ?
@@ -1802,11 +1808,12 @@ func (s *Store) SearchUsersWithPlayer(ctx context.Context, query string, limit i
 		var u User
 		var playerID sql.NullInt64
 		var lastLogin sql.NullTime
+		var disabledAt sql.NullTime
 		var playerName sql.NullString
 		if err := rows.Scan(
 			&u.ID, &u.Username, &u.PasswordHash, &u.IsAdmin, &playerID,
 			&u.PasswordChangeRequired, &u.CreatedAt, &lastLogin, &u.GameToken,
-			&playerName,
+			&disabledAt, &playerName,
 		); err != nil {
 			return nil, err
 		}
@@ -1816,6 +1823,7 @@ func (s *Store) SearchUsersWithPlayer(ctx context.Context, query string, limit i
 		if lastLogin.Valid {
 			u.LastLogin = &lastLogin.Time
 		}
+		u.DisabledAt = scanNullTime(disabledAt)
 		entry := UserWithPlayer{User: u}
 		if playerName.Valid {
 			name := playerName.String
@@ -1824,6 +1832,27 @@ func (s *Store) SearchUsersWithPlayer(ctx context.Context, query string, limit i
 		out = append(out, entry)
 	}
 	return out, rows.Err()
+}
+
+// SetUserDisabled soft-deletes (or restores) a user by username.
+// Disabling stamps disabled_at; every credential path checks it.
+// Idempotent in effect: disabling an already-disabled user keeps the
+// original timestamp.
+func (s *Store) SetUserDisabled(ctx context.Context, username string, disabled bool) error {
+	var query string
+	if disabled {
+		query = `UPDATE users SET disabled_at = COALESCE(disabled_at, CURRENT_TIMESTAMP) WHERE username = ?`
+	} else {
+		query = `UPDATE users SET disabled_at = NULL WHERE username = ?`
+	}
+	res, err := s.db.ExecContext(ctx, query, username)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("user not found: %s", username)
+	}
+	return nil
 }
 
 // UpdateUserLastLogin updates the last login timestamp

@@ -152,6 +152,50 @@ func TestPATClaimsAreLive(t *testing.T) {
 	}
 }
 
+func TestDisabledUserBlockedEverywhere(t *testing.T) {
+	tr := newTestRouter(t)
+	tr.cliUser(t, "ernie", true)
+	pat := tr.cliLogin(t, "ernie")
+
+	if err := tr.store.SetUserDisabled(context.Background(), "ernie", true); err != nil {
+		t.Fatalf("SetUserDisabled: %v", err)
+	}
+
+	// Existing PAT dies on the next request.
+	if check := tr.authCheck(t, pat); check["authenticated"] != false {
+		t.Errorf("disabled user's PAT still authenticates: %v", check)
+	}
+
+	// Web login: 403 account disabled (password is correct).
+	w := tr.do("POST", "/api/auth/login",
+		`{"username":"ernie","password":"password123"}`, "")
+	if w.Code != http.StatusForbidden {
+		t.Errorf("web login while disabled: want 403, got %d", w.Code)
+	}
+
+	// CLI login: same.
+	w = tr.do("POST", "/api/auth/cli-login",
+		`{"username":"ernie","password":"password123","name":"x"}`, "")
+	if w.Code != http.StatusForbidden {
+		t.Errorf("cli login while disabled: want 403, got %d", w.Code)
+	}
+
+	// Game login: same.
+	w = tr.do("POST", "/api/auth/game-login",
+		`{"username":"ernie","password":"password123"}`, "")
+	if w.Code != http.StatusForbidden {
+		t.Errorf("game login while disabled: want 403, got %d", w.Code)
+	}
+
+	// Re-enable: the un-revoked PAT works again.
+	if err := tr.store.SetUserDisabled(context.Background(), "ernie", false); err != nil {
+		t.Fatalf("SetUserDisabled(enable): %v", err)
+	}
+	if check := tr.authCheck(t, pat); check["authenticated"] != true {
+		t.Errorf("re-enabled user's PAT rejected: %v", check)
+	}
+}
+
 func TestPATAndJWTParityThroughMiddleware(t *testing.T) {
 	tr := newTestRouter(t)
 	tr.cliUser(t, "ernie", true)
