@@ -7,13 +7,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
 	flag "github.com/spf13/pflag"
 	"golang.org/x/term"
 
-	"github.com/ernie/trinity-tracker/internal/discord"
+	"github.com/ernie/trinity-tracker/internal/q3color"
 )
 
 // consoleServer mirrors api.ConsoleServer.
@@ -39,6 +40,7 @@ type apiError struct {
 func cmdConsole(args []string) {
 	fs := flag.NewFlagSet("console", flag.ExitOnError)
 	urlFlag := fs.String("url", "", "base URL override (must match the login URL)")
+	follow := fs.Bool("follow", false, "stream console output read-only (no prompt)")
 	colorMode := addColorFlag(fs)
 	fs.Parse(args)
 	applyColorMode(*colorMode)
@@ -47,11 +49,22 @@ func cmdConsole(args []string) {
 
 	rest := fs.Args()
 	if len(rest) == 0 {
+		if *follow {
+			fmt.Fprintln(os.Stderr, "Error: --follow requires a server (trinity console --follow <key>)")
+			os.Exit(1)
+		}
 		listConsoleServers(tok)
 		return
 	}
 
 	source, key := resolveTarget(tok, rest[0])
+	if *follow {
+		if err := followConsole(tok, source, key); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
 	if len(rest) > 1 {
 		// One-shot: everything after the target is the rcon command.
 		output, err := consoleRcon(tok, source, key, strings.Join(rest[1:], " "))
@@ -219,14 +232,112 @@ func printRconOutput(w io.Writer, output string) {
 		return
 	}
 	if colorEnabled {
-		output = discord.Q3ToANSI(output)
+		output = q3color.ToANSI(output)
 	} else {
-		output = discord.StripQ3Colors(output)
+		output = q3color.Strip(output)
 	}
 	if !strings.HasSuffix(output, "\n") {
 		output += "\n"
 	}
 	io.WriteString(w, output)
+}
+
+// streamHTTPClient has no timeout: SSE responses are held open
+// indefinitely (cliHTTPClient's 15s would kill them).
+var streamHTTPClient = &http.Client{}
+
+// consoleLine mirrors console.Line on the SSE wire.
+type consoleLine struct {
+	Seq  int64  `json:"seq"`
+	Text string `json:"text"`
+}
+
+// openConsoleStream starts the SSE request and invokes onStatus for
+// the status event and onLine per console line, until the stream ends
+// or stop is closed. Blocking.
+func openConsoleStream(tok *cliToken, source, key string, stop <-chan struct{}, onStatus func(tapUp bool), onLine func(string)) error {
+	req, err := http.NewRequest(http.MethodGet,
+		tok.URL+"/api/console/stream?source="+url.QueryEscape(source)+"&key="+url.QueryEscape(key), nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+tok.Token)
+	resp, err := streamHTTPClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusUnauthorized {
+		fmt.Fprintln(os.Stderr, "Error: token revoked or invalid. Run: trinity login")
+		os.Exit(1)
+	}
+	if resp.StatusCode != http.StatusOK {
+		var ae apiError
+		if json.NewDecoder(resp.Body).Decode(&ae) == nil && ae.Error != "" {
+			return fmt.Errorf("%s", ae.Error)
+		}
+		return fmt.Errorf("unexpected status %s", resp.Status)
+	}
+
+	if stop != nil {
+		done := make(chan struct{})
+		defer close(done)
+		go func() {
+			select {
+			case <-stop:
+				resp.Body.Close() // unblocks the scanner
+			case <-done:
+			}
+		}()
+	}
+
+	sc := bufio.NewScanner(resp.Body)
+	sc.Buffer(make([]byte, 0, 4096), 64*1024)
+	event := ""
+	for sc.Scan() {
+		line := sc.Text()
+		switch {
+		case strings.HasPrefix(line, "event: "):
+			event = strings.TrimPrefix(line, "event: ")
+		case strings.HasPrefix(line, "data: "):
+			data := strings.TrimPrefix(line, "data: ")
+			if event == "status" {
+				var st struct {
+					TapUp bool `json:"tap_up"`
+				}
+				if json.Unmarshal([]byte(data), &st) == nil {
+					onStatus(st.TapUp)
+				}
+			} else {
+				var l consoleLine
+				if json.Unmarshal([]byte(data), &l) == nil {
+					onLine(l.Text)
+				}
+			}
+		case line == "":
+			event = ""
+		}
+	}
+	return sc.Err()
+}
+
+// renderConsoleLine applies the same color treatment as rcon output.
+func renderConsoleLine(text string) string {
+	if colorEnabled {
+		return q3color.ToANSI(text)
+	}
+	return q3color.Strip(text)
+}
+
+// followConsole streams read-only to stdout (pipeable).
+func followConsole(tok *cliToken, source, key string) error {
+	return openConsoleStream(tok, source, key, nil,
+		func(tapUp bool) {
+			if !tapUp {
+				fmt.Fprintf(os.Stderr, "(console tap not connected on %s/%s — engine without sv_conTap?)\n", source, key)
+			}
+		},
+		func(text string) { fmt.Println(renderConsoleLine(text)) })
 }
 
 // runConsoleREPL is the interactive console: each line is sent as rcon
@@ -271,6 +382,32 @@ func runConsoleREPL(tok *cliToken, source, key string) {
 	defer term.Restore(fd, oldState)
 
 	t := term.NewTerminal(stdinStdout{}, prompt)
+
+	// Live console stream interleaved with the prompt. term.Terminal
+	// redraws the pending input line around concurrent Writes, so the
+	// stream and the REPL share the screen cleanly. Best-effort: if the
+	// server has no tap (old engine), the REPL still works rcon-only.
+	stop := make(chan struct{})
+	defer close(stop)
+	go func() {
+		err := openConsoleStream(tok, source, key, stop,
+			func(tapUp bool) {
+				if !tapUp {
+					fmt.Fprintf(t, "(console tap not connected — output unavailable, rcon still works)\n")
+				}
+			},
+			func(text string) { fmt.Fprintln(t, renderConsoleLine(text)) })
+		select {
+		case <-stop:
+		default:
+			if err != nil {
+				fmt.Fprintf(t, "(console stream ended: %v)\n", err)
+			} else {
+				fmt.Fprintln(t, "(console stream ended)")
+			}
+		}
+	}()
+
 	for {
 		line, err := t.ReadLine()
 		if err != nil {

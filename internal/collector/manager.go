@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/ernie/trinity-tracker/internal/config"
+	"github.com/ernie/trinity-tracker/internal/console"
 	"github.com/ernie/trinity-tracker/internal/domain"
 	"github.com/ernie/trinity-tracker/internal/hub"
 	"github.com/ernie/trinity-tracker/internal/livestream"
@@ -25,6 +26,8 @@ type ServerManager struct {
 	pub      hub.FactPublisher
 	livePub  hub.LiveEventPublisher
 	liveReg  *livestream.Registry
+	// consoleReg receives console-tap lines per server. See SetConsoleRegistry.
+	consoleReg *console.Registry
 	q3client *Q3Client
 
 	kickRegistrar func() // wired by SetRegistrarKick; nil until then
@@ -165,6 +168,12 @@ func (m *ServerManager) SetLivePublisher(p hub.LiveEventPublisher) {
 // registers the resulting Buffer so the relay can serve it.
 func (m *ServerManager) SetLiveRegistry(r *livestream.Registry) {
 	m.liveReg = r
+}
+
+// SetConsoleRegistry injects the console-line registry. When set, Start
+// spawns a persistent tap consumer per configured server (sv_conTap).
+func (m *ServerManager) SetConsoleRegistry(r *console.Registry) {
+	m.consoleReg = r
 }
 
 // SetRegistrarKick wires the heartbeat registrar's Kick so the manager can
@@ -460,6 +469,20 @@ func (m *ServerManager) Start(ctx context.Context) error {
 			clients:       make(map[int]*clientState),
 			trinityNonces: make(map[int]string),
 			openSessions:  make(map[string]bool),
+		}
+
+		// Console tap consumer: persistent, per server (sv_conTap).
+		if m.consoleReg != nil {
+			if _, portStr, err := net.SplitHostPort(srv.Address); err == nil {
+				runner := newConTapRunner(srv.Key, portStr, m.consoleReg.Ring(srv.Key), m.q3client, m.done)
+				m.wg.Add(1)
+				go func() {
+					defer m.wg.Done()
+					runner.run()
+				}()
+			} else {
+				log.Printf("collector: console tap: bad server address %q: %v", srv.Address, err)
+			}
 		}
 
 		// Serial replay: concurrent tailers fight for the SQLite write lock.

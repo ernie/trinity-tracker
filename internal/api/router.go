@@ -14,6 +14,7 @@ import (
 
 	"github.com/ernie/trinity-tracker/internal/auth"
 	"github.com/ernie/trinity-tracker/internal/collector"
+	"github.com/ernie/trinity-tracker/internal/console"
 	"github.com/ernie/trinity-tracker/internal/domain"
 	"github.com/ernie/trinity-tracker/internal/hub"
 	"github.com/ernie/trinity-tracker/internal/natsbus"
@@ -46,6 +47,10 @@ type Router struct {
 	// in-process ServerManager. See SetRconClient / SetLocalSource.
 	rconClient  *natsbus.RconClient
 	localSource string
+	// Console following: registry for the in-process collector's rings,
+	// relay for remote sources. See console_stream.go.
+	consoleReg   *console.Registry
+	consoleRelay *consoleRelay
 	// testRconDispatch, when non-nil, replaces dispatchRcon's transport
 	// step. Test seam only: the real transports are concrete types
 	// (ServerManager, NATS RconClient) that need live infrastructure.
@@ -141,9 +146,10 @@ func NewRouter(store *storage.Store, manager *collector.ServerManager, writer *h
 	r.mux.HandleFunc("DELETE /api/auth/cli-login", r.handleCLILogout)
 
 	// Console: (source, key)-addressed control surface for the CLI.
-	// See console.go.
+	// See console.go and console_stream.go.
 	r.mux.HandleFunc("GET /api/console/servers", r.requireAuth(r.handleConsoleServers))
 	r.mux.HandleFunc("POST /api/console/rcon", r.requireAuth(r.handleConsoleRcon))
+	r.mux.HandleFunc("GET /api/console/stream", r.requireAuth(r.handleConsoleStream))
 
 	// Game auth (public - no JWT required)
 	r.mux.HandleFunc("POST /api/auth/game-login", r.rateLimit(r.loginLimiter, r.handleGameLogin))

@@ -32,6 +32,7 @@ import (
 	"github.com/ernie/trinity-tracker/internal/assets"
 	"github.com/ernie/trinity-tracker/internal/auth"
 	"github.com/ernie/trinity-tracker/internal/collector"
+	"github.com/ernie/trinity-tracker/internal/console"
 	"github.com/ernie/trinity-tracker/internal/config"
 	"github.com/ernie/trinity-tracker/internal/directory"
 	"github.com/ernie/trinity-tracker/internal/discord"
@@ -145,6 +146,7 @@ func printUsage() {
 	fmt.Println("  logout                              Revoke and discard the stored token")
 	fmt.Println("  console                             List servers you can control")
 	fmt.Println("  console <key> [command...]          Send rcon (interactive console without command)")
+	fmt.Println("  console --follow <key>              Stream console output read-only")
 	fmt.Println("  levelshots [path]                   Extract levelshots from pk3 file(s)")
 	fmt.Println("  portraits [path]                    Extract player portraits from pk3 file(s)")
 	fmt.Println("  medals [path]                       Extract medal icons from pk3 file(s)")
@@ -533,6 +535,10 @@ func cmdServe(args []string) {
 	if cfg.Tracker.Collector.LiveRelayAddr != "" {
 		manager.SetLiveRegistry(liveReg)
 	}
+	// Console tap rings: one per server, filled by per-server tap
+	// consumers (sv_conTap discovery), served locally or via NATS lease.
+	consoleReg := console.NewRegistry()
+	manager.SetConsoleRegistry(consoleReg)
 
 	// Replay cutoff: the collector's NATS publisher watermark says,
 	// per RemoteServerID, "I have already published events on this
@@ -609,6 +615,14 @@ func cmdServe(args []string) {
 			defer rconServer.Stop()
 		}
 
+		// Console-follow leases: the hub watches, we forward ring lines
+		// while the lease lives. Same re-validation gate as rcon.
+		if fwd, err := natsbus.RegisterConsoleForwarder(collectorNC, collectorSource, consoleReg, rconHandler); err != nil {
+			log.Fatalf("Failed to register console forwarder: %v", err)
+		} else {
+			defer fwd.Stop()
+		}
+
 		// Live-spectating relay: serve in-progress matches to browsers on a
 		// delay. The Registry is populated by the match-lifecycle wiring
 		// (later plan); until then this returns 404, which is correct.
@@ -673,6 +687,14 @@ func cmdServe(args []string) {
 			log.Fatalf("Failed to create RCON client: %v", err)
 		}
 		router.SetRconClient(rconClient)
+		consoleClient, err := natsbus.NewConsoleClient(subNC)
+		if err != nil {
+			log.Fatalf("Failed to create console client: %v", err)
+		}
+		router.SetConsoleClient(consoleClient)
+	}
+	if hasCollector {
+		router.SetConsoleRegistry(consoleReg)
 	}
 	router.StartWebSocketHub()
 	log.Printf("Serving static files from %s", cfg.Server.StaticDir)

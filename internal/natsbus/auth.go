@@ -329,6 +329,8 @@ func addSourcePermissions(uc *jwt.UserClaims, sourceID string) {
 		"trinity.rpc.identity.lookup."+sourceID,
 		"trinity.rpc.source.progress."+sourceID+".>",
 		"trinity.rpc.source.progress."+sourceID,
+		// Console-follow line stream (hub-leased; see console.go).
+		ConsoleLinesSubjectPrefix+sourceID+".>",
 		// _INBOX.> lets the collector m.Respond() to a hub-issued RCON
 		// proxy request. NATS request-reply uses random reply tokens
 		// under _INBOX.<random>, so the broad rule is fine here — the
@@ -342,6 +344,8 @@ func addSourcePermissions(uc *jwt.UserClaims, sourceID string) {
 	// source so a malicious collector can't intercept requests
 	// addressed to a different source.
 	uc.Permissions.Sub.Allow.Add(RconExecSubjectPrefix + sourceID)
+	// Hub → collector console-watch lease requests.
+	uc.Permissions.Sub.Allow.Add(ConsoleWatchSubjectPrefix + sourceID)
 }
 
 func loadOrCreateSeed(path string, ctor func() (nkeys.KeyPair, error)) (nkeys.KeyPair, error) {

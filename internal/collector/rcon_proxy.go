@@ -2,6 +2,7 @@ package collector
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"github.com/ernie/trinity-tracker/internal/natsbus"
@@ -58,4 +59,22 @@ func (h *RconProxyHandler) HandleRcon(_ context.Context, req natsbus.RconExecReq
 	}
 	log.Printf("collector.rcon: %s %s ran %q on %s", req.Role, req.Username, req.Command, req.ServerKey)
 	return natsbus.RconExecReply{Output: output}
+}
+
+// AuthorizeConsole implements natsbus.ConsoleAuthorizer: console
+// viewing is gated by the same delegation flag as rcon execution
+// (viewing the console of a server you can rcon discloses nothing
+// extra).
+func (h *RconProxyHandler) AuthorizeConsole(serverKey string, role natsbus.RconRole) error {
+	switch role {
+	case natsbus.RconRoleOwner:
+		return nil
+	case natsbus.RconRoleHubAdmin:
+		if !h.manager.AdminDelegationFor(serverKey) {
+			return fmt.Errorf("admin delegation not enabled for this server")
+		}
+		return nil
+	default:
+		return fmt.Errorf("unrecognized role")
+	}
 }
