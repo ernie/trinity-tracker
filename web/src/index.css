@@ -5934,6 +5934,39 @@ h2 {
   cursor: not-allowed;
 }
 
+/* "Log out everywhere" — destructive-outline affordance set off from
+   the password CTA by a hairline rule; same shape as
+   .change-password-btn, red tint per .admin-btn-danger. */
+.logout-everywhere {
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid rgba(208, 200, 184, 0.12);
+}
+
+.logout-everywhere button {
+  padding: var(--space-2) var(--space-4);
+  background: transparent;
+  border: 1px solid rgba(233, 69, 96, 0.5);
+  color: rgb(233, 100, 120);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: "Barlow", sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+
+.logout-everywhere button:hover {
+  background: rgba(233, 69, 96, 0.15);
+  border-color: var(--red);
+  color: rgb(255, 130, 145);
+}
+
 .password-form .cancel-btn {
   padding: var(--space-2) var(--space-4);
   background: transparent;

@@ -490,9 +490,9 @@ export function AccountPage() {
               </dl>
             </section>
 
-            {/* Change Password */}
+            {/* Security: password change + session revocation */}
             <section className="account-section account-password">
-              <h2>Change Password</h2>
+              <h2>Security</h2>
               {passwordSuccess && (
                 <div className="success-message">
                   Password changed successfully!
@@ -574,7 +574,6 @@ export function AccountPage() {
                   may have leaked.
                 </p>
                 <button
-                  className="cancel-btn"
                   onClick={() => {
                     void logoutEverywhere().then(() => navigate("/"));
                   }}
