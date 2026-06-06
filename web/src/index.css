@@ -5548,6 +5548,9 @@ h2 {
   border: var(--rule-strong);
   border-radius: var(--radius-md);
   padding: var(--space-4);
+  /* min-width:auto would let unbreakable content (the nowrap hidden
+     game token) force the mobile 1fr track past the viewport. */
+  min-width: 0;
 }
 
 .account-section h2 {
