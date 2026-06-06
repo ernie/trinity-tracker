@@ -45,6 +45,11 @@ export const GLOSSARY: GlossaryEntry[] = [
       "Three places in Quake 3 use single-digit color codes that work independently and disagree about which digit means which color: the player-settings color slider, the color1/color2 cvars (and the cg_enemyColors/cg_teamColors overrides built on them), and the ^N chat / player-name escapes. See Reference · Color codes for the side-by-side translation.",
   },
   {
+    term: "Console tap",
+    definition:
+      "A live stream of the server console (sv_conTap 1) that powers trinity console <server>: remote rcon and console following for the server's operator and delegated admins, with no shell access to the game box.",
+  },
+  {
     term: "fastdl",
     definition:
       "HTTP-based fast download. A server-side nginx vhost on dl.<your-host> (provisioned by Trinity's bundled bootstrap-nginx.sh, served over HTTPS via Let's Encrypt) that delivers PK3s and TV demos so clients don't have to UDP-download them at the engine's slow built-in rate. Configured via sv_dlURL.",

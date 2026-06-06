@@ -419,6 +419,13 @@ export const VR_CVARS: CvarEntry[] = [
 // you run a Trinity server.
 export const SERVER_CVARS: CvarEntry[] = [
   {
+    name: "com_writeConfig",
+    default: "1",
+    platforms: ALL_PLATFORMS,
+    description:
+      "Write archived cvars back to q3config_server.cfg. On hosts running several server instances out of one install, the write-back makes instances inherit each other's archived values (last writer wins). trinity.cfg sets 0 so server config stays fully declarative.",
+  },
+  {
     name: "g_gameplay",
     default: "0",
     platforms: ALL_PLATFORMS,
@@ -483,6 +490,22 @@ export const SERVER_CVARS: CvarEntry[] = [
       "Required (= 1) for the server to participate in the Trinity network.",
   },
   {
+    name: "sv_conPort",
+    default: "0",
+    platforms: ALL_PLATFORMS,
+    description:
+      "The console tap's bound port, published in serverinfo so the collector discovers it automatically. Engine-set when sv_conTap is enabled.",
+    notes: "Read-only — enable the tap with sv_conTap instead.",
+  },
+  {
+    name: "sv_conTap",
+    default: "0",
+    platforms: ALL_PLATFORMS,
+    description:
+      "Give the server's operator and delegated admins a remote console: trinity console <server> sends rcon commands or follows the live console from anywhere they can log in, with no shell access to the game box.",
+    notes: "Required (= 1) for remote console access.",
+  },
+  {
     name: "sv_dlRate",
     default: "100",
     platforms: ALL_PLATFORMS,
@@ -523,6 +546,15 @@ export const SERVER_CVARS: CvarEntry[] = [
     platforms: ALL_PLATFORMS,
     description:
       "Notify clients to download TV recordings via HTTP at end of match. Requires sv_dlURL.",
+  },
+  {
+    name: "sv_tvLive",
+    default: "0",
+    platforms: ALL_PLATFORMS,
+    description:
+      "Broadcast the in-progress match to the hub for live spectating — viewers watch from the website while the match is still being played.",
+    notes:
+      "Required (= 1) for the server to participate in the Trinity network.",
   },
   {
     name: "sv_tvpath",

@@ -107,11 +107,19 @@ export function DocsServerAdmin() {
             config later.
           </p>
         </div>
-        <p>Three for wiring your collector into the hub:</p>
+        <p>Four for wiring your collector into the hub:</p>
         <ul>
           <li>
             <code>g_logSync 1</code> — flushes log writes immediately so the
             collector tails events in real time.
+          </li>
+          <li>
+            <code>sv_conTap 1</code> — gives you (and any admins you delegate) a
+            remote console for your servers:{" "}
+            <code>trinity console &lt;server&gt;</code> sends rcon commands or
+            follows the live console from anywhere you can log in, no shell
+            access to the game box needed. Stats still flow without it, but you
+            lose remote console access.
           </li>
           <li>
             <code>g_trinityHandshake 1</code> — gates the server to verified
@@ -130,13 +138,17 @@ export function DocsServerAdmin() {
           </li>
         </ul>
         <p>
-          Two more so matches played on your server are watchable through the
-          hub — network participation comes with the expectation that demos are
-          available:
+          Three more so matches played on your server are watchable through the
+          hub — network participation comes with the expectation that matches
+          can be watched, live and after the fact:
         </p>
         <ul>
           <li>
             <code>sv_tvAuto 1</code> — auto-record demos on every map load.
+          </li>
+          <li>
+            <code>sv_tvLive 1</code> — broadcast the in-progress match so
+            spectators can watch it live on the hub while it's being played.
           </li>
           <li>
             <code>sv_tvDownload 1</code> +{" "}

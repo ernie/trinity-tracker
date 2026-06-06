@@ -134,7 +134,8 @@ After confirming, the installer:
 - installs systemd units (`trinity.service`, `quake3-server@.service`,
   `quake3-servers.target`) and `/etc/logrotate.d/quake3`;
 - writes `/usr/lib/quake3/baseq3/trinity.cfg` (Trinity-required cvars
-  + recommended sv_tv* settings + the matching rcon_password) and an
+  — collector wiring, console tap, TrinityVision recording/live — plus
+  recommended tuning like the bot-match discard pair) and an
   `autoexec.cfg` that execs it (only if no autoexec.cfg exists yet);
 - writes `<key>.env` for each server (bind port + `+exec <stem>.cfg`)
   and one shared `<stem>.cfg` + `rotation.<stem>` per gametype/mod;
@@ -222,8 +223,8 @@ sudo cp /usr/lib/quake3/baseq3/tdm.cfg /usr/lib/quake3/baseq3/tdm-pro.cfg
 sudo vi /etc/trinity/tdm-2.env   # change "+exec tdm.cfg" → "+exec tdm-pro.cfg"
 ```
 
-The required Trinity cvars (`g_logSync`, `g_trinityHandshake`, your
-RCON password, sv_tv*, fast-download URL) live in
+The required Trinity cvars (`g_logSync`, `g_trinityHandshake`,
+`sv_conTap`, your RCON password, sv_tv*, fast-download URL) live in
 `/usr/lib/quake3/baseq3/trinity.cfg` (and `missionpack/trinity.cfg`
 if you have any servers running gametypes from Team Arena). Both are exec'd by the auto-generated
 `autoexec.cfg`. Change them only if you know what you're doing.
