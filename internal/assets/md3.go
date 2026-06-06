@@ -35,8 +35,11 @@ func ParseMD3Shaders(r io.ReaderAt, size int64) ([]string, error) {
 		return nil, fmt.Errorf("unsupported MD3 version: %d", version)
 	}
 
-	numSurfaces := int32(binary.LittleEndian.Uint32(header[76:80]))
-	ofsSurfaces := int64(binary.LittleEndian.Uint32(header[96:100]))
+	// md3Header_t field offsets (qfiles.h): ident 0, version 4, name 8,
+	// flags 72, numFrames 76, numTags 80, numSurfaces 84, numSkins 88,
+	// ofsFrames 92, ofsTags 96, ofsSurfaces 100, ofsEnd 104
+	numSurfaces := int32(binary.LittleEndian.Uint32(header[84:88]))
+	ofsSurfaces := int64(binary.LittleEndian.Uint32(header[100:104]))
 
 	var shaders []string
 	seen := make(map[string]bool)
@@ -58,10 +61,11 @@ func ParseMD3Shaders(r io.ReaderAt, size int64) ([]string, error) {
 			return nil, fmt.Errorf("invalid MD3 surface magic at offset %d", surfaceOfs)
 		}
 
-		numShaders := int32(binary.LittleEndian.Uint32(header[76:80]))
-		// Re-read from surface header
-		numShaders = int32(binary.LittleEndian.Uint32(surfHeader[72:76]))
-		ofsShaders := int64(binary.LittleEndian.Uint32(surfHeader[88:92]))
+		// md3Surface_t field offsets (qfiles.h): ident 0, name 4, flags 68,
+		// numFrames 72, numShaders 76, numVerts 80, numTriangles 84,
+		// ofsTriangles 88, ofsShaders 92, ofsSt 96, ofsXyzNormals 100, ofsEnd 104
+		numShaders := int32(binary.LittleEndian.Uint32(surfHeader[76:80]))
+		ofsShaders := int64(binary.LittleEndian.Uint32(surfHeader[92:96]))
 		ofsEnd := int64(binary.LittleEndian.Uint32(surfHeader[104:108]))
 
 		// Read shader entries

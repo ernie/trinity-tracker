@@ -114,8 +114,11 @@ func BuildMapPak(mapName, game string, manifest *Manifest, quake3Dir, outputPath
 }
 
 // resolveShaderTextures resolves a shader name to its texture dependencies and adds them to needed.
+// The engine strips any extension before shader lookup (R_FindShader →
+// COM_StripExtension), so an MD3 ref like "textures/x/flag_0.tga" matches
+// a shader script's "textures/x/flag_0" — mirror that here.
 func resolveShaderTextures(shaderName string, gm *GameManifest, needed map[string]bool) {
-	lower := strings.ToLower(shaderName)
+	lower := stripExtension(strings.ToLower(shaderName))
 
 	// Look up shader definition
 	if textures, ok := gm.Shaders[lower]; ok {
@@ -141,6 +144,15 @@ func resolveShaderTextures(shaderName string, gm *GameManifest, needed map[strin
 			needed[resolved] = true
 		}
 	}
+}
+
+// stripExtension removes a trailing extension, mirroring the engine's
+// COM_StripExtension (only a dot after the last slash counts).
+func stripExtension(p string) string {
+	if i := strings.LastIndexByte(p, '.'); i > strings.LastIndexByte(p, '/') {
+		return p[:i]
+	}
+	return p
 }
 
 // resolveModel resolves a model and all its shader/texture dependencies.
