@@ -87,16 +87,28 @@ export function HelpModeRoot({ children }: { children: ReactNode }) {
       }
     };
 
+    // Described elements are inspect-only: cancel activation so a tap
+    // on e.g. the LIVE pill shows its popover instead of navigating.
+    const blockActivation = (e: Event) => {
+      const target = helpTargetFrom(e);
+      if (target && root.contains(target)) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+
     root.addEventListener("mouseover", show);
     root.addEventListener("mouseout", hide);
     root.addEventListener("focusin", show);
     root.addEventListener("focusout", hide);
+    root.addEventListener("click", blockActivation, true);
     document.addEventListener("touchstart", tap, { passive: true });
     return () => {
       root.removeEventListener("mouseover", show);
       root.removeEventListener("mouseout", hide);
       root.removeEventListener("focusin", show);
       root.removeEventListener("focusout", hide);
+      root.removeEventListener("click", blockActivation, true);
       document.removeEventListener("touchstart", tap);
     };
   }, []);

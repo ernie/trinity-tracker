@@ -44,6 +44,9 @@ const STATE_HELP = `Match state.
 Or, when the server's data feed is unhealthy:
 • Stale — collector hasn't checked in recently
 • Offline — server unreachable`;
+const LIVE_HELP = `Live spectating is available — click to open the browser viewer and watch this match as it happens.
+• The small number is the current viewer count (hidden when nobody's watching)
+• The feed runs slightly behind the game; hover shows the current delay`;
 const MAP_HELP = `Map shortname (how you'd load it with /map) above the long-form name.`;
 const LIMITS_HELP = `Score limit (when set) · time / time limit.`;
 
@@ -596,6 +599,7 @@ const ServerCardImpl = memo(function ServerCardImpl({
               onClick={(e) => e.stopPropagation()}
               aria-label={watchLabel}
               title={watchLabel}
+              data-help={LIVE_HELP}
             >
               <span className="card__watch-dot" aria-hidden="true" />
               LIVE
