@@ -137,6 +137,7 @@ func NewRouter(store *storage.Store, manager *collector.ServerManager, writer *h
 	// Auth routes
 	r.mux.HandleFunc("POST /api/auth/login", r.rateLimit(r.loginLimiter, r.handleLogin))
 	r.mux.HandleFunc("POST /api/auth/logout", r.handleLogout)
+	r.mux.HandleFunc("POST /api/auth/logout-all", r.requireAuth(r.handleLogoutAll))
 	r.mux.HandleFunc("GET /api/auth/check", r.handleAuthCheck)
 	r.mux.HandleFunc("POST /api/auth/change-password", r.requireAuth(r.handleChangePassword))
 
@@ -249,7 +250,10 @@ func NewRouter(store *storage.Store, manager *collector.ServerManager, writer *h
 
 // ServeHTTP implements http.Handler
 func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	// CORS headers for API
+	// CORS headers for API. The wildcard is safe alongside cookie
+	// auth: browsers never send credentials to a wildcard origin, so
+	// cookie-authed responses can't leak cross-site — and tightening
+	// it would break PAT scripting from other origins.
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")

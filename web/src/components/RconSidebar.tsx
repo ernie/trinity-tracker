@@ -7,12 +7,12 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { ColoredText } from "./ColoredText";
+import { apiFetch } from "../authFetch";
 import { CloseIcon } from "./CloseIcon";
 import type { RconCommand, ServerStatus } from "../types";
 
 interface RconSidebarProps {
   server: ServerStatus | null;
-  token: string;
   onClose: () => void;
 }
 
@@ -23,7 +23,7 @@ const HISTORY_CAP = 200;
 // Right-side overlay drawer for RCON command execution. Shares the
 // .drawer chrome with ActivityDrawer / MyServersDrawer; mount/unmount
 // is the open/close gesture. Esc + backdrop both close.
-export function RconSidebar({ server, token, onClose }: RconSidebarProps) {
+export function RconSidebar({ server, onClose }: RconSidebarProps) {
   const [command, setCommand] = useState("");
   const [history, setHistory] = useState<RconCommand[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
@@ -63,8 +63,7 @@ export function RconSidebar({ server, token, onClose }: RconSidebarProps) {
       return;
     }
     const ctrl = new AbortController();
-    fetch(`/api/servers/${server.server_id}/rcon-status`, {
-      headers: { Authorization: `Bearer ${token}` },
+    apiFetch(`/api/servers/${server.server_id}/rcon-status`, {
       signal: ctrl.signal,
     })
       .then((res) => res.json())
@@ -76,7 +75,7 @@ export function RconSidebar({ server, token, onClose }: RconSidebarProps) {
       });
     return () => ctrl.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [server?.server_id, token]);
+  }, [server?.server_id]);
 
   // Auto-scroll to bottom when history changes
   useEffect(() => {
@@ -118,12 +117,9 @@ export function RconSidebar({ server, token, onClose }: RconSidebarProps) {
 
     const ctrl = new AbortController();
     inflightRef.current.add(ctrl);
-    fetch(`/api/servers/${server.server_id}/rcon`, {
+    apiFetch(`/api/servers/${server.server_id}/rcon`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ command: cmd }),
       signal: ctrl.signal,
     })

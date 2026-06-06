@@ -99,16 +99,9 @@ interface Props {
   servers: Server[];
   state: AdminSessionsFilterState;
   onChange: (next: AdminSessionsFilterState) => void;
-  // Player typeahead — fetches lazily via the parent's authenticated session.
-  token: string;
 }
 
-export function AdminSessionsFilters({
-  servers,
-  state,
-  onChange,
-  token,
-}: Props) {
+export function AdminSessionsFilters({ servers, state, onChange }: Props) {
   // Persist on every change. Doing it in an effect (rather than the
   // setter) avoids a double-write on the first render that hydrates
   // from localStorage.
@@ -146,7 +139,6 @@ export function AdminSessionsFilters({
           top-rule provided by .static-section--row. */}
       <div className="static-section static-section--row">
         <PlayerSection
-          token={token}
           playerId={state.playerId}
           playerLabel={state.playerLabel}
           onPick={(p) =>
@@ -283,18 +275,12 @@ function ServersSection({
 // ── Player typeahead ─────────────────────────────────────────────────
 
 interface PlayerSectionProps {
-  token: string;
   playerId: number | null;
   playerLabel: string;
   onPick: (player: PlayerProfile | null) => void;
 }
 
-function PlayerSection({
-  token,
-  playerId,
-  playerLabel,
-  onPick,
-}: PlayerSectionProps) {
+function PlayerSection({ playerId, playerLabel, onPick }: PlayerSectionProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<PlayerProfile[]>([]);
   const debounced = useDebouncedValue(query, 200);
@@ -303,7 +289,6 @@ function PlayerSection({
     if (debounced.length < 2) return;
     const ctrl = new AbortController();
     fetch(`/api/players?search=${encodeURIComponent(debounced)}&limit=10`, {
-      headers: { Authorization: `Bearer ${token}` },
       signal: ctrl.signal,
     })
       .then((res) => (res.ok ? res.json() : []))
@@ -312,7 +297,7 @@ function PlayerSection({
         /* aborted */
       });
     return () => ctrl.abort();
-  }, [debounced, token]);
+  }, [debounced]);
 
   // Hide stored results once the query is too short.
   const displayResults = debounced.length >= 2 ? results : [];

@@ -150,18 +150,24 @@ func (r *Router) handleClaimRegister(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// Generate login token
-	token, err := r.auth.GenerateToken(userID, body.Username, false, &claimCode.PlayerID, false)
+	// Log the new account in: fetch the row for its token_version,
+	// mint, and set the session cookie.
+	user, err := r.store.GetUserByID(req.Context(), userID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "account created but failed to load it")
+		return
+	}
+	token, err := r.auth.GenerateToken(user.ID, user.Username, user.IsAdmin, user.PlayerID, false, user.TokenVersion)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "account created but failed to generate token")
 		return
 	}
 
+	setSessionCookie(w, req, token)
 	writeJSON(w, http.StatusCreated, LoginResponse{
-		Token:    token,
-		Username: body.Username,
-		IsAdmin:  false,
-		PlayerID: &claimCode.PlayerID,
+		Username: user.Username,
+		IsAdmin:  user.IsAdmin,
+		PlayerID: user.PlayerID,
 	})
 }
 

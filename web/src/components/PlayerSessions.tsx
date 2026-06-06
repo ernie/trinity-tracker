@@ -3,14 +3,11 @@ import { formatDateTime, formatDuration } from "../utils/formatters";
 
 interface PlayerSessionsProps {
   playerId: number;
-  token: string;
 }
 
-export function PlayerSessions({ playerId, token }: PlayerSessionsProps) {
-  const { sessions, loading, error, hasMore, loadMore } = usePlayerSessions(
-    playerId,
-    token,
-  );
+export function PlayerSessions({ playerId }: PlayerSessionsProps) {
+  const { sessions, loading, error, hasMore, loadMore } =
+    usePlayerSessions(playerId);
 
   if (error) {
     return (

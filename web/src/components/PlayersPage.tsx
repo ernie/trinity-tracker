@@ -86,13 +86,10 @@ export function PlayersPage() {
     // visibility, so leaving stale results in state is safe — a fresh
     // fetch will overwrite when the query grows back to ≥ 2 chars.
     if (debouncedSearchQuery.trim().length < 2) return;
-    const headers: HeadersInit = {};
-    if (auth.token) headers["Authorization"] = `Bearer ${auth.token}`;
     const ctrl = new AbortController();
     fetch(
       `/api/players?search=${encodeURIComponent(debouncedSearchQuery)}&limit=10`,
       {
-        headers,
         signal: ctrl.signal,
       },
     )
@@ -102,7 +99,7 @@ export function PlayersPage() {
         /* aborted or network error */
       });
     return () => ctrl.abort();
-  }, [debouncedSearchQuery, auth.token]);
+  }, [debouncedSearchQuery, auth.isAuthenticated]);
 
   // Drill-in clears the search rail. Two signals: URL `id` change
   // covers nav/back/cross-player; `drillInVersion` covers the same-id
@@ -265,11 +262,8 @@ export function PlayersPage() {
                       </section>
                     )}
 
-                  {auth.isAdmin && auth.token && !stats.player.is_bot && (
-                    <PlayerSessions
-                      playerId={stats.player.id}
-                      token={auth.token}
-                    />
+                  {auth.isAdmin && !stats.player.is_bot && (
+                    <PlayerSessions playerId={stats.player.id} />
                   )}
 
                   <PlayerRecentMatches

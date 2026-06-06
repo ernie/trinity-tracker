@@ -325,11 +325,11 @@ export interface MatchSummary {
   gameplay?: string;
 }
 
-// Auth types
+// Auth types. The credential itself lives in an HttpOnly session
+// cookie the server manages — JS never sees it.
 export interface AuthState {
   isAuthenticated: boolean;
   username: string | null;
-  token: string | null;
   isAdmin: boolean;
   playerId: number | null;
   passwordChangeRequired: boolean;

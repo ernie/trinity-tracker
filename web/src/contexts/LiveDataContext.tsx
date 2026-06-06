@@ -802,16 +802,14 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
     });
   }, [activityDrawerOpen, wsSend]);
 
-  // Periodic /api/servers fetch (auth-aware: re-runs on token change so
-  // manageable_by_me reflects current login state).
+  // Periodic /api/servers fetch (auth-aware: re-runs on login/logout so
+  // manageable_by_me reflects current state; the session cookie rides
+  // along on its own).
   useEffect(() => {
     let cancelled = false;
     async function fetchServers(initial: boolean) {
       try {
-        const headers: HeadersInit = auth.token
-          ? { Authorization: `Bearer ${auth.token}` }
-          : {};
-        const res = await fetch("/api/servers", { headers });
+        const res = await fetch("/api/servers");
         const serverList: Server[] = await res.json();
         if (cancelled) return;
 
@@ -871,7 +869,7 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [auth.token]);
+  }, [auth.isAuthenticated]);
 
   // Forced password change — surfaces regardless of route.
   useEffect(() => {

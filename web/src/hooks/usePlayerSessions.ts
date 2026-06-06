@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { apiFetch } from "../authFetch";
 import type { PlayerSession } from "../types";
 
 interface UsePlayerSessionsResult {
@@ -11,7 +12,6 @@ interface UsePlayerSessionsResult {
 
 export function usePlayerSessions(
   playerId: number | undefined,
-  token: string | null,
 ): UsePlayerSessionsResult {
   const [sessions, setSessions] = useState<PlayerSession[]>([]);
   const [loading, setLoading] = useState(false);
@@ -20,7 +20,7 @@ export function usePlayerSessions(
 
   const fetchSessions = useCallback(
     async (beforeId?: number) => {
-      if (!playerId || !token) {
+      if (!playerId) {
         setSessions([]);
         return;
       }
@@ -34,11 +34,7 @@ export function usePlayerSessions(
           url += `&before=${beforeId}`;
         }
 
-        const res = await fetch(url, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        const res = await apiFetch(url);
 
         if (!res.ok) {
           if (res.status === 401) {
@@ -72,11 +68,11 @@ export function usePlayerSessions(
         setLoading(false);
       }
     },
-    [playerId, token],
+    [playerId],
   );
 
   useEffect(() => {
-    // Reset on player/token change so a new caller doesn't briefly see
+    // Reset on player change so a new caller doesn't briefly see
     // the previous player's sessions while the next page is in flight.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSessions([]);

@@ -8,14 +8,15 @@ import {
   type ReactNode,
 } from "react";
 import type { AuthState, LoginCredentials } from "../types";
-
-const TOKEN_KEY = "q3a_auth_token";
+import { AUTH_EXPIRED_EVENT } from "../authFetch";
 
 interface AuthContextType {
   auth: AuthState;
   loading: boolean;
   login: (credentials: LoginCredentials) => Promise<boolean>;
-  logout: () => void;
+  logout: () => Promise<void>;
+  logoutEverywhere: () => Promise<void>;
+  refresh: () => Promise<void>;
   changePassword: (
     currentPassword: string,
     newPassword: string,
@@ -36,55 +37,59 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+const loggedOut: AuthState = {
+  isAuthenticated: false,
+  username: null,
+  isAdmin: false,
+  playerId: null,
+  passwordChangeRequired: false,
+};
+
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [auth, setAuth] = useState<AuthState>({
-    isAuthenticated: false,
-    username: null,
-    token: null,
-    isAdmin: false,
-    playerId: null,
-    passwordChangeRequired: false,
-  });
+  const [auth, setAuth] = useState<AuthState>(loggedOut);
   const [loading, setLoading] = useState(true);
 
-  // Check existing token on mount
+  // Derive auth state from the server; the HttpOnly session cookie
+  // rides along on its own. Promise-chain form: every setState lives
+  // in a callback, never in the synchronous body.
+  const refresh = useCallback(
+    (): Promise<void> =>
+      fetch("/api/auth/check")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.authenticated) {
+            setAuth({
+              isAuthenticated: true,
+              username: data.username,
+              isAdmin: data.is_admin || false,
+              playerId: data.player_id || null,
+              passwordChangeRequired: data.password_change_required || false,
+            });
+          } else {
+            setAuth(loggedOut);
+          }
+        })
+        .catch(() => {
+          setAuth(loggedOut);
+        })
+        .finally(() => {
+          setLoading(false);
+        }),
+    [],
+  );
+
+  // Check the session on mount, and re-check whenever an apiFetch
+  // sees a 401 (session revoked mid-use from another device).
   useEffect(() => {
-    const token = localStorage.getItem(TOKEN_KEY);
-    if (!token) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setLoading(false);
-      return;
-    }
-    let cancelled = false;
-    fetch("/api/auth/check", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (cancelled) return;
-        if (data.authenticated) {
-          setAuth({
-            isAuthenticated: true,
-            username: data.username,
-            token,
-            isAdmin: data.is_admin || false,
-            playerId: data.player_id || null,
-            passwordChangeRequired: data.password_change_required || false,
-          });
-        } else {
-          localStorage.removeItem(TOKEN_KEY);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) localStorage.removeItem(TOKEN_KEY);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
+    refresh();
+    const onExpired = () => {
+      refresh();
     };
-  }, []);
+    window.addEventListener(AUTH_EXPIRED_EVENT, onExpired);
+    return () => {
+      window.removeEventListener(AUTH_EXPIRED_EVENT, onExpired);
+    };
+  }, [refresh]);
 
   const login = useCallback(
     async (credentials: LoginCredentials): Promise<boolean> => {
@@ -98,11 +103,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (!res.ok) return false;
 
         const data = await res.json();
-        localStorage.setItem(TOKEN_KEY, data.token);
         setAuth({
           isAuthenticated: true,
           username: data.username,
-          token: data.token,
           isAdmin: data.is_admin || false,
           playerId: data.player_id || null,
           passwordChangeRequired: data.password_change_required || false,
@@ -115,16 +118,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
     [],
   );
 
-  const logout = useCallback(() => {
-    localStorage.removeItem(TOKEN_KEY);
-    setAuth({
-      isAuthenticated: false,
-      username: null,
-      token: null,
-      isAdmin: false,
-      playerId: null,
-      passwordChangeRequired: false,
-    });
+  // The server must expire the cookie (HttpOnly — JS can't). State
+  // clears regardless of the request's fate.
+  const logout = useCallback(async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } finally {
+      setAuth(loggedOut);
+    }
+  }, []);
+
+  // Bumps the account's token version: every session on every device
+  // dies, unlike plain logout (this device only).
+  const logoutEverywhere = useCallback(async () => {
+    try {
+      await fetch("/api/auth/logout-all", { method: "POST" });
+    } finally {
+      setAuth(loggedOut);
+    }
   }, []);
 
   const changePassword = useCallback(
@@ -135,10 +146,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       try {
         const res = await fetch("/api/auth/change-password", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${auth.token}`,
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             current_password: currentPassword,
             new_password: newPassword,
@@ -153,24 +161,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
           };
         }
 
-        // Update token after password change
-        if (data.token) {
-          localStorage.setItem(TOKEN_KEY, data.token);
-          setAuth((prev) => ({
-            ...prev,
-            token: data.token,
-            passwordChangeRequired: false,
-          }));
-        }
+        // Server re-issued this device's session cookie with the
+        // bumped token version; other devices are logged out.
+        setAuth((prev) => ({ ...prev, passwordChangeRequired: false }));
         return { success: true };
       } catch {
         return { success: false, error: "Network error" };
       }
     },
-    [auth.token],
+    [],
   );
 
-  const value = { auth, loading, login, logout, changePassword };
+  const value = {
+    auth,
+    loading,
+    login,
+    logout,
+    logoutEverywhere,
+    refresh,
+    changePassword,
+  };
 
   return createElement(AuthContext.Provider, { value }, children);
 }

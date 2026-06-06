@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { NavLink, Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { NavScroller } from "../NavScroller";
+import { apiFetch } from "../../authFetch";
 
 const ADMIN_TABS = [
   { path: "users", label: "Users" },
@@ -16,12 +17,10 @@ export function AdminPage() {
   const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
-    if (!auth.isAuthenticated || !auth.isAdmin || !auth.token) return;
+    if (!auth.isAuthenticated || !auth.isAdmin) return;
     let cancelled = false;
     const tick = () => {
-      fetch("/api/admin/sources/pending", {
-        headers: { Authorization: `Bearer ${auth.token}` },
-      })
+      apiFetch("/api/admin/sources/pending")
         .then((r) => (r.ok ? r.json() : []))
         .then((rows: unknown[]) => {
           if (!cancelled)
@@ -35,7 +34,7 @@ export function AdminPage() {
       cancelled = true;
       clearInterval(id);
     };
-  }, [auth.isAuthenticated, auth.isAdmin, auth.token]);
+  }, [auth.isAuthenticated, auth.isAdmin]);
 
   if (loading) {
     return (

@@ -30,7 +30,6 @@ export function PlayPage() {
           statusEl: statusRef.current!,
           enginePath: "/engine/",
           configUrl: "/engine/client-config.json",
-          authToken: auth.token ?? undefined,
           extraArgs: `+set r_mode -1 +set r_customwidth ${Math.round(rect.width * dpr)} +set r_customheight ${Math.round(rect.height * dpr)}`,
           onProgress: (loaded: number, total: number) =>
             setProgress({ loaded, total }),
@@ -81,7 +80,7 @@ export function PlayPage() {
         moduleRef.current = null;
       }
     };
-  }, [auth.isAdmin, auth.token, authLoading]);
+  }, [auth.isAdmin, authLoading]);
 
   // Re-initialize video on resize so the framebuffer matches the CSS box
   useEffect(() => {

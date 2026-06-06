@@ -16,6 +16,7 @@ import { DownloadIcon } from "./DownloadIcon";
 import { useMapMeta } from "../hooks/useMapMeta";
 import { useSources } from "../hooks/useSources";
 import { useAuth } from "../hooks/useAuth";
+import { apiFetch } from "../authFetch";
 
 export function formatDuration(startedAt: string, endedAt: string): string {
   const start = new Date(startedAt);
@@ -175,14 +176,13 @@ export function MatchCard({
   const toggleFeatured = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!auth.token || featurePending) return;
+    if (featurePending) return;
     const next = !isFeatured;
     setFeaturePending(true);
     setIsFeatured(next);
     try {
-      const res = await fetch(`/api/admin/matches/${match.id}/feature`, {
+      const res = await apiFetch(`/api/admin/matches/${match.id}/feature`, {
         method: next ? "POST" : "DELETE",
-        headers: { Authorization: `Bearer ${auth.token}` },
       });
       if (!res.ok) setIsFeatured(!next);
     } catch {

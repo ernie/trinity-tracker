@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
+import { apiFetch } from "../../authFetch";
 import { ColoredText } from "../ColoredText";
 
 export interface UserOption {
@@ -10,7 +11,6 @@ export interface UserOption {
 }
 
 interface Props {
-  token: string;
   selected: UserOption | null;
   onChange: (user: UserOption | null) => void;
   placeholder?: string;
@@ -22,7 +22,6 @@ interface Props {
 }
 
 export function UserPicker({
-  token,
   selected,
   onChange,
   placeholder = "Search users…",
@@ -46,8 +45,7 @@ export function UserPicker({
       return;
     }
     const ctrl = new AbortController();
-    fetch(`/api/users?search=${encodeURIComponent(debounced)}&limit=10`, {
-      headers: { Authorization: `Bearer ${token}` },
+    apiFetch(`/api/users?search=${encodeURIComponent(debounced)}&limit=10`, {
       signal: ctrl.signal,
     })
       .then((res) => (res.ok ? res.json() : []))
@@ -56,7 +54,7 @@ export function UserPicker({
         /* aborted or network error — leave previous results in place */
       });
     return () => ctrl.abort();
-  }, [debounced, token, selected]);
+  }, [debounced, selected]);
 
   // Hide stored results when the query is too short, or when the
   // current input already matches the picked user's name (otherwise

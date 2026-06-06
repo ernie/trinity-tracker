@@ -134,10 +134,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   useEffect(() => {
     if (!open || debounced.trim().length < 2) return;
     const ctrl = new AbortController();
-    const headers: HeadersInit = {};
-    if (auth.token) headers["Authorization"] = `Bearer ${auth.token}`;
     fetch(`/api/players?search=${encodeURIComponent(debounced)}&limit=8`, {
-      headers,
       signal: ctrl.signal,
     })
       .then((r) => (r.ok ? r.json() : []))
@@ -146,7 +143,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         /* aborted or network error */
       });
     return () => ctrl.abort();
-  }, [debounced, open, auth.token]);
+  }, [debounced, open, auth.isAuthenticated]);
 
   // Build the result list: static items filtered by query, plus live
   // player results. Each item belongs to a group for visual sectioning.

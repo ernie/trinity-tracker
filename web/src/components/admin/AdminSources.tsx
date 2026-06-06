@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { useAuth } from "../../hooks/useAuth";
 import { heartbeatHealth, healthLabel } from "../../utils/sourceHealth";
 import type { PendingRequest } from "../../types";
 import { UserPicker, type UserOption } from "./UserPicker";
+import { apiFetch } from "../../authFetch";
 
 type ApprovedSourceServer = {
   id: number;
@@ -27,9 +27,6 @@ type ApprovedSource = {
 const SOURCE_NAME_PATTERN = /^[A-Za-z0-9_-]+$/;
 
 export function AdminSources() {
-  const { auth } = useAuth();
-  const token = auth.token!;
-
   const [approved, setApproved] = useState<ApprovedSource[]>([]);
   const [pending, setPending] = useState<PendingRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,9 +50,7 @@ export function AdminSources() {
 
   const fetchAll = useCallback(async () => {
     try {
-      const res = await fetch("/api/admin/sources", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await apiFetch("/api/admin/sources");
       if (!res.ok) throw new Error(`sources: ${res.status}`);
       setApproved((await res.json()) ?? []);
       setError("");
@@ -64,20 +59,18 @@ export function AdminSources() {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, []);
 
   const fetchPending = useCallback(async () => {
     try {
-      const res = await fetch("/api/admin/sources/pending", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await apiFetch("/api/admin/sources/pending");
       if (!res.ok) throw new Error(`pending: ${res.status}`);
       setPending((await res.json()) ?? []);
     } catch (e) {
       // Non-fatal: leave existing pending list, surface in error banner.
       setError(`Failed to load pending requests: ${(e as Error).message}`);
     }
-  }, [token]);
+  }, []);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -94,11 +87,10 @@ export function AdminSources() {
     setError("");
     setNotice("");
     try {
-      const res = await fetch(
+      const res = await apiFetch(
         `/api/admin/sources/${encodeURIComponent(req.source)}/approve`,
         {
           method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
         },
       );
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
@@ -113,14 +105,11 @@ export function AdminSources() {
     setError("");
     setNotice("");
     try {
-      const res = await fetch(
+      const res = await apiFetch(
         `/api/admin/sources/${encodeURIComponent(req.source)}/reject`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ reason }),
         },
       );
@@ -142,14 +131,11 @@ export function AdminSources() {
     setError("");
     setNotice("");
     try {
-      const res = await fetch(
+      const res = await apiFetch(
         `/api/admin/sources/${encodeURIComponent(req.source)}/rename`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name: newName }),
         },
       );
@@ -195,12 +181,9 @@ export function AdminSources() {
     }
     setCreating(true);
     try {
-      const res = await fetch("/api/admin/sources", {
+      const res = await apiFetch("/api/admin/sources", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           source: newSourceTrimmed,
           owner_user_id: selectedOwner.id,
@@ -230,11 +213,10 @@ export function AdminSources() {
     setError("");
     setNotice("");
     try {
-      const res = await fetch(
+      const res = await apiFetch(
         `/api/admin/sources/${encodeURIComponent(source.source)}/deactivate`,
         {
           method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
         },
       );
       if (!res.ok) {
@@ -254,14 +236,11 @@ export function AdminSources() {
     setError("");
     setNotice("");
     try {
-      const res = await fetch(
+      const res = await apiFetch(
         `/api/admin/sources/${encodeURIComponent(source.source)}/owner`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ owner_user_id: newOwner.id }),
         },
       );
@@ -289,11 +268,10 @@ export function AdminSources() {
     setError("");
     setNotice("");
     try {
-      const res = await fetch(
+      const res = await apiFetch(
         `/api/admin/sources/${encodeURIComponent(source.source)}/reactivate`,
         {
           method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
         },
       );
       if (!res.ok) {
@@ -319,11 +297,10 @@ export function AdminSources() {
     setError("");
     setNotice("");
     try {
-      const res = await fetch(
+      const res = await apiFetch(
         `/api/admin/sources/${encodeURIComponent(source.source)}/rotate-creds`,
         {
           method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
         },
       );
       if (!res.ok) {
@@ -341,11 +318,9 @@ export function AdminSources() {
   const downloadExisting = async (source: ApprovedSource) => {
     setError("");
     try {
-      const res = await fetch(
+      const res = await apiFetch(
         `/api/admin/sources/${encodeURIComponent(source.source)}/creds`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
+        {},
       );
       if (!res.ok) {
         throw new Error(`${res.status} ${res.statusText}`);
@@ -426,7 +401,6 @@ export function AdminSources() {
           <div className="form-group">
             <label htmlFor="new-source-owner">Owner</label>
             <UserPicker
-              token={token}
               selected={selectedOwner}
               onChange={setSelectedOwner}
               placeholder="Search users by name or linked player…"
@@ -515,7 +489,6 @@ export function AdminSources() {
                             }}
                           >
                             <UserPicker
-                              token={token}
                               selected={transferTo}
                               onChange={setTransferTo}
                               placeholder="Search users…"

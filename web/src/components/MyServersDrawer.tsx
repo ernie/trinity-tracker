@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { useAuth } from "../hooks/useAuth";
+import { apiFetch } from "../authFetch";
 import { heartbeatHealth, healthLabel, timeAgo } from "../utils/sourceHealth";
 import { StatusDot } from "./StatusDot";
 import { CloseIcon } from "./CloseIcon";
@@ -83,8 +83,6 @@ interface SourceCardProps {
 }
 
 function SourceCard({ src, onUpdated }: SourceCardProps) {
-  const { auth } = useAuth();
-  const token = auth.token!;
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -92,11 +90,8 @@ function SourceCard({ src, onUpdated }: SourceCardProps) {
     setBusy("download");
     setError(null);
     try {
-      const r = await fetch(
+      const r = await apiFetch(
         `/api/sources/mine/${encodeURIComponent(src.source)}/creds`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
       );
       if (!r.ok) throw new Error((await r.text()) || `HTTP ${r.status}`);
       saveBlob(await r.blob(), `${src.source}.creds`);
@@ -118,9 +113,9 @@ function SourceCard({ src, onUpdated }: SourceCardProps) {
     setBusy("rotate");
     setError(null);
     try {
-      const r = await fetch(
+      const r = await apiFetch(
         `/api/sources/mine/${encodeURIComponent(src.source)}/rotate-creds`,
-        { method: "POST", headers: { Authorization: `Bearer ${token}` } },
+        { method: "POST" },
       );
       if (!r.ok) throw new Error((await r.text()) || `HTTP ${r.status}`);
       saveBlob(await r.blob(), `${src.source}.creds`);
@@ -143,9 +138,9 @@ function SourceCard({ src, onUpdated }: SourceCardProps) {
     setBusy("leave");
     setError(null);
     try {
-      const r = await fetch(
+      const r = await apiFetch(
         `/api/sources/mine/${encodeURIComponent(src.source)}/leave`,
-        { method: "POST", headers: { Authorization: `Bearer ${token}` } },
+        { method: "POST" },
       );
       if (!r.ok) throw new Error((await r.text()) || `HTTP ${r.status}`);
       onUpdated();
@@ -298,7 +293,6 @@ function RequestForm({
   rejectionReason,
   onSubmitted,
 }: RequestFormProps) {
-  const { auth } = useAuth();
   const [expanded, setExpanded] = useState(startExpanded);
   const [name, setName] = useState(initial?.name ?? "");
   const [purpose, setPurpose] = useState(initial?.purpose ?? "");
@@ -318,12 +312,9 @@ function RequestForm({
     }
     setSubmitting(true);
     try {
-      const r = await fetch("/api/sources/request", {
+      const r = await apiFetch("/api/sources/request", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${auth.token}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, purpose }),
       });
       if (!r.ok) {

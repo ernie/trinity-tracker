@@ -1563,6 +1563,10 @@ type User struct {
 	// the account. Rows are never hard-deleted once source_audit
 	// references them — disable instead.
 	DisabledAt *time.Time
+	// TokenVersion is stamped into web JWTs at mint; a mismatch on
+	// validation means the token was revoked (password change or
+	// logout-all). PATs don't carry it.
+	TokenVersion int64
 }
 
 func (s *Store) SetUserDisplayName(ctx context.Context, userID int64, displayName string) error {
@@ -1679,7 +1683,7 @@ func (s *Store) CreateUser(ctx context.Context, username, passwordHash string, i
 // GetUserByUsername retrieves a user by username
 func (s *Store) GetUserByUsername(ctx context.Context, username string) (*User, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, username, password_hash, is_admin, player_id, password_change_required, created_at, last_login, game_token, display_name, disabled_at
+		SELECT id, username, password_hash, is_admin, player_id, password_change_required, created_at, last_login, game_token, display_name, disabled_at, token_version
 		FROM users WHERE username = ?
 	`, username)
 	return scanUser(row)
@@ -1688,7 +1692,7 @@ func (s *Store) GetUserByUsername(ctx context.Context, username string) (*User, 
 // GetUserByID retrieves a user by ID
 func (s *Store) GetUserByID(ctx context.Context, id int64) (*User, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, username, password_hash, is_admin, player_id, password_change_required, created_at, last_login, game_token, display_name, disabled_at
+		SELECT id, username, password_hash, is_admin, player_id, password_change_required, created_at, last_login, game_token, display_name, disabled_at, token_version
 		FROM users WHERE id = ?
 	`, id)
 	return scanUser(row)
@@ -1710,7 +1714,7 @@ func (s *Store) DeleteUser(ctx context.Context, username string) error {
 // ListUsers returns all users with details
 func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, username, password_hash, is_admin, player_id, password_change_required, created_at, last_login, game_token, display_name, disabled_at
+		SELECT id, username, password_hash, is_admin, player_id, password_change_required, created_at, last_login, game_token, display_name, disabled_at, token_version
 		FROM users ORDER BY username
 	`)
 	if err != nil {
@@ -1863,10 +1867,12 @@ func (s *Store) UpdateUserLastLogin(ctx context.Context, userID int64) error {
 	return err
 }
 
-// UpdateUserPassword updates a user's password and clears the password_change_required flag
+// UpdateUserPassword updates a user's password and clears the password_change_required flag.
+// Any password-hash write bumps token_version: every outstanding web
+// JWT for the user dies (the panic lever for an exfiltrated token).
 func (s *Store) UpdateUserPassword(ctx context.Context, userID int64, newPasswordHash string) error {
 	_, err := s.db.ExecContext(ctx, `
-		UPDATE users SET password_hash = ?, password_change_required = FALSE WHERE id = ?
+		UPDATE users SET password_hash = ?, password_change_required = FALSE, token_version = token_version + 1 WHERE id = ?
 	`, newPasswordHash, userID)
 	return err
 }
@@ -1874,8 +1880,17 @@ func (s *Store) UpdateUserPassword(ctx context.Context, userID int64, newPasswor
 // ResetUserPassword sets a new temporary password (admin action)
 func (s *Store) ResetUserPassword(ctx context.Context, userID int64, newPasswordHash string) error {
 	_, err := s.db.ExecContext(ctx, `
-		UPDATE users SET password_hash = ?, password_change_required = TRUE WHERE id = ?
+		UPDATE users SET password_hash = ?, password_change_required = TRUE, token_version = token_version + 1 WHERE id = ?
 	`, newPasswordHash, userID)
+	return err
+}
+
+// BumpUserTokenVersion revokes all of a user's outstanding web JWTs
+// ("log out everywhere"). PATs are unaffected.
+func (s *Store) BumpUserTokenVersion(ctx context.Context, userID int64) error {
+	_, err := s.db.ExecContext(ctx, `
+		UPDATE users SET token_version = token_version + 1 WHERE id = ?
+	`, userID)
 	return err
 }
 

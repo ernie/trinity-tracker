@@ -276,8 +276,8 @@ func (a *Answers) ToConfig() *config.Config {
 		// wizard and pinned in config.yml so re-applies don't
 		// invalidate every existing auth token. Without it, the hub
 		// signs JWTs with an empty secret — i.e. forgeable tokens.
-		// TokenDuration is left zero on purpose; config.Load applies
-		// the 24h default on round-trip.
+		// TokenDuration is left zero on purpose: no JWT expiry —
+		// session lifetime is governed by users.token_version.
 		cfg.Auth = &config.AuthConfig{JWTSecret: a.JWTSecret}
 		if a.DiscordEnabled {
 			// Categories left empty so the discord-digest subcommand

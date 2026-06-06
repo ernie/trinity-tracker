@@ -65,7 +65,7 @@ func scanUser(s scanner) (*User, error) {
 	var displayName sql.NullString
 	var disabledAt sql.NullTime
 	err := s.Scan(&user.ID, &user.Username, &user.PasswordHash, &user.IsAdmin,
-		&playerID, &user.PasswordChangeRequired, &user.CreatedAt, &lastLogin, &user.GameToken, &displayName, &disabledAt)
+		&playerID, &user.PasswordChangeRequired, &user.CreatedAt, &lastLogin, &user.GameToken, &displayName, &disabledAt, &user.TokenVersion)
 	if err != nil {
 		return nil, err
 	}

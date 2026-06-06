@@ -110,7 +110,7 @@ func (tr *testRouter) loginAs(t *testing.T, username string, isAdmin bool) (toke
 	if err != nil {
 		t.Fatalf("get user: %v", err)
 	}
-	tok, err := tr.auth.GenerateToken(user.ID, user.Username, user.IsAdmin, user.PlayerID, false)
+	tok, err := tr.auth.GenerateToken(user.ID, user.Username, user.IsAdmin, user.PlayerID, false, user.TokenVersion)
 	if err != nil {
 		t.Fatalf("token: %v", err)
 	}

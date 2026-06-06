@@ -365,9 +365,9 @@ func Load(path string) (*Config, error) {
 		if cfg.Auth == nil {
 			cfg.Auth = &AuthConfig{}
 		}
-		if cfg.Auth.TokenDuration == 0 {
-			cfg.Auth.TokenDuration = 24 * time.Hour
-		}
+		// No TokenDuration default: absent means no JWT expiry — web
+		// session lifetime is governed by users.token_version. Setting
+		// a duration is belt-and-suspenders for operators who want it.
 	}
 	if err := validateTracker(cfg.Tracker); err != nil {
 		return nil, err

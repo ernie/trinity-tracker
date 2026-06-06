@@ -205,7 +205,12 @@ CREATE TABLE IF NOT EXISTS users (
     -- never hard-deleted once referenced by source_audit — disable
     -- instead. Existing installs: ALTER TABLE users ADD COLUMN
     -- disabled_at TIMESTAMP; before deploying this schema.
-    disabled_at TIMESTAMP
+    disabled_at TIMESTAMP,
+    -- Web-session revocation: JWTs carry this at mint and die when it
+    -- no longer matches (bumped on any password-hash write and by
+    -- logout-all). PATs are unaffected. See
+    -- migrations/2026-06-05-users-token-version.sql for existing installs.
+    token_version INTEGER NOT NULL DEFAULT 1
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);

@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { useAuth } from "../../hooks/useAuth";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import { BotBadge } from "../BotBadge";
 import { ColoredText } from "../ColoredText";
@@ -9,11 +8,9 @@ import { PlayerPortrait } from "../PlayerPortrait";
 import { formatDate, formatDuration } from "../../utils/formatters";
 import { stripVRPrefix } from "../../utils";
 import type { PlayerProfile, PlayerGUID } from "../../types";
+import { apiFetch } from "../../authFetch";
 
 export function AdminPlayers() {
-  const { auth } = useAuth();
-  const token = auth.token!;
-
   // Player search (target selection) — fires automatically as the admin types.
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<PlayerProfile[]>([]);
@@ -32,15 +29,12 @@ export function AdminPlayers() {
   const [splitting, setSplitting] = useState<number | null>(null);
   const [error, setError] = useState("");
 
-  const headers = { Authorization: `Bearer ${token}` };
-
   useEffect(() => {
     if (debouncedSearchQuery.trim().length < 2) return;
     const ctrl = new AbortController();
-    fetch(
+    apiFetch(
       `/api/players?search=${encodeURIComponent(debouncedSearchQuery)}&limit=10`,
       {
-        headers: { Authorization: `Bearer ${token}` },
         signal: ctrl.signal,
       },
     )
@@ -50,25 +44,21 @@ export function AdminPlayers() {
         /* aborted or network error */
       });
     return () => ctrl.abort();
-  }, [debouncedSearchQuery, token]);
+  }, [debouncedSearchQuery]);
 
   // Hide stored results once the query is too short — store keeps the
   // last fetch's data so a fresh ≥2-char query overwrites cleanly.
   const displaySearchResults =
     debouncedSearchQuery.trim().length >= 2 ? searchResults : [];
 
-  const fetchGuids = useCallback(
-    (playerId: number) => {
-      setLoadingGuids(true);
-      fetch(`/api/players/${playerId}/guids`, { headers })
-        .then((res) => (res.ok ? res.json() : []))
-        .then((data) => setGuids(data || []))
-        .catch(() => setGuids([]))
-        .finally(() => setLoadingGuids(false));
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [token],
-  );
+  const fetchGuids = useCallback((playerId: number) => {
+    setLoadingGuids(true);
+    apiFetch(`/api/players/${playerId}/guids`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => setGuids(data || []))
+      .catch(() => setGuids([]))
+      .finally(() => setLoadingGuids(false));
+  }, []);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -88,10 +78,9 @@ export function AdminPlayers() {
   useEffect(() => {
     if (!selected || debouncedMergeQuery.trim().length < 2) return;
     const ctrl = new AbortController();
-    fetch(
+    apiFetch(
       `/api/players?search=${encodeURIComponent(debouncedMergeQuery)}&limit=10`,
       {
-        headers: { Authorization: `Bearer ${token}` },
         signal: ctrl.signal,
       },
     )
@@ -104,7 +93,7 @@ export function AdminPlayers() {
         /* aborted or network error */
       });
     return () => ctrl.abort();
-  }, [debouncedMergeQuery, selected, token]);
+  }, [debouncedMergeQuery, selected]);
 
   // Hide stored merge results when no player is selected or the merge
   // query is too short — fresh fetches overwrite when both are valid.
@@ -124,9 +113,9 @@ export function AdminPlayers() {
     setMerging(true);
     setError("");
     try {
-      const res = await fetch(`/api/admin/players/${selected.id}/merge`, {
+      const res = await apiFetch(`/api/admin/players/${selected.id}/merge`, {
         method: "POST",
-        headers: { ...headers, "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ merge_player_id: mergePlayerId }),
       });
       if (!res.ok) {
@@ -149,9 +138,8 @@ export function AdminPlayers() {
     setSplitting(guidId);
     setError("");
     try {
-      const res = await fetch(`/api/admin/guids/${guidId}/split`, {
+      const res = await apiFetch(`/api/admin/guids/${guidId}/split`, {
         method: "POST",
-        headers,
       });
       if (!res.ok) {
         const data = await res.json();

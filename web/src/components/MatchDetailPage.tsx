@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { MatchCard } from "./MatchCard";
 import { Breadcrumbs } from "./Breadcrumbs";
 import { useAuth } from "../hooks/useAuth";
+import { apiFetch } from "../authFetch";
 import { useLiveData } from "../contexts/LiveDataContext";
 import { formatExitReason } from "./cards/format";
 import { StarIcon } from "./StarIcon";
@@ -55,13 +56,12 @@ export function MatchDetailPage() {
   const loading = !match && !error;
 
   const toggleFeatured = async () => {
-    if (!match || !auth.token) return;
+    if (!match) return;
     const next = !match.is_featured;
     setFeaturePending(true);
     try {
-      const res = await fetch(`/api/admin/matches/${match.id}/feature`, {
+      const res = await apiFetch(`/api/admin/matches/${match.id}/feature`, {
         method: next ? "POST" : "DELETE",
-        headers: { Authorization: `Bearer ${auth.token}` },
       });
       if (!res.ok) {
         console.error("Feature toggle failed:", res.status);

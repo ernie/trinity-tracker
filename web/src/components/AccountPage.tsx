@@ -10,6 +10,7 @@ import { HonorsPanel } from "./HonorsPanel";
 import { PlayerRecentMatches } from "./PlayerRecentMatches";
 import { PeriodSelector } from "./PeriodSelector";
 import { useAuth } from "../hooks/useAuth";
+import { apiFetch } from "../authFetch";
 import { usePlayerStats } from "../hooks/usePlayerStats";
 import { formatDate, formatDateTime } from "../utils/formatters";
 import { stripVRPrefix, canonicalizeDisplayName } from "../utils";
@@ -17,7 +18,12 @@ import type { AccountProfile, TimePeriod } from "../types";
 
 export function AccountPage() {
   const navigate = useNavigate();
-  const { auth, loading: authLoading, changePassword } = useAuth();
+  const {
+    auth,
+    loading: authLoading,
+    changePassword,
+    logoutEverywhere,
+  } = useAuth();
 
   const [profile, setProfile] = useState<AccountProfile | null>(null);
   const [period, setPeriod] = useState<TimePeriod>("all");
@@ -82,12 +88,9 @@ export function AccountPage() {
     setSavingDisplayName(true);
     setDisplayNameError("");
     try {
-      const res = await fetch("/api/account/display-name", {
+      const res = await apiFetch("/api/account/display-name", {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${auth.token}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ display_name: displayNameValidation.cleaned }),
       });
       if (!res.ok) {
@@ -96,9 +99,7 @@ export function AccountPage() {
         return;
       }
       setEditingDisplayName(false);
-      const profileRes = await fetch("/api/account/profile", {
-        headers: { Authorization: `Bearer ${auth.token}` },
-      });
+      const profileRes = await apiFetch("/api/account/profile");
       if (profileRes.ok) {
         setProfile(await profileRes.json());
       }
@@ -119,15 +120,11 @@ export function AccountPage() {
 
   // Fetch profile on mount
   useEffect(() => {
-    if (!auth.token) return;
+    if (!auth.isAuthenticated) return;
 
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
-    fetch("/api/account/profile", {
-      headers: {
-        Authorization: `Bearer ${auth.token}`,
-      },
-    })
+    apiFetch("/api/account/profile")
       .then((res) => {
         if (!res.ok) throw new Error("Failed to load profile");
         return res.json();
@@ -135,7 +132,7 @@ export function AccountPage() {
       .then((data) => setProfile(data))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [auth.token]);
+  }, [auth.isAuthenticated]);
 
   // Link code countdown timer
   useEffect(() => {
@@ -167,15 +164,11 @@ export function AccountPage() {
 
   // Fetch game token on mount
   useEffect(() => {
-    if (!auth.token) return;
+    if (!auth.isAuthenticated) return;
 
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setGameTokenLoading(true);
-    fetch("/api/auth/game-token", {
-      headers: {
-        Authorization: `Bearer ${auth.token}`,
-      },
-    })
+    apiFetch("/api/auth/game-token")
       .then((res) => {
         if (!res.ok) throw new Error("Failed to load game token");
         return res.json();
@@ -183,7 +176,7 @@ export function AccountPage() {
       .then((data) => setGameToken(data.token))
       .catch((err) => setGameTokenError(err.message))
       .finally(() => setGameTokenLoading(false));
-  }, [auth.token]);
+  }, [auth.isAuthenticated]);
 
   const handleCopyToken = async () => {
     if (!gameToken) return;
@@ -197,18 +190,13 @@ export function AccountPage() {
   };
 
   const handleRotateToken = async () => {
-    if (!auth.token) return;
-
     setGameTokenLoading(true);
     setGameTokenError("");
     setShowRotateConfirm(false);
 
     try {
-      const res = await fetch("/api/auth/game-token", {
+      const res = await apiFetch("/api/auth/game-token", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${auth.token}`,
-        },
       });
 
       if (!res.ok) {
@@ -227,7 +215,7 @@ export function AccountPage() {
   };
 
   const handleClaimLink = async () => {
-    if (!auth.token || claimCode.length !== 6) return;
+    if (claimCode.length !== 6) return;
     setClaimLoading(true);
     setClaimError("");
     setClaimSuccess(false);
@@ -246,12 +234,9 @@ export function AccountPage() {
       }
 
       // Then link it
-      const res = await fetch("/api/claim/link", {
+      const res = await apiFetch("/api/claim/link", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${auth.token}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: claimCode }),
       });
       const data = await res.json();
@@ -269,17 +254,12 @@ export function AccountPage() {
   };
 
   const generateCode = async () => {
-    if (!auth.token) return;
-
     setGeneratingCode(true);
     setLinkError("");
 
     try {
-      const res = await fetch("/api/account/link-code", {
+      const res = await apiFetch("/api/account/link-code", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${auth.token}`,
-        },
       });
 
       if (!res.ok) {
@@ -372,8 +352,7 @@ export function AccountPage() {
                         featuredKey={stats.player.featured_honor}
                         isOwner
                         onFeaturedChange={(key) => {
-                          if (auth.token)
-                            void setFeaturedHonor(key, auth.token);
+                          void setFeaturedHonor(key);
                         }}
                       />
                     </>
@@ -589,6 +568,20 @@ export function AccountPage() {
                   Change Password
                 </button>
               )}
+              <div className="logout-everywhere">
+                <p className="link-explanation-text">
+                  Signs you out of every browser and device. Use it if a session
+                  may have leaked.
+                </p>
+                <button
+                  className="cancel-btn"
+                  onClick={() => {
+                    void logoutEverywhere().then(() => navigate("/"));
+                  }}
+                >
+                  Log out everywhere
+                </button>
+              </div>
             </section>
 
             {/* Game Token */}

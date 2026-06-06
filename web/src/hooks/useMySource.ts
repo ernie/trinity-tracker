@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "./useAuth";
+import { apiFetch } from "../authFetch";
 import type { MySources } from "../types";
 
 const EMPTY: MySources = { sources: [], has_pending: false };
@@ -15,21 +16,19 @@ export function useMySources(): {
   refresh: () => void;
 } {
   const { auth } = useAuth();
-  const { token, isAuthenticated } = auth;
+  const { isAuthenticated } = auth;
   const [data, setData] = useState<MySources>(EMPTY);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchMine = useCallback(async () => {
-    if (!isAuthenticated || !token) {
+    if (!isAuthenticated) {
       setData(EMPTY);
       return;
     }
     setLoading(true);
     try {
-      const r = await fetch("/api/sources/mine", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const r = await apiFetch("/api/sources/mine");
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const body = (await r.json()) as MySources;
       setData({
@@ -42,7 +41,7 @@ export function useMySources(): {
     } finally {
       setLoading(false);
     }
-  }, [token, isAuthenticated]);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect

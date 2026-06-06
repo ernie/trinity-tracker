@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useAuth } from "../../hooks/useAuth";
+import { apiFetch } from "../../authFetch";
 import { formatDateTime } from "../../utils/formatters";
 import {
   AdminAuditFilters,
@@ -24,9 +24,6 @@ interface AuditEntry {
 const DEFAULT_LIMIT = 100;
 
 export function AdminAudit() {
-  const { auth } = useAuth();
-  const token = auth.token!;
-
   const [rows, setRows] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -54,9 +51,7 @@ export function AdminAudit() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await apiFetch(url);
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || `Failed to load audit (${res.status})`);
@@ -69,7 +64,7 @@ export function AdminAudit() {
     } finally {
       setLoading(false);
     }
-  }, [url, token]);
+  }, [url]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect

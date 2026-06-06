@@ -213,7 +213,6 @@ function App() {
       {auth.isAuthenticated && showRcon && (
         <RconSidebar
           server={selectedServer}
-          token={auth.token!}
           onClose={() => setShowRcon(false)}
         />
       )}

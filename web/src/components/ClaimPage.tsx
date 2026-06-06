@@ -6,6 +6,7 @@ import { PlayerPortrait } from "./PlayerPortrait";
 import { PlayerBadge } from "./PlayerBadge";
 import { StatItem } from "./StatItem";
 import { useAuth } from "../hooks/useAuth";
+import { apiFetch } from "../authFetch";
 import { formatDate, formatDuration } from "../utils/formatters";
 import { stripVRPrefix, cleanQ3DisplayName } from "../utils";
 import type { PlayerProfile, AggregatedStats } from "../types";
@@ -105,7 +106,7 @@ function ClaimPlayerCard({
 
 export function ClaimPage() {
   const navigate = useNavigate();
-  const { auth, login } = useAuth();
+  const { auth, login, refresh } = useAuth();
 
   const [step, setStep] = useState<ClaimStep>("code_entry");
   const [code, setCode] = useState("");
@@ -187,7 +188,8 @@ export function ClaimPage() {
         return;
       }
 
-      sessionStorage.setItem("q3a_auth_token", data.token);
+      // The register response set the session cookie; sync auth state.
+      await refresh();
       setSuccessMessage(`Account "${username}" created and player linked!`);
       setStep("success");
     } catch {
@@ -213,13 +215,9 @@ export function ClaimPage() {
         return;
       }
 
-      const token = sessionStorage.getItem("q3a_auth_token");
-      const res = await fetch("/api/claim/link", {
+      const res = await apiFetch("/api/claim/link", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code }),
       });
 
@@ -243,12 +241,9 @@ export function ClaimPage() {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/claim/link", {
+      const res = await apiFetch("/api/claim/link", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${auth.token}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code }),
       });
 

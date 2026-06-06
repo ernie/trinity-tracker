@@ -196,6 +196,25 @@ func TestDisabledUserBlockedEverywhere(t *testing.T) {
 	}
 }
 
+func TestPATSurvivesTokenVersionBump(t *testing.T) {
+	tr := newTestRouter(t)
+	userID := tr.cliUser(t, "ernie", true)
+	pat := tr.cliLogin(t, "ernie")
+	cookie := tr.loginWeb(t, "ernie")
+
+	// "Log out everywhere" kills the web session but never the CLI:
+	// PATs carry no version and are individually revoked instead.
+	if err := tr.store.BumpUserTokenVersion(context.Background(), userID); err != nil {
+		t.Fatalf("BumpUserTokenVersion: %v", err)
+	}
+	if check := tr.authCheck(t, pat); check["authenticated"] != true {
+		t.Errorf("PAT died on a token-version bump: %v", check)
+	}
+	if check := tr.authCheckWeb(t, cookie); check["authenticated"] != false {
+		t.Errorf("web session survived the bump: %v", check)
+	}
+}
+
 func TestPATAndJWTParityThroughMiddleware(t *testing.T) {
 	tr := newTestRouter(t)
 	tr.cliUser(t, "ernie", true)

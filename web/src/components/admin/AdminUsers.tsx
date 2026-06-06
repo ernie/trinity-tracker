@@ -4,10 +4,10 @@ import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import { ColoredText } from "../ColoredText";
 import { PlayerStatsModal } from "../PlayerStatsModal";
 import type { User, PlayerProfile } from "../../types";
+import { apiFetch } from "../../authFetch";
 
 export function AdminUsers() {
   const { auth } = useAuth();
-  const token = auth.token!;
   const currentUsername = auth.username!;
 
   const [users, setUsers] = useState<User[]>([]);
@@ -37,9 +37,7 @@ export function AdminUsers() {
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch("/api/users", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await apiFetch("/api/users");
       if (res.ok) {
         setUsers(await res.json());
       } else {
@@ -55,8 +53,7 @@ export function AdminUsers() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchUsers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  }, []);
 
   const handleCreateUser = async (e: FormEvent) => {
     e.preventDefault();
@@ -68,12 +65,9 @@ export function AdminUsers() {
     }
 
     try {
-      const res = await fetch("/api/users", {
+      const res = await apiFetch("/api/users", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           username: createUsername,
           password: createPassword,
@@ -103,9 +97,8 @@ export function AdminUsers() {
     if (!confirm(`Delete user "${username}"?`)) return;
 
     try {
-      const res = await fetch(`/api/users/${username}`, {
+      const res = await apiFetch(`/api/users/${username}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (res.ok) {
@@ -126,12 +119,9 @@ export function AdminUsers() {
     }
 
     try {
-      const res = await fetch(`/api/users/${userId}/reset-password`, {
+      const res = await apiFetch(`/api/users/${userId}/reset-password`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ new_password: newPassword }),
       });
 
@@ -156,10 +146,9 @@ export function AdminUsers() {
   useEffect(() => {
     if (debouncedPlayerSearch.length < 2) return;
     const ctrl = new AbortController();
-    fetch(
+    apiFetch(
       `/api/players?search=${encodeURIComponent(debouncedPlayerSearch)}&limit=10`,
       {
-        headers: { Authorization: `Bearer ${token}` },
         signal: ctrl.signal,
       },
     )
@@ -169,15 +158,14 @@ export function AdminUsers() {
         /* aborted or network error */
       });
     return () => ctrl.abort();
-  }, [debouncedPlayerSearch, token]);
+  }, [debouncedPlayerSearch]);
 
   useEffect(() => {
     if (debouncedEditPlayerSearch.length < 2) return;
     const ctrl = new AbortController();
-    fetch(
+    apiFetch(
       `/api/players?search=${encodeURIComponent(debouncedEditPlayerSearch)}&limit=10`,
       {
-        headers: { Authorization: `Bearer ${token}` },
         signal: ctrl.signal,
       },
     )
@@ -187,7 +175,7 @@ export function AdminUsers() {
         /* aborted or network error */
       });
     return () => ctrl.abort();
-  }, [debouncedEditPlayerSearch, token]);
+  }, [debouncedEditPlayerSearch]);
 
   // Hide stored results once the corresponding query is too short.
   const displayPlayerResults =
@@ -212,12 +200,9 @@ export function AdminUsers() {
   const handleUpdatePlayerLink = async (userId: number) => {
     setError("");
     try {
-      const res = await fetch(`/api/users/${userId}`, {
+      const res = await apiFetch(`/api/users/${userId}`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ player_id: editPlayerId }),
       });
 

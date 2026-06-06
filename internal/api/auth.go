@@ -19,16 +19,16 @@ type LoginRequest struct {
 	Password string `json:"password"`
 }
 
-// LoginResponse is the response body for successful login
+// LoginResponse is the response body for successful login. The JWT
+// itself travels in the HttpOnly session cookie, never the body.
 type LoginResponse struct {
-	Token                  string `json:"token"`
 	Username               string `json:"username"`
 	IsAdmin                bool   `json:"is_admin"`
 	PlayerID               *int64 `json:"player_id,omitempty"`
 	PasswordChangeRequired bool   `json:"password_change_required"`
 }
 
-// handleLogin authenticates a user and returns a JWT token
+// handleLogin authenticates a user and sets the session cookie
 func (r *Router) handleLogin(w http.ResponseWriter, req *http.Request) {
 	var login LoginRequest
 	if err := json.NewDecoder(req.Body).Decode(&login); err != nil {
@@ -51,7 +51,7 @@ func (r *Router) handleLogin(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	token, err := r.auth.GenerateToken(user.ID, user.Username, user.IsAdmin, user.PlayerID, user.PasswordChangeRequired)
+	token, err := r.auth.GenerateToken(user.ID, user.Username, user.IsAdmin, user.PlayerID, user.PasswordChangeRequired, user.TokenVersion)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to generate token")
 		return
@@ -63,8 +63,8 @@ func (r *Router) handleLogin(w http.ResponseWriter, req *http.Request) {
 	// Update last login timestamp
 	r.store.UpdateUserLastLogin(req.Context(), user.ID)
 
+	setSessionCookie(w, req, token)
 	writeJSON(w, http.StatusOK, LoginResponse{
-		Token:                  token,
 		Username:               user.Username,
 		IsAdmin:                user.IsAdmin,
 		PlayerID:               user.PlayerID,
@@ -72,8 +72,28 @@ func (r *Router) handleLogin(w http.ResponseWriter, req *http.Request) {
 	})
 }
 
-// handleLogout handles logout (JWT is stateless, client just discards token)
+// handleLogout ends this device's session by expiring its cookie.
+// Per-device on purpose: other sessions stay valid (logout-all is the
+// deliberate version). Unauthenticated — clearing a cookie needs no
+// proof of identity.
 func (r *Router) handleLogout(w http.ResponseWriter, req *http.Request) {
+	clearSessionCookie(w, req)
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// handleLogoutAll bumps the user's token_version, killing every JWT
+// they ever held; PATs are unaffected.
+func (r *Router) handleLogoutAll(w http.ResponseWriter, req *http.Request) {
+	claims := r.getAuthClaims(req)
+	if claims == nil {
+		writeError(w, http.StatusUnauthorized, "authentication required")
+		return
+	}
+	if err := r.store.BumpUserTokenVersion(req.Context(), claims.UserID); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to log out everywhere")
+		return
+	}
+	clearSessionCookie(w, req)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
@@ -124,28 +144,55 @@ func (r *Router) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// getAuthClaims extracts and validates the bearer credential from the
-// Authorization header. Two credential types share the header: PATs
-// (CLI, "trin_" prefix — resolved against the live user row so claims
-// reflect current privileges) and JWTs (web sessions — stateless,
-// claims as minted).
+// getAuthClaims extracts and validates the request credential. The
+// Authorization header wins (PATs and API scripting); otherwise the
+// session cookie (browsers). Two credential types share the header:
+// PATs (CLI, "trin_" prefix) and JWTs (web sessions). Both resolve
+// against the live user row, so revocation, disable, and privilege
+// flips all take effect on the next request.
 func (r *Router) getAuthClaims(req *http.Request) *auth.Claims {
-	authHeader := req.Header.Get("Authorization")
-	if !strings.HasPrefix(authHeader, "Bearer ") {
+	if authHeader := req.Header.Get("Authorization"); strings.HasPrefix(authHeader, "Bearer ") {
+		token := strings.TrimPrefix(authHeader, "Bearer ")
+		if auth.IsPAT(token) {
+			return r.getPATClaims(req, token)
+		}
+		return r.getJWTClaims(req, token)
+	}
+
+	cookie, err := req.Cookie(sessionCookieName)
+	if err != nil || cookie.Value == "" {
 		return nil
 	}
-
-	token := strings.TrimPrefix(authHeader, "Bearer ")
-	if auth.IsPAT(token) {
-		return r.getPATClaims(req, token)
+	// Cookies are attached by the browser, not the page — gate
+	// cross-site writes before honoring one.
+	if !cookieOriginAllowed(req) {
+		return nil
 	}
+	return r.getJWTClaims(req, cookie.Value)
+}
 
+// getJWTClaims validates a web-session JWT: signature/expiry first,
+// then the live user row — token_version mismatch (revoked by bump)
+// and disabled accounts are rejected. Claims are rebuilt from the row,
+// mirroring getPATClaims: the JWT is pure identity, privileges are
+// always live.
+func (r *Router) getJWTClaims(req *http.Request, token string) *auth.Claims {
 	claims, err := r.auth.ValidateToken(token)
-	if err != nil {
+	if err != nil || r.store == nil {
 		return nil
 	}
-
-	return claims
+	user, err := r.store.GetUserByID(req.Context(), claims.UserID)
+	if err != nil || user.DisabledAt != nil || user.TokenVersion != claims.TokenVersion {
+		return nil
+	}
+	return &auth.Claims{
+		Username:               user.Username,
+		UserID:                 user.ID,
+		IsAdmin:                user.IsAdmin,
+		PlayerID:               user.PlayerID,
+		PasswordChangeRequired: user.PasswordChangeRequired,
+		TokenVersion:           user.TokenVersion,
+	}
 }
 
 // getPATClaims resolves a personal access token to claims built from
@@ -236,16 +283,24 @@ func (r *Router) handleChangePassword(w http.ResponseWriter, req *http.Request) 
 		return
 	}
 
-	// Generate new token with updated password_change_required = false
-	newToken, err := r.auth.GenerateToken(user.ID, user.Username, user.IsAdmin, user.PlayerID, false)
+	// The password write bumped token_version, killing every JWT the
+	// user held — including the one authenticating this request.
+	// Re-fetch for the new version and re-cookie this device so the
+	// changer stays logged in; all other devices die.
+	user, err = r.store.GetUserByID(req.Context(), claims.UserID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to get user")
+		return
+	}
+	newToken, err := r.auth.GenerateToken(user.ID, user.Username, user.IsAdmin, user.PlayerID, false, user.TokenVersion)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to generate new token")
 		return
 	}
 
+	setSessionCookie(w, req, newToken)
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"message": "password changed successfully",
-		"token":   newToken,
 	})
 }
 

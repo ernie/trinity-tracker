@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { useAuth } from "../../hooks/useAuth";
+import { apiFetch } from "../../authFetch";
 import { ColoredText } from "../ColoredText";
 import { formatDateTime, formatDuration } from "../../utils/formatters";
 import type { AdminSession, Server } from "../../types";
@@ -15,9 +15,6 @@ import {
 const PAGE_SIZE = 50;
 
 export function AdminSessions() {
-  const { auth } = useAuth();
-  const token = auth.token!;
-
   const [servers, setServers] = useState<Server[]>([]);
   // Hydrate from localStorage on first render so admins keep their
   // server / player / date scope between visits.
@@ -32,11 +29,11 @@ export function AdminSessions() {
 
   // Load server list for the filter section's switches.
   useEffect(() => {
-    fetch("/api/servers", { headers: { Authorization: `Bearer ${token}` } })
+    apiFetch("/api/servers")
       .then((res) => (res.ok ? res.json() : []))
       .then((data) => setServers(data || []))
       .catch(() => setServers([]));
-  }, [token]);
+  }, []);
 
   const buildUrl = useCallback(
     (beforeID?: number) => {
@@ -82,9 +79,7 @@ export function AdminSessions() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(buildUrl(), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await apiFetch(buildUrl());
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || "Failed to load sessions");
@@ -99,16 +94,14 @@ export function AdminSessions() {
     } finally {
       setLoading(false);
     }
-  }, [buildUrl, token]);
+  }, [buildUrl]);
 
   const loadMore = useCallback(async () => {
     if (loading || sessions.length === 0) return;
     const lastID = sessions[sessions.length - 1].id;
     setLoading(true);
     try {
-      const res = await fetch(buildUrl(lastID), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await apiFetch(buildUrl(lastID));
       if (!res.ok) throw new Error("Failed to load more");
       const data: AdminSession[] = (await res.json()) || [];
       setSessions((prev) => [...prev, ...data]);
@@ -118,7 +111,7 @@ export function AdminSessions() {
     } finally {
       setLoading(false);
     }
-  }, [buildUrl, token, sessions, loading]);
+  }, [buildUrl, sessions, loading]);
 
   // Reload from page 1 whenever filters change.
   useEffect(() => {
@@ -161,7 +154,6 @@ export function AdminSessions() {
         servers={servers}
         state={filters}
         onChange={setFilters}
-        token={token}
       />
 
       {error && <div className="error-message">{error}</div>}

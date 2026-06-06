@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { apiFetch } from "../authFetch";
 import type { PlayerStatsResponse, TimePeriod } from "../types";
 
 interface UsePlayerStatsResult {
@@ -7,9 +8,9 @@ interface UsePlayerStatsResult {
   error: string | null;
   refetch: () => void;
   /** Optimistically update the featured honor and PATCH the server.
-   *  Reverts the local state if the request fails. Token must be passed
-   *  in by the caller (the hook itself doesn't know about auth). */
-  setFeaturedHonor: (key: string, token: string) => Promise<void>;
+   *  Reverts the local state if the request fails. Auth is the session
+   *  cookie; callers must be logged in. */
+  setFeaturedHonor: (key: string) => Promise<void>;
 }
 
 export function usePlayerStats(
@@ -58,7 +59,7 @@ export function usePlayerStats(
     return () => ctrl.abort();
   }, [playerId, period, refetchKey]);
 
-  const setFeaturedHonor = useCallback(async (key: string, token: string) => {
+  const setFeaturedHonor = useCallback(async (key: string) => {
     // Optimistic local update — capture the prior value so we can revert
     // cleanly if the PATCH fails. Read from the closure-current stats so
     // a rapid second click can still see the just-applied value.
@@ -69,12 +70,9 @@ export function usePlayerStats(
       return { ...prev, player: { ...prev.player, featured_honor: key } };
     });
     try {
-      const res = await fetch("/api/account/featured-honor", {
+      const res = await apiFetch("/api/account/featured-honor", {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
