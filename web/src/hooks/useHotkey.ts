@@ -16,8 +16,10 @@ export function useHotkey(
 ) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const key = e.key.toLowerCase();
-      if (key !== spec.key) return;
+      // Synthetic keydowns (browser/password-manager autofill) can
+      // arrive without a key.
+      const key = e.key?.toLowerCase();
+      if (!key || key !== spec.key) return;
       if (spec.meta) {
         // Cmd on Mac, Ctrl elsewhere.
         const meta = e.metaKey || e.ctrlKey;
