@@ -10,13 +10,18 @@ import "sync"
 // but the frontend gates the live badge on the source's heartbeat liveness, so
 // a dead collector's badge is suppressed regardless.
 type LiveState struct {
-	mu    sync.RWMutex
-	m     map[string]bool
-	delay map[string]int // (source,key) -> collector's viewer delay, seconds
+	mu      sync.RWMutex
+	m       map[string]bool
+	delay   map[string]int // (source,key) -> collector's viewer delay, seconds
+	viewers map[string]int // (source,key) -> relay's current web-viewer count
 }
 
 func NewLiveState() *LiveState {
-	return &LiveState{m: make(map[string]bool), delay: make(map[string]int)}
+	return &LiveState{
+		m:       make(map[string]bool),
+		delay:   make(map[string]int),
+		viewers: make(map[string]int),
+	}
 }
 
 // liveKey composes the (source, key) tuple. The NUL separator can't appear in
@@ -63,4 +68,26 @@ func (s *LiveState) GetDelay(source, key string) int {
 	d := s.delay[liveKey(source, key)]
 	s.mu.RUnlock()
 	return d
+}
+
+// SetViewers records the relay's current web-viewer count for the server.
+// Transient like liveness, but kept as its own map: a count can be non-zero
+// while not live (viewers parked across the inter-match gap).
+func (s *LiveState) SetViewers(source, key string, n int) {
+	k := liveKey(source, key)
+	s.mu.Lock()
+	s.viewers[k] = n
+	s.mu.Unlock()
+}
+
+// GetViewers returns the last-reported web-viewer count, or 0 if unknown.
+// Nil-receiver safe.
+func (s *LiveState) GetViewers(source, key string) int {
+	if s == nil {
+		return 0
+	}
+	s.mu.RLock()
+	n := s.viewers[liveKey(source, key)]
+	s.mu.RUnlock()
+	return n
 }

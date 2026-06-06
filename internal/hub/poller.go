@@ -213,6 +213,7 @@ func (p *RemotePoller) pollAll(ctx context.Context) {
 			existing.Online = false
 			existing.IsLive = false       // an unreachable server is never live-watchable
 			existing.LiveDelaySeconds = 0 // and carries no viewer delay — clear the stale value
+			existing.LiveViewers = 0
 			existing.LastUpdated = now
 			// Preserve LastSeenAt — it represents the last successful
 			// UDP query, used to compute offline duration.
@@ -245,6 +246,7 @@ func (p *RemotePoller) pollAll(ctx context.Context) {
 			existing.Online = false
 			existing.IsLive = false
 			existing.LiveDelaySeconds = 0 // non-trinity → not live-watchable; clear stale delay
+			existing.LiveViewers = 0
 			existing.LastUpdated = now
 			snapshot := *existing
 			sink := p.sink
@@ -267,6 +269,7 @@ func (p *RemotePoller) pollAll(ctx context.Context) {
 		p.mu.Lock()
 		status.IsLive = p.liveState.Get(r.Source, r.Key)
 		status.LiveDelaySeconds = p.liveState.GetDelay(r.Source, r.Key)
+		status.LiveViewers = p.liveState.GetViewers(r.Source, r.Key)
 		p.statuses[r.ID] = status
 		snapshot := *status
 		sink := p.sink

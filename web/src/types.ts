@@ -71,6 +71,7 @@ export interface ServerStatus {
   /** A live-stream tap is active; /tv/<source>/<key> is connectable. */
   is_live?: boolean;
   live_delay_seconds?: number; // collector's target viewer delay (encode + holdback); 0/undefined when unknown
+  live_viewers?: number; // web viewers on the collector's relay; heartbeat-fresh (~30s), like is_live
 }
 
 export interface Server {

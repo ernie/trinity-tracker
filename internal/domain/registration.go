@@ -46,4 +46,9 @@ type RegdServer struct {
 	// a collector serves; it rides the heartbeat so the live player can honestly
 	// show the feed's lag. In memory only, like IsLive.
 	LiveDelaySeconds int `json:"live_delay_seconds,omitempty"`
+
+	// LiveViewers is how many web viewers the collector's relay is currently
+	// streaming this server's feed to. Heartbeat-cadence only (no out-of-band
+	// kick — viewer churn shouldn't drive NATS/DB traffic). In memory only.
+	LiveViewers int `json:"live_viewers,omitempty"`
 }

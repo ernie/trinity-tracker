@@ -228,6 +228,64 @@ func TestRegistryWaitNextAcrossSessions(t *testing.T) {
 	}
 }
 
+// TestRelayViewerCount pins the viewer accounting the collector reports on the
+// registration heartbeat (live_viewers): a streaming response counts as one
+// viewer — including while parked in WaitNext across the inter-match gap — and
+// the count drops when the response ends.
+func TestRelayViewerCount(t *testing.T) {
+	reg := NewRegistry()
+	a := NewBuffer(StreamHeader{MapName: "mapA"}.Marshal(), 0)
+	a.Append(Segment{Payload: []byte("a0")})
+	a.End()
+	reg.Set("m1", a)
+
+	if n := reg.Viewers("m1"); n != 0 {
+		t.Fatalf("viewers before any response = %d, want 0", n)
+	}
+
+	srv := NewRelayServer(reg)
+	srv.tick = 10 * time.Millisecond
+	ts := httptest.NewServer(srv)
+	defer ts.Close()
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		resp, err := http.Get(ts.URL + "/tv/m1")
+		if err != nil {
+			return
+		}
+		defer resp.Body.Close()
+		_, _ = io.ReadAll(resp.Body)
+	}()
+
+	// Session A ends immediately; the viewer parks in WaitNext across the gap
+	// and must still count — it holds a connection and will resume.
+	waitViewers(t, reg, "m1", 1)
+	reg.RemoveIf("m1", a) // inter-match gap
+	if n := reg.Viewers("m1"); n != 1 {
+		t.Fatalf("viewers during gap = %d, want 1", n)
+	}
+
+	reg.Close("m1") // tap gone for good: response ends, count drops
+	<-done
+	waitViewers(t, reg, "m1", 0)
+}
+
+// waitViewers polls until key's count reaches want — the inc/dec happens on the
+// relay's response goroutine, not the test's.
+func waitViewers(t *testing.T, reg *Registry, key string, want int) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if reg.Viewers(key) == want {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatalf("viewers(%q) = %d, want %d", key, reg.Viewers(key), want)
+}
+
 // TestRelayHoldsOpenAcrossSessions is the Phase 3 contract: one HTTP response
 // spans two sessions, splicing the TVLe boundary + the next session's TVL1
 // header inline (what the browser engine reads as an in-place map change).

@@ -855,6 +855,10 @@ func (m *ServerManager) Roster() []domain.RegdServer {
 	}
 	out := make([]domain.RegdServer, 0, len(m.servers))
 	for _, state := range m.servers {
+		viewers := 0
+		if m.liveReg != nil {
+			viewers = m.liveReg.Viewers(state.server.Key)
+		}
 		out = append(out, domain.RegdServer{
 			LocalID:                state.server.ID,
 			Key:                    state.server.Key,
@@ -862,6 +866,7 @@ func (m *ServerManager) Roster() []domain.RegdServer {
 			AdminDelegationEnabled: delegationByAddress[state.server.Address],
 			IsLive:                 state.liveTap != nil,
 			LiveDelaySeconds:       delaySec,
+			LiveViewers:            viewers,
 		})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].LocalID < out[j].LocalID })

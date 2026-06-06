@@ -48,3 +48,31 @@ func TestLiveStateDelay(t *testing.T) {
 		t.Fatal("delay should survive a liveness clear")
 	}
 }
+
+func TestLiveStateViewers(t *testing.T) {
+	var nilLS *LiveState
+	if nilLS.GetViewers("a", "b") != 0 {
+		t.Fatal("nil LiveState.GetViewers should be 0")
+	}
+
+	ls := NewLiveState()
+	if ls.GetViewers("hub", "ffa") != 0 {
+		t.Fatal("unset viewers should be 0")
+	}
+	ls.SetViewers("hub", "ffa", 3)
+	if got := ls.GetViewers("hub", "ffa"); got != 3 {
+		t.Fatalf("GetViewers = %d, want 3", got)
+	}
+	if ls.GetViewers("hub", "1v1") != 0 || ls.GetViewers("other", "ffa") != 0 {
+		t.Fatal("viewers key collision across source/key")
+	}
+	// Independent of liveness: gap-parked viewers keep counting while not live.
+	ls.Set("hub", "ffa", false)
+	if ls.GetViewers("hub", "ffa") != 3 {
+		t.Fatal("viewers should survive a liveness clear")
+	}
+	ls.SetViewers("hub", "ffa", 0) // next heartbeat reports the drop
+	if ls.GetViewers("hub", "ffa") != 0 {
+		t.Fatal("SetViewers(0) did not clear")
+	}
+}

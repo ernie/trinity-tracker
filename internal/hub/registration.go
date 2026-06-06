@@ -34,6 +34,7 @@ func (w *Writer) HandleRegistration(ctx context.Context, reg domain.Registration
 		for _, srv := range reg.Servers {
 			w.liveState.Set(reg.Source, srv.Key, srv.IsLive)
 			w.liveState.SetDelay(reg.Source, srv.Key, srv.LiveDelaySeconds)
+			w.liveState.SetViewers(reg.Source, srv.Key, srv.LiveViewers)
 		}
 	}
 	if len(reg.Servers) == 0 {

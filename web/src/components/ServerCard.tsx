@@ -540,6 +540,18 @@ const ServerCardImpl = memo(function ServerCardImpl({
   const liveTo =
     `/tv/${server.source}/${server.key}` +
     (liveLeader != null ? `?f=${liveLeader}` : "");
+  // Hover/AT copy for the LIVE pill: viewer count and honest feed lag, when known.
+  const liveViewers = server.live_viewers ?? 0;
+  const watchDetails = [
+    ...(liveViewers > 0 ? [`${liveViewers} watching`] : []),
+    ...(server.live_delay_seconds
+      ? [`delayed ~${server.live_delay_seconds}s`]
+      : []),
+  ];
+  const watchLabel =
+    watchDetails.length > 0
+      ? `Watch live (${watchDetails.join(", ")})`
+      : "Watch live";
 
   // Intermission: the match is over, the engine is showing the
   // final scoreboard, and the next map hasn't loaded yet. Drop the
@@ -582,15 +594,16 @@ const ServerCardImpl = memo(function ServerCardImpl({
               reloadDocument
               className="card__watch"
               onClick={(e) => e.stopPropagation()}
-              aria-label="Watch live"
-              title={
-                server.live_delay_seconds
-                  ? `Watch live (delayed ~${server.live_delay_seconds}s)`
-                  : "Watch live"
-              }
+              aria-label={watchLabel}
+              title={watchLabel}
             >
               <span className="card__watch-dot" aria-hidden="true" />
               LIVE
+              {liveViewers > 0 && (
+                <span className="card__watch-count" aria-hidden="true">
+                  {liveViewers}
+                </span>
+              )}
             </Link>
           )}
           <span

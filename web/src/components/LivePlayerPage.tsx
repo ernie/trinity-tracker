@@ -27,6 +27,12 @@ export function LivePlayerPage() {
   }, [servers, source, key]);
   const liveMap = liveServer?.map;
   const liveDelay = liveServer?.live_delay_seconds;
+  // Viewer count includes this viewer; heartbeat-fresh (~30s), like is_live.
+  const liveViewers = liveServer?.live_viewers ?? 0;
+  const liveBadgeDetails = [
+    ...(liveViewers > 0 ? [`${liveViewers} watching`] : []),
+    ...(liveDelay ? [`delayed ~${liveDelay}s`] : []),
+  ].join(", ");
 
   // ?f=<clientnum>: open already following the leader the server card picked at
   // click time. Captured once — a client slot is only meaningful "now", so a
@@ -400,13 +406,16 @@ export function LivePlayerPage() {
 
         <span
           className="live-badge"
-          aria-label={
-            liveDelay ? `Live, delayed about ${liveDelay} seconds` : "Live"
-          }
-          title={liveDelay ? `Delayed ~${liveDelay}s` : undefined}
+          aria-label={liveBadgeDetails ? `Live, ${liveBadgeDetails}` : "Live"}
+          title={liveBadgeDetails || undefined}
         >
           <span className="live-badge__dot" aria-hidden="true" />
           LIVE
+          {liveViewers > 0 && (
+            <span className="live-badge__count" aria-hidden="true">
+              {liveViewers}
+            </span>
+          )}
         </span>
       </div>
 

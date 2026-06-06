@@ -63,6 +63,7 @@ type ServerStatus struct {
 	WarmupRemaining  int               `json:"warmup_remaining,omitempty"`   // milliseconds remaining in warmup
 	IsLive           bool              `json:"is_live"`                      // a live-stream tap is active; /tv/<source>/<key> is connectable
 	LiveDelaySeconds int               `json:"live_delay_seconds,omitempty"` // collector's target viewer delay (live_delay): encode + holdback, whole seconds; 0 when unknown
+	LiveViewers      int               `json:"live_viewers,omitempty"`       // web viewers on the collector's relay; heartbeat-fresh (~30s), like is_live
 }
 
 // TeamScores represents team scores for team game modes

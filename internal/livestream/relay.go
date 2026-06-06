@@ -15,9 +15,10 @@ import (
 // inter-match gap), `closed` marks the tap gone for good. `change` is closed and
 // replaced on every cur/closed mutation, so waiters can block then re-check.
 type feed struct {
-	cur    *Buffer
-	closed bool
-	change chan struct{}
+	cur     *Buffer
+	closed  bool
+	viewers int // relay responses currently following this feed (incl. gap-parked waiters)
+	change  chan struct{}
 }
 
 // broadcast wakes everyone parked on the current change channel. Caller holds
@@ -117,6 +118,34 @@ func (r *Registry) Close(key string) {
 	r.mu.Unlock()
 }
 
+// retain/release bracket one viewer's relay response under key. The count is
+// per-feed, not per-buffer, so a viewer parked in WaitNext across the
+// inter-match gap still counts — it holds a connection and will resume.
+func (r *Registry) retain(key string) {
+	r.mu.Lock()
+	r.feedFor(key).viewers++
+	r.mu.Unlock()
+}
+
+func (r *Registry) release(key string) {
+	r.mu.Lock()
+	if f := r.feeds[key]; f != nil {
+		f.viewers--
+	}
+	r.mu.Unlock()
+}
+
+// Viewers returns how many relay responses are currently following key's feed.
+// The collector reports it on the registration heartbeat (live_viewers).
+func (r *Registry) Viewers(key string) int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if f := r.feeds[key]; f != nil {
+		return f.viewers
+	}
+	return 0
+}
+
 // WaitNext blocks until a buffer other than prev becomes current under key (the
 // next session), the feed closes, or ctx is cancelled. Returns (buf,true) for a
 // fresh session buffer; (nil,false) on close/cancel. The relay uses it to span
@@ -184,6 +213,10 @@ func (s *RelayServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "not live yet", http.StatusServiceUnavailable)
 		return
 	}
+
+	// One viewer for the lifetime of this response, gap-parking included.
+	s.reg.retain(key)
+	defer s.reg.release(key)
 
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Cache-Control", "no-store")
