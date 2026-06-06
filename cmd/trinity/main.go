@@ -534,6 +534,14 @@ func cmdServe(args []string) {
 	}
 	if cfg.Tracker.Collector.LiveRelayAddr != "" {
 		manager.SetLiveRegistry(liveReg)
+		// Arena-side viewer presence: debounced trinity_watch rcon sends on
+		// watched-state flips, count changes, and per-session re-pushes.
+		watch := collector.NewWatchNotifier(liveReg.Viewers, func(key string, count int) {
+			if _, err := manager.ExecuteRconByKey(key, fmt.Sprintf("trinity_watch %d", count)); err != nil {
+				log.Printf("collector: trinity_watch %d to %s: %v", count, key, err)
+			}
+		})
+		liveReg.SetWatchHooks(watch.ViewersChanged, watch.SessionStart)
 	}
 	// Console tap rings: one per server, filled by per-server tap
 	// consumers (sv_conTap discovery), served locally or via NATS lease.

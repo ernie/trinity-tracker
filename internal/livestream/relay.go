@@ -43,10 +43,26 @@ func (f *feed) broadcast() {
 type Registry struct {
 	mu    sync.Mutex
 	feeds map[string]*feed
+
+	// Watch hooks, wired once before the relay serves (SetWatchHooks).
+	// Invoked outside r.mu; callers may hold their own locks, so hooks
+	// must not call back into the Registry synchronously beyond Viewers.
+	viewersHook func(key string, n int)
+	sessionHook func(key string)
 }
 
 func NewRegistry() *Registry {
 	return &Registry{feeds: make(map[string]*feed)}
+}
+
+// SetWatchHooks wires the collector's watch notifier: viewers fires on every
+// retain/release with the new count, session fires when a new session buffer
+// registers under a key (the map-change re-push point).
+func (r *Registry) SetWatchHooks(viewers func(key string, n int), session func(key string)) {
+	r.mu.Lock()
+	r.viewersHook = viewers
+	r.sessionHook = session
+	r.mu.Unlock()
 }
 
 // feedFor returns the key's feed, creating it on first use. Caller holds r.mu.
@@ -67,7 +83,11 @@ func (r *Registry) Set(key string, b *Buffer) {
 	f.cur = b
 	f.closed = false
 	f.broadcast()
+	hook := r.sessionHook
 	r.mu.Unlock()
+	if hook != nil {
+		hook(key)
+	}
 }
 
 // Get returns the key's current buffer, or (nil,false) when none is live (no
@@ -123,16 +143,30 @@ func (r *Registry) Close(key string) {
 // inter-match gap still counts — it holds a connection and will resume.
 func (r *Registry) retain(key string) {
 	r.mu.Lock()
-	r.feedFor(key).viewers++
+	f := r.feedFor(key)
+	f.viewers++
+	n := f.viewers
+	hook := r.viewersHook
 	r.mu.Unlock()
+	if hook != nil {
+		hook(key, n)
+	}
 }
 
 func (r *Registry) release(key string) {
 	r.mu.Lock()
-	if f := r.feeds[key]; f != nil {
-		f.viewers--
+	f := r.feeds[key]
+	if f == nil {
+		r.mu.Unlock()
+		return
 	}
+	f.viewers--
+	n := f.viewers
+	hook := r.viewersHook
 	r.mu.Unlock()
+	if hook != nil {
+		hook(key, n)
+	}
 }
 
 // Viewers returns how many relay responses are currently following key's feed.
