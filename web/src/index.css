@@ -14281,6 +14281,35 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   color: var(--text-dim);
 }
 
+/* Team Arena role-declaration grid — pairs the in-game HUD task
+   icon with the task name. Same card treatment as .docs-cvars so
+   the reference surfaces read consistently. */
+.about-section .docs-tasklist {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 6px;
+}
+
+.about-section .docs-tasklist > li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  background: rgba(0, 0, 0, 0.22);
+  border-radius: 4px;
+  border-left: 2px solid var(--rule);
+  line-height: 1.55;
+}
+
+.docs-tasklist__icon {
+  flex: none;
+  width: 28px;
+  height: 28px;
+}
+
 /* Wrapper that lets a wide reference table scroll horizontally
    on narrow viewports instead of forcing the surrounding flex
    parent to widen (which would shrink the docs sidebar / chrome

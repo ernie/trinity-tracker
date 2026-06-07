@@ -635,6 +635,18 @@ const DEMO_PLAYER_CALLOUTS: CalloutData[] = [
 // want to peek at another. PlatformTabs is reserved for sections
 // where seeing the choice up front is the point (downloads on
 // /docs/install — not used here).
+// Team Arena role declarations: HUD icon (extracted from missionpack
+// ui/assets/statusbar/*.tga, hence the engine asset names) + task name.
+const TEAMARENA_TASKS = [
+  { icon: "assault", label: "Offense" },
+  { icon: "defend", label: "Defense" },
+  { icon: "patrol", label: "Patrol" },
+  { icon: "camp", label: "Camp" },
+  { icon: "follow", label: "Follow" },
+  { icon: "retrieve", label: "Retrieve" },
+  { icon: "escort", label: "Escort" },
+] as const;
+
 const VOIP_CHANNELS = [
   { key: "spatial", label: "Spatial", color: "rgb(255, 255, 51)" },
   { key: "team", label: "Team", color: "rgb(51, 255, 255)" },
@@ -1253,49 +1265,22 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
 
             <p>
               <strong>Team Arena role declarations.</strong> Each player can
-              declare what they're doing for the team via one of these console
-              commands (or from the in-game <strong>Team Orders</strong> menu).
-              The declaration shows up on teammates' HUDs alongside the player's
-              location:
+              declare what they're doing for the team from the in-game{" "}
+              <strong>Team Orders</strong> menu. The declaration shows up on
+              teammates' HUDs as an icon alongside the player's location:
             </p>
-            <ul className="docs-cvars">
-              <li>
-                <code>taskOffense</code> — <em>attack</em>; says "I'm on
-                offense" (or "going for the flag" in CTF).
-              </li>
-              <li>
-                <code>taskDefense</code> — <em>defend</em>; says "I'm on
-                defense".
-              </li>
-              <li>
-                <code>taskPatrol</code> — <em>patrol</em>; says "I'm
-                patrolling".
-              </li>
-              <li>
-                <code>taskCamp</code> — <em>camp</em>; says "I'm camping here".
-              </li>
-              <li>
-                <code>taskFollow</code> — <em>follow</em>; says "following the
-                leader".
-              </li>
-              <li>
-                <code>taskRetrieve</code> — <em>retrieve</em>; says "going to
-                return the flag".
-              </li>
-              <li>
-                <code>taskEscort</code> — <em>escort</em>; says "escorting the
-                flag carrier".
-              </li>
-              <li>
-                <code>taskOwnFlag</code> — voice-only; says "I have the flag"
-                without changing your task.
-              </li>
+            <ul className="docs-tasklist">
+              {TEAMARENA_TASKS.map((task) => (
+                <li key={task.icon}>
+                  <img
+                    src={`/assets/play/tasks/${task.icon}.png`}
+                    alt=""
+                    className="docs-tasklist__icon"
+                  />
+                  <strong>{task.label}</strong>
+                </li>
+              ))}
             </ul>
-            <p>
-              The whole role system is from id Software's Team Arena — you'll
-              see it on any TA server, Trinity-collected or otherwise. Useful
-              for coordinating without typing.
-            </p>
           </DocsModeTabs.Panel>
         </DocsModeTabs>
       </div>
