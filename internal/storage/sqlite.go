@@ -5,8 +5,10 @@ import (
 	"crypto/rand"
 	"database/sql"
 	_ "embed"
+	"errors"
 	"fmt"
 	"math/big"
+	"runtime"
 	"strings"
 	"time"
 
@@ -25,39 +27,75 @@ var schema string
 
 // Store provides database access
 type Store struct {
-	db *sql.DB
+	db *rwDB
+}
+
+// rwDB routes reads and writes to separate pools. WAL lets readers run
+// concurrently with the single writer, but only across connections — a
+// shared one-connection pool queues every read behind every write.
+type rwDB struct {
+	read  *sql.DB
+	write *sql.DB
+}
+
+func (d *rwDB) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
+	return d.write.ExecContext(ctx, query, args...)
+}
+
+func (d *rwDB) BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error) {
+	return d.write.BeginTx(ctx, opts)
+}
+
+func (d *rwDB) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+	return d.read.QueryContext(ctx, query, args...)
+}
+
+func (d *rwDB) QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row {
+	return d.read.QueryRowContext(ctx, query, args...)
+}
+
+func (d *rwDB) Close() error {
+	return errors.Join(d.read.Close(), d.write.Close())
 }
 
 // New creates a new Store with the given database path
 func New(dbPath string) (*Store, error) {
-	db, err := sql.Open("sqlite", dbPath)
+	// foreign_keys and busy_timeout are per-connection pragmas; the DSN
+	// form applies them to every connection the pools open.
+	dsn := "file:" + dbPath + "?_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)"
+
+	write, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("opening database: %w", err)
 	}
 
-	// SQLite only supports one writer at a time, so limit connections
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(1)
-
-	// Enable foreign keys, WAL mode for better performance, and busy timeout for concurrency
-	if _, err := db.Exec("PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;"); err != nil {
-		db.Close()
-		return nil, fmt.Errorf("setting pragmas: %w", err)
-	}
+	// One connection serializes writers in Go, so in-process writes
+	// never contend for SQLite's single write lock.
+	write.SetMaxOpenConns(1)
+	write.SetMaxIdleConns(1)
 
 	// Create tables. schema.sql is idempotent (CREATE TABLE IF NOT
 	// EXISTS everywhere). Additive column changes to an existing
 	// install are handled out-of-band — the operator runs the ALTER
 	// manually before deploying a release that depends on it.
-	if _, err := db.Exec(schema); err != nil {
-		db.Close()
+	if _, err := write.Exec(schema); err != nil {
+		write.Close()
 		return nil, fmt.Errorf("creating schema: %w", err)
 	}
 
-	return &Store{db: db}, nil
+	read, err := sql.Open("sqlite", dsn)
+	if err != nil {
+		write.Close()
+		return nil, fmt.Errorf("opening read pool: %w", err)
+	}
+	// Queries in the pure-Go driver are CPU-bound, so more connections
+	// than cores buys nothing.
+	read.SetMaxOpenConns(max(4, runtime.NumCPU()))
+
+	return &Store{db: &rwDB{read: read, write: write}}, nil
 }
 
-// Close closes the database connection
+// Close closes the database connections
 func (s *Store) Close() error {
 	return s.db.Close()
 }
