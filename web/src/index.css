@@ -9785,9 +9785,23 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   gap: 0.5rem;
 }
 
+/* Same treatment as .password-form input; monospace kept on purpose so
+   ^-color codes line up with the byte counter and preview. */
 .display-name-input {
   flex: 1;
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg);
+  border: var(--rule-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text);
   font-family: monospace;
+  font-size: 0.9rem;
+  transition: border-color 0.15s;
+}
+
+.display-name-input:focus {
+  outline: none;
+  border-color: var(--accent-dim);
 }
 
 .display-name-bytes {
