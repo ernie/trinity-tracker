@@ -226,10 +226,31 @@ func (r *Router) handleGetPlayers(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	limit := parseLimit(req, 50, 100)
-	offset := parseOffset(req)
+	opts := storage.PlayerListOptions{
+		Limit:       parseLimit(req, 50, 100),
+		Offset:      parseOffset(req),
+		Sort:        "last_seen",
+		IncludeBots: req.URL.Query().Get("include_bots") == "true",
+	}
+	if v := req.URL.Query().Get("sort"); v != "" {
+		if !storage.ValidPlayerSort(v) {
+			writeError(w, http.StatusBadRequest, "invalid sort")
+			return
+		}
+		opts.Sort = v
+	}
+	switch req.URL.Query().Get("dir") {
+	case "":
+		opts.Desc = opts.Sort != "name" // recency/playtime read best newest-first
+	case "asc":
+	case "desc":
+		opts.Desc = true
+	default:
+		writeError(w, http.StatusBadRequest, "invalid dir")
+		return
+	}
 
-	players, total, err := r.store.GetPlayers(req.Context(), limit, offset)
+	players, total, err := r.store.GetPlayers(req.Context(), opts)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -237,8 +258,8 @@ func (r *Router) handleGetPlayers(w http.ResponseWriter, req *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"players": players,
 		"total":   total,
-		"limit":   limit,
-		"offset":  offset,
+		"limit":   opts.Limit,
+		"offset":  opts.Offset,
 	})
 }
 

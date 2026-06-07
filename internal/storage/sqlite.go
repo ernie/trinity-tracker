@@ -489,6 +489,19 @@ func (s *Store) GetPlayerByID(ctx context.Context, id int64) (*domain.Player, er
 }
 
 // SearchPlayers searches for players by name (and optionally by GUID for admins)
+// modelSubquery surfaces the most-recent model from match_player_stats —
+// same lookup strategy as GetPlayerByID — as a correlated subquery so a
+// single round trip populates the card portraits.
+const modelSubquery = `(
+	SELECT mps.model
+	FROM match_player_stats mps
+	JOIN player_guids pg2 ON mps.player_guid_id = pg2.id
+	JOIN matches m ON mps.match_id = m.id
+	WHERE pg2.player_id = p.id AND mps.model IS NOT NULL AND mps.model != ''
+	ORDER BY m.ended_at DESC
+	LIMIT 1
+) as model`
+
 func (s *Store) SearchPlayers(ctx context.Context, query string, limit int, includeGUID bool) ([]domain.Player, error) {
 	if limit <= 0 {
 		limit = 20
@@ -497,19 +510,6 @@ func (s *Store) SearchPlayers(ctx context.Context, query string, limit int, incl
 
 	var rows *sql.Rows
 	var err error
-
-	// Most-recent model is sourced from match_player_stats, same lookup
-	// strategy as GetPlayerByID — surfaced inline as a correlated
-	// subquery so a single round trip populates the card portraits.
-	const modelSubquery = `(
-		SELECT mps.model
-		FROM match_player_stats mps
-		JOIN player_guids pg2 ON mps.player_guid_id = pg2.id
-		JOIN matches m ON mps.match_id = m.id
-		WHERE pg2.player_id = p.id AND mps.model IS NOT NULL AND mps.model != ''
-		ORDER BY m.ended_at DESC
-		LIMIT 1
-	) as model`
 
 	if includeGUID {
 		// Search by name OR by GUID (admin feature)
@@ -575,17 +575,54 @@ func (s *Store) SearchPlayers(ctx context.Context, query string, limit int, incl
 	return players, rows.Err()
 }
 
-// GetPlayers returns players with pagination support
-func (s *Store) GetPlayers(ctx context.Context, limit, offset int) ([]domain.Player, int, error) {
-	if limit <= 0 || limit > 100 {
-		limit = 50
+// playerListSorts whitelists the ORDER BY targets accepted by GetPlayers —
+// sort keys arrive from the URL and must never reach SQL verbatim.
+var playerListSorts = map[string]string{
+	"last_seen":  "p.last_seen",
+	"first_seen": "p.first_seen",
+	"name":       "COALESCE(u.display_name_canonical, p.clean_name) COLLATE NOCASE",
+	"playtime":   "total_playtime_seconds",
+}
+
+// ValidPlayerSort reports whether key is an accepted GetPlayers sort.
+func ValidPlayerSort(key string) bool {
+	_, ok := playerListSorts[key]
+	return ok
+}
+
+// PlayerListOptions controls the non-search players listing.
+type PlayerListOptions struct {
+	Limit       int
+	Offset      int
+	Sort        string // key into playerListSorts; "" = last_seen
+	Desc        bool
+	IncludeBots bool
+}
+
+// GetPlayers returns players with pagination and sorting support. The
+// returned total reflects the bot filter so page counts stay accurate.
+func (s *Store) GetPlayers(ctx context.Context, opts PlayerListOptions) ([]domain.Player, int, error) {
+	if opts.Limit <= 0 || opts.Limit > 100 {
+		opts.Limit = 50
 	}
-	if offset < 0 {
-		offset = 0
+	if opts.Offset < 0 {
+		opts.Offset = 0
+	}
+	orderCol, ok := playerListSorts[opts.Sort]
+	if !ok {
+		orderCol = playerListSorts["last_seen"]
+	}
+	dir := "ASC"
+	if opts.Desc {
+		dir = "DESC"
+	}
+	botFilter := ""
+	if !opts.IncludeBots {
+		botFilter = ` WHERE p.is_bot = 0`
 	}
 
 	var total int
-	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM players`).Scan(&total); err != nil {
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM players p`+botFilter).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 
@@ -599,12 +636,13 @@ func (s *Store) GetPlayers(ctx context.Context, limit, offset int) ([]domain.Pla
 			), 0) as total_playtime_seconds,
 			p.is_bot, p.is_vr,
 			CASE WHEN u.id IS NOT NULL THEN 1 ELSE 0 END as is_verified,
-			COALESCE(u.is_admin, 0) as is_admin
+			COALESCE(u.is_admin, 0) as is_admin,
+			`+modelSubquery+`
 		FROM players p
-		LEFT JOIN users u ON u.player_id = p.id
-		ORDER BY p.last_seen DESC
+		LEFT JOIN users u ON u.player_id = p.id`+botFilter+`
+		ORDER BY `+orderCol+` `+dir+`, p.id DESC
 		LIMIT ? OFFSET ?
-	`, limit, offset)
+	`, opts.Limit, opts.Offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -613,8 +651,12 @@ func (s *Store) GetPlayers(ctx context.Context, limit, offset int) ([]domain.Pla
 	var players []domain.Player
 	for rows.Next() {
 		var p domain.Player
-		if err := rows.Scan(&p.ID, &p.Name, &p.CleanName, &p.FirstSeen, &p.LastSeen, &p.TotalPlaytimeSeconds, &p.IsBot, &p.IsVR, &p.IsVerified, &p.IsAdmin); err != nil {
+		var model sql.NullString
+		if err := rows.Scan(&p.ID, &p.Name, &p.CleanName, &p.FirstSeen, &p.LastSeen, &p.TotalPlaytimeSeconds, &p.IsBot, &p.IsVR, &p.IsVerified, &p.IsAdmin, &model); err != nil {
 			return nil, 0, err
+		}
+		if model.Valid {
+			p.Model = model.String
 		}
 		players = append(players, p)
 	}

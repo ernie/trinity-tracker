@@ -8080,6 +8080,19 @@ details[open] > .admin-form-toggle .admin-form-toggle__caret {
   border-top: var(--rule);
 }
 
+.admin-player-detail__back {
+  margin-bottom: var(--space-4);
+}
+
+/* Sort chips + bot toggle above the browse grid. */
+.admin-players__list-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: var(--space-4) 0;
+}
+
 .admin-player-detail h3 {
   display: flex;
   align-items: center;

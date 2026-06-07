@@ -6,9 +6,70 @@ import { ColoredText } from "../ColoredText";
 import { PlayerBadge } from "../PlayerBadge";
 import { PlayerPortrait } from "../PlayerPortrait";
 import { formatDate, formatDuration } from "../../utils/formatters";
-import { stripVRPrefix } from "../../utils";
+import { displayPlayerName, stripVRPrefix } from "../../utils";
 import type { PlayerProfile, PlayerGUID } from "../../types";
 import { apiFetch } from "../../authFetch";
+
+const PAGE_SIZE = 24;
+
+const SORTS = [
+  { key: "last_seen", label: "Last seen" },
+  { key: "first_seen", label: "First seen" },
+  { key: "playtime", label: "Playtime" },
+  { key: "name", label: "Name" },
+] as const;
+type SortKey = (typeof SORTS)[number]["key"];
+
+// Recency and playtime read best newest/biggest-first; name is the one
+// criterion humans expect A→Z. Mirrors the API's default-direction rule.
+function defaultDir(sort: SortKey): "asc" | "desc" {
+  return sort === "name" ? "asc" : "desc";
+}
+
+// Shared card between the search results and the browse grid. Same
+// structure as PlayersPage's cards — .player-card is a centered flex
+// column, so name/meta must be direct children (a wrapper div would
+// collapse them onto one inline line).
+function PlayerCardButton({
+  player,
+  onSelect,
+}: {
+  player: PlayerProfile;
+  onSelect: (p: PlayerProfile) => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="player-card"
+      onClick={() => onSelect(player)}
+    >
+      <span className="player-card__avatar">
+        <PlayerPortrait model={player.model} size="lg" />
+        {player.is_bot ? (
+          <BotBadge isBot skill={5} size="sm" />
+        ) : (
+          <PlayerBadge
+            isVerified={player.is_verified}
+            isAdmin={player.is_admin}
+            isVR={player.is_vr}
+            size="sm"
+          />
+        )}
+      </span>
+      <span className="player-card__name">
+        <ColoredText text={displayPlayerName(player)} />
+      </span>
+      <span className="player-card__meta">
+        Last seen {formatDate(player.last_seen)}
+      </span>
+      {player.total_playtime_seconds > 0 && (
+        <span className="player-card__meta">
+          {formatDuration(player.total_playtime_seconds)} played
+        </span>
+      )}
+    </button>
+  );
+}
 
 export function AdminPlayers() {
   // Player search (target selection) — fires automatically as the admin types.
@@ -28,6 +89,73 @@ export function AdminPlayers() {
   const [merging, setMerging] = useState(false);
   const [splitting, setSplitting] = useState<number | null>(null);
   const [error, setError] = useState("");
+
+  // Browse list — shown when neither a search nor a selection is active,
+  // so the page is useful before the admin knows who they're looking for.
+  // Load-more (not paged): earlier results stay in the DOM so the admin
+  // can scan up and down and use find-in-page across everything loaded.
+  const [sort, setSort] = useState<SortKey>("last_seen");
+  const [dir, setDir] = useState<"asc" | "desc">("desc");
+  const [includeBots, setIncludeBots] = useState(false);
+  const [list, setList] = useState<PlayerProfile[] | null>(null);
+  const [total, setTotal] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  useEffect(() => {
+    const ctrl = new AbortController();
+    const params = new URLSearchParams();
+    params.set("limit", String(PAGE_SIZE));
+    params.set("sort", sort);
+    params.set("dir", dir);
+    if (includeBots) params.set("include_bots", "true");
+    apiFetch(`/api/players?${params.toString()}`, { signal: ctrl.signal })
+      .then((res) => (res.ok ? res.json() : null))
+      .then(
+        (data: { players: PlayerProfile[] | null; total: number } | null) => {
+          if (!data) return;
+          setList(data.players ?? []);
+          setTotal(data.total);
+        },
+      )
+      .catch(() => {
+        /* aborted or network error */
+      });
+    return () => ctrl.abort();
+  }, [sort, dir, includeBots]);
+
+  const loadMore = async () => {
+    if (loadingMore || list === null) return;
+    setLoadingMore(true);
+    try {
+      const params = new URLSearchParams();
+      params.set("limit", String(PAGE_SIZE));
+      params.set("offset", String(list.length));
+      params.set("sort", sort);
+      params.set("dir", dir);
+      if (includeBots) params.set("include_bots", "true");
+      const res = await apiFetch(`/api/players?${params.toString()}`);
+      if (res.ok) {
+        const data: { players: PlayerProfile[] | null; total: number } =
+          await res.json();
+        // Offset pagination can re-serve a row if the sort order shifted
+        // between fetches (e.g. last_seen ticked); drop already-shown ids
+        // so React keys stay unique.
+        setList((prev) => {
+          const seen = new Set((prev ?? []).map((p) => p.id));
+          const fresh = (data.players ?? []).filter((p) => !seen.has(p.id));
+          return [...(prev ?? []), ...fresh];
+        });
+        setTotal(data.total);
+      }
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  const changeSort = (key: SortKey) => {
+    setSort(key);
+    setDir(defaultDir(key));
+  };
 
   useEffect(() => {
     if (debouncedSearchQuery.trim().length < 2) return;
@@ -60,18 +188,22 @@ export function AdminPlayers() {
       .finally(() => setLoadingGuids(false));
   }, []);
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (selected) fetchGuids(selected.id);
-    else setGuids([]);
-  }, [selected, fetchGuids]);
-
+  // GUIDs load on the selection *event* rather than an effect synced to
+  // `selected` — there's no render-time state to reconcile, just a fetch
+  // that belongs to the click.
   const selectPlayer = (p: PlayerProfile) => {
     setSelected(p);
     setSearchResults([]);
     setSearchQuery("");
     setMergeQuery("");
     setMergeResults([]);
+    setError("");
+    fetchGuids(p.id);
+  };
+
+  const clearSelection = () => {
+    setSelected(null);
+    setGuids([]);
     setError("");
   };
 
@@ -158,6 +290,8 @@ export function AdminPlayers() {
   // without losing context. Gates on `displaySearchResults` so a stale
   // in-flight fetch resolving after a short-query gap can't reappear.
   const showResults = displaySearchResults.length > 0;
+  const showBrowse = !showResults && !selected;
+  const hasMore = list !== null && list.length < total;
 
   return (
     <div className="admin-players">
@@ -178,37 +312,9 @@ export function AdminPlayers() {
           className="player-cards-grid"
           style={{ marginTop: "var(--space-3)" }}
         >
-          {displaySearchResults.map((p) => {
-            const displayName = p.is_vr ? stripVRPrefix(p.name) : p.name;
-            return (
-              <button
-                key={p.id}
-                type="button"
-                className="player-card"
-                onClick={() => selectPlayer(p)}
-              >
-                <PlayerPortrait model={p.model} size="lg" />
-                <div className="player-card__body">
-                  <span className="player-card__name">
-                    {p.is_bot && <BotBadge isBot skill={5} />}
-                    {!p.is_bot && (
-                      <PlayerBadge
-                        isVerified={p.is_verified}
-                        isAdmin={p.is_admin}
-                        isVR={p.is_vr}
-                      />
-                    )}
-                    <ColoredText text={displayName} />
-                  </span>
-                  <span className="player-card__meta">
-                    Last seen {formatDate(p.last_seen)}
-                    {p.total_playtime_seconds > 0 &&
-                      ` · ${formatDuration(p.total_playtime_seconds)} played`}
-                  </span>
-                </div>
-              </button>
-            );
-          })}
+          {displaySearchResults.map((p) => (
+            <PlayerCardButton key={p.id} player={p} onSelect={selectPlayer} />
+          ))}
         </div>
       )}
 
@@ -218,8 +324,88 @@ export function AdminPlayers() {
         </div>
       )}
 
+      {showBrowse && (
+        <>
+          <div className="admin-players__list-controls">
+            <div className="admin-preset-chips">
+              {SORTS.map((s) => (
+                <button
+                  key={s.key}
+                  type="button"
+                  className={`admin-preset-chip ${sort === s.key ? "active" : ""}`}
+                  onClick={() => changeSort(s.key)}
+                >
+                  {s.label}
+                </button>
+              ))}
+              <button
+                type="button"
+                className="admin-preset-chip"
+                onClick={() => setDir((d) => (d === "desc" ? "asc" : "desc"))}
+                title={
+                  dir === "desc"
+                    ? "Descending — click for ascending"
+                    : "Ascending — click for descending"
+                }
+              >
+                {dir === "desc" ? "↓" : "↑"}
+              </button>
+            </div>
+            <label className="toggle-filter">
+              <input
+                type="checkbox"
+                checked={includeBots}
+                onChange={(e) => setIncludeBots(e.target.checked)}
+              />
+              <span className="toggle-filter__switch" aria-hidden />
+              <span className="toggle-filter__label">Include bots</span>
+            </label>
+          </div>
+
+          {list === null ? (
+            <div className="admin-loading">Loading players…</div>
+          ) : list.length === 0 ? (
+            <div className="admin-empty">No players found</div>
+          ) : (
+            <>
+              <div className="player-cards-grid">
+                {list.map((p) => (
+                  <PlayerCardButton
+                    key={p.id}
+                    player={p}
+                    onSelect={selectPlayer}
+                  />
+                ))}
+              </div>
+              <div className="admin-pagination">
+                <span>
+                  Showing {list.length} of {total} players
+                </span>
+                {hasMore && (
+                  <button
+                    type="button"
+                    className="admin-btn"
+                    onClick={loadMore}
+                    disabled={loadingMore}
+                  >
+                    {loadingMore ? "Loading…" : "Load more"}
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+        </>
+      )}
+
       {!showResults && selected && (
         <div className="admin-player-detail">
+          <button
+            type="button"
+            className="admin-btn admin-player-detail__back"
+            onClick={clearSelection}
+          >
+            ← All players
+          </button>
           <h3>
             <PlayerPortrait model={selected.model} size="lg" />
             <Link to={`/players/${selected.id}`}>
