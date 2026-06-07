@@ -442,6 +442,8 @@ func (r *Router) handleDemo(w http.ResponseWriter, req *http.Request) {
 	if r.staticDir != "" {
 		local := filepath.Join(r.staticDir, "demos", uuid+".tvd")
 		if info, err := os.Stat(local); err == nil && !info.IsDir() {
+			// Demos are write-once under uuid names, so cache forever.
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 			http.ServeFile(w, req, local)
 			return
 		}
@@ -543,6 +545,8 @@ func (r *Router) handleLevelshot(w http.ResponseWriter, req *http.Request) {
 	if r.staticDir != "" {
 		local := filepath.Join(r.staticDir, "assets", "levelshots", mapName+".jpg")
 		if info, err := os.Stat(local); err == nil && !info.IsDir() {
+			// Re-baked under stable names; bounded lifetime, not immutable.
+			w.Header().Set("Cache-Control", "public, max-age=2592000")
 			http.ServeFile(w, req, local)
 			return
 		}

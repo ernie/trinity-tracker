@@ -29,9 +29,12 @@ server {
     root {{ .StaticDir }};
 
     # Recorded demos — fetched cross-origin by the hub's WASM engine
-    # loader, so wildcard CORS is required.
+    # loader, so wildcard CORS is required. Write-once under uuid names,
+    # so cache forever.
     location /demos/ {
         autoindex off;
+        expires 1y;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
         add_header Access-Control-Allow-Origin "*" always;
     }
 

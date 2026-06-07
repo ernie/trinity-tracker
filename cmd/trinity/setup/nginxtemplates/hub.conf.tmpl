@@ -30,8 +30,22 @@ server {
     # Asset paths that may exist locally OR live on a remote source. nginx
     # serves the file when present; on miss it falls back to the trinity
     # Go binary, which 302s to the source that owns the asset.
-    location /demos/                { try_files $uri @trinity_fallback; }
-    location /assets/levelshots/    { try_files $uri @trinity_fallback; }
+    #
+    # Demos are write-once under uuid names, so cache forever. Levelshots
+    # and map pk3s are re-baked under stable names: levelshots get a
+    # bounded lifetime (staleness is cosmetic), pk3s stay on the engine
+    # loader's conditional revalidation (a stale baseline/map mix breaks
+    # demo playback).
+    location /demos/ {
+        try_files $uri @trinity_fallback;
+        expires 1y;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+    }
+    location /assets/levelshots/ {
+        try_files $uri @trinity_fallback;
+        expires 30d;
+        add_header Cache-Control "public" always;
+    }
     location /demopk3s/maps/        { try_files $uri @trinity_fallback; }
     location @trinity_fallback {
         proxy_pass http://127.0.0.1:8080;
