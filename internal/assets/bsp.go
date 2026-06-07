@@ -118,6 +118,14 @@ func parseEntities(text string, assets *BSPAssets) {
 			if value != "" && !strings.HasPrefix(value, "*") {
 				assets.Models = append(assets.Models, value)
 			}
+		case "targetshadername", "targetshadernewname":
+			// Runtime shader remaps (e.g. Team Arena flag-status lights):
+			// G_UseTargets remaps these mid-match via CS_SHADERSTATE, so the
+			// "new" shader's textures are needed even though no BSP surface
+			// references it.
+			if value != "" && !strings.HasPrefix(value, "*") {
+				assets.Shaders = append(assets.Shaders, value)
+			}
 		}
 	}
 }
