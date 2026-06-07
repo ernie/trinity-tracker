@@ -13142,6 +13142,18 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   }
 }
 
+/* Inline link in a lead: underline carries the affordance — accent-dim
+   alone doesn't read as a link against the dim prose around it. */
+.landing-section__lead a {
+  color: var(--accent-dim);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.15s;
+}
+.landing-section__lead a:hover {
+  color: var(--accent);
+}
+
 /* ─── Docs platform picker ────────────────────────────────────
    First-visit blocker. Centered card on desktop, top-aligned
    full-bleed on narrow viewports per spec.

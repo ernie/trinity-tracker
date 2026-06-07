@@ -64,7 +64,8 @@ export function ActiveNowShelf() {
       ) : botLiveServers.length > 0 ? (
         <>
           <p className="landing-section__lead">
-            No humans fighting right now. The bots didn't get the memo.
+            No humans fighting right now. The bots didn't get the memo &mdash;
+            click a card to watch, or <Link to="/docs">join the fray</Link>.
           </p>
           <div className="landing-shelf-h">
             <NavScroller scrollClassName="landing-shelf-h__scroll">

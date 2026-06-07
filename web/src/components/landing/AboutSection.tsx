@@ -15,12 +15,10 @@ export function AboutSection() {
           opponents.
         </p>
         <p>
-          Trinity exists because Quake III had one more move to make: VR. Same
-          maps, same weapons, same fights &mdash; but now you&rsquo;re{" "}
-          <em>inside</em> the game: real aim, and real space between you and
-          your opponent. Flatscreen and VR share every match. If you played the
-          original, this is far better than you remember &mdash; and requires{" "}
-          <em>much</em> more from you as a player.
+          Quake III had one more move left in it: VR. You&rsquo;re{" "}
+          <em>inside</em> the game now &mdash; real aim, real space between you
+          and your opponent &mdash; and flatscreen and VR share every match. If
+          you played the original, it asks far more of you than you remember.
         </p>
         <p>
           This site is the tracker. Watch fights live, or replay them &mdash;
