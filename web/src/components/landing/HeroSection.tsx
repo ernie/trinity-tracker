@@ -21,11 +21,11 @@ export function HeroSection() {
   // the landing will pick a fresh variant — matches "random per visit".
   const [variant] = useState(pickHeroVariant);
 
-  // Pulse line 1: busy / quiet / pre-WS variants.
+  // Pulse line 1: pre-WS and quiet share one line — the swap-in on connect
+  // conveyed nothing and read as a glitch. Only real news (players fragging)
+  // replaces it.
   let pulse: React.ReactNode;
-  if (!live.isConnected) {
-    pulse = <span>the arena is open.</span>;
-  } else if (humans === 0) {
+  if (!live.isConnected || humans === 0) {
     pulse = <span>the arena is waiting for you.</span>;
   } else {
     pulse = (

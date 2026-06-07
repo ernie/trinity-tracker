@@ -2,19 +2,18 @@
 // Replaces the standard <Header> over the wallpaper.
 import { Link } from "react-router-dom";
 import { useLiveData } from "../../contexts/LiveDataContext";
+import { derivePillState } from "../pillState";
 
 export function HeroHeader() {
-  const { activeHumanPlayersCount, isConnected } = useLiveData();
-  const live = activeHumanPlayersCount > 0;
-  // Three states mirror StatusPill: live (humans fragging), quiet (hub up,
-  // arena empty), offline (hub feed lost). Class name `quiet` is kept as
-  // an internal CSS hook even though the visible label is now "STANDING BY".
-  const stateClass = !isConnected ? "offline" : live ? "live" : "quiet";
-  const label = !isConnected
-    ? "OFFLINE"
-    : live
-      ? `${activeHumanPlayersCount} LIVE`
-      : "STANDING BY";
+  const { activeHumanPlayersCount, connectionStatus } = useLiveData();
+  // Shared with StatusPill: live (humans fragging), quiet (hub up or still
+  // connecting, arena empty), offline (the feed is genuinely unreachable).
+  // Class name `quiet` is kept as an internal CSS hook even though the
+  // visible label is "STANDING BY".
+  const { stateClass, label } = derivePillState(
+    connectionStatus,
+    activeHumanPlayersCount,
+  );
 
   return (
     <header className="hero__header">

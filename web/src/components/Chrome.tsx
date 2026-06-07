@@ -40,7 +40,7 @@ export function Chrome() {
           <StatusPill
             humansOnline={live.activeHumanPlayersCount}
             activeServers={live.activeServersCount}
-            isConnected={live.isConnected}
+            status={live.connectionStatus}
             open={live.activityDrawerOpen}
             onToggle={live.toggleActivityDrawer}
           />

@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useWebSocket } from "../useWebSocket";
+import { useWebSocket, type ConnectionStatus } from "../useWebSocket";
 import { useAuth } from "../hooks/useAuth";
 import { useSources } from "../hooks/useSources";
 import { serverDisplay } from "../utils";
@@ -60,6 +60,8 @@ interface LiveDataValue {
   newPlayers: Set<string>;
   loading: boolean;
   isConnected: boolean;
+  /** Full connecting/open/down state — feeds the status pills. */
+  connectionStatus: ConnectionStatus;
   // serverId → client_nums currently attacking that server's obelisk.
   obeliskAttackersByServer: Map<number, Set<number>>;
 
@@ -788,7 +790,11 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
   );
 
   const wsUrl = `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/ws`;
-  const { isConnected, send: wsSend } = useWebSocket(wsUrl, handleEvent);
+  const {
+    status: connectionStatus,
+    isConnected,
+    send: wsSend,
+  } = useWebSocket(wsUrl, handleEvent);
 
   // Subscribe to "server" only when the drawer is closed (most of the
   // time on most clients) and add "activity" when it's open. The hook
@@ -907,6 +913,7 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
       newPlayers,
       loading,
       isConnected,
+      connectionStatus,
       obeliskAttackersByServer,
       activeHumanPlayersCount,
       activeServersCount,
@@ -931,6 +938,7 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
       newPlayers,
       loading,
       isConnected,
+      connectionStatus,
       obeliskAttackersByServer,
       activeHumanPlayersCount,
       activeServersCount,

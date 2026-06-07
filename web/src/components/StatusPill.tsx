@@ -1,8 +1,11 @@
+import type { ConnectionStatus } from "../useWebSocket";
+import { derivePillState } from "./pillState";
+
 interface StatusPillProps {
   humansOnline: number;
   activeServers: number;
-  /** Hub WS connectivity. Drives pulse; gray when disconnected. */
-  isConnected: boolean;
+  /** Hub WS state. Drives pulse; gray only when the feed is truly down. */
+  status: ConnectionStatus;
   open: boolean;
   onToggle: () => void;
 }
@@ -11,17 +14,11 @@ interface StatusPillProps {
 export function StatusPill({
   humansOnline,
   activeServers,
-  isConnected,
+  status,
   open,
   onToggle,
 }: StatusPillProps) {
-  const live = humansOnline > 0;
-  const stateClass = !isConnected ? "offline" : live ? "live" : "quiet";
-  const label = !isConnected
-    ? "OFFLINE"
-    : live
-      ? `${humansOnline} LIVE`
-      : "STANDING BY";
+  const { stateClass, label } = derivePillState(status, humansOnline);
 
   return (
     <button
@@ -31,9 +28,9 @@ export function StatusPill({
       aria-haspopup="dialog"
       aria-expanded={open}
       aria-label={
-        !isConnected
+        stateClass === "offline"
           ? "Disconnected from hub; open activity"
-          : live
+          : stateClass === "live"
             ? `${humansOnline} human${humansOnline === 1 ? "" : "s"} playing on ${activeServers} server${activeServers === 1 ? "" : "s"}; open activity`
             : "No humans playing; open activity"
       }
