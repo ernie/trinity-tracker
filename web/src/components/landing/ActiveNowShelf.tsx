@@ -6,7 +6,7 @@ import { NavScroller } from "../NavScroller";
 
 // Bot-spectating featured set, in display order. Five entries to match
 // the Recent Matches shelf's SHELF_SIZE.
-const FEATURED_BOT_KEYS = ["ffa", "1v1", "ctf-ta", "1fctf", "overload"];
+const FEATURED_BOT_KEYS = ["overload", "1fctf", "ctf-ta", "1v1", "ffa"];
 
 export function ActiveNowShelf() {
   const live = useLiveData();

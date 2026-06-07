@@ -11451,9 +11451,17 @@ h2.docs-h2:focus-within .docs-h2__anchor {
 .landing-shelf-h__scroll::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 110, 60, 0.5);
 }
+/* Slots stretch to the row's tallest card (flex default), and the card
+   fills its slot so mixed roster sizes don't render a ragged shelf —
+   .card__bottom's margin-top:auto pins each footer to the card's floor. */
 .landing-shelf-h__slot {
   flex: 0 0 380px;
   scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+}
+.landing-shelf-h__slot .card {
+  flex: 1;
 }
 
 /* NavScroller chevrons inside a landing shelf — sit just inside the
@@ -13070,9 +13078,17 @@ h2.docs-h2:focus-within .docs-h2__anchor {
    render with their styling, just non-interactive. */
 .landing-match-link,
 .landing-watch-link {
-  display: block;
   text-decoration: none;
   color: inherit;
+}
+/* .landing-match-link IS the shelf slot (display comes from
+   .landing-shelf-h__slot); .landing-watch-link is ServerCard's inner
+   whole-card anchor sitting between slot and card, so it must pass the
+   stretch through its own layer. */
+.landing-watch-link {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
 }
 .landing-match-link .card a,
 .landing-match-link .card button,
