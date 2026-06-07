@@ -52,7 +52,7 @@ server {
         return 403;
     }
 
-    # Vite content-hashed bundles (assets/index-<hash>.js|css). Filename
+    # Content-hashed bundles (assets/main-<hash>.js|css). Filename
     # changes whenever content changes, so cache forever. The longer-
     # prefix /assets/levelshots/ block above wins for that subtree.
     location /assets/ {

@@ -139,7 +139,7 @@ if (( ! UPGRADE )); then
 
  It will:
 
-   - install OS packages (nginx, certbot, screen, logrotate, ...)
+   - install OS packages (nginx, certbot, logrotate, ...)
    - drop /usr/local/bin/trinity onto this host
    - download the trinity-engine release into /usr/lib/quake3/
    - create the 'quake' service user
@@ -192,7 +192,7 @@ BANNER
  This script joins your Quake 3 host to a Trinity hub network.
  It will:
 
-   - install OS packages (nginx, certbot, screen, logrotate, ...)
+   - install OS packages (nginx, certbot, logrotate, ...)
    - drop /usr/local/bin/trinity onto this host
    - download the trinity-engine release into /usr/lib/quake3/
    - create the 'quake' service user
@@ -250,7 +250,7 @@ echo "==> installing baseline OS packages"
 # has opted out — they're shipping logs via fluent-bit/vector/journald
 # and don't need it. nginx + certbot are handled separately by
 # bootstrap-nginx.sh, so --skip-nginx doesn't trim anything here.
-pkgs=(curl ca-certificates unzip screen)
+pkgs=(curl ca-certificates unzip)
 if (( ! SKIP_LOGROTATE )); then
     pkgs+=(logrotate)
 fi
@@ -265,9 +265,9 @@ elif command -v pacman >/dev/null 2>&1; then
 else
     echo "ERROR: no supported package manager (apt/pacman) found." >&2
     echo "       Trinity supports Debian/Ubuntu and Arch. Fedora/RHEL are" >&2
-    echo "       unsupported — SELinux confines the q3 server unit's screen" >&2
-    echo "       wrapper. If you're on one of those and know SELinux, install" >&2
-    echo "       these manually and re-run with the wizard: ${pkgs[*]}" >&2
+    echo "       unsupported (untested there, and nothing installs the" >&2
+    echo "       packages). If you know your platform, install these" >&2
+    echo "       manually and re-run from a checkout: ${pkgs[*]}" >&2
     exit 1
 fi
 

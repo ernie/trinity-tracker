@@ -19,11 +19,11 @@ The stack:
 ## Prerequisites
 
 - **Linux host**. Debian/Ubuntu primary; the installer probes for
-  `apt`/`pacman`. Fedora/RHEL aren't supported — the
-  `quake3-server@.service` unit's `screen` wrapper trips SELinux's
-  `init_t` confinement and there's no clean upstream-policy fix. If
-  you know SELinux you can run from a checkout and craft your own
-  policy module, but the curl|bash path will refuse to proceed.
+  `apt`/`pacman` and refuses to proceed without one. Fedora/RHEL
+  aren't supported — nothing installs the packages there and we
+  haven't tested under SELinux. If you're comfortable on those
+  platforms you can install the baseline packages by hand and run
+  from a checkout, but the curl|bash path won't take you there.
 - **A retail copy of `pak0.pk3`** for baseq3 (and a separate one for
   missionpack if you want gametypes from Team Arena — One Flag CTF,
   Overload, Harvester). The trinity-engine release bundles the engine

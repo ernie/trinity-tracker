@@ -9,8 +9,8 @@ import _ "embed"
 //
 // The text lives in quake3-eula.txt so it can be a single source of
 // truth: the Go binary embeds it for the wizard's `more`-pager step,
-// and a symlink at web/public/quake3-eula.txt lets Vite serve the same
-// bytes to the hub web UI's EULA page.
+// and a symlink at web/public/quake3-eula.txt lets the web build copy
+// the same bytes into the hub web UI's EULA page.
 //
 //go:embed quake3-eula.txt
 var quake3EULA string

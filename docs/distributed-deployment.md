@@ -384,6 +384,56 @@ collector's live events flow through the in-process
 `manager.Events()` channel directly to the WebSocket hub, avoiding
 an unnecessary NATS round-trip.
 
+## TrinityVision live streams
+
+Live spectating is its own pipeline, separate from both the live
+event bus above and `.tvd` recording. Three artifacts must agree on
+the wire format (`TVL1`); see the lockstep warning at the end.
+
+- **Engine (writer).** With `sv_tvLive 1`, `trinity.ded` listens on
+  loopback TCP at the same port number as its UDP game port and
+  writes the match as a TVL1 stream: a header per map session, then
+  length-prefixed segments anchored by keyframes
+  (`sv_tvLiveKeyframeMsec`, default 1000). Map changes don't drop
+  the socket — a session ends with a `TVLe` marker and the next
+  starts with a fresh header on the same connection.
+- **Collector (relay).** On InitGame the collector opens a
+  persistent tap to `127.0.0.1:<game port>` (idempotent; redials on
+  a mid-match drop). Segments land in a per-server buffer that
+  re-keys per map session, so viewers keep a stable per-server URL
+  across rotations. The relay (`live_relay_addr`, conventionally
+  `:8081`) serves viewers with a deliberate holdback: `live_delay`
+  is the target viewer delay (default 5s), and the relay subtracts
+  the keyframe interval it measures off the stream so a fresh viewer
+  always starts on a keyframe behind the edge.
+- **Hub (router).** The hub tracks per-server `is_live` in memory
+  and routes the two-segment `/tv/<source>/<key>/stream` to the
+  owning collector's relay; the bare two-segment URL stays on the
+  SPA fallback as the player page. Browser viewer counts feed the
+  LIVE pill and go back into the game via `trinity_watch` rcon sends
+  (the in-game Vadrigar presence).
+- **Browser (reader).** The WASM engine's `cl_tv` consumes the
+  stream through a byte-feed ring; it reads the `TVLe`→`TVL1`
+  boundary as an in-place map change, holding one connection across
+  the rotation with a levelshot overlay during the load.
+
+> **Lockstep constraint:** a TVL1 format change touches the
+> `trinity.ded` writer, the Go relay (parser), and the browser
+> loader + WASM reader. Deploy all three together or live taps
+> desync.
+
+### Console following
+
+`trinity console --follow` is a separate tap with the same two-check
+trust model as RCON: the hub authorizes the viewer, the collector
+re-validates the role against its own per-server config. The engine
+offers a console tap when `sv_conTap 1` (kernel-assigned loopback
+port, advertised as `sv_conport` in serverinfo); the collector keeps
+a scrollback ring and publishes lines on core NATS only while a
+viewer's TTL lease is live — expiry is the off-switch, so a vanished
+hub can't leak a forever-stream. The hub fans lines out to viewers
+over SSE.
+
 ## Security
 
 - **Per-collector NKeys** scoped to publish only under their own

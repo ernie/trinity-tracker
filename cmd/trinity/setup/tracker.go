@@ -42,7 +42,7 @@ type TrackerStage struct {
 // sha256sums.txt, extracts into stageDir, and returns paths to the
 // trinity binary and the bundled web/ directory (when present).
 //
-// The web/ directory is the static SPA bundle Vite builds; release
+// The web/ directory is the static SPA bundle the web build emits; release
 // pipelines that drop it into the tarball alongside the binary make
 // it possible to refresh hub web assets in the same step as the
 // binary swap.

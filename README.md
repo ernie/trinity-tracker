@@ -1,6 +1,6 @@
 # Trinity
 
-Real-time statistics tracking system for the [Trinity Quake 3 engine](https://github.com/ernie/trinity-engine) and [Trinity mod](https://github.com/ernie/trinity).
+Real-time statistics tracking system for the [Trinity Quake 3 engine](https://github.com/ernie/trinity-engine) and [Trinity mod](https://github.com/ernie/trinity). Every match is recorded and replayable in the browser through the engine compiled to WebAssembly, and in-progress matches can be watched live the same way (TrinityVision).
 
 The free Quake 3 demo (evaluation version) is not supported — retail only.
 
@@ -161,26 +161,40 @@ Options:
 
 ```bash
 trinity init [--no-systemd] [--dry-run]     Interactive install wizard (collector-only by default)
+trinity update [--check] [--dry-run]        Update tracker binary, web bundle, engine, and mod from GitHub releases
 trinity serve                               Start the stats server
 trinity server list                         Show configured game servers
 trinity server add [<key>] [--gametype X] [--port N] [flags]
                                             Add a game server instance (interactive on a TTY)
 trinity server remove <key>                 Remove a game server instance
-trinity status                              Show all servers status
+trinity status                              Health checks + (hub mode) live game-server status
 trinity players [--humans]                  Show current players across all servers
 trinity matches [--recent N]                Show recent matches (default: 20)
 trinity leaderboard [--top N]               Show top players (default: 20)
+trinity discord-digest [--period P] [--dry-run]
+                                            Post a leaderboard digest to a Discord webhook
 trinity user add [--admin] [--player-id N] <username>
                                             Add a user (prompts for password)
 trinity user remove <username>              Remove a user
 trinity user list                           List all users
 trinity user reset <username>               Reset a user's password
 trinity user admin <username>               Toggle admin status for a user
+trinity user disable <username>             Disable an account
+trinity user enable <username>              Re-enable a disabled account
+trinity login [--url <hub>]                 Log in and store a personal access token
+trinity logout                              Revoke and discard the stored token
+trinity console                             List servers you can control
+trinity console <key> [command...]          Send rcon (interactive console without command)
+trinity console --follow <key>              Stream console output read-only
 trinity levelshots [path]                   Extract levelshots from pk3 file(s)
 trinity portraits [path]                    Extract player portraits from pk3 file(s)
 trinity medals [path]                       Extract medal icons from pk3 file(s)
 trinity skills [path]                       Extract skill icons from pk3 file(s)
-trinity assets [path]                       Extract all assets (levelshots, portraits, medals, skills)
+trinity objectives [path]                   Extract objective-state icons (CTF flags, Harvester skulls) from pk3 file(s)
+trinity arenas [path]                       Extract map longnames into maps.json
+trinity assets [path]                       Extract all assets (portraits, medals, skills, objectives, levelshots)
+trinity demobake [path]                     Build baseline pk3, map pk3s, and manifest for web demo playback
+trinity maps [--mode <mode>] [path]         Scan pk3s and report which game modes each map supports
 trinity version                             Show version
 trinity help                                Show help
 ```
@@ -217,6 +231,7 @@ sudo trinity server remove ctf
 - `--log-path` - log file path (default: `/var/log/quake3/<key>.log`)
 
 Adding a server writes:
+
 - `/etc/trinity/<key>.env` - bind port (+ `fs_game missionpack` for gametypes from Team Arena)
 - `<quake3_dir>/<modfolder>/<key>.cfg` - starter cfg from the gametype template
 - An entry in `/etc/trinity/config.yml`
@@ -340,6 +355,7 @@ sudo -u quake trinity user add admin --admin
 The systemd unit files are embedded in the binary (source:
 `cmd/trinity/setup/systemd/`) and installed by `trinity init`. The
 wizard installs only the units the chosen mode needs:
+
 - `trinity.service` always
 - `quake3-server@.service` and `quake3-servers.target` when at least
   one q3 server is configured (collector or combined modes)
@@ -351,6 +367,13 @@ Operators using a non-systemd init system can pass `--no-systemd` to
 ## Nginx Configuration
 
 For production, serve static files from nginx and proxy API/WebSocket requests to the Go backend.
+
+The canonical vhosts are the templates the wizard installs
+(`cmd/trinity/setup/nginxtemplates/`) — beyond the basics below they
+also serve `/q3/` pak + demo files to the in-browser engine and proxy
+the `/tv/` TrinityVision live-stream routes. If you hand-roll nginx
+from this example, browser demo playback and live viewing won't work
+until you add those locations too.
 
 Example `/etc/nginx/sites-available/trinity`:
 
@@ -495,6 +518,25 @@ authorized to manage. Authorization follows two rules:
   `admin_delegation_enabled` on that server (mirrored from the
   collector's per-server cfg via the heartbeat). The colocated
   hub+collector case grants the local admin RCON without the opt-in.
+
+### CLI console
+
+The same authorization drives the CLI. `trinity login` authenticates
+against the hub and stores a personal access token at
+`~/.config/trinity/token.json` (0600); `trinity logout` revokes and
+discards it. With a token in place:
+
+```bash
+trinity console                  # list servers you can control
+trinity console ffa              # interactive console (rcon-backed)
+trinity console ffa status       # one-shot command
+trinity console --follow ffa     # stream console output read-only (pipeable)
+```
+
+Live console output (interactive and `--follow` alike) rides the
+engine's console tap: the game server runs with `sv_conTap 1`, the
+collector taps it, and the hub relays it over SSE. Command dispatch
+is plain rcon and works regardless.
 
 ### Encrypted rcon-autoset
 
