@@ -59,6 +59,8 @@ type Router struct {
 	// a chatty CLI session doesn't write-amplify SQLite.
 	patTouchMu   sync.Mutex
 	patTouchSeen map[int64]time.Time
+	// respCache backs the cached() middleware on hot anonymous reads.
+	respCache *responseCache
 	// Version string surfaced to the frontend via /api/version. Set by
 	// main.go after NewRouter so binary builds report their git-describe
 	// tag; unset = "dev".
@@ -110,6 +112,7 @@ func NewRouter(store *storage.Store, manager *collector.ServerManager, writer *h
 		staticDir:     staticDir,
 		quake3Dir:     quake3Dir,
 		patTouchSeen:  make(map[int64]time.Time),
+		respCache:     newResponseCache(),
 	}
 
 	// API routes
@@ -119,16 +122,18 @@ func NewRouter(store *storage.Store, manager *collector.ServerManager, writer *h
 	r.mux.HandleFunc("GET /api/servers/{id}/status", r.handleGetServerStatus)
 	r.mux.HandleFunc("GET /api/servers/{id}/players", r.handleGetServerPlayers)
 
-	r.mux.HandleFunc("GET /api/players", r.handleGetPlayers)
-	r.mux.HandleFunc("GET /api/players/{id}", r.handleGetPlayer)
-	r.mux.HandleFunc("GET /api/players/{id}/stats", r.handleGetPlayerStatsByID)
-	r.mux.HandleFunc("GET /api/players/{id}/matches", r.handleGetPlayerMatches)
+	// cached(): hot anonymous reads — real-time data flows over the
+	// websocket, so TTL staleness is invisible.
+	r.mux.HandleFunc("GET /api/players", r.cached(15*time.Second, r.handleGetPlayers))
+	r.mux.HandleFunc("GET /api/players/{id}", r.cached(15*time.Second, r.handleGetPlayer))
+	r.mux.HandleFunc("GET /api/players/{id}/stats", r.cached(15*time.Second, r.handleGetPlayerStatsByID))
+	r.mux.HandleFunc("GET /api/players/{id}/matches", r.cached(15*time.Second, r.handleGetPlayerMatches))
 
-	r.mux.HandleFunc("GET /api/matches", r.handleGetMatches)
-	r.mux.HandleFunc("GET /api/matches/{id}", r.handleGetMatch)
-	r.mux.HandleFunc("GET /api/matches/featured", r.handleGetFeaturedMatches)
+	r.mux.HandleFunc("GET /api/matches", r.cached(10*time.Second, r.handleGetMatches))
+	r.mux.HandleFunc("GET /api/matches/{id}", r.cached(10*time.Second, r.handleGetMatch))
+	r.mux.HandleFunc("GET /api/matches/featured", r.cached(10*time.Second, r.handleGetFeaturedMatches))
 
-	r.mux.HandleFunc("GET /api/stats/leaderboard", r.handleGetLeaderboard)
+	r.mux.HandleFunc("GET /api/stats/leaderboard", r.cached(30*time.Second, r.handleGetLeaderboard))
 
 	// Public list of source names; powers the source-filter dropdown
 	// in the activity log and matches list.
