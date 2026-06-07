@@ -29,6 +29,7 @@ import { AdminUsers } from "./components/admin/AdminUsers";
 import { AdminSessions } from "./components/admin/AdminSessions";
 import { AdminPlayers } from "./components/admin/AdminPlayers";
 import { AdminSources } from "./components/admin/AdminSources";
+import { AdminFeatured } from "./components/admin/AdminFeatured";
 import { AdminAudit } from "./components/admin/AdminAudit";
 import { AuthProvider } from "./hooks/useAuth";
 import { LiveDataProvider } from "./contexts/LiveDataContext";
@@ -79,6 +80,7 @@ createRoot(document.getElementById("root")!).render(
                   <Route path="sessions" element={<AdminSessions />} />
                   <Route path="players" element={<AdminPlayers />} />
                   <Route path="sources" element={<AdminSources />} />
+                  <Route path="featured" element={<AdminFeatured />} />
                   <Route path="audit" element={<AdminAudit />} />
                 </Route>
                 <Route path="/claim" element={<ClaimPage />} />

@@ -2425,6 +2425,8 @@ type MatchFilter struct {
 	BeforeID       *int64
 	Limit          int
 	IncludeBotOnly bool // when false, filter to has_human_player = TRUE
+	FeaturedOnly   bool // when true, filter to is_featured = 1
+	DemoOnly       bool // when true, filter to demo_available = 1
 }
 
 // GetFilteredMatchSummaries returns matches filtered by the given criteria
@@ -2472,6 +2474,12 @@ func (s *Store) GetFilteredMatchSummaries(ctx context.Context, filter MatchFilte
 	}
 	if !filter.IncludeBotOnly {
 		query += ` AND m.has_human_player = TRUE`
+	}
+	if filter.FeaturedOnly {
+		query += ` AND m.is_featured = 1`
+	}
+	if filter.DemoOnly {
+		query += ` AND m.demo_available = 1`
 	}
 
 	query += ` ORDER BY m.ended_at DESC LIMIT ?`

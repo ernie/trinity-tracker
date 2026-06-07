@@ -364,6 +364,11 @@ func (r *Router) handleGetMatches(w http.ResponseWriter, req *http.Request) {
 	}
 
 	filter.IncludeBotOnly = req.URL.Query().Get("include_bot_only") == "true"
+	// featured=true narrows to flagged matches regardless of demo state —
+	// the admin Featured section uses it to surface broken entries (flagged
+	// but demo gone) that the public /api/matches/featured endpoint hides.
+	filter.FeaturedOnly = req.URL.Query().Get("featured") == "true"
+	filter.DemoOnly = req.URL.Query().Get("has_demo") == "true"
 
 	matches, err := r.store.GetFilteredMatchSummaries(req.Context(), filter)
 	if err != nil {

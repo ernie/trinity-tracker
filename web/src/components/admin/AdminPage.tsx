@@ -9,6 +9,7 @@ const ADMIN_TABS = [
   { path: "sessions", label: "Sessions" },
   { path: "players", label: "Players" },
   { path: "sources", label: "Sources" },
+  { path: "featured", label: "Featured" },
   { path: "audit", label: "Audit" },
 ] as const;
 

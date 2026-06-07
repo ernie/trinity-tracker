@@ -7614,6 +7614,63 @@ h2 {
   font-style: italic;
 }
 
+/* ── Featured-matches admin section ──────────────────────────────────
+   Two MatchCard grids — currently featured, and recent matches to add —
+   reusing the public .matches-browser-list look; the card's own admin
+   star toggle does the featuring. */
+.admin-featured__hint {
+  margin: 0 0 var(--space-4);
+  color: var(--text-dim);
+  font-family: "Barlow", sans-serif;
+  font-size: 0.85rem;
+}
+
+.admin-featured__browse-header {
+  margin-top: var(--space-6);
+}
+
+.admin-featured__filters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.admin-featured__filter-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+/* Wrapper so a demo-missing warning can ride under a featured card.
+   Flex column keeps the card stretching to row height like the bare
+   .match-card grid items beside it. */
+.admin-featured__item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.admin-featured__item > .match-card {
+  flex: 1;
+}
+
+/* Amber caution, not alarm — the flag is set but the landing door
+   can't serve this match because its demo is gone. */
+.admin-featured__warning {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid rgba(255, 170, 80, 0.4);
+  border-radius: var(--radius-sm);
+  color: var(--ember-light);
+  font-family: "Barlow", sans-serif;
+  font-size: 0.8rem;
+}
+
 /* ── Unified data-table treatment ────────────────────────────────────
    Replaces the four legacy table styles (.users-table, .sessions-table,
    .admin-table, .admin-audit-table) which each redefined borders /

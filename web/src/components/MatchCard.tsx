@@ -143,6 +143,8 @@ interface MatchCardProps {
     cleanName: string,
     playerId?: number,
   ) => void;
+  /** Called after the feature toggle succeeds on the server. */
+  onFeatureChange?: (matchId: number, isFeatured: boolean) => void;
   highlightPlayerId?: number;
   showPermalink?: boolean;
 }
@@ -150,6 +152,7 @@ interface MatchCardProps {
 export function MatchCard({
   match,
   onPlayerClick,
+  onFeatureChange,
   // TODO: wire highlightPlayerId / showPermalink through the card primitives.
 }: MatchCardProps) {
   const { hasMultiple: hasMultipleSources } = useSources();
@@ -185,6 +188,7 @@ export function MatchCard({
         method: next ? "POST" : "DELETE",
       });
       if (!res.ok) setIsFeatured(!next);
+      else onFeatureChange?.(match.id, next);
     } catch {
       setIsFeatured(!next);
     } finally {
