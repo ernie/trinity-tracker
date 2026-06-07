@@ -145,6 +145,26 @@ export function DocsAccount() {
       </div>
 
       <div className="about-section">
+        <DocsH2 id="sessions-security">Sessions and security</DocsH2>
+        <p>
+          Logging in on this site keeps you signed in per browser. If you ever
+          want to cut every session loose at once — a shared computer you forgot
+          to log out of, a session you suspect leaked — the{" "}
+          <strong>Security</strong> section of your{" "}
+          <Link to="/account">Account page</Link> has a{" "}
+          <strong>Log out everywhere</strong> button. It signs you out of the
+          site on every browser and device, immediately. Changing your password
+          does the same thing as a side effect.
+        </p>
+        <p>
+          Neither touches your in-game credentials: your game token keeps
+          working, so your installs stay logged in. If you think the game token
+          itself leaked, rotate it from the same Account page — then update any
+          autoexec you pasted it into.
+        </p>
+      </div>
+
+      <div className="about-section">
         <DocsH2 id="without-account">Playing without an account</DocsH2>
         <p>
           If you'd rather not make an account, you'll still appear on the hub —

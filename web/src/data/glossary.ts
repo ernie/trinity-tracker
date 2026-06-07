@@ -99,4 +99,9 @@ export const GLOSSARY: GlossaryEntry[] = [
     definition:
       "TrinityVision Demo — Trinity's demo recording format. Servers record them automatically when sv_tvAuto is set, or on demand with the tvrecord / tvstop console commands; servers offer them to clients at end of match via sv_tvDownload + sv_dlURL. Playback works in the hub's web demo player and in any Trinity engine.",
   },
+  {
+    term: "Vadrigar",
+    definition:
+      'The unseen masters of the Arena Eternal in Quake III lore: they built the arenas and gather warriors to fight for their amusement. In Trinity, web viewers take their seat — when someone watches a live match from the site, players in the server hear "The Vadrigar watch." and an eye with the current viewer count appears on their HUD.',
+  },
 ];

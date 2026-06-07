@@ -1414,6 +1414,32 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
         </p>
 
         <h3 className="docs-play__feature-title">
+          Watch live matches in the browser
+        </h3>
+        <p>
+          Any in-progress match on a participating server can be watched live,
+          right in the browser — no install, no account. Wherever you see a
+          server card (the <Link to="/">landing page</Link> or{" "}
+          <Link to="/servers">Servers</Link>), a pulsing <strong>LIVE</strong>{" "}
+          pill means the broadcast is on. Click it and the viewer opens
+          mid-match, already following whoever is leading. From there you can
+          follow any player or fly the free camera. The feed runs slightly
+          behind the real game — hover the pill for the current delay — and the
+          small number beside it is how many people are watching right now.
+        </p>
+        <p>
+          The arena knows when it has an audience. When the first viewer
+          arrives, players in the server hear{" "}
+          <em>&ldquo;The Vadrigar watch.&rdquo;</em> and an eye with the viewer
+          count appears on their HUDs. You're not invisible up there — make them
+          feel observed.
+        </p>
+        <p>
+          Live viewing has no timeline to scrub — but every match is also
+          recorded:
+        </p>
+
+        <h3 className="docs-play__feature-title">
           Replay matches in the browser or in your client
         </h3>
         <p>
@@ -1424,9 +1450,9 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
         <ul>
           <li>
             <strong>In the browser</strong> — open any match from{" "}
-            <Link to="/matches">/matches</Link> and the hub plays it back
-            through the Trinity engine compiled to WebAssembly. No install
-            required, and the link works for anyone you share it with.
+            <Link to="/matches">Matches</Link> and the hub plays it back through
+            the Trinity engine compiled to WebAssembly. No install required, and
+            the link works for anyone you share it with.
           </li>
           <li>
             <strong>In your local game client</strong> — download the{" "}
