@@ -12974,19 +12974,24 @@ h2.docs-h2:focus-within .docs-h2__anchor {
 }
 
 /* RecentMatchesShelf wraps each MatchCard in a <Link> so the whole
-   card is a single click target → demo player. Internal interactive
-   elements (timestamp link, Watch link, clickable player rows when
-   present) are neutered so clicks always resolve to the outer link;
-   the inner elements still render with their styling, just non-
-   interactive. */
-.landing-match-link {
+   card is a single click target → demo player; ActiveNowShelf does the
+   same with live ServerCards → live viewer (.landing-watch-link, applied
+   inside ServerCard). Internal interactive elements (timestamp link,
+   Watch/LIVE links, clickable player rows when present) are neutered so
+   clicks always resolve to the outer link; the inner elements still
+   render with their styling, just non-interactive. */
+.landing-match-link,
+.landing-watch-link {
   display: block;
   text-decoration: none;
   color: inherit;
 }
 .landing-match-link .card a,
 .landing-match-link .card button,
-.landing-match-link .card [role="button"] {
+.landing-match-link .card [role="button"],
+.landing-watch-link .card a,
+.landing-watch-link .card button,
+.landing-watch-link .card [role="button"] {
   pointer-events: none;
 }
 

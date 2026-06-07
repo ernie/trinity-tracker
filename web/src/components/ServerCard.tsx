@@ -27,6 +27,11 @@ interface ServerCardProps {
     playerId?: number,
   ) => void;
   liveness?: "live" | "stale" | "offline";
+  /** Landing Active Now shelf: capture the whole card as one click target
+   *  (mirrors the match cards' click-anywhere) — the live viewer when the
+   *  server is broadcasting, the servers page otherwise. No inner
+   *  interactivity (player profiles etc.) on the landing page. */
+  landingCard?: boolean;
 }
 
 // HelpMode descriptions for the inline elements rendered directly by
@@ -439,6 +444,7 @@ const ServerCardImpl = memo(function ServerCardImpl({
   onSelect,
   onPlayerClick,
   liveness,
+  landingCard,
   attackingSlots,
 }: ServerCardImplProps) {
   const { hasMultiple: hasMultipleSources } = useSources();
@@ -569,7 +575,7 @@ const ServerCardImpl = memo(function ServerCardImpl({
     : 0;
   const ffaGild = isIntermission && ffaTopCount === 1;
 
-  return (
+  const card = (
     <div
       className={`card server-card ${isSelected ? "selected" : ""} ${onSelect ? "selectable" : ""} ${isDegraded ? "degraded" : ""}`}
       style={cardStyle}
@@ -835,6 +841,32 @@ const ServerCardImpl = memo(function ServerCardImpl({
       />
     </div>
   );
+
+  // Whole-card link, same recipe as the landing match cards: inner
+  // interactive elements (LIVE pill, player rows) are neutered via the
+  // .landing-watch-link pointer-events CSS so every pixel resolves to one
+  // action — the live viewer when broadcasting, the servers page otherwise.
+  if (landingCard) {
+    return server.is_live ? (
+      <Link
+        to={liveTo}
+        reloadDocument
+        className="landing-watch-link"
+        aria-label={watchLabel}
+      >
+        {card}
+      </Link>
+    ) : (
+      <Link
+        to="/servers"
+        className="landing-watch-link"
+        aria-label="Browse servers"
+      >
+        {card}
+      </Link>
+    );
+  }
+  return card;
 });
 
 // Isolates the 1-second interpolation tick so it only re-renders this

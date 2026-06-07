@@ -84,6 +84,13 @@ export const HERO_VARIANTS: readonly HeroVariant[] = [
     headline2: "(OR ENEMIES)",
     subhead: "the arena will sort them out.",
   },
+  // The one spectator-angled variant in a play-first rotation. References
+  // the in-game announcement when web viewers arrive ("The Vadrigar watch.").
+  {
+    headline1: "THE VADRIGAR ARE",
+    headline2: "WATCHING NOW",
+    subhead: "there's a seat among them for you.",
+  },
 ] as const;
 
 export function pickHeroVariant(): HeroVariant {

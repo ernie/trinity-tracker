@@ -64,7 +64,7 @@ export function DoorsSection() {
           <span className="landing-door__glyph" aria-hidden="true" />
           <h3 className="landing-door__title">Watch a fight</h3>
           <p className="landing-door__desc">
-            Replay any match in your browser, frame by frame.
+            Live as it happens, or replayed frame by frame.
           </p>
           <span className="landing-door__arrow">
             Featured demo <ArrowIcon direction="right" />

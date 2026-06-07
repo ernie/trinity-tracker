@@ -23,9 +23,9 @@ export function AboutSection() {
           <em>much</em> more from you as a player.
         </p>
         <p>
-          This site is the tracker. Every match recorded, every demo replayable
-          in your browser. Bring your own copy of Quake III to play; spectate
-          without one.
+          This site is the tracker. Watch fights live, or replay them &mdash;
+          every match is recorded. Bring your own copy of Quake III to play;
+          watching needs nothing at all.
         </p>
       </div>
     </section>
