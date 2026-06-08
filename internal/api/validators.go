@@ -14,10 +14,8 @@ var validGameTypes = map[string]bool{
 	"1v1": true, "overload": true, "harvester": true,
 }
 
-// Movement and gameplay modes are stored as the raw g_movement / g_gameplay
-// cvar values: "0" vq3, "1" cpm, "2" ql, "3" qlt (movement only).
-var validMovementModes = map[string]bool{"0": true, "1": true, "2": true, "3": true}
-var validGameplayModes = map[string]bool{"0": true, "1": true, "2": true}
+// Match mode is the g_mode profile: "0" vq3, "1" cpm, "2" ql, "3" qlt.
+var validModes = map[string]bool{"0": true, "1": true, "2": true, "3": true}
 
 var validCategories = map[string]bool{
 	"frags": true, "deaths": true, "kd_ratio": true, "matches": true,
@@ -72,5 +70,4 @@ func validateCategory(category string) bool {
 	return validCategories[category]
 }
 
-func validateMovementMode(m string) bool { return validMovementModes[m] }
-func validateGameplayMode(g string) bool { return validGameplayModes[g] }
+func validateMode(m string) bool { return validModes[m] }

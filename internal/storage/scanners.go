@@ -81,7 +81,7 @@ func scanUser(s scanner) (*User, error) {
 // in the row scanner.
 const matchSummaryColumns = `m.id, m.uuid, m.server_id, s.key, s.active, s.source, m.map_name, m.game_type,
 	m.started_at, m.ended_at, m.exit_reason,
-	m.red_score, m.blue_score, m.movement, m.gameplay, m.demo_available, m.is_featured`
+	m.red_score, m.blue_score, m.mode, m.demo_available, m.is_featured`
 
 // scanMatchSummaryRow scans match summary fields from a row
 func scanMatchSummaryRow(s scanner) (*domain.MatchSummary, error) {
@@ -90,11 +90,11 @@ func scanMatchSummaryRow(s scanner) (*domain.MatchSummary, error) {
 	var exitReason sql.NullString
 	var gameType sql.NullString
 	var redScore, blueScore sql.NullInt64
-	var movement, gameplay sql.NullString
+	var mode sql.NullString
 	var source sql.NullString
 
 	err := s.Scan(&m.ID, &m.UUID, &m.ServerID, &m.ServerKey, &m.ServerActive, &source, &m.MapName, &gameType,
-		&m.StartedAt, &endedAt, &exitReason, &redScore, &blueScore, &movement, &gameplay, &m.DemoAvailable, &m.IsFeatured)
+		&m.StartedAt, &endedAt, &exitReason, &redScore, &blueScore, &mode, &m.DemoAvailable, &m.IsFeatured)
 	if err != nil {
 		return nil, err
 	}
@@ -105,8 +105,7 @@ func scanMatchSummaryRow(s scanner) (*domain.MatchSummary, error) {
 	m.GameType = scanNullStringValue(gameType)
 	m.RedScore = scanNullInt64ToIntPtr(redScore)
 	m.BlueScore = scanNullInt64ToIntPtr(blueScore)
-	m.Movement = scanNullStringValue(movement)
-	m.Gameplay = scanNullStringValue(gameplay)
+	m.Mode = scanNullStringValue(mode)
 
 	return &m, nil
 }

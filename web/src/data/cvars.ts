@@ -158,7 +158,7 @@ export const PLAYER_CVARS: CvarEntry[] = [
     default: "0",
     platforms: ALL_PLATFORMS,
     description:
-      "Show the fixed Quake Live ring pellet pattern instead of cosmetic random spread. Only takes effect when g_gameplay is set to Quake Live (other gameplay profiles use their own spread patterns).",
+      "Show the fixed Quake Live ring pellet pattern instead of cosmetic random spread. Only takes effect under a Quake Live mode (Quake Live or QL Turbo); other modes use their own spread patterns.",
   },
   {
     name: "cg_tvSkip",
@@ -426,19 +426,6 @@ export const SERVER_CVARS: CvarEntry[] = [
       "Write archived cvars back to q3config_server.cfg. On hosts running several server instances out of one install, the write-back makes instances inherit each other's archived values (last writer wins). trinity.cfg sets 0 so server config stays fully declarative.",
   },
   {
-    name: "g_gameplay",
-    default: "0",
-    platforms: ALL_PLATFORMS,
-    description:
-      "Gameplay rules profile — affects per-weapon damage and knockback, ammo pickup amounts, armor mechanics (CPMA adds a tiered system with a lower-tier green armor on top of yellow and red), spawn health, and item respawn timing.",
-    values: [
-      { value: "0", meaning: "Quake 3" },
-      { value: "1", meaning: "CPMA" },
-      { value: "2", meaning: "Quake Live" },
-    ],
-    notes: "Latched — requires map_restart to take effect.",
-  },
-  {
     name: "g_logSync",
     default: "0",
     platforms: ALL_PLATFORMS,
@@ -446,11 +433,11 @@ export const SERVER_CVARS: CvarEntry[] = [
       "Flush the game log to disk synchronously after each event. The Trinity collector tails events in real time, so this is required for collector participation.",
   },
   {
-    name: "g_movement",
+    name: "g_mode",
     default: "0",
     platforms: ALL_PLATFORMS,
     description:
-      "Movement physics profile (acceleration, air control, friction).",
+      "Game profile — selects the movement physics (acceleration, air control, friction) and the combat ruleset (per-weapon damage and knockback, ammo caps, armor mechanics — CPMA adds a tiered system with a lower-tier green armor on top of yellow and red — spawn health, and item respawn timing). QL Turbo pairs Quake Live combat with CPMA-style air control.",
     values: [
       { value: "0", meaning: "Quake 3" },
       { value: "1", meaning: "CPMA" },

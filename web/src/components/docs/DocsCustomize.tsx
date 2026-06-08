@@ -4,7 +4,7 @@ import { PlatformOnly } from "./PlatformOnly";
 import { PlatformNote } from "./PlatformNote";
 import { PlatformChip } from "./PlatformChip";
 import { DownloadIcon } from "../DownloadIcon";
-import { MOVEMENT_MODES } from "../ServerCard";
+import { MODE_PROFILES } from "../ServerCard";
 
 // /docs/customize — Phase 3c rewrite. Replaces the Phase 2 lift
 // (Configuration + raw mode tables) with cvar-by-cvar tunables
@@ -279,24 +279,23 @@ export function DocsCustomize() {
       </div>
 
       <div className="about-section">
-        <DocsH2 id="modes-note">Movement &amp; gameplay modes</DocsH2>
+        <DocsH2 id="modes-note">Game modes</DocsH2>
         <p>
-          Trinity ships with several Quake 3 movement and gameplay variants.
-          Usually, they are matched together: Vanilla Q3 and Vanilla Q3, CPMA
-          and CPMA, Quake Live (or Quake Live Turbo) and Quake Live, but you can
-          mix and match if you like, and the choices you make in the menu will
-          affect all of your local single player games.
+          Trinity bundles four game modes — Vanilla Q3, CPMA, Quake Live, and
+          Quake Live Turbo. Each sets movement physics and combat rules,
+          selected with the latched <code>g_mode</code> cvar (0–3, applied on{" "}
+          <code>map_restart</code>). There's no in-game menu for it; set it from
+          the console for your local single-player games.
         </p>
         <p>
-          In multiplayer the server picks the rules — joining a server hands
-          movement and gameplay over to whatever it's running. Pull up the
-          scoreboard during a match to see what's active: the modes appear as
-          small icons in the top-right of the HUD, and the server name usually
-          calls them out too.
+          In multiplayer the server picks the mode — joining a server hands the
+          rules over to whatever it's running. Pull up the scoreboard during a
+          match to see what's active: the mode appears as a small icon in the
+          top-right of the HUD, and the server name usually calls it out too.
         </p>
         <p>The icons you'll see:</p>
         <div className="docs-modes">
-          {Object.values(MOVEMENT_MODES).map((m) => (
+          {Object.values(MODE_PROFILES).map((m) => (
             <div key={m.icon} className="docs-mode-item">
               <img src={m.icon} alt={m.label} className="docs-mode-icon" />
               <div className="docs-mode-info">

@@ -54,8 +54,7 @@ type MatchStartData struct {
 	MatchUUID         string    `json:"match_uuid"`
 	MapName           string    `json:"map"`
 	GameType          string    `json:"gametype"`
-	Movement          string    `json:"movement,omitempty"`
-	Gameplay          string    `json:"gameplay,omitempty"`
+	Mode              string    `json:"mode,omitempty"`
 	StartedAt         time.Time `json:"started_at"`
 	HandshakeRequired bool      `json:"handshake_required"`
 }
@@ -101,13 +100,10 @@ type MatchEndPlayer struct {
 	IsVR              bool      `json:"is_vr"`
 }
 
-// MatchSettingsUpdateData is emitted when `g_movement` or `g_gameplay`
-// changes mid-match (CvarChange log lines). Either field may be empty;
-// only the one that changed is populated.
+// MatchSettingsUpdateData is emitted when g_mode changes mid-match.
 type MatchSettingsUpdateData struct {
 	MatchUUID string `json:"match_uuid"`
-	Movement  string `json:"movement,omitempty"`
-	Gameplay  string `json:"gameplay,omitempty"`
+	Mode      string `json:"mode,omitempty"`
 }
 
 // MatchCrashedData is emitted when a new InitGame arrives while a

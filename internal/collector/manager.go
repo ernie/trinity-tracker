@@ -904,7 +904,7 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 	switch event.Type {
 	case EventTypeInitGame:
 		data := event.Data.(InitGameData)
-		m.handleMatchChange(ctx, state, data.MapName, data.GameType, data.UUID, data.Settings["g_movement"], data.Settings["g_gameplay"], data.Settings["g_trinityhandshake"] == "1", event.Timestamp, replayMode)
+		m.handleMatchChange(ctx, state, data.MapName, data.GameType, data.UUID, data.Settings["g_mode"], data.Settings["g_trinityhandshake"] == "1", event.Timestamp, replayMode)
 		// Ensure the server's persistent tap is open so warmup streams live — the
 		// engine streams from spawn (sv_tvLive), decoupled from .tvd recording.
 		// Idempotent and in-flight-guarded, so two InitGames in quick succession
@@ -940,8 +940,7 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 							MatchUUID:         state.match.UUID,
 							MapName:           state.match.MapName,
 							GameType:          state.match.GameType,
-							Movement:          state.match.Movement,
-							Gameplay:          state.match.Gameplay,
+							Mode:              state.match.Mode,
 							StartedAt:         event.Timestamp,
 							HandshakeRequired: state.handshakeRequired,
 						},
@@ -1868,21 +1867,13 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 		data := event.Data.(CvarChangeData)
 		if state.match != nil && state.match.UUID != "" {
 			switch data.Key {
-			case "g_movement":
-				state.match.Movement = data.Value
+			case "g_mode":
+				state.match.Mode = data.Value
 				m.pub.Publish(domain.FactEvent{
 					Type:      domain.FactMatchSettingsUpdate,
 					ServerID:  state.server.ID,
 					Timestamp: event.Timestamp,
-					Data:      domain.MatchSettingsUpdateData{MatchUUID: state.match.UUID, Movement: data.Value},
-				})
-			case "g_gameplay":
-				state.match.Gameplay = data.Value
-				m.pub.Publish(domain.FactEvent{
-					Type:      domain.FactMatchSettingsUpdate,
-					ServerID:  state.server.ID,
-					Timestamp: event.Timestamp,
-					Data:      domain.MatchSettingsUpdateData{MatchUUID: state.match.UUID, Gameplay: data.Value},
+					Data:      domain.MatchSettingsUpdateData{MatchUUID: state.match.UUID, Mode: data.Value},
 				})
 			}
 		}
@@ -1902,7 +1893,7 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 }
 
 // handleMapChange handles a new map starting
-func (m *ServerManager) handleMatchChange(ctx context.Context, state *serverState, mapName string, gameType int, uuid string, movement string, gameplay string, handshakeEnabled bool, ts time.Time, replayMode bool) {
+func (m *ServerManager) handleMatchChange(ctx context.Context, state *serverState, mapName string, gameType int, uuid string, mode string, handshakeEnabled bool, ts time.Time, replayMode bool) {
 	state.handshakeRequired = handshakeEnabled
 	// Skip duplicate InitGame at same timestamp (Q3 sometimes logs it twice on server restart)
 	if ts.Equal(state.lastInitGame) {
@@ -1934,8 +1925,7 @@ func (m *ServerManager) handleMatchChange(ctx context.Context, state *serverStat
 			MapName:   mapName,
 			GameType:  gameTypeStr,
 			StartedAt: ts,
-			Movement:  movement,
-			Gameplay:  gameplay,
+			Mode:      mode,
 		}
 		state.matchStarted = false
 		state.clients = make(map[int]*clientState)
@@ -1973,8 +1963,7 @@ func (m *ServerManager) handleMatchChange(ctx context.Context, state *serverStat
 		MapName:   mapName,
 		GameType:  gameTypeStr,
 		StartedAt: ts,
-		Movement:  movement,
-		Gameplay:  gameplay,
+		Mode:      mode,
 	}
 	state.match = match
 	state.matchStarted = false

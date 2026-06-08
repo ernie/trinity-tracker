@@ -343,77 +343,26 @@ function sortPlayersByTeam(players: Player[]): Player[] {
   });
 }
 
-export const MOVEMENT_MODES: Record<string, { icon: string; label: string }> = {
+// g_mode profile lookup (0..3).
+export const MODE_PROFILES: Record<string, { icon: string; label: string }> = {
   "0": { icon: "/assets/modes/vq3.png", label: "Quake 3" },
   "1": { icon: "/assets/modes/cpm.png", label: "CPMA" },
   "2": { icon: "/assets/modes/ql.png", label: "Quake Live" },
   "3": { icon: "/assets/modes/qlt.png", label: "Quake Live Turbo" },
 };
 
-export const GAMEPLAY_MODES: Record<string, { icon: string; label: string }> = {
-  "0": { icon: "/assets/modes/vq3.png", label: "Quake 3" },
-  "1": { icon: "/assets/modes/cpm.png", label: "CPMA" },
-  "2": { icon: "/assets/modes/ql.png", label: "Quake Live" },
-};
-
-export function ModeIcons({
-  movement,
-  gameplay,
-}: {
-  movement?: string;
-  gameplay?: string;
-}) {
-  const moveMode = MOVEMENT_MODES[movement ?? "0"];
-  const gameMode = GAMEPLAY_MODES[gameplay ?? "0"];
-  if (!moveMode && !gameMode) return null;
-  // When movement and gameplay resolve to the same mode (the common
-  // case — e.g. pure CPM or pure VQ3), render a single icon. The
-  // hover popup still spells out which axis the icon describes.
-  const sameMode = moveMode && gameMode && moveMode.icon === gameMode.icon;
+// g_mode profile icon with a hover label; unknown/missing falls back to VQ3.
+export function ModeIcon({ mode }: { mode?: string }) {
+  const profile = MODE_PROFILES[mode ?? "0"];
+  if (!profile) return null;
   return (
     <span className="mode-icons">
-      {sameMode ? (
-        <img className="mode-icon" src={moveMode!.icon} alt={moveMode!.label} />
-      ) : (
-        <>
-          {moveMode && (
-            <img
-              className="mode-icon"
-              src={moveMode.icon}
-              alt={moveMode.label}
-            />
-          )}
-          {gameMode && (
-            <img
-              className="mode-icon"
-              src={gameMode.icon}
-              alt={gameMode.label}
-            />
-          )}
-        </>
-      )}
+      <img className="mode-icon" src={profile.icon} alt={profile.label} />
       <span className="mode-panel">
-        {sameMode ? (
-          <span className="mode-panel-row">
-            <img src={moveMode!.icon} alt={moveMode!.label} />
-            <span>Movement &amp; Gameplay: {moveMode!.label}</span>
-          </span>
-        ) : (
-          <>
-            {moveMode && (
-              <span className="mode-panel-row">
-                <img src={moveMode.icon} alt={moveMode.label} />
-                <span>Movement: {moveMode.label}</span>
-              </span>
-            )}
-            {gameMode && (
-              <span className="mode-panel-row">
-                <img src={gameMode.icon} alt={gameMode.label} />
-                <span>Gameplay: {gameMode.label}</span>
-              </span>
-            )}
-          </>
-        )}
+        <span className="mode-panel-row">
+          <img src={profile.icon} alt={profile.label} />
+          <span>Mode: {profile.label}</span>
+        </span>
       </span>
     </span>
   );
@@ -589,10 +538,7 @@ const ServerCardImpl = memo(function ServerCardImpl({
           server={server.key}
           mode={formatGameType(server.game_type)}
         >
-          <ModeIcons
-            movement={server.server_vars?.g_movement}
-            gameplay={server.server_vars?.g_gameplay}
-          />
+          <ModeIcon mode={server.server_vars?.g_mode ?? "0"} />
         </RichChip>
         <div className="card__status-row">
           {/* Live-spectate pill, just left of the status badge; the pulsing

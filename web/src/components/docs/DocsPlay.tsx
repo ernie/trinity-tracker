@@ -9,7 +9,7 @@ import { ZoomableImage } from "./ZoomableImage";
 import { CalloutImage, CalloutLegend, type CalloutData } from "./CalloutImage";
 import { HitSoundPreview } from "./HitSoundPreview";
 import { LazyVideo } from "./LazyVideo";
-import { MOVEMENT_MODES } from "../ServerCard";
+import { MODE_PROFILES } from "../ServerCard";
 
 // Annotated-screenshot callout data. Each entry feeds both the
 // CalloutImage overlay (hover/focus/tap tooltips on the image) and
@@ -65,11 +65,11 @@ const HUD_BASEQ3_CALLOUTS: CalloutData[] = [
     title: "Armor",
     body: (
       <>
-        Current armor with the armor icon — yellow at 50 here. On CPMA gameplay
-        (<code>g_gameplay 1</code>), the armor icon is color-coded green /
-        yellow / red to reflect a tiered protection system, with different
-        maximums and different absorption rates per tier. See{" "}
-        <Link to="#modes">Movement &amp; gameplay variants</Link>.
+        Current armor with the armor icon — yellow at 50 here. On CPMA (
+        <code>g_mode 1</code>), the armor icon is color-coded green / yellow /
+        red to reflect a tiered protection system, with different maximums and
+        different absorption rates per tier. See{" "}
+        <Link to="#modes">Game modes</Link>.
       </>
     ),
   },
@@ -396,12 +396,12 @@ const SCOREBOARD_BASEQ3_CALLOUTS: CalloutData[] = [
     yPct: 0,
     wPct: 12.148,
     hPct: 8.889,
-    title: "Timer + mode icons",
+    title: "Timer + mode icon",
     body: (
       <>
-        The same upper-right stack as the in-match HUD. The two icons next to
-        the timer report the active <em>movement</em> and <em>gameplay</em>{" "}
-        profiles — both vanilla Q3 in this shot.
+        The same upper-right stack as the in-match HUD. The mode icon next to
+        the timer reports the active <code>g_mode</code> profile — vanilla Q3 in
+        this shot.
       </>
     ),
   },
@@ -471,13 +471,12 @@ const SCOREBOARD_TEAMARENA_CALLOUTS: CalloutData[] = [
     yPct: 0,
     wPct: 11.602,
     hPct: 8.472,
-    title: "Timer + mode icons",
+    title: "Timer + mode icon",
     body: (
       <>
         Same upper-right stack as the in-match HUD. The <code>OT</code> prefix
-        means the match is in overtime. The two icons report the active{" "}
-        <em>movement</em> and <em>gameplay</em> profiles — both vanilla Q3 in
-        this shot.
+        means the match is in overtime. The mode icon reports the active{" "}
+        <code>g_mode</code> profile — vanilla Q3 in this shot.
       </>
     ),
   },
@@ -828,8 +827,8 @@ export function DocsPlay() {
 
           <h3 className="docs-play__feature-title">Items</h3>
           <p>
-            Pickups respawn on timers that depend on game mode and the server's
-            gameplay setting.
+            Pickups respawn on timers that depend on the game type and the
+            server's <code>g_mode</code> profile.
           </p>
           <ul>
             <li>
@@ -840,7 +839,7 @@ export function DocsPlay() {
               <Link to="/docs/reference#server-cvars">
                 Reference · Server CVars
               </Link>{" "}
-              entry for <code>g_gameplay</code>.
+              entry for <code>g_mode</code>.
             </li>
             <li>
               <strong>Health</strong> — 5, 25, 50, and Mega Health (+100,
@@ -1328,18 +1327,18 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
       </div>
 
       <div className="about-section">
-        <DocsH2 id="modes">Movement &amp; gameplay variants</DocsH2>
+        <DocsH2 id="modes">Game modes</DocsH2>
         <p>
-          Trinity ships four movement profiles and three gameplay profiles —
-          Vanilla Q3, CPMA, Quake Live, and (movement only) Quake Live Turbo.
-          Servers pick the rules; you can also pick them locally for
-          single-player against bots, under{" "}
-          <strong>Setup → Game Options</strong> (the <em>Movement</em> and{" "}
-          <em>Gameplay</em> dropdowns near the bottom).
+          Trinity ships four game modes, each a matched pairing of movement
+          physics and combat rules: Vanilla Q3, CPMA, Quake Live, and Quake Live
+          Turbo — the last pairs Quake Live combat with CPMA-style air control.
+          The server picks one; for single-player against bots you can set it
+          yourself from the console with <code>g_mode</code> (0–3), then{" "}
+          <code>map_restart</code>.
         </p>
         <p>The icons you'll see on server cards and scoreboards:</p>
         <div className="docs-modes">
-          {Object.values(MOVEMENT_MODES).map((m) => (
+          {Object.values(MODE_PROFILES).map((m) => (
             <div key={m.icon} className="docs-mode-item">
               <img src={m.icon} alt={m.label} className="docs-mode-icon" />
               <div className="docs-mode-info">
@@ -1349,13 +1348,9 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
           ))}
         </div>
         <p>
-          Joining a multiplayer server hands movement and gameplay over to
-          whatever it's running. For how local choices interact with
-          server-enforced rules, see{" "}
-          <Link to="/docs/customize#modes-note">
-            Customize · Movement &amp; gameplay modes
-          </Link>
-          .
+          Joining a multiplayer server hands the mode over to whatever it's
+          running. For how that interacts with your local settings, see{" "}
+          <Link to="/docs/customize#modes-note">Customize · Game modes</Link>.
         </p>
       </div>
 

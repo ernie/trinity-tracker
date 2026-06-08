@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocation } from "react-router-dom";
 import { Link } from "react-router-dom";
 import type { MatchSummary, MatchPlayerSummary } from "../types";
-import { ModeIcons } from "./ServerCard";
+import { ModeIcon } from "./ServerCard";
 import { RichChip } from "./cards/RichChip";
 import { Scoreboard } from "./cards/Scoreboard";
 import { Duelists, type DuelistData } from "./cards/Duelists";
@@ -304,7 +304,7 @@ export function MatchCard({
           server={match.server_key}
           mode={formatGameType(match.game_type)}
         >
-          <ModeIcons movement={match.movement} gameplay={match.gameplay} />
+          <ModeIcon mode={match.mode} />
         </RichChip>
         {canFeature && (
           <button

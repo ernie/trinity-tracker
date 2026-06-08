@@ -6190,7 +6190,7 @@ h2 {
    once instead of twice; hover/active lift via z-index so the active
    button's full border outline reads above its neighbors.
    Applies to .game-type-btn (matches/leaderboard/server filters),
-   .mode-filter-btn (movement & gameplay rows), .period-btn (period
+   .mode-filter-btn (mode filter row), .period-btn (period
    switcher). .category-btn opts out — its parent is a 6-col grid. */
 .game-type-btn:first-of-type,
 .mode-filter-btn:first-of-type,
@@ -8858,11 +8858,8 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   color: var(--accent);
 }
 
-/* Docs mode cards — fixed 2x2 grid so Quake Live and Quake
-   Live Turbo (movement-only profile) sit together on the
-   second row, visually separating them from the two profiles
-   that have both movement + gameplay variants. Collapses to a
-   single column on narrow viewports. */
+/* Docs mode cards — fixed 2x2 grid (Q3 / CPMA on top, Quake Live /
+   QL Turbo below). Collapses to a single column on narrow viewports. */
 .docs-modes {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -12687,7 +12684,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   z-index: 1;
 }
 /* Topbar and header rise above body siblings so their hover popups
-   (ModeIcons panel, levelshot preview) paint over the duelists /
+   (ModeIcon panel, levelshot preview) paint over the duelists /
    player rows below. Source order alone wouldn't do it since every
    .card > * shares z-index:1. */
 .card > .card__topbar {

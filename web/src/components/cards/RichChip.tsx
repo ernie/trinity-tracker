@@ -25,7 +25,7 @@ export function RichChip({
     <span
       className={`rich-chip ${className ?? ""}`}
       data-help={`Server identity:
-• Mode icons — Q3, CPMA, Quake Live, or QLT (one icon if movement & gameplay match; two if they differ)
+• Mode icon — Quake 3, CPMA, Quake Live, or Quake Live Turbo
 • Source — the host running this Q3 server. One host can serve multiple game servers.
 • Server key — short identifier
 • Game type — match format`}

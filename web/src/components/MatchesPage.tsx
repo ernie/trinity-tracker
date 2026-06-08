@@ -4,7 +4,7 @@ import { MatchCard, formatGameType } from "./MatchCard";
 import { SourceFilter } from "./SourceFilter";
 import { ModeFilterGroup } from "./ServerFilters";
 import { NavScroller } from "./NavScroller";
-import { MOVEMENT_MODES, GAMEPLAY_MODES } from "./ServerCard";
+import { MODE_PROFILES } from "./ServerCard";
 import {
   GAME_TYPES,
   isGameTypeFilter,
@@ -47,8 +47,7 @@ function nextBatchSize(currentCount: number, columns: number): number {
   return batch > 0 ? batch : columns;
 }
 
-const MOVEMENT_KEYS = Object.keys(MOVEMENT_MODES);
-const GAMEPLAY_KEYS = Object.keys(GAMEPLAY_MODES);
+const MODE_KEYS = Object.keys(MODE_PROFILES);
 
 function parseDateTimeLocal(value: string): Date | null {
   if (!value) return null;
@@ -77,13 +76,9 @@ export function MatchesPage() {
   const [source, setSource] = useState<string>(
     () => searchParams.get("source") || "",
   );
-  const [movement, setMovement] = useState<string>(() => {
-    const m = searchParams.get("movement") || "";
-    return m && m in MOVEMENT_MODES ? m : "";
-  });
-  const [gameplay, setGameplay] = useState<string>(() => {
-    const g = searchParams.get("gameplay") || "";
-    return g && g in GAMEPLAY_MODES ? g : "";
+  const [mode, setMode] = useState<string>(() => {
+    const m = searchParams.get("mode") || "";
+    return m && m in MODE_PROFILES ? m : "";
   });
 
   const [matches, setMatches] = useState<MatchSummary[]>([]);
@@ -123,8 +118,7 @@ export function MatchesPage() {
     if (endDate) params.set("end_date", endDate);
     if (includeBotOnly) params.set("include_bot_only", "true");
     if (source) params.set("source", source);
-    if (movement) params.set("movement", movement);
-    if (gameplay) params.set("gameplay", gameplay);
+    if (mode) params.set("mode", mode);
     setSearchParams(params, { replace: true });
   }, [
     gameType,
@@ -132,8 +126,7 @@ export function MatchesPage() {
     endDate,
     includeBotOnly,
     source,
-    movement,
-    gameplay,
+    mode,
     setSearchParams,
   ]);
 
@@ -159,8 +152,7 @@ export function MatchesPage() {
         if (gameType !== "all") params.set("game_type", gameType);
         if (includeBotOnly) params.set("include_bot_only", "true");
         if (source) params.set("source", source);
-        if (movement) params.set("movement", movement);
-        if (gameplay) params.set("gameplay", gameplay);
+        if (mode) params.set("mode", mode);
 
         // Convert datetime-local to RFC3339
         if (startDate) {
@@ -187,16 +179,7 @@ export function MatchesPage() {
     }
 
     fetchMatches();
-  }, [
-    gameType,
-    startDate,
-    endDate,
-    includeBotOnly,
-    source,
-    movement,
-    gameplay,
-    measured,
-  ]);
+  }, [gameType, startDate, endDate, includeBotOnly, source, mode, measured]);
 
   const loadMore = async () => {
     if (loadingMore || !hasMore || matches.length === 0) return;
@@ -214,8 +197,7 @@ export function MatchesPage() {
       if (gameType !== "all") params.set("game_type", gameType);
       if (includeBotOnly) params.set("include_bot_only", "true");
       if (source) params.set("source", source);
-      if (movement) params.set("movement", movement);
-      if (gameplay) params.set("gameplay", gameplay);
+      if (mode) params.set("mode", mode);
       if (startDate) {
         const date = parseDateTimeLocal(startDate);
         if (date) params.set("start_date", date.toISOString());
@@ -245,8 +227,7 @@ export function MatchesPage() {
     setEndDate("");
     setIncludeBotOnly(false);
     setSource("");
-    setMovement("");
-    setGameplay("");
+    setMode("");
   };
 
   const hasActiveFilters =
@@ -255,8 +236,7 @@ export function MatchesPage() {
     endDate ||
     includeBotOnly ||
     source ||
-    movement ||
-    gameplay;
+    mode;
 
   return (
     <div className="matches-page">
@@ -286,20 +266,12 @@ export function MatchesPage() {
 
         <div className="match-mode-filters">
           <ModeFilterGroup
-            label="Movement"
-            shortLabel="Movement:"
-            modes={MOVEMENT_MODES}
-            available={MOVEMENT_KEYS}
-            value={movement}
-            onChange={setMovement}
-          />
-          <ModeFilterGroup
-            label="Gameplay"
-            shortLabel="Gameplay:"
-            modes={GAMEPLAY_MODES}
-            available={GAMEPLAY_KEYS}
-            value={gameplay}
-            onChange={setGameplay}
+            label="Mode"
+            shortLabel="Mode:"
+            modes={MODE_PROFILES}
+            available={MODE_KEYS}
+            value={mode}
+            onChange={setMode}
           />
         </div>
 

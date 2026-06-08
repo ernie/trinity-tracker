@@ -2,21 +2,19 @@ import { useEffect, useMemo } from "react";
 import type { ServerStatus } from "../types";
 import { SourceFilter } from "./SourceFilter";
 import { NavScroller } from "./NavScroller";
-import { MOVEMENT_MODES, GAMEPLAY_MODES } from "./ServerCard";
+import { MODE_PROFILES } from "./ServerCard";
 import { formatGameType } from "./MatchCard";
 
 export interface ServerFilterState {
   source: string; // '' = all
   gameType: string; // '' = all (normalized lowercase)
-  movement: string; // '' = all (g_movement value)
-  gameplay: string; // '' = all (g_gameplay value)
+  mode: string; // '' = all (g_mode value)
 }
 
 export const EMPTY_FILTERS: ServerFilterState = {
   source: "",
   gameType: "",
-  movement: "",
-  gameplay: "",
+  mode: "",
 };
 
 const STORAGE_KEY = "q3a_server_filters";
@@ -29,8 +27,7 @@ export function loadServerFilters(): ServerFilterState {
     return {
       source: typeof parsed.source === "string" ? parsed.source : "",
       gameType: typeof parsed.gameType === "string" ? parsed.gameType : "",
-      movement: typeof parsed.movement === "string" ? parsed.movement : "",
-      gameplay: typeof parsed.gameplay === "string" ? parsed.gameplay : "",
+      mode: typeof parsed.mode === "string" ? parsed.mode : "",
     };
   } catch {
     return EMPTY_FILTERS;
@@ -45,10 +42,7 @@ export function applyServerFilters(
     if (f.source && s.source !== f.source) return false;
     if (f.gameType && (s.game_type || "").toLowerCase() !== f.gameType)
       return false;
-    if (f.movement && (s.server_vars?.g_movement ?? "0") !== f.movement)
-      return false;
-    if (f.gameplay && (s.server_vars?.g_gameplay ?? "0") !== f.gameplay)
-      return false;
+    if (f.mode && (s.server_vars?.g_mode ?? "0") !== f.mode) return false;
     return true;
   });
 }
@@ -71,19 +65,16 @@ export function ServerFilters({
   onChange,
 }: ServerFiltersProps) {
   // Derive the distinct values for each axis from the current server list.
-  const { gameTypes, movements, gameplays } = useMemo(() => {
+  const { gameTypes, modes } = useMemo(() => {
     const gt = new Set<string>();
-    const mv = new Set<string>();
-    const gp = new Set<string>();
+    const md = new Set<string>();
     for (const s of servers) {
       if (s.game_type) gt.add(s.game_type.toLowerCase());
-      mv.add(s.server_vars?.g_movement ?? "0");
-      gp.add(s.server_vars?.g_gameplay ?? "0");
+      md.add(s.server_vars?.g_mode ?? "0");
     }
     return {
       gameTypes: Array.from(gt).sort(),
-      movements: Array.from(mv).sort(),
-      gameplays: Array.from(gp).sort(),
+      modes: Array.from(md).sort(),
     };
   }, [servers]);
 
@@ -106,38 +97,22 @@ export function ServerFilters({
     ) {
       next.gameType = "";
     }
-    if (
-      filters.movement &&
-      servers.length > 0 &&
-      !movements.includes(filters.movement)
-    ) {
-      next.movement = "";
-    }
-    if (
-      filters.gameplay &&
-      servers.length > 0 &&
-      !gameplays.includes(filters.gameplay)
-    ) {
-      next.gameplay = "";
+    if (filters.mode && servers.length > 0 && !modes.includes(filters.mode)) {
+      next.mode = "";
     }
     if (Object.keys(next).length > 0) {
       onChange({ ...filters, ...next });
     }
-  }, [servers, filters, gameTypes, movements, gameplays, onChange]);
+  }, [servers, filters, gameTypes, modes, onChange]);
 
   const showGameType = gameTypes.length > 1;
-  const showMovement = movements.length > 1;
-  const showGameplay = gameplays.length > 1;
+  const showMode = modes.length > 1;
 
-  const hasActive =
-    !!filters.source ||
-    !!filters.gameType ||
-    !!filters.movement ||
-    !!filters.gameplay;
+  const hasActive = !!filters.source || !!filters.gameType || !!filters.mode;
 
   // Hide the whole toolbar when nothing is filterable (single source,
   // single mode, single game type — e.g., a fresh single-server install).
-  if (!showGameType && !showMovement && !showGameplay && !hasActive) {
+  if (!showGameType && !showMode && !hasActive) {
     // SourceFilter renders nothing on single-source installs; if there
     // are no other axes either, skip the whole toolbar.
     return null;
@@ -178,24 +153,14 @@ export function ServerFilters({
           </NavScroller>
         </div>
       )}
-      {showMovement && (
+      {showMode && (
         <ModeFilterGroup
-          label="Movement"
-          shortLabel="Movement:"
-          modes={MOVEMENT_MODES}
-          available={movements}
-          value={filters.movement}
-          onChange={(v) => onChange({ ...filters, movement: v })}
-        />
-      )}
-      {showGameplay && (
-        <ModeFilterGroup
-          label="Gameplay"
-          shortLabel="Gameplay:"
-          modes={GAMEPLAY_MODES}
-          available={gameplays}
-          value={filters.gameplay}
-          onChange={(v) => onChange({ ...filters, gameplay: v })}
+          label="Mode"
+          shortLabel="Mode:"
+          modes={MODE_PROFILES}
+          available={modes}
+          value={filters.mode}
+          onChange={(v) => onChange({ ...filters, mode: v })}
         />
       )}
       {hasActive && (

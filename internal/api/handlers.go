@@ -368,20 +368,12 @@ func (r *Router) handleGetMatches(w http.ResponseWriter, req *http.Request) {
 		filter.Source = src
 	}
 
-	if mv := req.URL.Query().Get("movement"); mv != "" {
-		if !validateMovementMode(mv) {
-			writeError(w, http.StatusBadRequest, "invalid movement")
+	if mode := req.URL.Query().Get("mode"); mode != "" {
+		if !validateMode(mode) {
+			writeError(w, http.StatusBadRequest, "invalid mode")
 			return
 		}
-		filter.Movement = mv
-	}
-
-	if gp := req.URL.Query().Get("gameplay"); gp != "" {
-		if !validateGameplayMode(gp) {
-			writeError(w, http.StatusBadRequest, "invalid gameplay")
-			return
-		}
-		filter.Gameplay = gp
+		filter.Mode = mode
 	}
 
 	filter.IncludeBotOnly = req.URL.Query().Get("include_bot_only") == "true"

@@ -972,9 +972,9 @@ func (s *Store) GetActiveSessions(ctx context.Context, serverID int64) ([]domain
 // CreateMatch starts a new match
 func (s *Store) CreateMatch(ctx context.Context, m *domain.Match) error {
 	result, err := s.db.ExecContext(ctx, `
-		INSERT INTO matches (uuid, server_id, map_name, game_type, started_at, movement, gameplay)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
-	`, m.UUID, m.ServerID, m.MapName, m.GameType, formatTimestamp(m.StartedAt), m.Movement, m.Gameplay)
+		INSERT INTO matches (uuid, server_id, map_name, game_type, started_at, mode)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`, m.UUID, m.ServerID, m.MapName, m.GameType, formatTimestamp(m.StartedAt), m.Mode)
 	if err != nil {
 		return err
 	}
@@ -991,9 +991,9 @@ func (s *Store) GetMatchByUUID(ctx context.Context, uuid string) (*domain.Match,
 	var endedAt sql.NullTime
 	var exitReason sql.NullString
 	err := s.db.QueryRowContext(ctx, `
-		SELECT id, uuid, server_id, map_name, game_type, started_at, ended_at, exit_reason, movement, gameplay
+		SELECT id, uuid, server_id, map_name, game_type, started_at, ended_at, exit_reason, mode
 		FROM matches WHERE uuid = ?
-	`, uuid).Scan(&m.ID, &m.UUID, &m.ServerID, &m.MapName, &m.GameType, &m.StartedAt, &endedAt, &exitReason, &m.Movement, &m.Gameplay)
+	`, uuid).Scan(&m.ID, &m.UUID, &m.ServerID, &m.MapName, &m.GameType, &m.StartedAt, &endedAt, &exitReason, &m.Mode)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -1029,19 +1029,11 @@ func (s *Store) EndMatch(ctx context.Context, matchID int64, endedAt time.Time, 
 	return err
 }
 
-// UpdateMatchMovement updates the movement mode for a match
-func (s *Store) UpdateMatchMovement(ctx context.Context, matchID int64, movement string) error {
+// UpdateMatchMode updates the g_mode profile for a match
+func (s *Store) UpdateMatchMode(ctx context.Context, matchID int64, mode string) error {
 	_, err := s.db.ExecContext(ctx, `
-		UPDATE matches SET movement = ? WHERE id = ?
-	`, movement, matchID)
-	return err
-}
-
-// UpdateMatchGameplay updates the gameplay mode for a match
-func (s *Store) UpdateMatchGameplay(ctx context.Context, matchID int64, gameplay string) error {
-	_, err := s.db.ExecContext(ctx, `
-		UPDATE matches SET gameplay = ? WHERE id = ?
-	`, gameplay, matchID)
+		UPDATE matches SET mode = ? WHERE id = ?
+	`, mode, matchID)
 	return err
 }
 
@@ -2498,8 +2490,7 @@ func (s *Store) GetMatchSummaryByID(ctx context.Context, matchID int64) (*domain
 type MatchFilter struct {
 	GameType       string
 	Source         string
-	Movement       string // raw g_movement value, e.g. "0".."3"; "" = any
-	Gameplay       string // raw g_gameplay value, e.g. "0".."2"; "" = any
+	Mode           string // g_mode profile "0".."3"; "" = any
 	StartDate      *time.Time
 	EndDate        *time.Time
 	BeforeID       *int64
@@ -2532,13 +2523,9 @@ func (s *Store) GetFilteredMatchSummaries(ctx context.Context, filter MatchFilte
 		query += ` AND s.source = ?`
 		args = append(args, filter.Source)
 	}
-	if filter.Movement != "" {
-		query += ` AND m.movement = ?`
-		args = append(args, filter.Movement)
-	}
-	if filter.Gameplay != "" {
-		query += ` AND m.gameplay = ?`
-		args = append(args, filter.Gameplay)
+	if filter.Mode != "" {
+		query += ` AND m.mode = ?`
+		args = append(args, filter.Mode)
 	}
 	if filter.StartDate != nil {
 		query += ` AND m.started_at >= ?`

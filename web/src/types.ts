@@ -322,8 +322,7 @@ export interface MatchSummary {
   blue_score?: number;
   demo_url?: string;
   is_featured?: boolean;
-  movement?: string;
-  gameplay?: string;
+  mode?: string; // g_mode profile (0..3)
 }
 
 // Auth types. The credential itself lives in an HttpOnly session

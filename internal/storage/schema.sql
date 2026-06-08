@@ -123,8 +123,7 @@ CREATE TABLE IF NOT EXISTS matches (
     red_score INTEGER,
     blue_score INTEGER,
     has_human_player BOOLEAN DEFAULT FALSE,
-    movement TEXT,
-    gameplay TEXT,
+    mode TEXT,
     -- Flipped to 1 by FactDemoFinalized; the UI uses this to decide
     -- whether to render a "play demo" button for the match.
     demo_available INTEGER NOT NULL DEFAULT 0,

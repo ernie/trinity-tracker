@@ -335,14 +335,9 @@ func (w *Writer) handleMatchStart(ctx context.Context, serverID int64, data doma
 		log.Printf("hub: match_start UUID lookup failed: %v", err)
 		return
 	} else if existing != nil {
-		if existing.Movement == "" && data.Movement != "" {
-			if err := w.store.UpdateMatchMovement(ctx, existing.ID, data.Movement); err != nil {
-				log.Printf("hub: update movement on existing match %d: %v", existing.ID, err)
-			}
-		}
-		if existing.Gameplay == "" && data.Gameplay != "" {
-			if err := w.store.UpdateMatchGameplay(ctx, existing.ID, data.Gameplay); err != nil {
-				log.Printf("hub: update gameplay on existing match %d: %v", existing.ID, err)
+		if existing.Mode == "" && data.Mode != "" {
+			if err := w.store.UpdateMatchMode(ctx, existing.ID, data.Mode); err != nil {
+				log.Printf("hub: update mode on existing match %d: %v", existing.ID, err)
 			}
 		}
 		log.Printf("hub: match_start adopted existing match %d uuid=%s map=%s", existing.ID, data.MatchUUID, data.MapName)
@@ -355,8 +350,7 @@ func (w *Writer) handleMatchStart(ctx context.Context, serverID int64, data doma
 		MapName:   data.MapName,
 		GameType:  data.GameType,
 		StartedAt: data.StartedAt,
-		Movement:  data.Movement,
-		Gameplay:  data.Gameplay,
+		Mode:      data.Mode,
 	}
 	if err := w.store.CreateMatch(ctx, match); err != nil {
 		log.Printf("hub: CreateMatch failed for UUID %s: %v", data.MatchUUID, err)
@@ -410,19 +404,12 @@ func (w *Writer) handleMatchSettingsUpdate(ctx context.Context, data domain.Matc
 		}
 		return
 	}
-	if data.Movement != "" {
-		if err := w.store.UpdateMatchMovement(ctx, match.ID, data.Movement); err != nil {
-			log.Printf("hub: UpdateMatchMovement for UUID %s: %v", data.MatchUUID, err)
+	if data.Mode != "" {
+		if err := w.store.UpdateMatchMode(ctx, match.ID, data.Mode); err != nil {
+			log.Printf("hub: UpdateMatchMode for UUID %s: %v", data.MatchUUID, err)
 			return
 		}
-		log.Printf("hub: match_settings_update match=%d movement=%s", match.ID, data.Movement)
-	}
-	if data.Gameplay != "" {
-		if err := w.store.UpdateMatchGameplay(ctx, match.ID, data.Gameplay); err != nil {
-			log.Printf("hub: UpdateMatchGameplay for UUID %s: %v", data.MatchUUID, err)
-			return
-		}
-		log.Printf("hub: match_settings_update match=%d gameplay=%s", match.ID, data.Gameplay)
+		log.Printf("hub: match_settings_update match=%d mode=%s", match.ID, data.Mode)
 	}
 }
 
