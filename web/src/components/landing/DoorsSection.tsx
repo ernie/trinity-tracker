@@ -1,9 +1,11 @@
 import type React from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   useFeaturedMatches,
   pickRandomFeatured,
 } from "../../hooks/useFeaturedMatches";
+import { useLiveData } from "../../contexts/LiveDataContext";
 import { ArrowIcon } from "../ArrowIcon";
 import { DISCORD_INVITE_URL } from "../../constants/discord";
 
@@ -25,16 +27,32 @@ const glyph = (src: string, opacity?: number): GlyphStyle => {
 
 export function DoorsSection() {
   const { ids } = useFeaturedMatches();
-  const navigate = useNavigate();
+  const { servers } = useLiveData();
+
+  // The tap is always live (even bot-only), so prefer humans when present.
+  const livePool = useMemo(() => {
+    const tapped = [...servers.values()].filter((s) => s.is_live);
+    const withHumans = tapped.filter((s) => s.human_count > 0);
+    return withHumans.length > 0 ? withHumans : tapped;
+  }, [servers]);
+
+  // One stable coin flip per mount, so live and demo each get ~half the visitors.
+  const seed = useState(() => Math.random())[0];
+  const liveServer =
+    livePool.length > 0 && (ids.length === 0 || seed < 0.5)
+      ? livePool[Math.floor(seed * livePool.length)]
+      : null;
+  const watchTo = liveServer
+    ? `/tv/${liveServer.source}/${liveServer.key}`
+    : "/matches";
 
   const handleWatch = (e: React.MouseEvent) => {
+    // Both boot the WASM engine, so both need a full-document load: live via
+    // the native href, demo after picking a random featured match.
+    if (liveServer) return;
     e.preventDefault();
     const id = pickRandomFeatured(ids);
-    if (id !== null) {
-      navigate(`/matches/${id}/demo`, { state: { from: "/" } });
-    } else {
-      navigate("/matches");
-    }
+    window.location.assign(id !== null ? `/matches/${id}/demo` : "/matches");
   };
 
   return (
@@ -56,7 +74,7 @@ export function DoorsSection() {
         </Link>
 
         <a
-          href="/matches"
+          href={watchTo}
           onClick={handleWatch}
           className="landing-door"
           style={glyph("/assets/landing/door-watch.png", 0.3)}
@@ -64,10 +82,11 @@ export function DoorsSection() {
           <span className="landing-door__glyph" aria-hidden="true" />
           <h3 className="landing-door__title">Watch a fight</h3>
           <p className="landing-door__desc">
-            Live as it happens, or replayed frame by frame.
+            As it happens, or replayed frame by frame.
           </p>
           <span className="landing-door__arrow">
-            Featured demo <ArrowIcon direction="right" />
+            {liveServer ? "Live now" : "Featured demo"}{" "}
+            <ArrowIcon direction="right" />
           </span>
         </a>
 

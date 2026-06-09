@@ -58,7 +58,6 @@ export function RecentMatchesShelf() {
             <Link
               key={m.id}
               to={`/matches/${m.id}/demo`}
-              state={{ from: "/" }}
               reloadDocument
               className="landing-shelf-h__slot landing-match-link"
             >

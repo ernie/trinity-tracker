@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useLocation } from "react-router-dom";
 import { Link } from "react-router-dom";
 import type { MatchSummary, MatchPlayerSummary } from "../types";
 import { ModeIcon } from "./ServerCard";
@@ -157,7 +156,6 @@ export function MatchCard({
 }: MatchCardProps) {
   const { hasMultiple: hasMultipleSources } = useSources();
   const meta = useMapMeta(match.map_name);
-  const location = useLocation();
   const { auth } = useAuth();
 
   // Optimistic featured state — admins can toggle from the card without
@@ -248,7 +246,6 @@ export function MatchCard({
     <span className="demo-actions">
       <Link
         to={`/matches/${match.id}/demo`}
-        state={{ from: location.pathname }}
         reloadDocument
         className="demo-action watch"
       >
@@ -324,7 +321,6 @@ export function MatchCard({
         {match.ended_at && (
           <Link
             to={`/matches/${match.id}`}
-            state={{ from: location.pathname }}
             className="card__time"
             title={`${new Date(match.ended_at).toLocaleString()} — open match details`}
           >

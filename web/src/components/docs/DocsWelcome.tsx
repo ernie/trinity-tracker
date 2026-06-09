@@ -1,5 +1,5 @@
 import type React from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { DISCORD_INVITE_URL } from "../../constants/discord";
 import { useLiveData } from "../../contexts/LiveDataContext";
 import { DocsH2 } from "./DocsH2";
@@ -15,7 +15,6 @@ import {
 // surface.
 export function DocsWelcome() {
   const { ids } = useFeaturedMatches();
-  const navigate = useNavigate();
   const live = useLiveData();
 
   // Most-humans-first live broadcast for the "watch live right now" link;
@@ -29,13 +28,10 @@ export function DocsWelcome() {
   // if the featured pool is empty (e.g., a fresh deploy with nothing
   // flagged yet).
   const handleWatchFeatured = (e: React.MouseEvent) => {
+    // Full-document load so the demo player's WASM engine boots fresh.
     e.preventDefault();
     const id = pickRandomFeatured(ids);
-    if (id !== null) {
-      navigate(`/matches/${id}/demo`, { state: { from: "/docs" } });
-    } else {
-      navigate("/matches");
-    }
+    window.location.assign(id !== null ? `/matches/${id}/demo` : "/matches");
   };
 
   return (
