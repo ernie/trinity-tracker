@@ -288,10 +288,10 @@ export function DocsCustomize() {
           the console for your local single-player games.
         </p>
         <p>
-          In multiplayer the server picks the mode — joining a server hands the
-          rules over to whatever it's running. Pull up the scoreboard during a
-          match to see what's active: the mode appears as a small icon in the
-          top-right of the HUD, and the server name usually calls it out too.
+          In multiplayer the server picks the mode. The server browser shows
+          each server's mode as an icon to the left of its name; in-match, pull
+          up the scoreboard to see it as a small icon in the top-right of the
+          HUD.
         </p>
         <p>The icons you'll see:</p>
         <div className="docs-modes">

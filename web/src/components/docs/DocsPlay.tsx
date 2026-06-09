@@ -1331,12 +1331,14 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
         <p>
           Trinity ships four game modes, each a matched pairing of movement
           physics and combat rules: Vanilla Q3, CPMA, Quake Live, and Quake Live
-          Turbo — the last pairs Quake Live combat with CPMA-style air control.
-          The server picks one; for single-player against bots you can set it
-          yourself from the console with <code>g_mode</code> (0–3), then{" "}
+          Turbo. The server picks one; for single-player against bots you can
+          set it yourself from the console with <code>g_mode</code> (0–3), then{" "}
           <code>map_restart</code>.
         </p>
-        <p>The icons you'll see on server cards and scoreboards:</p>
+        <p>
+          The server browser shows each server's mode as an icon to the left of
+          its name; the same icons appear on scoreboards:
+        </p>
         <div className="docs-modes">
           {Object.values(MODE_PROFILES).map((m) => (
             <div key={m.icon} className="docs-mode-item">
@@ -1347,11 +1349,6 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
             </div>
           ))}
         </div>
-        <p>
-          Joining a multiplayer server hands the mode over to whatever it's
-          running. For how that interacts with your local settings, see{" "}
-          <Link to="/docs/customize#modes-note">Customize · Game modes</Link>.
-        </p>
       </div>
 
       <div className="about-section">
