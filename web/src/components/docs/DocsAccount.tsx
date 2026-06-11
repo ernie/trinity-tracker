@@ -37,7 +37,10 @@ export function DocsAccount() {
             locked to your account's display name — you always show up with a
             consistent identity across sessions and servers. Your name is
             protected: if anyone else joins with the same name, they're
-            automatically renamed.
+            automatically renamed. The bots enjoy the same protection — every
+            stock Q3 and Team Arena character (clan rosters included) owns its
+            name the way you own yours, so nobody can masquerade as Xaero
+            either.
           </li>
           <li>
             <strong>Announcer clips.</strong> Eligible players get custom audio

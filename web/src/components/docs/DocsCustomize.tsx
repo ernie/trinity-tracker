@@ -119,6 +119,11 @@ export function DocsCustomize() {
             hit. Default <code>0</code>.
           </li>
           <li>
+            <code>cg_damagePlumScale 1.5</code> — size multiplier for the damage
+            numbers, for screens where they read small. Default <code>1.0</code>
+            .
+          </li>
+          <li>
             <code>cg_hitSounds 1</code> — damage-scaled hit sound feedback.
             Default <code>0</code>.
             <ul>

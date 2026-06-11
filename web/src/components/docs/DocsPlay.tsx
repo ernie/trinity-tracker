@@ -1331,9 +1331,11 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
         <p>
           Trinity ships four game modes, each a matched pairing of movement
           physics and combat rules: Vanilla Q3, CPMA, Quake Live, and Quake Live
-          Turbo. The server picks one; for single-player against bots you can
-          set it yourself from the console with <code>g_mode</code> (0–3), then{" "}
-          <code>map_restart</code>.
+          Turbo. Online, the server picks; when you host a server or play
+          single-player against bots, a <strong>Mode</strong> selector in the
+          create-server and single-player menus puts the choice in your hands.
+          (Console folks: <code>g_mode</code> 0–3, then <code>map_restart</code>
+          .)
         </p>
         <p>
           The server browser shows each server's mode as an icon to the left of
@@ -1349,6 +1351,22 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
             </div>
           ))}
         </div>
+      </div>
+
+      <div className="about-section">
+        <DocsH2 id="clans">Team Arena clans</DocsH2>
+        <p>
+          On Team Arena servers, red and blue aren't just colors — they're
+          clans: Crusaders, Intruders, Pagans, Stroggs, and The Fallen. Bot
+          teammates come from the named five-member roster of the clan they
+          fight for, with the occasional free agent filling out a squad.
+        </p>
+        <p>
+          Clans play winner-stays: when a match ends, the losing side's clan
+          rotates out — banner and bots alike — and the next clan steps in to
+          take up the fight. So if your team's name and faces changed between
+          maps, you didn't imagine it: you're carrying a new clan's colors now.
+        </p>
       </div>
 
       <div className="about-section">
@@ -1510,6 +1528,11 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
             Set <code>cg_damagePlums 1</code> in autoexec.
           </p>
         </PlatformOnly>
+        <p>
+          If the numbers read small on your screen,{" "}
+          <code>cg_damagePlumScale</code> sizes them — it's a multiplier, so{" "}
+          <code>1.5</code> is half again larger. Default <code>1.0</code>.
+        </p>
 
         <h3 className="docs-play__feature-title">
           Blood Particles <code>cg_bloodParticles</code>

@@ -171,8 +171,8 @@ export function DocsServerAdmin() {
       <div className="about-section">
         <DocsH2 id="recommended-server-cvars">Recommended server cvars</DocsH2>
         <p>
-          A couple of knobs for protecting your disk and keeping demo files from
-          getting unruly. Tune to your setup:
+          Knobs for protecting your disk and shaping how matches play. Tune to
+          your setup:
         </p>
         <ul>
           <li>
@@ -187,6 +187,16 @@ export function DocsServerAdmin() {
             produce huge demo files (and matches that never end) if a tied match
             drags on. Pick a value that fits your mode — a couple of minutes
             works for duels; CTF and other team modes often want more.
+          </li>
+          <li>
+            <code>g_clanRotation 1</code> — winner-stays clan rotation on Team
+            Arena gametypes. When a match ends, the losing team's clan rotates
+            out — its roster bots are swapped for the incoming clan's — and the
+            next clan in line challenges the winner. It only engages when{" "}
+            <code>g_redteam</code> / <code>g_blueteam</code> name real Team
+            Arena clans (Crusaders, Intruders, Pagans, Stroggs, The Fallen);
+            custom team names quietly turn clan rosters and rotation off. The
+            install templates ship it enabled with valid clan names.
           </li>
         </ul>
       </div>

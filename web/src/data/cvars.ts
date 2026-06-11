@@ -59,6 +59,13 @@ export const PLAYER_CVARS: CvarEntry[] = [
     description: "Floating damage numbers above each hit.",
   },
   {
+    name: "cg_damagePlumScale",
+    default: "1.0",
+    platforms: ALL_PLATFORMS,
+    description:
+      "Size multiplier for cg_damagePlums numbers — helpful on physically small screens where the default size sits near the legibility floor.",
+  },
+  {
     name: "cg_deadBodyDarken",
     default: "1",
     platforms: ALL_PLATFORMS,
@@ -426,6 +433,13 @@ export const SERVER_CVARS: CvarEntry[] = [
       "Write archived cvars back to q3config_server.cfg. On hosts running several server instances out of one install, the write-back makes instances inherit each other's archived values (last writer wins). trinity.cfg sets 0 so server config stays fully declarative.",
   },
   {
+    name: "g_clanRotation",
+    default: "0",
+    platforms: ALL_PLATFORMS,
+    description:
+      "Winner-stays clan rotation in Team Arena: when a match ends, the losing team's clan rotates out (its roster bots swapped for the incoming clan's) and the next clan in teaminfo.txt order challenges the winner. Only engages when g_redteam / g_blueteam name real Team Arena clans (Crusaders, Intruders, Pagans, Stroggs, The Fallen); custom team names leave teams alone.",
+  },
+  {
     name: "g_logSync",
     default: "0",
     platforms: ALL_PLATFORMS,
@@ -455,10 +469,10 @@ export const SERVER_CVARS: CvarEntry[] = [
   },
   {
     name: "g_rotation",
-    default: "0",
+    default: "",
     platforms: ALL_PLATFORMS,
     description:
-      "Path to a map rotation file for automated map cycling. Empty / 0 disables rotation.",
+      "Path to a map rotation file for automated map cycling. Empty disables rotation; any other value is taken as a filename.",
   },
   {
     name: "g_teamDMSpawnThreshold",
