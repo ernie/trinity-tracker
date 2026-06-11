@@ -90,7 +90,7 @@ export function PlayerItem({
   return (
     <li className={itemClasses} onClick={handleClick}>
       <span className={nameClasses}>
-        <PlayerPortrait model={player.model} size="sm" />
+        <PlayerPortrait model={player.model} team={player.team} size="sm" />
         {player.is_bot && <BotBadge isBot skill={player.skill!} />}
         {!player.is_bot && (
           <PlayerBadge

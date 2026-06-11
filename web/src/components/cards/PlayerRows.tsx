@@ -114,7 +114,7 @@ export function PlayerRows({ players, mode, onPlayerClick }: PlayerRowsProps) {
                 data-help={TEAM_DOT_HELP}
               />
               <span className="player-row__portrait">
-                <PlayerPortrait model={p.model} size="sm" />
+                <PlayerPortrait model={p.model} team={p.team} size="sm" />
               </span>
               {p.isBot ? (
                 <BotBadge isBot skill={p.skill ?? 1} size="sm" />

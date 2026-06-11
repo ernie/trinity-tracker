@@ -3,6 +3,8 @@ import { createPortal } from "react-dom";
 
 interface PlayerPortraitProps {
   model?: string; // e.g., "sarge/default", "sarge", or "*james"
+  /** Q3 team number: 1 = red, 2 = blue. Other values get no team coloring. */
+  team?: number;
   size?: "sm" | "md" | "lg" | "xl";
   className?: string;
 }
@@ -25,15 +27,31 @@ const PORTRAIT_HELP = `Player model — what they look like in-game.`;
  * - "*Callisto/blue" -> /assets/portraits/callisto/icon_blue.png
  */
 function getPortraitPath(model: string): string {
-  // Strip Team Arena asterisk prefix
+  const { modelName, skin } = parseModel(model);
+  return `/assets/portraits/${modelName}/icon_${skin}.png`;
+}
+
+function parseModel(model: string): { modelName: string; skin: string } {
   const cleanModel = model.startsWith("*") ? model.slice(1) : model;
 
-  // Split into model name and skin
   const parts = cleanModel.split("/");
-  const modelName = parts[0].toLowerCase();
-  const skin = (parts[1] || "default").toLowerCase();
+  return {
+    modelName: parts[0].toLowerCase(),
+    skin: (parts[1] || "default").toLowerCase(),
+  };
+}
 
-  return `/assets/portraits/${modelName}/icon_${skin}.png`;
+/**
+ * Portrait sources to try in order. In team gametypes the game shows the
+ * model's icon_red / icon_blue, so that comes first with the skin icon as
+ * fallback for models that lack team icons.
+ */
+function getPortraitCandidates(model: string, team?: number): string[] {
+  const base = getPortraitPath(model);
+  const teamColor = team === 1 ? "red" : team === 2 ? "blue" : undefined;
+  if (!teamColor) return [base];
+  const teamPath = `/assets/portraits/${parseModel(model).modelName}/icon_${teamColor}.png`;
+  return teamPath === base ? [base] : [teamPath, base];
 }
 
 // Head-and-shoulders silhouette shown when no model is provided or the
@@ -59,14 +77,24 @@ function DefaultPortraitSvg() {
 
 export function PlayerPortrait({
   model,
+  team,
   size = "sm",
   className = "",
 }: PlayerPortraitProps) {
-  const [hasError, setHasError] = useState(false);
+  const [candidateIndex, setCandidateIndex] = useState(0);
   const [showPreview, setShowPreview] = useState(false);
   const [previewPos, setPreviewPos] = useState({ x: 0, y: 0 });
   const ref = useRef<HTMLSpanElement>(null);
   const sizeClass = SIZE_CLASSES[size];
+
+  // Restart the fallback chain when the portrait identity changes;
+  // adjusting state during render avoids an extra effect commit.
+  const portraitKey = `${model ?? ""} ${team ?? ""}`;
+  const [prevPortraitKey, setPrevPortraitKey] = useState(portraitKey);
+  if (portraitKey !== prevPortraitKey) {
+    setPrevPortraitKey(portraitKey);
+    setCandidateIndex(0);
+  }
 
   if (!model) {
     return (
@@ -99,7 +127,9 @@ export function PlayerPortrait({
     setShowPreview(false);
   };
 
-  const portraitSrc = getPortraitPath(model);
+  const candidates = getPortraitCandidates(model, team);
+  const portraitSrc =
+    candidateIndex < candidates.length ? candidates[candidateIndex] : null;
 
   return (
     <>
@@ -110,13 +140,13 @@ export function PlayerPortrait({
         onMouseLeave={handleMouseLeave}
         data-help={PORTRAIT_HELP}
       >
-        {hasError ? (
+        {portraitSrc === null ? (
           <DefaultPortraitSvg />
         ) : (
           <img
             src={portraitSrc}
             alt={model}
-            onError={() => setHasError(true)}
+            onError={() => setCandidateIndex((i) => i + 1)}
           />
         )}
       </span>
@@ -129,7 +159,7 @@ export function PlayerPortrait({
               top: previewPos.y,
             }}
           >
-            {hasError ? (
+            {portraitSrc === null ? (
               <DefaultPortraitSvg />
             ) : (
               <img src={portraitSrc} alt={model} />
