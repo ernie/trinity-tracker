@@ -138,30 +138,31 @@ func BuildBaseline(quake3Dir, outputDir string) error {
 	}
 	log.Printf("Manifest saved to %s", manifestPath)
 
-	// Pre-build all map pk3s
-	builtMaps := make(map[string]bool)
+	// Pre-build all map pk3s. Each map resolves against every game's
+	// manifest (union bundle): directory placement encodes visibility,
+	// not dependency — a baseq3-installed map may need missionpack
+	// assets when mounted there.
+	var games []string
 	for _, game := range []string{"baseq3", "missionpack"} {
-		gm, ok := manifest.Games[game]
-		if !ok {
-			continue
+		if _, ok := manifest.Games[game]; ok {
+			games = append(games, game)
 		}
+	}
 
-		var maps []string
-		for path := range gm.FileIndex {
-			if strings.HasPrefix(path, "maps/") && strings.HasSuffix(path, ".bsp") {
-				mapName := strings.TrimPrefix(path, "maps/")
-				mapName = strings.TrimSuffix(mapName, ".bsp")
-				if !builtMaps[mapName] {
-					maps = append(maps, mapName)
-				}
+	builtMaps := make(map[string]bool)
+	for _, game := range games {
+		for path := range manifest.Games[game].FileIndex {
+			if !strings.HasPrefix(path, "maps/") || !strings.HasSuffix(path, ".bsp") {
+				continue
 			}
-		}
-
-		for _, mapName := range maps {
+			mapName := strings.TrimSuffix(strings.TrimPrefix(path, "maps/"), ".bsp")
+			if builtMaps[mapName] {
+				continue
+			}
 			builtMaps[mapName] = true
 			mapPk3Path := filepath.Join(outputDir, "maps", mapName+".pk3")
-			log.Printf("Building map pk3: %s (%s)", mapName, game)
-			if err := BuildMapPak(mapName, game, manifest, quake3Dir, mapPk3Path); err != nil {
+			log.Printf("Building map pk3: %s", mapName)
+			if err := BuildMapPak(mapName, games, manifest, mapPk3Path); err != nil {
 				log.Printf("Warning: failed to build map pk3 for %s: %v", mapName, err)
 			}
 		}

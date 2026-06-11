@@ -8,47 +8,92 @@ import (
 	"strings"
 )
 
-// BuildMapPak builds a per-map pk3 containing all map-specific assets not in the baseline.
-func BuildMapPak(mapName, game string, manifest *Manifest, quake3Dir, outputPath string) error {
-	gm, ok := manifest.Games[game]
-	if !ok {
-		return fmt.Errorf("game %q not found in manifest", game)
+// BuildMapPak builds a per-map pk3 containing all map-specific assets not in
+// the baseline. One artifact serves every game mount, and maps installed in
+// baseq3 may depend on missionpack assets (and vice versa via the merged
+// index), so dependencies are resolved under each game's manifest and the
+// union is bundled, minus each game's own baseline.
+func BuildMapPak(mapName string, games []string, manifest *Manifest, outputPath string) error {
+	lowerBSP := strings.ToLower("maps/" + mapName + ".bsp")
+
+	var bspAssets *BSPAssets
+	union := make(map[string]string) // lowered path → source pk3
+
+	for _, game := range games {
+		gm, ok := manifest.Games[game]
+		if !ok {
+			continue
+		}
+		if _, ok := gm.FileIndex[lowerBSP]; !ok {
+			continue
+		}
+
+		// The BSP bytes are identical under every game (the merged
+		// missionpack index points at the same source pk3) — parse once.
+		if bspAssets == nil {
+			bspData, err := readFileFromIndex(lowerBSP, gm.FileIndex)
+			if err != nil {
+				return fmt.Errorf("read BSP: %w", err)
+			}
+			bspAssets, err = ParseBSP(bytes.NewReader(bspData), int64(len(bspData)))
+			if err != nil {
+				return fmt.Errorf("parse BSP: %w", err)
+			}
+			log.Printf("  %s: BSP has %d shaders, %d models, %d sounds, %d music",
+				mapName, len(bspAssets.Shaders), len(bspAssets.Models), len(bspAssets.Sounds), len(bspAssets.Music))
+		}
+
+		for path := range resolveMapNeeds(mapName, lowerBSP, bspAssets, gm) {
+			if gm.BaselineFiles[path] {
+				continue
+			}
+			union[path] = gm.FileIndex[path]
+		}
 	}
 
-	needed := make(map[string]bool)
-
-	// 1. BSP file
-	bspPath := "maps/" + mapName + ".bsp"
-	lowerBSP := strings.ToLower(bspPath)
-	if _, ok := gm.FileIndex[lowerBSP]; !ok {
-		return fmt.Errorf("BSP not found: %s", bspPath)
+	if bspAssets == nil {
+		return fmt.Errorf("BSP not found: maps/%s.bsp", mapName)
 	}
-	needed[lowerBSP] = true
 
-	// 2. Parse BSP
-	bspData, err := readFileFromIndex(lowerBSP, gm.FileIndex)
+	if len(union) == 0 {
+		log.Printf("  %s: no non-baseline files needed", mapName)
+		return nil
+	}
+
+	// Extract and write
+	paths := make([]string, 0, len(union))
+	for p := range union {
+		paths = append(paths, p)
+	}
+
+	files, err := ExtractFilesFromPk3s(paths, union)
 	if err != nil {
-		return fmt.Errorf("read BSP: %w", err)
-	}
-	bspAssets, err := ParseBSP(bytes.NewReader(bspData), int64(len(bspData)))
-	if err != nil {
-		return fmt.Errorf("parse BSP: %w", err)
+		return fmt.Errorf("extract files: %w", err)
 	}
 
-	log.Printf("  %s: BSP has %d shaders, %d models, %d sounds, %d music",
-		mapName, len(bspAssets.Shaders), len(bspAssets.Models), len(bspAssets.Sounds), len(bspAssets.Music))
+	if err := WritePk3(outputPath, files); err != nil {
+		return fmt.Errorf("write map pk3: %w", err)
+	}
 
-	// 3. Resolve BSP surface shaders
+	log.Printf("  %s: %d files", mapName, len(files))
+	return nil
+}
+
+// resolveMapNeeds collects every file the map needs under one game's manifest.
+func resolveMapNeeds(mapName, lowerBSP string, bspAssets *BSPAssets, gm *GameManifest) map[string]bool {
+	needed := map[string]bool{lowerBSP: true}
+
+	// Resolve BSP surface shaders
 	for _, shaderName := range bspAssets.Shaders {
 		resolveShaderTextures(shaderName, gm, needed)
 	}
 
-	// 4. Resolve entity models (model2)
+	// Resolve entity models (model2)
 	for _, modelPath := range bspAssets.Models {
 		resolveModel(modelPath, gm, needed)
 	}
 
-	// 5. Resolve entity sounds. BSP "noise" values often omit the
+	// Resolve entity sounds. BSP "noise" values often omit the
 	// extension (e.g. "sound/ct3tourney2/thunder"); the engine tries
 	// .wav then .ogg at load time (snd_codec.c:S_CodecGetSound). Mirror
 	// that so the file actually gets bundled — otherwise the engine
@@ -60,14 +105,14 @@ func BuildMapPak(mapName, game string, manifest *Manifest, quake3Dir, outputPath
 		}
 	}
 
-	// 6. Resolve music (same extension-fallback rules as entity sounds)
+	// Resolve music (same extension-fallback rules as entity sounds)
 	for _, musicPath := range bspAssets.Music {
 		if resolved, ok := resolveAudioPath(musicPath, gm.FileIndex); ok {
 			needed[resolved] = true
 		}
 	}
 
-	// 9. Include levelshot
+	// Include levelshot
 	for _, ext := range []string{".jpg", ".tga"} {
 		ls := "levelshots/" + mapName + ext
 		if _, ok := gm.FileIndex[ls]; ok {
@@ -76,41 +121,13 @@ func BuildMapPak(mapName, game string, manifest *Manifest, quake3Dir, outputPath
 		}
 	}
 
-	// 10. Include arena file
+	// Include arena file
 	arenaPath := "scripts/" + mapName + ".arena"
 	if _, ok := gm.FileIndex[arenaPath]; ok {
 		needed[arenaPath] = true
 	}
 
-	// 11. Exclude baseline files
-	for path := range needed {
-		if gm.BaselineFiles[path] {
-			delete(needed, path)
-		}
-	}
-
-	if len(needed) == 0 {
-		log.Printf("  %s: no non-baseline files needed", mapName)
-		return nil
-	}
-
-	// Extract and write
-	paths := make([]string, 0, len(needed))
-	for p := range needed {
-		paths = append(paths, p)
-	}
-
-	files, err := ExtractFilesFromPk3s(paths, gm.FileIndex)
-	if err != nil {
-		return fmt.Errorf("extract files: %w", err)
-	}
-
-	if err := WritePk3(outputPath, files); err != nil {
-		return fmt.Errorf("write map pk3: %w", err)
-	}
-
-	log.Printf("  %s: %d files", mapName, len(files))
-	return nil
+	return needed
 }
 
 // resolveShaderTextures resolves a shader name to its texture dependencies and adds them to needed.

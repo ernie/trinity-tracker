@@ -132,6 +132,16 @@ func ParseShaderScript(r io.Reader) ([]ShaderDef, error) {
 						}
 					}
 				}
+			case "videomap":
+				// Pathless names get a video/ prefix at load time
+				// (cl_cin.c CIN_PlayCinematic)
+				if len(tokens) >= 2 {
+					path := tokens[1]
+					if !strings.Contains(path, "/") && !strings.Contains(path, "\\") {
+						path = "video/" + path
+					}
+					current.Textures = append(current.Textures, path)
+				}
 			case "skyparms":
 				// skyparms <farbox> - -
 				if len(tokens) >= 2 && tokens[1] != "-" {
