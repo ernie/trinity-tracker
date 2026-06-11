@@ -33,8 +33,6 @@ textures/proto2/movie
 }
 
 func TestParseShaderScript_VideoMapBareName(t *testing.T) {
-	// The engine prepends video/ when the name has no path
-	// (cl_cin.c CIN_PlayCinematic) — the parser must mirror that.
 	def := parseSingleShader(t, `
 textures/proto2/movie
 {

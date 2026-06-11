@@ -34,9 +34,6 @@ func buildAndList(t *testing.T, mapName string, games []string, manifest *Manife
 	return files
 }
 
-// A map installed in baseq3 may depend on missionpack assets (it is only
-// playable there) — the single map pk3 artifact must carry the union of
-// dependencies resolved under every game.
 func TestBuildMapPak_UnionsAcrossGames(t *testing.T) {
 	dir := t.TempDir()
 
@@ -94,9 +91,6 @@ func TestBuildMapPak_UnionsAcrossGames(t *testing.T) {
 	}
 }
 
-// Baseline subtraction is per game: a file in the missionpack baseline
-// but not the baseq3 one must still be bundled, or a baseq3 mount of
-// the same map pk3 would lack it.
 func TestBuildMapPak_BaselineSubtractionPerGame(t *testing.T) {
 	dir := t.TempDir()
 

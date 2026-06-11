@@ -138,10 +138,7 @@ func BuildBaseline(quake3Dir, outputDir string) error {
 	}
 	log.Printf("Manifest saved to %s", manifestPath)
 
-	// Pre-build all map pk3s. Each map resolves against every game's
-	// manifest (union bundle): directory placement encodes visibility,
-	// not dependency — a baseq3-installed map may need missionpack
-	// assets when mounted there.
+	// Pre-build all map pk3s.
 	var games []string
 	for _, game := range []string{"baseq3", "missionpack"} {
 		if _, ok := manifest.Games[game]; ok {

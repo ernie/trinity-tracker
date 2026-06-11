@@ -11,10 +11,9 @@ import (
 
 var displayNameMultiSpace = regexp.MustCompile(`\s+`)
 
-// reservedNames contains Q3 + Team Arena bot names (from missionpack pak0
-// scripts/bots.txt), the TA clan aliases the mod synthesizes as bots from
-// teaminfo.txt (identity aliases like Morgan are already base bots), plus
-// engine defaults that must stay unclaimed.
+// reservedNames contains Q3 + Team Arena bot names (missionpack pak0
+// scripts/bots.txt), the TA clan aliases the mod synthesizes as bots,
+// plus engine defaults that must stay unclaimed.
 var reservedNames = func() map[string]bool {
 	names := []string{
 		"Anarki", "Angel", "Biker", "Bitterman", "Bones", "Cadavre",

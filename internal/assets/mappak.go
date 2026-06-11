@@ -9,10 +9,9 @@ import (
 )
 
 // BuildMapPak builds a per-map pk3 containing all map-specific assets not in
-// the baseline. One artifact serves every game mount, and maps installed in
-// baseq3 may depend on missionpack assets (and vice versa via the merged
-// index), so dependencies are resolved under each game's manifest and the
-// union is bundled, minus each game's own baseline.
+// the baseline. The one artifact serves every game mount — and a map may
+// depend on assets from a game it isn't installed in — so it bundles the
+// union of dependencies across game manifests, minus each game's baseline.
 func BuildMapPak(mapName string, games []string, manifest *Manifest, outputPath string) error {
 	lowerBSP := strings.ToLower("maps/" + mapName + ".bsp")
 
@@ -28,8 +27,7 @@ func BuildMapPak(mapName string, games []string, manifest *Manifest, outputPath 
 			continue
 		}
 
-		// The BSP bytes are identical under every game (the merged
-		// missionpack index points at the same source pk3) — parse once.
+		// BSP bytes are identical under every game — parse once.
 		if bspAssets == nil {
 			bspData, err := readFileFromIndex(lowerBSP, gm.FileIndex)
 			if err != nil {

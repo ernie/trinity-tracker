@@ -12,13 +12,11 @@ var textureExtensions = []string{".tga", ".jpg", ".png"}
 func ResolveTexture(path string, fileIndex map[string]string) (string, bool) {
 	lower := strings.ToLower(path)
 
-	// An exact match wins regardless of extension — covers non-image
-	// shader stage files like videoMap .roq paths
+	// Exact match wins — non-image stage files (videoMap .roq) resolve as-is.
 	if _, ok := fileIndex[lower]; ok {
 		return lower, true
 	}
 
-	// If the path has a recognized extension, try swapping it
 	for _, ext := range textureExtensions {
 		if strings.HasSuffix(lower, ext) {
 			base := lower[:len(lower)-len(ext)]

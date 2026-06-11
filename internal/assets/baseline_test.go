@@ -6,10 +6,6 @@ import (
 	"testing"
 )
 
-// Regression: a third-party map installed in baseq3/ whose sky and
-// textures live in missionpack's pak0 (czq3p61ctf1) must get those
-// assets in its map pk3 — baking only against the baseq3 manifest
-// silently dropped them, leaving a hall-of-mirrors sky in the player.
 func TestBuildBaseline_Baseq3MapGetsMissionpackAssets(t *testing.T) {
 	quake3Dir := t.TempDir()
 	outputDir := t.TempDir()
