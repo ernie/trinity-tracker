@@ -2010,9 +2010,10 @@ func cmdPortraits(args []string) {
 	}
 
 	var totalExtracted int
+	taOnly := make(map[string]bool)
 	for _, pk3Path := range pk3Files {
 		displayPath := pk3DisplayPath(pk3Path, inputPath)
-		n, err := extractPortraitsFromPk3(pk3Path, outputDir, displayPath)
+		n, err := extractPortraitsFromPk3(pk3Path, outputDir, displayPath, taOnly)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "  Warning: %s: %v\n", displayPath, err)
 			continue
@@ -2020,17 +2021,40 @@ func cmdPortraits(args []string) {
 		totalExtracted += n
 	}
 
-	fmt.Printf("Portraits: %d extracted\n", totalExtracted)
+	// Manifest is built from the extracted directory, not the pk3 walk, so
+	// icons surviving from earlier runs stay listed.
+	manifest, err := assets.BuildPortraitManifest(outputDir, taOnly)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: build portrait manifest: %v\n", err)
+		os.Exit(1)
+	}
+	manifestPath := filepath.Join(cfg.Server.StaticDir, "assets", "portraits.json")
+	out, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: marshal portraits.json: %v\n", err)
+		os.Exit(1)
+	}
+	if err := os.WriteFile(manifestPath, out, 0644); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: write %s: %v\n", manifestPath, err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Portraits: %d extracted, %d models in %s\n", totalExtracted, len(manifest), manifestPath)
 }
 
-// extractPortraitsFromPk3 extracts player portrait icons from a pk3 file
-func extractPortraitsFromPk3(pk3Path, outputDir, displayPath string) (int, error) {
+// extractPortraitsFromPk3 extracts player portrait icons from a pk3 file,
+// recording in taOnly whether each model's icon_default came from a
+// missionpack pk3. Mod pk3s re-bundle team skins across trees (e.g.
+// fritzkrieg red/blue in baseq3), so only the default icon — the one the
+// picker displays — decides the grouping.
+func extractPortraitsFromPk3(pk3Path, outputDir, displayPath string, taOnly map[string]bool) (int, error) {
 	r, err := zip.OpenReader(pk3Path)
 	if err != nil {
 		return 0, fmt.Errorf("failed to open pk3: %w", err)
 	}
 	defer r.Close()
 
+	isTA := strings.Split(filepath.ToSlash(displayPath), "/")[0] == "missionpack"
 	extracted := 0
 	for _, f := range r.File {
 		lowerName := strings.ToLower(f.Name)
@@ -2084,6 +2108,12 @@ func extractPortraitsFromPk3(pk3Path, outputDir, displayPath string) (int, error
 
 		fmt.Printf("  %s: %s\n", displayPath, assetName)
 		extracted++
+
+		// Last write wins, matching whichever icon_default.png survives
+		// on disk.
+		if outputName == "icon_default.png" {
+			taOnly[model] = isTA
+		}
 	}
 
 	return extracted, nil

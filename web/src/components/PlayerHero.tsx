@@ -19,6 +19,9 @@ interface PlayerHeroProps {
    *  (race during initial load). Only relevant in the modal — the
    *  full-profile page already has stats by the time it renders. */
   fallbackName?: string;
+  /** When set, the portrait becomes a button that opens the picker —
+   *  passed only by AccountPage for the owner's own hero. */
+  onPortraitClick?: () => void;
 }
 
 // Player hero: portrait + featured-honor card paired at the top,
@@ -31,6 +34,7 @@ export function PlayerHero({
   stats,
   variant,
   fallbackName,
+  onPortraitClick,
 }: PlayerHeroProps) {
   const heroName = displayPlayerName(player) || fallbackName || "";
   const NameTag = variant === "modal" ? "h3" : "h2";
@@ -44,7 +48,18 @@ export function PlayerHero({
     <header className={`player-hero player-hero--${variant}`}>
       <div className="player-hero__top">
         <div className="player-hero__portrait">
-          <PlayerPortrait model={player.model} size="lg" />
+          {onPortraitClick ? (
+            <button
+              className="player-hero__portrait-btn"
+              onClick={onPortraitClick}
+              title="Change profile icon"
+              aria-label="Change profile icon"
+            >
+              <PlayerPortrait model={player.model} size="lg" />
+            </button>
+          ) : (
+            <PlayerPortrait model={player.model} size="lg" />
+          )}
           {player.is_bot ? (
             <BotBadge isBot skill={5} size={variant === "page" ? "lg" : "md"} />
           ) : (

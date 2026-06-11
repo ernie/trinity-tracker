@@ -7,6 +7,7 @@ import {
 } from "./DisplayNameEditor";
 import { PlayerHero } from "./PlayerHero";
 import { HonorsPanel } from "./HonorsPanel";
+import { PortraitPickerModal } from "./PortraitPickerModal";
 import { PlayerRecentMatches } from "./PlayerRecentMatches";
 import { PeriodSelector } from "./PeriodSelector";
 import { useAuth } from "../hooks/useAuth";
@@ -63,6 +64,9 @@ export function AccountPage() {
   const [displayNameError, setDisplayNameError] = useState("");
   const [savingDisplayName, setSavingDisplayName] = useState(false);
 
+  // Portrait picker state
+  const [showPortraitPicker, setShowPortraitPicker] = useState(false);
+
   // Password change state
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -109,6 +113,17 @@ export function AccountPage() {
     } finally {
       setSavingDisplayName(false);
     }
+  };
+
+  // The backend coalesces the portrait into player.model, so the hero
+  // only updates after a refetch.
+  const handlePortraitSaved = async () => {
+    setShowPortraitPicker(false);
+    const profileRes = await apiFetch("/api/account/profile");
+    if (profileRes.ok) {
+      setProfile(await profileRes.json());
+    }
+    refetchStats();
   };
 
   // Redirect if not authenticated (after auth check completes)
@@ -345,7 +360,17 @@ export function AccountPage() {
                         player={stats.player}
                         stats={stats.stats}
                         variant="page"
+                        onPortraitClick={() => setShowPortraitPicker(true)}
                       />
+                      {showPortraitPicker && (
+                        <PortraitPickerModal
+                          current={profile.user.portrait ?? null}
+                          onSaved={() => {
+                            void handlePortraitSaved();
+                          }}
+                          onClose={() => setShowPortraitPicker(false)}
+                        />
+                      )}
                       <PeriodSelector period={period} onChange={setPeriod} />
                       <HonorsPanel
                         stats={stats.stats}

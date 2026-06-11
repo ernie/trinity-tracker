@@ -473,6 +473,7 @@ func (s *Store) GetPlayerGUIDs(ctx context.Context, playerID int64) ([]domain.Pl
 func (s *Store) GetPlayerByID(ctx context.Context, id int64) (*domain.Player, error) {
 	var p domain.Player
 	var featuredHonor sql.NullString
+	var portrait sql.NullString
 	err := s.db.QueryRowContext(ctx, `
 		SELECT
 			p.id, COALESCE(u.display_name, p.name), COALESCE(u.display_name_canonical, p.clean_name), p.first_seen, p.last_seen,
@@ -485,11 +486,11 @@ func (s *Store) GetPlayerByID(ctx context.Context, id int64) (*domain.Player, er
 			p.is_bot, p.is_vr,
 			CASE WHEN u.id IS NOT NULL THEN 1 ELSE 0 END as is_verified,
 			COALESCE(u.is_admin, 0) as is_admin,
-			u.featured_honor
+			u.featured_honor, u.portrait
 		FROM players p
 		LEFT JOIN users u ON u.player_id = p.id
 		WHERE p.id = ?
-	`, id).Scan(&p.ID, &p.Name, &p.CleanName, &p.FirstSeen, &p.LastSeen, &p.TotalPlaytimeSeconds, &p.IsBot, &p.IsVR, &p.IsVerified, &p.IsAdmin, &featuredHonor)
+	`, id).Scan(&p.ID, &p.Name, &p.CleanName, &p.FirstSeen, &p.LastSeen, &p.TotalPlaytimeSeconds, &p.IsBot, &p.IsVR, &p.IsVerified, &p.IsAdmin, &featuredHonor, &portrait)
 	if err != nil {
 		return nil, err
 	}
@@ -509,7 +510,9 @@ func (s *Store) GetPlayerByID(ctx context.Context, id int64) (*domain.Player, er
 		ORDER BY m.ended_at DESC
 		LIMIT 1
 	`, id).Scan(&model, &skill)
-	if model.Valid {
+	if portrait.Valid && portrait.String != "" {
+		p.Model = portrait.String
+	} else if model.Valid {
 		p.Model = model.String
 	}
 	if skill.Valid {
@@ -526,11 +529,11 @@ func (s *Store) GetPlayerByID(ctx context.Context, id int64) (*domain.Player, er
 	return &p, nil
 }
 
-// SearchPlayers searches for players by name (and optionally by GUID for admins)
-// modelSubquery surfaces the most-recent model from match_player_stats —
-// same lookup strategy as GetPlayerByID — as a correlated subquery so a
-// single round trip populates the card portraits.
-const modelSubquery = `(
+// modelSubquery surfaces the player-level portrait: the account-chosen
+// users.portrait when set, else the most-recent model from
+// match_player_stats — as a correlated subquery so a single round trip
+// populates the card portraits. Requires `users u` to be LEFT JOINed.
+const modelSubquery = `COALESCE(NULLIF(u.portrait, ''), (
 	SELECT mps.model
 	FROM match_player_stats mps
 	JOIN player_guids pg2 ON mps.player_guid_id = pg2.id
@@ -538,8 +541,9 @@ const modelSubquery = `(
 	WHERE pg2.player_id = p.id AND mps.model IS NOT NULL AND mps.model != ''
 	ORDER BY m.ended_at DESC
 	LIMIT 1
-) as model`
+)) as model`
 
+// SearchPlayers searches for players by name (and optionally by GUID for admins)
 func (s *Store) SearchPlayers(ctx context.Context, query string, limit int, includeGUID bool) ([]domain.Player, error) {
 	if limit <= 0 {
 		limit = 20
@@ -1342,11 +1346,11 @@ func (s *Store) GetLeaderboard(ctx context.Context, category, period string, lim
 				CASE WHEN SUM(mps.deaths) > 0
 					THEN CAST(SUM(mps.frags) AS REAL) / SUM(mps.deaths)
 					ELSE COALESCE(SUM(mps.frags), 0) END as kd_ratio,
-				(SELECT mps2.model FROM match_player_stats mps2
+				COALESCE(NULLIF(u.portrait, ''), (SELECT mps2.model FROM match_player_stats mps2
 					JOIN player_guids pg2 ON mps2.player_guid_id = pg2.id
 					JOIN matches m2 ON mps2.match_id = m2.id
 					WHERE pg2.player_id = p.id AND mps2.model IS NOT NULL AND mps2.model != ''
-					ORDER BY m2.ended_at DESC LIMIT 1) as model,
+					ORDER BY m2.ended_at DESC LIMIT 1)) as model,
 				(SELECT mps2.skill FROM match_player_stats mps2
 					JOIN player_guids pg2 ON mps2.player_guid_id = pg2.id
 					JOIN matches m2 ON mps2.match_id = m2.id
@@ -1408,11 +1412,11 @@ func (s *Store) GetLeaderboard(ctx context.Context, category, period string, lim
 				CASE WHEN SUM(mps.deaths) > 0
 					THEN CAST(SUM(mps.frags) AS REAL) / SUM(mps.deaths)
 					ELSE COALESCE(SUM(mps.frags), 0) END as kd_ratio,
-				(SELECT mps2.model FROM match_player_stats mps2
+				COALESCE(NULLIF(u.portrait, ''), (SELECT mps2.model FROM match_player_stats mps2
 					JOIN player_guids pg2 ON mps2.player_guid_id = pg2.id
 					JOIN matches m2 ON mps2.match_id = m2.id
 					WHERE pg2.player_id = p.id AND mps2.model IS NOT NULL AND mps2.model != ''
-					ORDER BY m2.ended_at DESC LIMIT 1) as model,
+					ORDER BY m2.ended_at DESC LIMIT 1)) as model,
 				(SELECT mps2.skill FROM match_player_stats mps2
 					JOIN player_guids pg2 ON mps2.player_guid_id = pg2.id
 					JOIN matches m2 ON mps2.match_id = m2.id
@@ -1631,6 +1635,7 @@ type User struct {
 	LastLogin              *time.Time
 	GameToken              string
 	DisplayName            string
+	Portrait               string
 	// DisabledAt non-nil = soft-deleted: every credential path rejects
 	// the account. Rows are never hard-deleted once source_audit
 	// references them — disable instead.
@@ -1755,7 +1760,7 @@ func (s *Store) CreateUser(ctx context.Context, username, passwordHash string, i
 // GetUserByUsername retrieves a user by username
 func (s *Store) GetUserByUsername(ctx context.Context, username string) (*User, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, username, password_hash, is_admin, player_id, password_change_required, created_at, last_login, game_token, display_name, disabled_at, token_version
+		SELECT id, username, password_hash, is_admin, player_id, password_change_required, created_at, last_login, game_token, display_name, portrait, disabled_at, token_version
 		FROM users WHERE username = ?
 	`, username)
 	return scanUser(row)
@@ -1764,7 +1769,7 @@ func (s *Store) GetUserByUsername(ctx context.Context, username string) (*User, 
 // GetUserByID retrieves a user by ID
 func (s *Store) GetUserByID(ctx context.Context, id int64) (*User, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, username, password_hash, is_admin, player_id, password_change_required, created_at, last_login, game_token, display_name, disabled_at, token_version
+		SELECT id, username, password_hash, is_admin, player_id, password_change_required, created_at, last_login, game_token, display_name, portrait, disabled_at, token_version
 		FROM users WHERE id = ?
 	`, id)
 	return scanUser(row)
@@ -1786,7 +1791,7 @@ func (s *Store) DeleteUser(ctx context.Context, username string) error {
 // ListUsers returns all users with details
 func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, username, password_hash, is_admin, player_id, password_change_required, created_at, last_login, game_token, display_name, disabled_at, token_version
+		SELECT id, username, password_hash, is_admin, player_id, password_change_required, created_at, last_login, game_token, display_name, portrait, disabled_at, token_version
 		FROM users ORDER BY username
 	`)
 	if err != nil {
@@ -2010,6 +2015,16 @@ func (s *Store) SetUserFeaturedHonor(ctx context.Context, userID int64, key stri
 	_, err := s.db.ExecContext(ctx, `
 		UPDATE users SET featured_honor = ? WHERE id = ?
 	`, key, userID)
+	return err
+}
+
+// SetUserPortrait stores the account-chosen profile icon ("model/skin").
+// Empty string clears the choice. Caller must validate the value against
+// the extracted portrait assets (see api/portrait.go).
+func (s *Store) SetUserPortrait(ctx context.Context, userID int64, portrait string) error {
+	_, err := s.db.ExecContext(ctx, `
+		UPDATE users SET portrait = NULLIF(?, '') WHERE id = ?
+	`, portrait, userID)
 	return err
 }
 

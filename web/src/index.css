@@ -4402,6 +4402,107 @@ h2 {
   }
 }
 
+/* Portrait picker modal */
+.portrait-picker-modal {
+  background: var(--bg-card);
+  border-radius: 8px;
+  padding: 20px;
+  max-width: 720px;
+  width: calc(100% - 32px);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.portrait-picker-modal h2 {
+  margin: 0 0 var(--space-3) 0;
+}
+
+.portrait-picker-close {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.portrait-picker-close:hover,
+.portrait-picker-close:focus-visible {
+  color: var(--text);
+}
+
+.portrait-picker-reset {
+  align-self: flex-start;
+  margin-bottom: var(--space-3);
+}
+
+.portrait-picker-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.portrait-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: var(--space-2);
+}
+
+.portrait-option {
+  padding: 0;
+  background: var(--bg-elev);
+  border: 2px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  line-height: 0;
+}
+
+.portrait-option img {
+  width: 100%;
+  border-radius: 2px;
+}
+
+.portrait-option:hover {
+  border-color: var(--accent-dim);
+}
+
+.portrait-option.selected {
+  border-color: var(--ember-strong);
+}
+
+.portrait-option:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* width/height 100%: the hero portrait cell sizes children by
+   percentage, so the wrapper must fill it to stay layout-neutral. */
+.player-hero__portrait-btn {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  border-radius: 50%;
+}
+
+.player-hero__portrait-btn:focus-visible {
+  outline: none;
+}
+
+.player-hero__portrait-btn:hover .player-portrait,
+.player-hero__portrait-btn:focus-visible .player-portrait {
+  outline: 2px solid var(--ember-strong);
+  outline-offset: 2px;
+}
+
 /* Period selector — connected segmented control hosted inside a
    NavScroller. Buttons sit flush; first/last get the rounded outer
    corners via the shared segmented rules below. Overflow/mask/scroll

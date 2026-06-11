@@ -371,6 +371,7 @@ type UserResponse struct {
 	PasswordChangeRequired bool       `json:"password_change_required"`
 	CreatedAt              time.Time  `json:"created_at"`
 	LastLogin              *time.Time `json:"last_login,omitempty"`
+	Portrait               *string    `json:"portrait,omitempty"`
 }
 
 // handleListUsers returns users (admin only). Without query params it returns
@@ -559,6 +560,9 @@ func (r *Router) handleGetAccountProfile(w http.ResponseWriter, req *http.Reques
 			CreatedAt:              user.CreatedAt,
 			LastLogin:              user.LastLogin,
 		},
+	}
+	if user.Portrait != "" {
+		response.User.Portrait = &user.Portrait
 	}
 
 	// If user has linked player, fetch player profile and GUIDs

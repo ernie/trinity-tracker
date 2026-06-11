@@ -199,6 +199,10 @@ CREATE TABLE IF NOT EXISTS users (
     -- NULL = no explicit choice; frontend falls back to 'victories'.
     -- See migrations/2026-05-13-users-featured-honor.sql.
     featured_honor TEXT,
+    -- Account-chosen profile icon as "model/skin" (e.g. "sarge/krusade").
+    -- NULL = follow the most recent in-game model. Existing installs: see
+    -- migrations/2026-06-11-users-portrait.sql.
+    portrait TEXT,
     -- Soft-delete: non-NULL blocks every credential path (web login,
     -- cli-login, game-login, in-game auth, PAT lookup). User rows are
     -- never hard-deleted once referenced by source_audit — disable
