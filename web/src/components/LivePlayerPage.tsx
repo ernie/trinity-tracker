@@ -299,7 +299,7 @@ export function LivePlayerPage() {
                   <span className="ctrl-player-vr-slot">
                     {p.isVR && <img src="/assets/vr/vr.png" alt="VR" />}
                   </span>
-                  <PlayerPortrait model={p.model} size="sm" />
+                  <PlayerPortrait model={p.model} team={p.team} size="sm" />
                   <ColoredText text={p.isVR ? stripVRPrefix(p.name) : p.name} />
                 </button>
               ))}
