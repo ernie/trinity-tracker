@@ -12,6 +12,7 @@ import { useWebSocket, type ConnectionStatus } from "../useWebSocket";
 import { useAuth } from "../hooks/useAuth";
 import { useSources } from "../hooks/useSources";
 import { serverDisplay } from "../utils";
+import { assistMessage } from "../utils/assistMessage";
 import type {
   Server,
   ServerStatus,
@@ -763,7 +764,7 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
               break;
             }
             case "assist":
-              message = `${data.player_name}${COLOR_RESET} assisted a capture!`;
+              message = `${data.player_name}${COLOR_RESET} ${assistMessage(data.assist_type)}`;
               break;
             default:
               message = `${data.player_name}${COLOR_RESET} earned ${data.award_type}!`;

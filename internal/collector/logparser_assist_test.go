@@ -32,6 +32,14 @@ func TestParseAssistTypes(t *testing.T) {
 	}
 }
 
+// The mod logs assists only via "Assist:" lines, never as an Award.
+func TestParseAwardRejectsAssistToken(t *testing.T) {
+	ev, err := ParseLine("2026-06-12T10:00:00 Award: 5 assist: Visor")
+	if err == nil && ev != nil && ev.Type == EventTypeAward {
+		t.Fatalf("Award assist line parsed as award: %+v", ev.Data)
+	}
+}
+
 func TestParseAssistRejectsNonLowercaseType(t *testing.T) {
 	for _, line := range []string{
 		"2026-06-12T10:00:00 Assist: 6 2 RETURN: Visor",

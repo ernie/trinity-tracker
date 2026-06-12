@@ -1645,9 +1645,27 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 		}
 
 	case EventTypeAssist:
+		if state.matchState != "active" && state.matchState != "overtime" {
+			break
+		}
 		data := event.Data.(AssistData)
 		if client, ok := state.clients[data.ClientID]; ok {
 			client.assists++
+			if !replayMode {
+				m.emitEvent(domain.Event{
+					Type:      domain.EventAward,
+					ServerID:  serverID,
+					Timestamp: event.Timestamp,
+					Data: domain.AwardEvent{
+						ClientNum:  data.ClientID,
+						PlayerName: data.Name,
+						AwardType:  "assist",
+						AssistType: data.AssistType,
+						Team:       client.team,
+						GUID:       client.guid,
+					},
+				})
+			}
 		}
 
 	case EventTypeAward:
@@ -1665,8 +1683,6 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 				client.humiliations++
 			case "defend":
 				client.defends++
-			case "assist":
-				client.assists++
 			}
 
 			if !replayMode {
