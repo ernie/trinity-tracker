@@ -223,7 +223,7 @@ type TeamChangeData struct {
 type AssistData struct {
 	ClientID   int
 	Team       int
-	AssistType string // "return" or "frag"
+	AssistType string // mod assist token: return|frag|skull|obelisk|carry|damage
 	Name       string
 }
 
@@ -329,7 +329,7 @@ var (
 	skullPickupRegex   = regexp.MustCompile(`^SkullPickup: (\d+) (\d+) (\d+): (.+)$`)
 	skullScoreRegex    = regexp.MustCompile(`^SkullScore: (\d+) (\d+) (\d+): (.+)$`)
 	teamChangeRegex    = regexp.MustCompile(`^TeamChange: (\d+) (\d+) (\d+): (.+)$`)
-	assistRegex        = regexp.MustCompile(`^Assist: (\d+) (\d+) (return|frag): (.+)$`)
+	assistRegex        = regexp.MustCompile(`^Assist: (\d+) (\d+) ([a-z]+): (.+)$`)
 	awardRegex         = regexp.MustCompile(`^Award: (\d+) (impressive|excellent|gauntlet|defend|assist): (.+)$`)
 	// Chat patterns: Say: <clientID> "<name>": <message>
 	sayRegex                  = regexp.MustCompile(`^Say: (\d+) "(.+)": (.+)$`)
