@@ -1,0 +1,27 @@
+.model-head {
+  --head-overflow: 1.4;
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+  overflow: visible;
+}
+.model-head > canvas {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(100% * var(--head-overflow));
+  height: calc(100% * var(--head-overflow));
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms ease;
+}
+.model-head.is-live > canvas {
+  opacity: 1;
+}
+.model-head > .player-portrait {
+  transition: opacity 200ms ease;
+}
+.model-head.is-live > .player-portrait {
+  opacity: 0;
+}

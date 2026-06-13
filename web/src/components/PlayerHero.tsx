@@ -1,6 +1,6 @@
 import { BotBadge } from "./BotBadge";
 import { ColoredText } from "./ColoredText";
-import { PlayerPortrait } from "./PlayerPortrait";
+import { ModelHead } from "./ModelHead";
 import { PlayerBadge } from "./PlayerBadge";
 import { HeadlineStat } from "./HeadlineStat";
 import { HONORS, DEFAULT_FEATURED_HONOR_KEY } from "../constants/honors";
@@ -55,10 +55,10 @@ export function PlayerHero({
               title="Change profile icon"
               aria-label="Change profile icon"
             >
-              <PlayerPortrait model={player.model} size="lg" />
+              <ModelHead model={player.model} size="lg" />
             </button>
           ) : (
-            <PlayerPortrait model={player.model} size="lg" />
+            <ModelHead model={player.model} size="lg" />
           )}
           {player.is_bot ? (
             <BotBadge isBot skill={5} size={variant === "page" ? "lg" : "md"} />

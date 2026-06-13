@@ -303,7 +303,7 @@ func parseShadersPk3(pk3Path string, shaders map[string][]string, shaderFiles ma
 		}
 		defer rc.Close()
 
-		defs, err := ParseShaderScript(rc)
+		defs, err := ParseShaderTextures(rc)
 		if err != nil {
 			return nil
 		}

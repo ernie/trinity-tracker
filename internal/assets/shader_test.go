@@ -5,9 +5,9 @@ import (
 	"testing"
 )
 
-func parseSingleShader(t *testing.T, script string) ShaderDef {
+func parseSingleShader(t *testing.T, script string) ShaderTextureDef {
 	t.Helper()
-	defs, err := ParseShaderScript(strings.NewReader(script))
+	defs, err := ParseShaderTextures(strings.NewReader(script))
 	if err != nil {
 		t.Fatal(err)
 	}

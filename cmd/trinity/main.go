@@ -4,6 +4,7 @@ package main
 import (
 	"archive/zip"
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -32,8 +33,8 @@ import (
 	"github.com/ernie/trinity-tracker/internal/assets"
 	"github.com/ernie/trinity-tracker/internal/auth"
 	"github.com/ernie/trinity-tracker/internal/collector"
-	"github.com/ernie/trinity-tracker/internal/console"
 	"github.com/ernie/trinity-tracker/internal/config"
+	"github.com/ernie/trinity-tracker/internal/console"
 	"github.com/ernie/trinity-tracker/internal/directory"
 	"github.com/ernie/trinity-tracker/internal/discord"
 	"github.com/ernie/trinity-tracker/internal/domain"
@@ -92,6 +93,8 @@ func main() {
 		cmdLevelshots(os.Args[2:])
 	case "portraits":
 		cmdPortraits(os.Args[2:])
+	case "heads":
+		cmdHeads(os.Args[2:])
 	case "medals":
 		cmdMedals(os.Args[2:])
 	case "skills":
@@ -149,11 +152,12 @@ func printUsage() {
 	fmt.Println("  console --follow <key>              Stream console output read-only")
 	fmt.Println("  levelshots [path]                   Extract levelshots from pk3 file(s)")
 	fmt.Println("  portraits [path]                    Extract player portraits from pk3 file(s)")
+	fmt.Println("  heads [path]                        Extract 3D head bundles from pk3 file(s)")
 	fmt.Println("  medals [path]                       Extract medal icons from pk3 file(s)")
 	fmt.Println("  skills [path]                       Extract skill icons from pk3 file(s)")
 	fmt.Println("  objectives [path]                   Extract objective-state icons (CTF flags, Harvester skulls) from pk3 file(s)")
 	fmt.Println("  arenas [path]                       Extract map longnames into maps.json")
-	fmt.Println("  assets [path]                       Extract all assets (portraits, medals, skills, objectives, levelshots)")
+	fmt.Println("  assets [path]                       Extract all assets (portraits, heads, medals, skills, objectives, levelshots)")
 	fmt.Println("  demobake [path]                     Build baseline pk3, map pk3s, and manifest for web demo playback")
 	fmt.Println("  maps [--mode <mode>] [path]         Scan pk3s and report which game modes each map supports")
 	fmt.Println("  version                             Show version")
@@ -2119,6 +2123,239 @@ func extractPortraitsFromPk3(pk3Path, outputDir, displayPath string, taOnly map[
 	return extracted, nil
 }
 
+// cmdHeads extracts 3D head bundles (geometry + skins + textures) from pk3 files
+func cmdHeads(args []string) {
+	fs := flag.NewFlagSet("heads", flag.ExitOnError)
+	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
+	fs.Parse(args)
+
+	cfg := loadCLIConfigFromFlags(*configPath, "")
+	if cfg == nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to load config\n")
+		os.Exit(1)
+	}
+
+	if cfg.Server.StaticDir == "" {
+		fmt.Fprintf(os.Stderr, "Error: static_dir not configured in config file\n")
+		os.Exit(1)
+	}
+
+	remaining := fs.Args()
+	inputPath := cfg.Server.Quake3Dir
+	if len(remaining) > 0 {
+		inputPath = remaining[0]
+	}
+
+	outputDir := filepath.Join(cfg.Server.StaticDir, "assets", "heads")
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to create output directory: %v\n", err)
+		os.Exit(1)
+	}
+
+	pk3Files := collectPk3FilesOrdered(inputPath)
+	if len(pk3Files) == 0 {
+		fmt.Fprintf(os.Stderr, "Error: no pk3 files found in %s\n", inputPath)
+		os.Exit(1)
+	}
+
+	fileIndex, err := assets.BuildFileIndex(pk3Files)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: build file index: %v\n", err)
+		os.Exit(1)
+	}
+	shaderIndex := map[string]assets.ShaderDef{}
+	for _, pk3 := range pk3Files {
+		_ = assets.IteratePk3(pk3, func(name string, open func() (io.ReadCloser, error)) error {
+			if !strings.HasSuffix(strings.ToLower(name), ".shader") {
+				return nil
+			}
+			rc, err := open()
+			if err != nil {
+				return nil
+			}
+			defer rc.Close()
+			if defs, err := assets.ParseShaderScript(rc); err == nil {
+				assets.MergeShaderDefs(shaderIndex, defs)
+			}
+			return nil
+		})
+	}
+
+	total := 0
+	for lower, srcPk3 := range fileIndex {
+		if !strings.HasPrefix(lower, "models/players/") {
+			continue
+		}
+		parts := strings.Split(strings.TrimPrefix(lower, "models/players/"), "/")
+		var model, assetDir string
+		switch {
+		case len(parts) == 2 && parts[1] == "head.md3":
+			model, assetDir = parts[0], "models/players/"+parts[0]+"/"
+		// Team Arena heads live at heads/<name>/<name>.md3, not <name>/head.md3.
+		case len(parts) == 3 && parts[0] == "heads" && parts[2] == parts[1]+".md3":
+			model, assetDir = parts[1], "models/players/heads/"+parts[1]+"/"
+		default:
+			continue
+		}
+		if err := writeHeadBundle(model, assetDir, lower, srcPk3, fileIndex, shaderIndex, outputDir); err != nil {
+			fmt.Fprintf(os.Stderr, "  Warning: %s: %v\n", lower, err)
+			continue
+		}
+		total++
+	}
+	fmt.Printf("Heads: %d extracted in %s\n", total, outputDir)
+}
+
+// writeHeadBundle encodes one head's geometry, resolves each skin surface to
+// render stages, and writes head.geo + head.json into outputDir/<model>/.
+func writeHeadBundle(model, assetDir, md3Path, md3Pk3 string, fileIndex map[string]string, shaderIndex map[string]assets.ShaderDef, outputDir string) error {
+	raw, err := assets.ReadFileFromPk3(md3Pk3, md3Path)
+	if err != nil {
+		return err
+	}
+	geo, err := assets.ParseMD3Geometry(bytes.NewReader(raw), int64(len(raw)))
+	if err != nil {
+		return fmt.Errorf("parse md3: %w", err)
+	}
+	geoBytes, surfaces, vertCount, idxCount := assets.EncodeHeadGeometry(geo)
+
+	modelDir := filepath.Join(outputDir, model)
+	if err := os.MkdirAll(modelDir, 0755); err != nil {
+		return err
+	}
+
+	skins := map[string]map[string][]assets.StageManifest{}
+	for lower := range fileIndex {
+		if !strings.HasPrefix(lower, assetDir+"head_") || !strings.HasSuffix(lower, ".skin") {
+			continue
+		}
+		skinName := strings.TrimSuffix(strings.TrimPrefix(lower, assetDir+"head_"), ".skin")
+		raw, err := assets.ReadFileFromPk3(fileIndex[lower], lower)
+		if err != nil {
+			continue
+		}
+		entries, err := assets.ParseSkinMap(bytes.NewReader(raw))
+		if err != nil {
+			continue
+		}
+		surfStages := map[string][]assets.StageManifest{}
+		for _, e := range entries {
+			if stages := resolveSurfaceStages(e.Texture, fileIndex, shaderIndex, modelDir); len(stages) > 0 {
+				surfStages[e.Surface] = stages
+			}
+		}
+		if len(surfStages) > 0 {
+			skins[skinName] = surfStages
+		}
+	}
+
+	var headOffset [3]float32
+	if cfgPath := assetDir + "animation.cfg"; fileIndex[cfgPath] != "" {
+		if raw, err := assets.ReadFileFromPk3(fileIndex[cfgPath], cfgPath); err == nil {
+			headOffset = assets.ParseHeadOffset(bytes.NewReader(raw))
+		}
+	}
+
+	manifest := assets.HeadManifest{
+		Bounds:      assets.HeadBounds{Mins: geo.Mins, Maxs: geo.Maxs},
+		VertexCount: vertCount,
+		IndexCount:  idxCount,
+		Surfaces:    surfaces,
+		Skins:       skins,
+		HeadOffset:  headOffset,
+	}
+	if err := os.WriteFile(filepath.Join(modelDir, "head.geo"), geoBytes, 0644); err != nil {
+		return err
+	}
+	mj, err := json.Marshal(manifest)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(modelDir, "head.json"), mj, 0644)
+}
+
+// resolveSurfaceStages turns a skin's texture reference into render stages.
+// A matching shader yields its stages; otherwise one opaque stage from the
+// texture file. Every referenced texture is converted to a bundle-local PNG.
+func resolveSurfaceStages(texRef string, fileIndex map[string]string, shaderIndex map[string]assets.ShaderDef, modelDir string) []assets.StageManifest {
+	shaderName := strings.ToLower(strings.TrimSuffix(texRef, filepath.Ext(texRef)))
+	convert := func(ref string) (string, bool) {
+		resolved, ok := assets.ResolveTexture(ref, fileIndex)
+		if !ok {
+			return "", false
+		}
+		stem := strings.ToLower(strings.TrimSuffix(filepath.Base(resolved), filepath.Ext(resolved)))
+		out := stem + ".png"
+		if err := convertIndexedTextureToPng(resolved, fileIndex[resolved], filepath.Join(modelDir, out)); err != nil {
+			return "", false
+		}
+		return out, true
+	}
+
+	if def, ok := shaderIndex[shaderName]; ok && len(def.Stages) > 0 {
+		var out []assets.StageManifest
+		for _, s := range def.Stages {
+			var pngs []string
+			for _, m := range s.Maps {
+				if strings.EqualFold(m, "$whiteimage") {
+					pngs = append(pngs, "$white")
+					continue
+				}
+				if strings.HasPrefix(m, "$") {
+					continue
+				}
+				if png, ok := convert(m); ok {
+					pngs = append(pngs, png)
+				}
+			}
+			if len(pngs) == 0 {
+				continue
+			}
+			out = append(out, assets.StageManifest{
+				Maps: pngs, AnimFreq: s.AnimFreq, Blend: s.Blend, AlphaFunc: s.AlphaFunc,
+				TcGen: s.TcGen, TcMod: s.TcMod, RgbGen: s.RgbGen, Clamp: s.Clamp,
+				DoubleSided: def.DoubleSided, Deform: def.Deform,
+			})
+		}
+		if len(out) > 0 {
+			return out
+		}
+	}
+	if png, ok := convert(texRef); ok {
+		return []assets.StageManifest{{Maps: []string{png}, Blend: "opaque", RgbGen: "lightingDiffuse"}}
+	}
+	return nil
+}
+
+// convertIndexedTextureToPng reads a texture from its source pk3 and writes it
+// as PNG. TGA/JPEG/PNG inputs are decoded by extension.
+func convertIndexedTextureToPng(virtualPath, srcPk3, outPath string) error {
+	raw, err := assets.ReadFileFromPk3(srcPk3, virtualPath)
+	if err != nil {
+		return err
+	}
+	var img image.Image
+	switch strings.ToLower(filepath.Ext(virtualPath)) {
+	case ".tga":
+		img, err = tga.Decode(bytes.NewReader(raw))
+	case ".jpg", ".jpeg":
+		img, err = jpeg.Decode(bytes.NewReader(raw))
+	case ".png":
+		img, err = png.Decode(bytes.NewReader(raw))
+	default:
+		return fmt.Errorf("unsupported texture ext: %s", virtualPath)
+	}
+	if err != nil {
+		return err
+	}
+	out, err := os.Create(outPath)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	return png.Encode(out, img)
+}
+
 // cmdMedals extracts medal icons from pk3 files
 func cmdMedals(args []string) {
 	fs := flag.NewFlagSet("medals", flag.ExitOnError)
@@ -2570,6 +2807,10 @@ func cmdAssets(args []string) {
 
 	fmt.Println("=== Extracting Portraits ===")
 	cmdPortraits(subArgs)
+	fmt.Println()
+
+	fmt.Println("=== Extracting Heads ===")
+	cmdHeads(subArgs)
 	fmt.Println()
 
 	fmt.Println("=== Extracting Medals ===")

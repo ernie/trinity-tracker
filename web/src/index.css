@@ -4497,10 +4497,12 @@ h2 {
   outline: none;
 }
 
-.player-hero__portrait-btn:hover .player-portrait,
-.player-hero__portrait-btn:focus-visible .player-portrait {
-  outline: 2px solid var(--ember-strong);
-  outline-offset: 2px;
+/* Brighten the frame ring, not the poster: the live head fades the poster to
+   zero opacity, taking any outline on it with it. */
+.player-hero__portrait:has(.player-hero__portrait-btn:hover),
+.player-hero__portrait:has(.player-hero__portrait-btn:focus-visible) {
+  border-color: var(--ember-strong);
+  box-shadow: 0 0 26px rgba(255, 110, 60, 0.4);
 }
 
 /* Period selector — connected segmented control hosted inside a
@@ -4595,6 +4597,9 @@ h2 {
   display: grid;
   place-items: center;
   flex-shrink: 0;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
 /* Featured-honor slot: bare medal alongside the portrait, sized smaller
@@ -4677,6 +4682,8 @@ h2 {
   line-height: 1.1;
   word-break: break-word;
   max-width: 100%;
+  position: relative;
+  z-index: 1;
 }
 
 .player-hero__meta {
@@ -6911,6 +6918,8 @@ h2 {
   text-overflow: ellipsis;
   max-width: 100%;
   margin-top: 8px;
+  position: relative;
+  z-index: 1;
 }
 .leaderboard-card__stat-label {
   font-family: "Barlow", sans-serif;

@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { createPortal } from "react-dom";
+import { parseModel } from "../utils/model";
 
 interface PlayerPortraitProps {
   model?: string; // e.g., "sarge/default", "sarge", or "*james"
@@ -29,16 +30,6 @@ const PORTRAIT_HELP = `Player model — what they look like in-game.`;
 function getPortraitPath(model: string): string {
   const { modelName, skin } = parseModel(model);
   return `/assets/portraits/${modelName}/icon_${skin}.png`;
-}
-
-function parseModel(model: string): { modelName: string; skin: string } {
-  const cleanModel = model.startsWith("*") ? model.slice(1) : model;
-
-  const parts = cleanModel.split("/");
-  return {
-    modelName: parts[0].toLowerCase(),
-    skin: (parts[1] || "default").toLowerCase(),
-  };
 }
 
 /**

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { ColoredText } from "./ColoredText";
-import { PlayerPortrait } from "./PlayerPortrait";
+import { ModelHead } from "./ModelHead";
 import { PlayerBadge } from "./PlayerBadge";
 import { ArrowIcon } from "./ArrowIcon";
 import { FlagPair } from "./FlagPair";
@@ -438,7 +438,7 @@ function LeaderboardGrid({ entries, category }: LeaderboardGridProps) {
               #{index + 1}
             </span>
             <span className="leaderboard-card__avatar">
-              <PlayerPortrait model={entry.player.model} size="lg" />
+              <ModelHead model={entry.player.model} size="lg" />
               <PlayerBadge
                 isVerified={entry.player.is_verified}
                 isAdmin={entry.player.is_admin}

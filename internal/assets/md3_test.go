@@ -3,6 +3,7 @@ package assets
 import (
 	"bytes"
 	"encoding/binary"
+	"os"
 	"testing"
 )
 
@@ -107,5 +108,40 @@ func TestResolveShaderTexturesStripsExtension(t *testing.T) {
 	}
 	if !needed["scripts/13castle.shader"] {
 		t.Errorf("shader script not included; needed = %v", needed)
+	}
+}
+
+func TestParseMD3Geometry(t *testing.T) {
+	data, err := os.ReadFile("testdata/sarge_head.md3")
+	if err != nil {
+		t.Skipf("no fixture: %v", err)
+	}
+	geo, err := ParseMD3Geometry(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(geo.Surfaces) == 0 {
+		t.Fatal("expected at least one surface")
+	}
+	for _, s := range geo.Surfaces {
+		if len(s.Vertices) == 0 || len(s.Indices) == 0 {
+			t.Fatalf("surface %q has no geometry", s.Name)
+		}
+		if len(s.Indices)%3 != 0 {
+			t.Fatalf("surface %q index count %d not a multiple of 3", s.Name, len(s.Indices))
+		}
+		for _, idx := range s.Indices {
+			if int(idx) >= len(s.Vertices) {
+				t.Fatalf("surface %q index %d out of range (%d verts)", s.Name, idx, len(s.Vertices))
+			}
+		}
+		for _, v := range s.Vertices {
+			if v.UV[0] < -2 || v.UV[0] > 2 || v.UV[1] < -2 || v.UV[1] > 2 {
+				t.Fatalf("surface %q UV out of sane range: %v", s.Name, v.UV)
+			}
+		}
+	}
+	if geo.Maxs[2] <= geo.Mins[2] {
+		t.Fatalf("degenerate bounds: mins=%v maxs=%v", geo.Mins, geo.Maxs)
 	}
 }

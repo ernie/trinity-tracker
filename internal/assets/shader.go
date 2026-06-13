@@ -6,20 +6,20 @@ import (
 	"strings"
 )
 
-// ShaderDef represents a parsed shader definition and its texture dependencies.
-type ShaderDef struct {
+// ShaderTextureDef represents a parsed shader definition and its texture dependencies.
+type ShaderTextureDef struct {
 	Name     string
 	Textures []string
 }
 
-// ParseShaderScript parses a .shader text file and extracts shader definitions
+// ParseShaderTextures parses a .shader text file and extracts shader definitions
 // with their texture dependencies.
-func ParseShaderScript(r io.Reader) ([]ShaderDef, error) {
+func ParseShaderTextures(r io.Reader) ([]ShaderTextureDef, error) {
 	scanner := bufio.NewScanner(r)
 	scanner.Buffer(make([]byte, 1024*1024), 1024*1024) // 1MB buffer for large shader files
 
-	var shaders []ShaderDef
-	var current *ShaderDef
+	var shaders []ShaderTextureDef
+	var current *ShaderTextureDef
 	depth := 0
 	inBlockComment := false
 
@@ -100,7 +100,7 @@ func ParseShaderScript(r io.Reader) ([]ShaderDef, error) {
 
 			if depth == 0 {
 				// Shader name
-				current = &ShaderDef{Name: content}
+				current = &ShaderTextureDef{Name: content}
 				continue
 			}
 

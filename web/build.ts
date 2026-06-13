@@ -8,7 +8,13 @@ await rm(dist, { recursive: true, force: true });
 const result = await Bun.build({
   entrypoints: ["./src/main.tsx"],
   outdir: dist,
-  naming: "assets/[name]-[hash].[ext]",
+  naming: {
+    entry: "assets/[name]-[hash].[ext]",
+    chunk: "assets/[name]-[hash].[ext]",
+    asset: "assets/[name]-[hash].[ext]",
+  },
+  // Split so the three.js head renderer loads only on profile pages.
+  splitting: true,
   minify: true,
   target: "browser",
   external: ["/engine/*", "/assets/*", "/configs/*"],
