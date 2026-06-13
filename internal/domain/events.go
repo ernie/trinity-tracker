@@ -207,7 +207,7 @@ type AwardEvent struct {
 	ClientNum      int    `json:"client_num"`
 	PlayerName     string `json:"player_name"`
 	AwardType      string `json:"award_type"`            // impressive, excellent, humiliation, defend, assist
-	AssistType     string `json:"assist_type,omitempty"` // mod assist token: return|frag|skull|obelisk|carry|damage
+	AssistType     string `json:"assist_type,omitempty"` // mod assist token: return|frag|skull|obelisk|carry
 	Team           int    `json:"team,omitempty"`        // player's team (1=Red, 2=Blue)
 	GUID           string `json:"guid,omitempty"`
 	PlayerID       *int64 `json:"player_id,omitempty"`

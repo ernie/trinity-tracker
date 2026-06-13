@@ -15,7 +15,6 @@ func TestParseAssistTypes(t *testing.T) {
 		{"2026-06-12T10:00:00 Assist: 8 2 skull: ^1Nil^4Class", 8, 2, "skull", "^1Nil^4Class"},
 		{"2026-06-12T10:00:00 Assist: 3 1 obelisk: Grunt", 3, 1, "obelisk", "Grunt"},
 		{"2026-06-12T10:00:00 Assist: 4 2 carry: Punisher", 4, 2, "carry", "Punisher"},
-		{"2026-06-12T10:00:00 Assist: 5 1 damage: Morgan", 5, 1, "damage", "Morgan"},
 	}
 	for _, c := range cases {
 		ev, err := ParseLine(c.line)
@@ -40,10 +39,11 @@ func TestParseAwardRejectsAssistToken(t *testing.T) {
 	}
 }
 
-func TestParseAssistRejectsNonLowercaseType(t *testing.T) {
+func TestParseAssistRejectsInvalidType(t *testing.T) {
 	for _, line := range []string{
 		"2026-06-12T10:00:00 Assist: 6 2 RETURN: Visor",
 		"2026-06-12T10:00:00 Assist: 6 2 : Visor",
+		"2026-06-12T10:00:00 Assist: 5 1 damage: Morgan",
 	} {
 		ev, err := ParseLine(line)
 		if err == nil && ev != nil && ev.Type == EventTypeAssist {

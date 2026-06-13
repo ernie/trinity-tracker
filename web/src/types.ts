@@ -234,7 +234,7 @@ export interface AwardData {
   client_num: number;
   player_name: string;
   award_type: "impressive" | "excellent" | "humiliation" | "defend" | "assist";
-  assist_type?: string; // mod assist token: return|frag|skull|obelisk|carry|damage
+  assist_type?: string; // mod assist token: return|frag|skull|obelisk|carry
   team?: number; // 1=Red, 2=Blue
   player_id?: number;
   victim_name?: string;

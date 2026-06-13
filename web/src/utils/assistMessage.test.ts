@@ -5,7 +5,6 @@ test("phrases each mod assist token for its mode", () => {
   expect(assistMessage("frag")).toBe("assisted a capture!");
   expect(assistMessage("return")).toBe("assisted a capture!");
   expect(assistMessage("carry")).toBe("assisted a capture!");
-  expect(assistMessage("damage")).toBe("assisted a frag!");
   expect(assistMessage("skull")).toBe("assisted a skull delivery!");
   expect(assistMessage("obelisk")).toBe("helped destroy the obelisk!");
 });

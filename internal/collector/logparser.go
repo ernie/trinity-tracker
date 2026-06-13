@@ -329,7 +329,7 @@ var (
 	skullPickupRegex   = regexp.MustCompile(`^SkullPickup: (\d+) (\d+) (\d+): (.+)$`)
 	skullScoreRegex    = regexp.MustCompile(`^SkullScore: (\d+) (\d+) (\d+): (.+)$`)
 	teamChangeRegex    = regexp.MustCompile(`^TeamChange: (\d+) (\d+) (\d+): (.+)$`)
-	assistRegex        = regexp.MustCompile(`^Assist: (\d+) (\d+) ([a-z]+): (.+)$`)
+	assistRegex        = regexp.MustCompile(`^Assist: (\d+) (\d+) (return|frag|skull|obelisk|carry): (.+)$`)
 	awardRegex         = regexp.MustCompile(`^Award: (\d+) (impressive|excellent|gauntlet|defend): (.+)$`)
 	// Chat patterns: Say: <clientID> "<name>": <message>
 	sayRegex                  = regexp.MustCompile(`^Say: (\d+) "(.+)": (.+)$`)
