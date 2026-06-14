@@ -20,6 +20,8 @@ interface HeadEntry {
   animator: HeadIdleAnimator;
   phaseOffset: number;
   visible: boolean;
+  // Set the first time the head scrolls into view; load is deferred until then.
+  loadStarted: boolean;
   loaded: boolean;
   // Bumped on context loss so a load in flight at that moment can't install a
   // scene built against the dead context.
@@ -62,13 +64,13 @@ class SharedHeadRenderer {
       animator: new HeadIdleAnimator(),
       phaseOffset: phaseOffsetFor(this.index++),
       visible: false,
+      loadStarted: false,
       loaded: false,
       loadGen: 0,
       onLive,
     };
     this.entries.add(entry);
     this.io!.observe(canvas);
-    void this.loadEntry(entry);
     return { release: () => this.release(entry) };
   }
 
@@ -138,7 +140,12 @@ class SharedHeadRenderer {
   private onIntersect(entries: IntersectionObserverEntry[]): void {
     for (const e of entries) {
       for (const head of this.entries) {
-        if (head.canvas === e.target) head.visible = e.isIntersecting;
+        if (head.canvas !== e.target) continue;
+        head.visible = e.isIntersecting;
+        if (e.isIntersecting && !head.loadStarted) {
+          head.loadStarted = true;
+          void this.loadEntry(head);
+        }
       }
     }
     this.wake();
@@ -157,7 +164,9 @@ class SharedHeadRenderer {
   };
 
   private onContextRestored = () => {
-    for (const head of this.entries) void this.loadEntry(head);
+    for (const head of this.entries) {
+      if (head.loadStarted) void this.loadEntry(head);
+    }
   };
 
   private wake(): void {

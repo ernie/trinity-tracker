@@ -1,6 +1,6 @@
 import type React from "react";
 import { useState } from "react";
-import { PlayerPortrait } from "../PlayerPortrait";
+import { ModelHead } from "../ModelHead";
 import { PlayerBadge } from "../PlayerBadge";
 import { BotBadge } from "../BotBadge";
 import { MedalIcon } from "../MedalIcon";
@@ -89,7 +89,7 @@ export function FfaHero({ player, gildScore, onPlayerClick }: FfaHeroProps) {
       }
     >
       <span className="duelist__portrait-wrap ffa-hero__portrait-wrap">
-        <PlayerPortrait model={player.model} size="lg" />
+        <ModelHead model={player.model} size="lg" />
         {player.isBot ? (
           <BotBadge isBot skill={player.skill ?? 1} size="sm" />
         ) : (

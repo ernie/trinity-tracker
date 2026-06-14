@@ -12247,6 +12247,9 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* Lift above the live head's canvas, which overflows its circle. */
+  position: relative;
+  z-index: 1;
 }
 .duelist__name.dim {
   color: var(--text-dim);
@@ -12304,6 +12307,8 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   column-gap: 10px;
   align-items: end;
   min-width: 0; /* enables ellipsis on the name */
+  position: relative;
+  z-index: 1;
 }
 .ffa-hero__name {
   grid-area: name;

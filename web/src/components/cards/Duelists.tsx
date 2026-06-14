@@ -1,5 +1,5 @@
 import type React from "react";
-import { PlayerPortrait } from "../PlayerPortrait";
+import { ModelHead } from "../ModelHead";
 import { PlayerBadge } from "../PlayerBadge";
 import { BotBadge } from "../BotBadge";
 import { MedalIcon } from "../MedalIcon";
@@ -11,7 +11,7 @@ import { stripVRPrefix } from "../../utils";
 export interface DuelistData {
   name: string;
   cleanName?: string;
-  /** Q3 model id (e.g. "sarge/default") used by PlayerPortrait. */
+  /** Q3 model id (e.g. "sarge/default") used by ModelHead. */
   model?: string;
   isBot?: boolean;
   /** 1–5 bot skill, drives BotBadge color. */
@@ -99,7 +99,7 @@ function Duelist({ data, side, winnerSide, onClick }: DuelistProps) {
       }
     >
       <span className={`duelist__portrait-wrap ${isWinner ? "winner" : ""}`}>
-        <PlayerPortrait model={data.model} size="lg" />
+        <ModelHead model={data.model} size="lg" />
         {data.isBot ? (
           <BotBadge isBot skill={data.skill ?? 1} size="sm" />
         ) : (
