@@ -2206,13 +2206,7 @@ func (m *ServerManager) emitEvent(event domain.Event) {
 
 // handleCommand dispatches a command to the appropriate handler
 func (m *ServerManager) handleCommand(ctx context.Context, serverID int64, state *serverState, clientID int, command string) {
-	// Parse command name and args: "link 12345678" -> cmd="link", args="12345678"
-	cmd := command
-	args := ""
-	if idx := indexSpace(command); idx != -1 {
-		cmd = command[:idx]
-		args = trimSpace(command[idx+1:])
-	}
+	cmd, args := parseCommand(command)
 
 	log.Printf("Command from client %d: cmd=%q args=%q", clientID, cmd, args)
 
@@ -2440,6 +2434,19 @@ func isNumeric(s string) bool {
 		}
 	}
 	return true
+}
+
+// parseCommand splits a raw chat command into its verb and arguments. The mod
+// appends a trailing ^7 to the logged command, so color codes are stripped
+// first or no-arg commands like "claim" never match their handler.
+func parseCommand(command string) (cmd, args string) {
+	command = domain.CleanQ3Name(command)
+	cmd = command
+	if idx := indexSpace(command); idx != -1 {
+		cmd = command[:idx]
+		args = trimSpace(command[idx+1:])
+	}
+	return cmd, args
 }
 
 func trimSpace(s string) string {
