@@ -12,12 +12,12 @@ export const GLOSSARY: GlossaryEntry[] = [
   {
     term: "!claim",
     definition:
-      "Trinity chat command that associates the current player slot with a Trinity account. Run it in-game once you've created an account.",
+      "Trinity chat command that starts account creation. Run it in-game and the server replies with a six-digit code; enter that code at trinity.run to create your account and link the current player slot to it.",
   },
   {
     term: "!link",
     definition:
-      "Trinity chat command that merges a stranded pre-account identity into your account. Used after creating an account if you played anonymously first — rare.",
+      "Trinity chat command that merges a stranded pre-account identity into your account. Used after creating an account if you played anonymously first.",
   },
   {
     term: "1.32 patch",
