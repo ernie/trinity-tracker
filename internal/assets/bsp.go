@@ -81,6 +81,41 @@ func ParseBSP(r io.ReaderAt, size int64) (*BSPAssets, error) {
 	return assets, nil
 }
 
+// BSPWorldspawnMessage returns a map's display title. Only the worldspawn
+// (first entity block) is scanned, since other entities carry their own
+// "message" text.
+func BSPWorldspawnMessage(r io.ReaderAt, size int64) (string, error) {
+	if size < int64(bspHeaderSize) {
+		return "", fmt.Errorf("BSP too small: %d bytes", size)
+	}
+	header := make([]byte, bspHeaderSize)
+	if _, err := r.ReadAt(header, 0); err != nil {
+		return "", fmt.Errorf("read BSP header: %w", err)
+	}
+	if string(header[0:4]) != bspMagic {
+		return "", fmt.Errorf("invalid BSP magic: %q", header[0:4])
+	}
+	entOffset := int64(binary.LittleEndian.Uint32(header[8+bspLumpEntities*8:]))
+	entLength := int64(binary.LittleEndian.Uint32(header[8+bspLumpEntities*8+4:]))
+	if entLength == 0 {
+		return "", nil
+	}
+	entData := make([]byte, entLength)
+	if _, err := r.ReadAt(entData, entOffset); err != nil {
+		return "", fmt.Errorf("read entities lump: %w", err)
+	}
+	worldspawn := string(entData)
+	if i := strings.IndexByte(worldspawn, '}'); i >= 0 {
+		worldspawn = worldspawn[:i]
+	}
+	for _, line := range strings.Split(worldspawn, "\n") {
+		if key, value := parseEntityKV(strings.TrimSpace(line)); strings.EqualFold(key, "message") {
+			return value, nil
+		}
+	}
+	return "", nil
+}
+
 // parseEntities extracts asset refs from BSP entity text.
 func parseEntities(text string, assets *BSPAssets) {
 	scanner := strings.NewReader(text)

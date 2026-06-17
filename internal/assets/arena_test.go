@@ -3,92 +3,13 @@ package assets
 import (
 	"archive/zip"
 	"bytes"
+	"encoding/binary"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
-
-func TestParseArenaText_OfficialBaseq3Format(t *testing.T) {
-	input := `{
-map     "q3dm17"
-bots    "anarki angel keel"
-longname "The Longest Yard"
-fraglimit 30
-type    "ffa tourney"
-}
-
-{
-map     "q3dm6"
-longname "The Camping Grounds"
-type    "single ffa team"
-fraglimit 20
-}`
-
-	got, err := ParseArenaText(strings.NewReader(input))
-	if err != nil {
-		t.Fatalf("ParseArenaText: %v", err)
-	}
-	if len(got) != 2 {
-		t.Fatalf("expected 2 entries, got %d", len(got))
-	}
-	if got[0].Map != "q3dm17" {
-		t.Errorf("entry 0 map: want q3dm17, got %q", got[0].Map)
-	}
-	if got[0].LongName != "The Longest Yard" {
-		t.Errorf("entry 0 longname: want %q, got %q", "The Longest Yard", got[0].LongName)
-	}
-	if got[0].Type != "ffa tourney" {
-		t.Errorf("entry 0 type: want %q, got %q", "ffa tourney", got[0].Type)
-	}
-	if got[0].FragLimit != 30 {
-		t.Errorf("entry 0 fraglimit: want 30, got %d", got[0].FragLimit)
-	}
-	if got[1].Map != "q3dm6" {
-		t.Errorf("entry 1 map: want q3dm6, got %q", got[1].Map)
-	}
-}
-
-func TestParseArenaText_CommunityFormatWithAuthor(t *testing.T) {
-	input := `{
-map "mIKEctf3"
-longname "My iron lung"
-type "cctf ctf oneflag harvester overload"
-mod "threewave"
-author "mIKE"
-quote "...3...2...1... Capture the flaaag"
-}`
-
-	got, err := ParseArenaText(strings.NewReader(input))
-	if err != nil {
-		t.Fatalf("ParseArenaText: %v", err)
-	}
-	if len(got) != 1 {
-		t.Fatalf("expected 1 entry, got %d", len(got))
-	}
-	if got[0].Author != "mIKE" {
-		t.Errorf("author: want mIKE, got %q", got[0].Author)
-	}
-}
-
-func TestParseArenaText_HandlesEmptyAndUnknownKeys(t *testing.T) {
-	input := `
-
-{
-	map "test1"
-	longname "Test One"
-	unknown_key "ignored"
-}
-`
-	got, err := ParseArenaText(strings.NewReader(input))
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(got) != 1 || got[0].Map != "test1" || got[0].LongName != "Test One" {
-		t.Fatalf("got: %+v", got)
-	}
-}
 
 // writeTestPk3 creates a temporary pk3 (zip) file with the given path/content
 // pairs and returns its filesystem path.
@@ -116,42 +37,54 @@ func writeTestPk3(t *testing.T, dir, name string, files map[string]string) strin
 	return pk3Path
 }
 
-func TestExtractArenas_MultiplePk3sWithOverrides(t *testing.T) {
-	dir := t.TempDir()
-
-	pakBase := writeTestPk3(t, dir, "pak0.pk3", map[string]string{
-		"scripts/arenas.txt": `{
-map "q3dm17"
-longname "The Longest Yard"
-type "ffa"
+// makeTestBSPWithMessage builds a minimal IBSP whose worldspawn carries the
+// given "message" value.
+func makeTestBSPWithMessage(message string) string {
+	ent := "{\n\"classname\" \"worldspawn\"\n\"message\" \"" + message + "\"\n}\n"
+	header := make([]byte, bspHeaderSize)
+	copy(header, bspMagic)
+	binary.LittleEndian.PutUint32(header[4:], bspVersion)
+	binary.LittleEndian.PutUint32(header[8+bspLumpEntities*8:], uint32(bspHeaderSize))
+	binary.LittleEndian.PutUint32(header[8+bspLumpEntities*8+4:], uint32(len(ent)))
+	return string(header) + ent
 }
-{
-map "q3dm6"
-longname "The Camping Grounds"
-type "ffa team"
-}`,
-	})
 
-	pakCommunity := writeTestPk3(t, dir, "z_community.pk3", map[string]string{
-		"scripts/mymap.arena": `{
-map "mymap"
-longname "My Map"
-type "ctf"
-}`,
-	})
-
-	got, err := ExtractArenas([]string{pakBase, pakCommunity})
+func TestBSPWorldspawnMessage(t *testing.T) {
+	bsp := makeTestBSPWithMessage("Arkinholm")
+	got, err := BSPWorldspawnMessage(strings.NewReader(bsp), int64(len(bsp)))
 	if err != nil {
-		t.Fatalf("ExtractArenas: %v", err)
+		t.Fatal(err)
+	}
+	if got != "Arkinholm" {
+		t.Errorf("message: got %q, want %q", got, "Arkinholm")
 	}
 
-	if len(got) != 3 {
-		t.Fatalf("expected 3 entries, got %d: %+v", len(got), got)
+	noMsg := makeTestBSP(nil)
+	got, err = BSPWorldspawnMessage(strings.NewReader(noMsg), int64(len(noMsg)))
+	if err != nil || got != "" {
+		t.Errorf("no-message BSP: got %q err %v, want empty", got, err)
 	}
-	if got["q3dm17"].LongName != "The Longest Yard" {
-		t.Errorf("q3dm17 longname: %q", got["q3dm17"].LongName)
+}
+
+func TestExtractMapLongNames(t *testing.T) {
+	dir := t.TempDir()
+	pk3 := writeTestPk3(t, dir, "maps.pk3", map[string]string{
+		"maps/arkinholm.bsp": makeTestBSPWithMessage("Arkinholm"),
+		"maps/aerowalk.bsp":  makeTestBSPWithMessage("Aerowalk"),
+		"scripts/foo.shader": "// not a bsp",
+	})
+
+	got, err := ExtractMapLongNames([]string{pk3})
+	if err != nil {
+		t.Fatal(err)
 	}
-	if got["mymap"].LongName != "My Map" {
-		t.Errorf("mymap longname: %q", got["mymap"].LongName)
+	if len(got) != 2 {
+		t.Fatalf("expected 2 entries, got %d: %+v", len(got), got)
+	}
+	if got["arkinholm"].LongName != "Arkinholm" {
+		t.Errorf("arkinholm longname: %q", got["arkinholm"].LongName)
+	}
+	if got["aerowalk"].LongName != "Aerowalk" {
+		t.Errorf("aerowalk longname: %q", got["aerowalk"].LongName)
 	}
 }

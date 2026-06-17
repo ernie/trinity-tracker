@@ -1924,9 +1924,9 @@ func formatTime(isoTime string) string {
 	return isoTime
 }
 
-// cmdArenas extracts map metadata (longnames, types, fraglimits) from arena
-// files inside pk3 archives and writes a single JSON file the frontend can
-// fetch. Modeled on cmdLevelshots — same input/output shape; same flag set.
+// cmdArenas reads each map's worldspawn "message" longname and writes the
+// maps.json the frontend fetches. Modeled on cmdLevelshots — same input/output
+// shape; same flag set.
 func cmdArenas(args []string) {
 	fs := flag.NewFlagSet("arenas", flag.ExitOnError)
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
@@ -1961,9 +1961,9 @@ func cmdArenas(args []string) {
 		os.Exit(1)
 	}
 
-	maps, err := assets.ExtractArenas(pk3Files)
+	maps, err := assets.ExtractMapLongNames(pk3Files)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: extract arenas: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error: extract longnames: %v\n", err)
 		os.Exit(1)
 	}
 
