@@ -1961,11 +1961,19 @@ func cmdArenas(args []string) {
 		os.Exit(1)
 	}
 
-	maps, err := assets.ExtractMapLongNames(pk3Files)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: extract longnames: %v\n", err)
-		os.Exit(1)
+	maps := make(map[string]assets.ArenaMeta)
+	for i, pk3Path := range pk3Files {
+		found, err := assets.ExtractMapLongNamesFromPk3(pk3Path)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "\n  Warning: %s: %v\n", pk3DisplayPath(pk3Path, inputPath), err)
+			continue
+		}
+		for k, v := range found {
+			maps[k] = v
+		}
+		fmt.Printf("\rScanned %d/%d pk3s, %d longnames", i+1, len(pk3Files), len(maps))
 	}
+	fmt.Println()
 
 	outPath := filepath.Join(outputDir, "maps.json")
 	out, err := json.MarshalIndent(maps, "", "  ")
