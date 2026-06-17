@@ -105,6 +105,8 @@ func main() {
 		cmdArenas(os.Args[2:])
 	case "assets":
 		cmdAssets(os.Args[2:])
+	case "mapsync":
+		cmdMapsync(os.Args[2:])
 	case "demobake":
 		cmdDemobake(os.Args[2:])
 	case "unpackmaps":
@@ -160,6 +162,7 @@ func printUsage() {
 	fmt.Println("  objectives [path]                   Extract objective-state icons (CTF flags, Harvester skulls) from pk3 file(s)")
 	fmt.Println("  arenas [path]                       Extract map longnames into maps.json")
 	fmt.Println("  assets [path]                       Extract all assets (portraits, heads, medals, skills, objectives, levelshots)")
+	fmt.Println("  mapsync [path]                      Regenerate every map-derived artifact: levelshots, maps.json, demo pk3s")
 	fmt.Println("  demobake [path]                     Build baseline pk3, map pk3s, and manifest for web demo playback")
 	fmt.Println("  unpackmaps <pk3>... [--output dir] [--prefix p] [--game baseq3|missionpack] [--quake3-dir d] [--dry-run]")
 	fmt.Println("                                      Split map pack(s) into standalone per-map pk3s (incl. .aas)")
@@ -1753,31 +1756,52 @@ func cmdUserAdmin(ctx context.Context, args []string) error {
 	return nil
 }
 
+// dropToServiceUser drops to the configured service user when running as root.
+// Asset commands write into the service-owned web tree, so a bare `sudo
+// trinity ...` must not leave root-owned files the service account can't later
+// overwrite.
+func dropToServiceUser(cfg *config.Config) {
+	if err := dropPrivileges(serviceUser(cfg)); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to drop privileges: %v\n", err)
+	}
+}
+
+// loadAssetConfig is the shared preamble for asset-extraction commands: load
+// config, require static_dir, then drop to the service user before any writes.
+func loadAssetConfig(configPath string) *config.Config {
+	cfg := loadCLIConfigFromFlags(configPath, "")
+	if cfg == nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to load config\n")
+		os.Exit(1)
+	}
+	if cfg.Server.StaticDir == "" {
+		fmt.Fprintf(os.Stderr, "Error: static_dir not configured in config file\n")
+		os.Exit(1)
+	}
+	dropToServiceUser(cfg)
+	return cfg
+}
+
+// assetInputPath resolves the source pk3 directory for an asset command: a
+// positional arg wins, otherwise the configured quake3_dir.
+func assetInputPath(cfg *config.Config, extras []string) string {
+	if len(extras) > 0 {
+		return extras[0]
+	}
+	return cfg.Server.Quake3Dir
+}
+
 // cmdLevelshots extracts levelshot images from pk3 files
 func cmdLevelshots(args []string) {
 	fs := flag.NewFlagSet("levelshots", flag.ExitOnError)
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
 	fs.Parse(args)
 
-	cfg := loadCLIConfigFromFlags(*configPath, "")
-	if cfg == nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to load config\n")
-		os.Exit(1)
-	}
+	cfg := loadAssetConfig(*configPath)
+	runLevelshots(cfg, assetInputPath(cfg, fs.Args()))
+}
 
-	if cfg.Server.StaticDir == "" {
-		fmt.Fprintf(os.Stderr, "Error: static_dir not configured in config file\n")
-		os.Exit(1)
-	}
-
-	// Use remaining arg as path override, or default to quake3_dir from config
-	remaining := fs.Args()
-	inputPath := cfg.Server.Quake3Dir
-	if len(remaining) > 0 {
-		inputPath = remaining[0]
-	}
-
-	// Validate and create output directory
+func runLevelshots(cfg *config.Config, inputPath string) {
 	outputDir := filepath.Join(cfg.Server.StaticDir, "assets", "levelshots")
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: failed to create output directory %s: %v\n", outputDir, err)
@@ -1932,23 +1956,11 @@ func cmdArenas(args []string) {
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
 	fs.Parse(args)
 
-	cfg := loadCLIConfigFromFlags(*configPath, "")
-	if cfg == nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to load config\n")
-		os.Exit(1)
-	}
+	cfg := loadAssetConfig(*configPath)
+	runArenas(cfg, assetInputPath(cfg, fs.Args()))
+}
 
-	if cfg.Server.StaticDir == "" {
-		fmt.Fprintf(os.Stderr, "Error: static_dir not configured in config file\n")
-		os.Exit(1)
-	}
-
-	remaining := fs.Args()
-	inputPath := cfg.Server.Quake3Dir
-	if len(remaining) > 0 {
-		inputPath = remaining[0]
-	}
-
+func runArenas(cfg *config.Config, inputPath string) {
 	outputDir := filepath.Join(cfg.Server.StaticDir, "assets")
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: failed to create output directory %s: %v\n", outputDir, err)
@@ -1999,24 +2011,11 @@ func cmdPortraits(args []string) {
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
 	fs.Parse(args)
 
-	cfg := loadCLIConfigFromFlags(*configPath, "")
-	if cfg == nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to load config\n")
-		os.Exit(1)
-	}
+	cfg := loadAssetConfig(*configPath)
+	runPortraits(cfg, assetInputPath(cfg, fs.Args()))
+}
 
-	if cfg.Server.StaticDir == "" {
-		fmt.Fprintf(os.Stderr, "Error: static_dir not configured in config file\n")
-		os.Exit(1)
-	}
-
-	// Use remaining arg as path override, or default to quake3_dir from config
-	remaining := fs.Args()
-	inputPath := cfg.Server.Quake3Dir
-	if len(remaining) > 0 {
-		inputPath = remaining[0]
-	}
-
+func runPortraits(cfg *config.Config, inputPath string) {
 	outputDir := filepath.Join(cfg.Server.StaticDir, "assets", "portraits")
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: failed to create output directory: %v\n", err)
@@ -2145,23 +2144,11 @@ func cmdHeads(args []string) {
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
 	fs.Parse(args)
 
-	cfg := loadCLIConfigFromFlags(*configPath, "")
-	if cfg == nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to load config\n")
-		os.Exit(1)
-	}
+	cfg := loadAssetConfig(*configPath)
+	runHeads(cfg, assetInputPath(cfg, fs.Args()))
+}
 
-	if cfg.Server.StaticDir == "" {
-		fmt.Fprintf(os.Stderr, "Error: static_dir not configured in config file\n")
-		os.Exit(1)
-	}
-
-	remaining := fs.Args()
-	inputPath := cfg.Server.Quake3Dir
-	if len(remaining) > 0 {
-		inputPath = remaining[0]
-	}
-
+func runHeads(cfg *config.Config, inputPath string) {
 	outputDir := filepath.Join(cfg.Server.StaticDir, "assets", "heads")
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: failed to create output directory: %v\n", err)
@@ -2378,24 +2365,11 @@ func cmdMedals(args []string) {
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
 	fs.Parse(args)
 
-	cfg := loadCLIConfigFromFlags(*configPath, "")
-	if cfg == nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to load config\n")
-		os.Exit(1)
-	}
+	cfg := loadAssetConfig(*configPath)
+	runMedals(cfg, assetInputPath(cfg, fs.Args()))
+}
 
-	if cfg.Server.StaticDir == "" {
-		fmt.Fprintf(os.Stderr, "Error: static_dir not configured in config file\n")
-		os.Exit(1)
-	}
-
-	// Use remaining arg as path override, or default to quake3_dir from config
-	remaining := fs.Args()
-	inputPath := cfg.Server.Quake3Dir
-	if len(remaining) > 0 {
-		inputPath = remaining[0]
-	}
-
+func runMedals(cfg *config.Config, inputPath string) {
 	outputDir := filepath.Join(cfg.Server.StaticDir, "assets", "medals")
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: failed to create output directory: %v\n", err)
@@ -2466,23 +2440,11 @@ func cmdSkills(args []string) {
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
 	fs.Parse(args)
 
-	cfg := loadCLIConfigFromFlags(*configPath, "")
-	if cfg == nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to load config\n")
-		os.Exit(1)
-	}
+	cfg := loadAssetConfig(*configPath)
+	runSkills(cfg, assetInputPath(cfg, fs.Args()))
+}
 
-	if cfg.Server.StaticDir == "" {
-		fmt.Fprintf(os.Stderr, "Error: static_dir not configured in config file\n")
-		os.Exit(1)
-	}
-
-	remaining := fs.Args()
-	inputPath := cfg.Server.Quake3Dir
-	if len(remaining) > 0 {
-		inputPath = remaining[0]
-	}
-
+func runSkills(cfg *config.Config, inputPath string) {
 	outputDir := filepath.Join(cfg.Server.StaticDir, "assets", "skills")
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: failed to create output directory: %v\n", err)
@@ -2580,23 +2542,11 @@ func cmdObjectives(args []string) {
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
 	fs.Parse(args)
 
-	cfg := loadCLIConfigFromFlags(*configPath, "")
-	if cfg == nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to load config\n")
-		os.Exit(1)
-	}
+	cfg := loadAssetConfig(*configPath)
+	runObjectives(cfg, assetInputPath(cfg, fs.Args()))
+}
 
-	if cfg.Server.StaticDir == "" {
-		fmt.Fprintf(os.Stderr, "Error: static_dir not configured in config file\n")
-		os.Exit(1)
-	}
-
-	remaining := fs.Args()
-	inputPath := cfg.Server.Quake3Dir
-	if len(remaining) > 0 {
-		inputPath = remaining[0]
-	}
-
+func runObjectives(cfg *config.Config, inputPath string) {
 	flagsDir := filepath.Join(cfg.Server.StaticDir, "assets", "flags")
 	iconsDir := filepath.Join(cfg.Server.StaticDir, "assets", "icons")
 	for _, d := range []string{flagsDir, iconsDir} {
@@ -2797,52 +2747,66 @@ func extractFlagToPng(f *zip.File, outputPath string, tint color.NRGBA, targetSi
 }
 
 // cmdAssets runs all asset extraction commands
+// cmdMapsync regenerates exactly the artifacts derived from the installed map
+// set (levelshots, maps.json, demo pk3s), so adding or changing maps is a
+// single command.
+func cmdMapsync(args []string) {
+	fs := flag.NewFlagSet("mapsync", flag.ExitOnError)
+	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
+	fs.Parse(args)
+
+	cfg := loadAssetConfig(*configPath)
+	inputPath := assetInputPath(cfg, fs.Args())
+
+	fmt.Println("=== Extracting Levelshots ===")
+	runLevelshots(cfg, inputPath)
+	fmt.Println()
+
+	fmt.Println("=== Extracting Map Names ===")
+	runArenas(cfg, inputPath)
+	fmt.Println()
+
+	fmt.Println("=== Baking Demo pk3s ===")
+	runDemobake(cfg, inputPath, "")
+	fmt.Println()
+
+	fmt.Println("=== Map sync complete ===")
+}
+
 func cmdAssets(args []string) {
 	fs := flag.NewFlagSet("assets", flag.ExitOnError)
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
 	fs.Parse(args)
 
-	cfg := loadCLIConfigFromFlags(*configPath, "")
-	if cfg == nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to load config\n")
-		os.Exit(1)
-	}
-
-	remaining := fs.Args()
-	inputPath := cfg.Server.Quake3Dir
-	if len(remaining) > 0 {
-		inputPath = remaining[0]
-	}
-
-	// Build args for sub-commands
-	subArgs := []string{"--config", *configPath, inputPath}
+	cfg := loadAssetConfig(*configPath)
+	inputPath := assetInputPath(cfg, fs.Args())
 
 	fmt.Println("=== Extracting Levelshots ===")
-	cmdLevelshots(subArgs)
+	runLevelshots(cfg, inputPath)
 	fmt.Println()
 
 	fmt.Println("=== Extracting Portraits ===")
-	cmdPortraits(subArgs)
+	runPortraits(cfg, inputPath)
 	fmt.Println()
 
 	fmt.Println("=== Extracting Heads ===")
-	cmdHeads(subArgs)
+	runHeads(cfg, inputPath)
 	fmt.Println()
 
 	fmt.Println("=== Extracting Medals ===")
-	cmdMedals(subArgs)
+	runMedals(cfg, inputPath)
 	fmt.Println()
 
 	fmt.Println("=== Extracting Skills ===")
-	cmdSkills(subArgs)
+	runSkills(cfg, inputPath)
 	fmt.Println()
 
 	fmt.Println("=== Extracting Objectives ===")
-	cmdObjectives(subArgs)
+	runObjectives(cfg, inputPath)
 	fmt.Println()
 
 	fmt.Println("=== Extracting Map Names ===")
-	cmdArenas(subArgs)
+	runArenas(cfg, inputPath)
 	fmt.Println()
 
 	fmt.Println("=== All asset extraction complete ===")
@@ -2860,15 +2824,15 @@ func cmdDemobake(args []string) {
 		fmt.Fprintf(os.Stderr, "Error: failed to load config\n")
 		os.Exit(1)
 	}
+	dropToServiceUser(cfg)
 
-	// Use remaining arg as quake3_dir override
-	remaining := fs.Args()
-	quake3Dir := cfg.Server.Quake3Dir
-	if len(remaining) > 0 {
-		quake3Dir = remaining[0]
-	}
+	runDemobake(cfg, assetInputPath(cfg, fs.Args()), *output)
+}
 
-	outputDir := *output
+// runDemobake bakes baseline + per-map pk3s into outputOverride, or
+// {static_dir}/demopk3s when empty.
+func runDemobake(cfg *config.Config, quake3Dir, outputOverride string) {
+	outputDir := outputOverride
 	if outputDir == "" {
 		if cfg.Server.StaticDir == "" {
 			fmt.Fprintf(os.Stderr, "Error: static_dir not configured and --output not specified\n")

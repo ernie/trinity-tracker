@@ -66,8 +66,9 @@ After the wizard finishes:
 
 - Place retail `pak0.pk3` at `/usr/lib/quake3/baseq3/pak0.pk3` (and
   `missionpack/pak0.pk3` if you picked any gametypes from Team Arena).
-- Generate the levelshot images and demo-playback pk3s the hub serves:
-  `sudo -u quake trinity levelshots && sudo -u quake trinity demobake`.
+- Generate the map-derived assets the hub serves (levelshots, map
+  longnames, and demo-playback pk3s): `sudo trinity mapsync`.
+  Re-run it any time you add or change maps.
 - Start: `sudo systemctl start trinity quake3-servers.target`.
 
 The wizard installs nginx + obtains a Let's Encrypt SAN cert
@@ -193,6 +194,7 @@ trinity skills [path]                       Extract skill icons from pk3 file(s)
 trinity objectives [path]                   Extract objective-state icons (CTF flags, Harvester skulls) from pk3 file(s)
 trinity arenas [path]                       Extract map longnames into maps.json
 trinity assets [path]                       Extract all assets (portraits, medals, skills, objectives, levelshots)
+trinity mapsync [path]                      Regenerate every map-derived artifact: levelshots, maps.json, demo pk3s
 trinity demobake [path]                     Build baseline pk3, map pk3s, and manifest for web demo playback
 trinity maps [--mode <mode>] [path]         Scan pk3s and report which game modes each map supports
 trinity version                             Show version
@@ -241,18 +243,23 @@ Adding a server writes:
 
 Trinity can extract various game assets from Q3A pk3 files for use in the web frontend. All extraction commands read pk3 files in Quake 3's load order (baseq3 pak0-8, then missionpack pak0-3, then remaining pk3s alphabetically) so that later files properly override earlier ones.
 
+The extraction commands write into the service-owned web tree, so when run as root (`sudo`) they drop to the configured service user (default `quake`) before writing — bare `sudo trinity assets` leaves output owned by the service account, not root. An explicit `sudo -u quake` still works.
+
 ```bash
 # Extract all assets (recommended)
-sudo -u quake trinity assets
+sudo trinity assets
 
 # Or extract specific asset types
-sudo -u quake trinity levelshots    # Map preview images
-sudo -u quake trinity portraits     # Player model icons
-sudo -u quake trinity medals        # Award medal icons
-sudo -u quake trinity skills        # Bot skill level icons
+sudo trinity levelshots    # Map preview images
+sudo trinity portraits     # Player model icons
+sudo trinity medals        # Award medal icons
+sudo trinity skills        # Bot skill level icons
+
+# Regenerate everything that depends on the installed map set
+sudo trinity mapsync       # levelshots + maps.json + demo pk3s
 
 # Override the source directory (default: quake3_dir from config)
-sudo -u quake trinity assets /path/to/quake3
+sudo trinity assets /path/to/quake3
 ```
 
 | Command      | Source Path                                        | Output Path                           | Format      |
