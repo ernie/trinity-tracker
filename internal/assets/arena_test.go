@@ -66,6 +66,139 @@ func TestBSPWorldspawnMessage(t *testing.T) {
 	}
 }
 
+func TestParseArenaLongNames(t *testing.T) {
+	content := "{\n" +
+		"map\t\t\"mpteam8\"\n" +
+		"longname\t\"Assassin's Roost\"\n" +
+		"type\t\t\"ctf oneflag harvester overload\"\n" +
+		"}\n\n" +
+		"{\n" +
+		"map\t\t\"mpteam9\"\n" +
+		"longname\t\"Tristitia\"\n" +
+		"}\n"
+	got := parseArenaLongNames([]byte(content))
+	if got["mpteam8"] != "Assassin's Roost" {
+		t.Errorf("mpteam8: got %q", got["mpteam8"])
+	}
+	if got["mpteam9"] != "Tristitia" {
+		t.Errorf("mpteam9: got %q", got["mpteam9"])
+	}
+}
+
+// A Team Arena map with no worldspawn "message" (mpteam8) must still get its
+// longname from the bundled scripts/*.arena file.
+func TestExtractMapLongNames_ArenaFallback(t *testing.T) {
+	dir := t.TempDir()
+	pk3 := writeTestPk3(t, dir, "mp.pk3", map[string]string{
+		"maps/mpteam8.bsp":          makeTestBSP(nil),
+		"scripts/missionpack.arena": "{\nmap \"mpteam8\"\nlongname \"Assassin's Roost\"\n}\n",
+	})
+
+	got, err := ExtractMapLongNames([]string{pk3})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got["mpteam8"].LongName != "Assassin's Roost" {
+		t.Errorf("mpteam8 longname: %q", got["mpteam8"].LongName)
+	}
+}
+
+// The worldspawn message is the in-game name and stays authoritative; the
+// .arena longname only fills maps that lack one.
+func TestExtractMapLongNames_WorldspawnWinsOverArena(t *testing.T) {
+	dir := t.TempDir()
+	pk3 := writeTestPk3(t, dir, "mp.pk3", map[string]string{
+		"maps/q3dm6.bsp":      makeTestBSPWithMessage("The Camping Grounds"),
+		"scripts/q3dm6.arena": "{\nmap \"q3dm6\"\nlongname \"Wrong Name\"\n}\n",
+	})
+
+	got, err := ExtractMapLongNames([]string{pk3})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got["q3dm6"].LongName != "The Camping Grounds" {
+		t.Errorf("q3dm6 longname: got %q, want worldspawn message", got["q3dm6"].LongName)
+	}
+}
+
+// One pk3 exercising each outcome: named by message, rescued by .arena, a .bsp
+// with no name from any source, and an arena entry for a map that has no .bsp.
+func TestMapNameSources_Report(t *testing.T) {
+	dir := t.TempDir()
+	pk3 := writeTestPk3(t, dir, "pak0.pk3", map[string]string{
+		"maps/q3dm6.bsp":   makeTestBSPWithMessage("The Camping Grounds"),
+		"maps/mpteam8.bsp": makeTestBSP(nil),
+		"maps/orphan.bsp":  makeTestBSP(nil),
+		"scripts/missionpack.arena": "{\nmap \"mpteam8\"\nlongname \"Assassin's Roost\"\n}\n" +
+			"{\nmap \"notinstalled\"\nlongname \"Ghost\"\n}\n",
+	})
+
+	s := NewMapNameSources()
+	if err := s.Collect(pk3); err != nil {
+		t.Fatal(err)
+	}
+
+	resolved := s.Resolve()
+	if resolved["q3dm6"].LongName != "The Camping Grounds" {
+		t.Errorf("q3dm6: %q", resolved["q3dm6"].LongName)
+	}
+	if resolved["mpteam8"].LongName != "Assassin's Roost" {
+		t.Errorf("mpteam8: %q", resolved["mpteam8"].LongName)
+	}
+	if _, ok := resolved["notinstalled"]; ok {
+		t.Error("arena entry with no .bsp must not be emitted")
+	}
+	if _, ok := resolved["orphan"]; ok {
+		t.Error("map with no name must not be emitted")
+	}
+
+	if filled := s.ArenaFilled(); len(filled) != 1 || filled[0] != "mpteam8" {
+		t.Errorf("ArenaFilled = %v, want [mpteam8]", filled)
+	}
+	if un := s.Unnamed(); len(un) != 1 || un[0] != "orphan" {
+		t.Errorf("Unnamed = %v, want [orphan]", un)
+	}
+}
+
+// A map's .arena file can ride in a different pk3 than its .bsp. The worldspawn
+// message must stay authoritative even when the conflicting .arena loads later.
+func TestExtractMapLongNames_WorldspawnWinsAcrossPk3s(t *testing.T) {
+	dir := t.TempDir()
+	bspPk3 := writeTestPk3(t, dir, "pak0.pk3", map[string]string{
+		"maps/q3dm6.bsp": makeTestBSPWithMessage("The Camping Grounds"),
+	})
+	arenaPk3 := writeTestPk3(t, dir, "pak1.pk3", map[string]string{
+		"scripts/q3dm6.arena": "{\nmap \"q3dm6\"\nlongname \"Wrong Name\"\n}\n",
+	})
+
+	got, err := ExtractMapLongNames([]string{bspPk3, arenaPk3})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got["q3dm6"].LongName != "The Camping Grounds" {
+		t.Errorf("q3dm6 longname: got %q, want worldspawn message", got["q3dm6"].LongName)
+	}
+}
+
+// The inverse split: .bsp (no message) and its .arena live in separate pk3s.
+func TestExtractMapLongNames_ArenaFallbackAcrossPk3s(t *testing.T) {
+	dir := t.TempDir()
+	bspPk3 := writeTestPk3(t, dir, "pak0.pk3", map[string]string{
+		"maps/mpteam8.bsp": makeTestBSP(nil),
+	})
+	arenaPk3 := writeTestPk3(t, dir, "pak1.pk3", map[string]string{
+		"scripts/missionpack.arena": "{\nmap \"mpteam8\"\nlongname \"Assassin's Roost\"\n}\n",
+	})
+
+	got, err := ExtractMapLongNames([]string{bspPk3, arenaPk3})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got["mpteam8"].LongName != "Assassin's Roost" {
+		t.Errorf("mpteam8 longname: %q", got["mpteam8"].LongName)
+	}
+}
+
 func TestExtractMapLongNames(t *testing.T) {
 	dir := t.TempDir()
 	pk3 := writeTestPk3(t, dir, "maps.pk3", map[string]string{
