@@ -227,15 +227,17 @@ func resolveModelPath(modelPath string, fileIndex map[string]string) (string, bo
 	return "", false
 }
 
-// resolveAudioPath finds an audio asset in the file index, trying the
-// engine's extension-fallback order if the literal path isn't present.
-// Q3's snd_codec.c tries the given filename first, then strips the
-// extension and tries each codec — wav before ogg, since wav is
-// registered last and the codec list is a LIFO stack.
+// The engine appends each codec extension to the full reference name
+// (x.ogg -> x.ogg.wav), so resolve that before the stripped-base form.
 func resolveAudioPath(soundPath string, fileIndex map[string]string) (string, bool) {
 	lower := strings.ToLower(soundPath)
 	if _, ok := fileIndex[lower]; ok {
 		return lower, true
+	}
+	for _, ext := range []string{".wav", ".ogg"} {
+		if _, ok := fileIndex[lower+ext]; ok {
+			return lower + ext, true
+		}
 	}
 	base := strings.TrimSuffix(lower, ".wav")
 	base = strings.TrimSuffix(base, ".ogg")

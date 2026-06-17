@@ -107,6 +107,8 @@ func main() {
 		cmdAssets(os.Args[2:])
 	case "demobake":
 		cmdDemobake(os.Args[2:])
+	case "unpackmaps":
+		cmdUnpackmaps(os.Args[2:])
 	case "maps":
 		cmdMaps(os.Args[2:])
 	case "version":
@@ -159,6 +161,8 @@ func printUsage() {
 	fmt.Println("  arenas [path]                       Extract map longnames into maps.json")
 	fmt.Println("  assets [path]                       Extract all assets (portraits, heads, medals, skills, objectives, levelshots)")
 	fmt.Println("  demobake [path]                     Build baseline pk3, map pk3s, and manifest for web demo playback")
+	fmt.Println("  unpackmaps <pk3>... [--output dir] [--prefix p] [--game baseq3|missionpack] [--quake3-dir d] [--dry-run]")
+	fmt.Println("                                      Split map pack(s) into standalone per-map pk3s (incl. .aas)")
 	fmt.Println("  maps [--mode <mode>] [path]         Scan pk3s and report which game modes each map supports")
 	fmt.Println("  version                             Show version")
 	fmt.Println("  help                                Show this help")
@@ -2867,6 +2871,89 @@ func cmdDemobake(args []string) {
 	}
 
 	fmt.Println("Demobake complete")
+}
+
+func cmdUnpackmaps(args []string) {
+	fs := flag.NewFlagSet("unpackmaps", flag.ExitOnError)
+	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
+	output := fs.String("output", "", "output directory (default: ./<firstsource>-maps/)")
+	quake3Dir := fs.String("quake3-dir", "", "Quake3 dir holding stock paks (default: config, else /usr/lib/quake3)")
+	prefix := fs.String("prefix", "", "output filename prefix, e.g. ql-")
+	game := fs.String("game", "baseq3", "target game whose stock assets the client has: baseq3 or missionpack")
+	dryRun := fs.Bool("dry-run", false, "print the split report without writing pk3s")
+	fs.Parse(args)
+
+	sources := fs.Args()
+	if len(sources) == 0 {
+		fmt.Fprintln(os.Stderr, "Error: at least one source pk3 is required")
+		os.Exit(1)
+	}
+
+	var baselineGames []string
+	switch *game {
+	case "baseq3":
+		baselineGames = []string{"baseq3"}
+	case "missionpack":
+		baselineGames = []string{"baseq3", "missionpack"}
+	default:
+		fmt.Fprintf(os.Stderr, "Error: --game must be baseq3 or missionpack, got %q\n", *game)
+		os.Exit(1)
+	}
+
+	q3 := *quake3Dir
+	if q3 == "" {
+		if cfg := loadCLIConfigFromFlags(*configPath, ""); cfg != nil && cfg.Server.Quake3Dir != "" {
+			q3 = cfg.Server.Quake3Dir
+		} else {
+			q3 = "/usr/lib/quake3"
+		}
+	}
+
+	out := *output
+	if out == "" {
+		base := strings.TrimSuffix(filepath.Base(sources[0]), filepath.Ext(sources[0]))
+		out = base + "-maps"
+	}
+
+	report, err := assets.SplitMapPack(assets.SplitOptions{
+		Sources:       sources,
+		Quake3Dir:     q3,
+		BaselineGames: baselineGames,
+		OutputDir:     out,
+		Prefix:        *prefix,
+		DryRun:        *dryRun,
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	printSplitReport(report, *dryRun, out)
+}
+
+func printSplitReport(report *assets.SplitReport, dryRun bool, outputDir string) {
+	mb := func(b int64) string { return fmt.Sprintf("%.1f MB", float64(b)/(1024*1024)) }
+	verb := "Wrote"
+	if dryRun {
+		verb = "Would write"
+	}
+	fmt.Printf("%s %d map pk3s to %s (%s)\n", verb, len(report.Maps), outputDir, mb(report.TotalBytes))
+	fmt.Printf("Dropped %d unreferenced files (%s)\n", report.DeadFiles, mb(report.DeadBytes))
+	if len(report.Failed) > 0 {
+		fmt.Printf("Failed: %d — %s\n", len(report.Failed), strings.Join(report.Failed, ", "))
+	}
+	var withMissing []assets.MapReport
+	for _, m := range report.Maps {
+		if len(m.MissingAudio) > 0 {
+			withMissing = append(withMissing, m)
+		}
+	}
+	if len(withMissing) > 0 {
+		fmt.Printf("%d map(s) reference audio missing from pack and stock (engine will play the hit sound):\n", len(withMissing))
+		for _, m := range withMissing {
+			fmt.Printf("  %s: %s\n", m.Name, strings.Join(m.MissingAudio, ", "))
+		}
+	}
 }
 
 // dropPrivileges switches to the given service user. No-op if not root.
