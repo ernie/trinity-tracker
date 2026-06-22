@@ -41,12 +41,6 @@ const VR_PLATFORMS: Platform[] = ["pcvr", "quest"];
 // cvars. Sorted alphabetically by name (Reference convention).
 export const PLAYER_CVARS: CvarEntry[] = [
   {
-    name: "cg_bloodParticles",
-    default: "0",
-    platforms: ALL_PLATFORMS,
-    description: "Particle blood with wall and floor splats.",
-  },
-  {
     name: "cg_damageEffect",
     default: "0",
     platforms: ALL_PLATFORMS,
@@ -221,6 +215,21 @@ export const PLAYER_CVARS: CvarEntry[] = [
       { value: "0", meaning: "off (no prompt)" },
       { value: "1", meaning: "prompt; defaults to decline if no response" },
       { value: "2", meaning: "prompt; defaults to accept if no response" },
+    ],
+  },
+  {
+    name: "com_blood",
+    default: "2",
+    platforms: ALL_PLATFORMS,
+    description:
+      "Blood style. Modern blood reacts to how hard you hit — bigger hits throw more blood, gibs get flung by the killing blow, and splatter pools on the walls and floor around the kill. Classic restores Quake 3's original sprite blood. Surfaces in-game as Setup → Game Options → Blood, and the cg_blood* cvars in the platform autoexec.cfg fine-tune the modern look.",
+    values: [
+      { value: "0", meaning: "off" },
+      { value: "1", meaning: "classic — original Quake 3 sprite blood" },
+      {
+        value: "2",
+        meaning: "modern — damage-driven blood, spray, trails, and marks",
+      },
     ],
   },
   {

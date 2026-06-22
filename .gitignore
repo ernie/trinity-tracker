@@ -33,6 +33,7 @@ vendor/
 CLAUDE.md
 .superpowers/
 docs/superpowers/
+.playwright-mcp/
 
 # Personal migration helpers (one-off, not for distribution)
 scripts/migrate/

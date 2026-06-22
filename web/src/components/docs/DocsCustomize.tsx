@@ -143,8 +143,10 @@ export function DocsCustomize() {
             when taking damage. Default <code>0</code>.
           </li>
           <li>
-            <code>cg_bloodParticles 1</code> — particle blood with wall and
-            floor splats. Default <code>0</code>.
+            <code>com_blood 2</code> — modern blood that reacts to how hard you
+            hit, with spray, lingering trails, and marks on nearby surfaces.{" "}
+            <code>1</code> is classic sprite blood, <code>0</code> off. Default{" "}
+            <code>2</code>.
           </li>
           <li>
             <code>cg_drawTimer 1</code> — match timer in the HUD. Default{" "}

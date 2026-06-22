@@ -1535,31 +1535,41 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
         </p>
 
         <h3 className="docs-play__feature-title">
-          Blood Particles <code>cg_bloodParticles</code>
+          Modern Blood <code>com_blood</code>
         </h3>
         <p>
-          Particle blood with wall and floor splats, replacing the default
-          sprite blood.
+          Blood that scales with damage. Bigger hits throw more blood and mist
+          at the wound, gibs spray and splatter off nearby walls, and the mess
+          gets painted onto the floors, walls, and ceilings around the kill.
+          Gibs are flung by the killing blow — a rocket launches them across the
+          room, a gauntlet barely nudges them — and they trail blood as they
+          fly. It's on by default; <code>com_blood 1</code> falls back to Quake
+          3's original sprite blood, and <code>0</code> turns blood off.
         </p>
         <figure className="docs-hud-figure">
           <LazyVideo
-            webm="/assets/play/cg_bloodParticles.webm"
-            mp4="/assets/play/cg_bloodParticles.mp4"
+            webm="/assets/play/modern_blood.webm"
+            mp4="/assets/play/modern_blood.mp4"
           />
           <figcaption>
-            Particle blood landing on walls and floor instead of the default
-            sprite splatter.
+            Modern blood reacting to each hit — spray, lingering trails, and
+            marks pooling on nearby surfaces.
           </figcaption>
         </figure>
         <PlatformOnly platform="flatscreen">
           <p>
-            Toggle <strong>Setup → Game Options → Blood Particles</strong>, or
-            set <code>cg_bloodParticles 1</code> in autoexec.
+            Pick <strong>Setup → Game Options → Blood</strong> (Off / Classic /
+            Modern). The <code>cg_blood*</code> cvars in the sample autoexec
+            fine-tune the modern look — splatter size, how long marks linger,
+            and more.
           </p>
         </PlatformOnly>
         <PlatformOnly platform={["pcvr", "quest"]}>
           <p>
-            Set <code>cg_bloodParticles 1</code> in autoexec.
+            Modern blood is on by default. Set <code>com_blood</code> in
+            autoexec to switch to classic (<code>1</code>) or off (
+            <code>0</code>); the <code>cg_blood*</code> cvars there fine-tune
+            the modern look.
           </p>
         </PlatformOnly>
 
