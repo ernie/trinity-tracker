@@ -1535,7 +1535,7 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
         </p>
 
         <h3 className="docs-play__feature-title">
-          Modern Blood <code>com_blood</code>
+          Modern Blood <code>com_blood 2</code>
         </h3>
         <p>
           Blood that scales with damage. Bigger hits throw more blood and mist
@@ -1543,8 +1543,7 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
           gets painted onto the floors, walls, and ceilings around the kill.
           Gibs are flung by the killing blow — a rocket launches them across the
           room, a gauntlet barely nudges them — and they trail blood as they
-          fly. It's on by default; <code>com_blood 1</code> falls back to Quake
-          3's original sprite blood, and <code>0</code> turns blood off.
+          fly.
         </p>
         <figure className="docs-hud-figure">
           <LazyVideo
@@ -1553,7 +1552,8 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
           />
           <figcaption>
             Modern blood reacting to each hit — spray, lingering trails, and
-            marks pooling on nearby surfaces.
+            marks pooling on nearby surfaces. (Yeah, quad rockets are a little
+            intense 😂)
           </figcaption>
         </figure>
         <PlatformOnly platform="flatscreen">
@@ -1574,7 +1574,7 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
         </PlatformOnly>
 
         <h3 className="docs-play__feature-title">
-          Damage Effect <code>cg_damageEffect</code>
+          Modern Damage Effect <code>cg_damageEffect</code>
         </h3>
         <p>
           Directional red vignette overlay when taking damage — replaces the
@@ -1591,18 +1591,10 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
             doesn't obscure the screen.
           </figcaption>
         </figure>
-        <PlatformOnly platform="flatscreen">
-          <p>
-            Toggle <strong>Setup → Game Options → Modern Damage Effect</strong>,
-            or set <code>cg_damageEffect 1</code> in autoexec.
-          </p>
-        </PlatformOnly>
-        <PlatformOnly platform={["pcvr", "quest"]}>
-          <p>
-            Toggle <strong>Setup → Game Options → Blood Spatter Effect</strong>,
-            or set <code>cg_damageEffect 1</code> in autoexec.
-          </p>
-        </PlatformOnly>
+        <p>
+          Toggle <strong>Setup → Game Options → Damage Effect</strong> (Classic
+          / Modern), or set <code>cg_damageEffect 1</code> in autoexec.
+        </p>
 
         <h3 className="docs-play__feature-title">
           Improved stencil shadows <code>cg_shadows 2</code>
