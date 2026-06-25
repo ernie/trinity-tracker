@@ -1556,22 +1556,12 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
             intense 😂)
           </figcaption>
         </figure>
-        <PlatformOnly platform="flatscreen">
-          <p>
-            Pick <strong>Setup → Game Options → Blood</strong> (Off / Classic /
-            Modern). The <code>cg_blood*</code> cvars in the sample autoexec
-            fine-tune the modern look — splatter size, how long marks linger,
-            and more.
-          </p>
-        </PlatformOnly>
-        <PlatformOnly platform={["pcvr", "quest"]}>
-          <p>
-            Modern blood is on by default. Set <code>com_blood</code> in
-            autoexec to switch to classic (<code>1</code>) or off (
-            <code>0</code>); the <code>cg_blood*</code> cvars there fine-tune
-            the modern look.
-          </p>
-        </PlatformOnly>
+        <p>
+          Pick <strong>Setup → Game Options → Blood</strong> (Off / Classic /
+          Modern), or set <code>com_blood</code> in autoexec. The{" "}
+          <code>cg_blood*</code> cvars in the sample autoexec fine-tune the
+          modern look — splatter size, how long marks linger, and more.
+        </p>
 
         <h3 className="docs-play__feature-title">
           Modern Damage Effect <code>cg_damageEffect</code>
