@@ -1641,6 +1641,45 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
           Quake3e, the renderer Trinity's flatscreen engine is built on.
         </p>
 
+        <PlatformOnly platform="flatscreen">
+          <h3 className="docs-play__feature-title">
+            True HDR output <code>r_hdrDisplay</code>
+          </h3>
+          <p>
+            On an HDR display, Trinity can render true HDR — brighter, more
+            lifelike highlights on lights, explosions, plasma, and sky — instead
+            of standard dynamic range. It's a native Vulkan feature, off by
+            default. Turn it on under{" "}
+            <strong>Setup → Graphics → HDR Display</strong>, then calibrate it
+            under <strong>Setup → Display → HDR Calibration</strong>; the{" "}
+            <Link to="/docs/customize#display-output">Customize guide</Link>{" "}
+            walks through it.
+          </p>
+          <p>
+            HDR can't be captured into a normal screenshot — it tone-maps back
+            to standard range — so there's no before/after here; you'll see it
+            on the real display.
+          </p>
+        </PlatformOnly>
+        <PlatformOnly platform="pcvr">
+          <h3 className="docs-play__feature-title">
+            HDR on the desktop mirror <code>r_hdrDisplay</code>
+          </h3>
+          <p>
+            On an HDR display, Trinity can render true HDR — brighter, more
+            lifelike highlights — in the desktop mirror window. The headset
+            itself stays on Rec.709 color. It's a native Vulkan feature, off by
+            default; there's no in-game HDR menu in VR, so you enable it in{" "}
+            <code>autoexec.cfg</code> — the{" "}
+            <Link to="/docs/customize#display-output">Customize guide</Link>{" "}
+            covers it.
+          </p>
+          <p>
+            HDR can't be captured into a normal screenshot — it tone-maps back
+            to standard range — so you'll only see it on the mirror itself.
+          </p>
+        </PlatformOnly>
+
         <h3 className="docs-play__feature-title">
           Hit Sounds <code>cg_hitSounds</code>
         </h3>

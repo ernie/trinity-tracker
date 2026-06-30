@@ -36,6 +36,9 @@ export interface CvarEntry {
 
 const ALL_PLATFORMS: Platform[] = ["flatscreen", "pcvr", "quest"];
 const VR_PLATFORMS: Platform[] = ["pcvr", "quest"];
+// HDR display output is Vulkan-only: flatscreen, plus the PCVR desktop
+// mirror. Quest has no HDR (its headset uses Rec.709 color management).
+const HDR_PLATFORMS: Platform[] = ["flatscreen", "pcvr"];
 
 // Player-facing cvars: cgame, ui, and Trinity-specific client engine
 // cvars. Sorted alphabetically by name (Reference convention).
@@ -238,6 +241,70 @@ export const PLAYER_CVARS: CvarEntry[] = [
     platforms: ALL_PLATFORMS,
     description:
       "Desaturate the entire rendered frame, entities included. Range -1 to 1; 1 is full greyscale, 0 is full color. Requires r_fbo 1. Inherited from Quake3e — useful as a screenshot / aesthetic option, or paired with r_mapGreyScale.",
+  },
+  {
+    name: "r_hdrActive",
+    default: "0",
+    platforms: HDR_PLATFORMS,
+    description:
+      "Read-only status: 1 when HDR output is genuinely live — an HDR-capable display with HDR switched on in your OS — otherwise 0.",
+    notes: "Read-only — reports HDR state; you can't set it.",
+  },
+  {
+    name: "r_hdrDisplay",
+    default: "0",
+    platforms: HDR_PLATFORMS,
+    description:
+      "Output true HDR for brighter highlights and more lifelike color. Requires the Vulkan renderer and an HDR-capable display with HDR turned on in your OS. On PCVR this affects the desktop mirror window only, not the headset. Not the same as r_hdr, which only sets internal rendering precision.",
+    values: [
+      { value: "0", meaning: "standard dynamic range (default)" },
+      { value: "1", meaning: "true HDR output" },
+    ],
+    notes: "Latched — takes effect after a vid_restart.",
+  },
+  {
+    name: "r_hdrHighlight",
+    default: "1.0",
+    platforms: HDR_PLATFORMS,
+    description:
+      "Extra pop for the brightest highlights in HDR — lights, explosions, plasma, sky. 1 is natural; raise for punchier highlights, lower for a calmer look. Does not change overall brightness. Range 0.5 to 4.0.",
+  },
+  {
+    name: "r_hdrPaperWhite",
+    default: "0",
+    platforms: HDR_PLATFORMS,
+    description:
+      "How bright normal white looks in HDR (menus, HUD, fully-lit surfaces), in nits. 0 = auto (recommended): a comfortable level chosen from your display's peak. Set a value yourself to override — higher is brighter. Range 0 to 1000.",
+  },
+  {
+    name: "r_hdrPeak",
+    default: "1000",
+    platforms: HDR_PLATFORMS,
+    description:
+      "Your HDR display's usable peak brightness in nits — the main HDR setting. Highlights brighten up to this, and the auto white level is based on it. The best way to set it is the in-game HDR Calibration screen, which finds the brightness your panel actually reaches — often well below its rated peak. Your display's HDR rating is a fine starting point, but calibrating is better. The calibration screen goes up to 2000 nits, which covers current HDR displays; set by hand, the cvar accepts 250 to 10000.",
+    notes:
+      "Calibrate it on the flatscreen HDR Calibration screen. PCVR has no in-game menu, so VR users can run the flatscreen client once to find their value.",
+  },
+  {
+    name: "r_hdrSaturation",
+    default: "0.0",
+    platforms: HDR_PLATFORMS,
+    description:
+      "How far the brightest highlights bleed toward white in HDR. 1 keeps full color; 0 lets the brightest emitters go fully white. Mainly helps intense emitters (especially blues) read as bright instead of dim and oversaturated. Range 0 to 1.",
+  },
+  {
+    name: "r_hdrSaturationFull",
+    default: "1.5",
+    platforms: HDR_PLATFORMS,
+    description:
+      "Works with r_hdrSaturation: how intense a highlight must be before it reaches its maximum bleed toward white. Lower makes bright cores whiten sooner. Range 0.5 to 3.0.",
+  },
+  {
+    name: "r_hdrSoftKnee",
+    default: "1.0",
+    platforms: HDR_PLATFORMS,
+    description:
+      "How gradually the HDR highlight treatment eases in, so it doesn't show up as a hard edge of brightness. 0 switches it in abruptly (can read as a band); higher eases it in more gently. Range 0 to 2.",
   },
   {
     name: "r_mapGreyScale",

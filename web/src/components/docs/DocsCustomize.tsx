@@ -205,6 +205,53 @@ export function DocsCustomize() {
       </div>
 
       <div className="about-section">
+        <DocsH2 id="display-output">Display output (HDR)</DocsH2>
+        <p>
+          On an HDR display, Trinity can output true HDR — brighter, more
+          lifelike highlights on lights, explosions, plasma, and sky — instead
+          of standard dynamic range. It needs the Vulkan renderer and HDR turned
+          on in your OS display settings, and it ships off by default.
+        </p>
+        <PlatformOnly platform="flatscreen">
+          <p>
+            Turn it on under <strong>Setup → Graphics → HDR Display</strong>,
+            then run <code>vid_restart</code>. Calibrate under{" "}
+            <strong>Setup → Display → HDR Calibration</strong>: raise{" "}
+            <strong>Peak</strong> until the inner rectangle's edge just vanishes
+            into the outer one — that is the brightness your display actually
+            reaches. Set <strong>Highlight</strong> to taste.{" "}
+            <code>r_hdrActive</code> reads <code>1</code> once HDR is genuinely
+            live.
+          </p>
+          <p>
+            Prefer the config file? Set <code>r_hdrDisplay 1</code> and{" "}
+            <code>r_hdrPeak</code> (your calibrated peak in nits) in{" "}
+            <code>autoexec.cfg</code>. Paper-white is automatic by default;{" "}
+            <code>r_hdrSaturation</code>, <code>r_hdrSaturationFull</code>, and{" "}
+            <code>r_hdrSoftKnee</code> are advanced knobs covered in the{" "}
+            <Link to="/docs/reference">reference</Link>.
+          </p>
+        </PlatformOnly>
+        <PlatformOnly platform="pcvr">
+          <p>
+            HDR applies to the <strong>desktop mirror window</strong> only, not
+            the headset — the headset uses Rec.709 color. There is no in-game
+            HDR menu on PCVR, so enable it by adding <code>r_hdrDisplay 1</code>{" "}
+            and <code>r_hdrPeak</code> to <code>autoexec.cfg</code>. To find the
+            right <code>r_hdrPeak</code>, run the flatscreen client once and use
+            its HDR Calibration screen — or start from your display's rating.
+          </p>
+        </PlatformOnly>
+        <PlatformOnly platform="quest">
+          <p>
+            Quest does not do HDR. Its headset uses Rec.709 color management,
+            handled automatically, which keeps the wide-gamut panel from
+            over-saturating the game's colors. There is nothing to set.
+          </p>
+        </PlatformOnly>
+      </div>
+
+      <div className="about-section">
         <DocsH2 id="voice-chat">Voice chat</DocsH2>
         <p>
           Voice chat cvars. <code>cl_*</code> values are engine-side (recording,
