@@ -278,7 +278,7 @@ export const PLAYER_CVARS: CvarEntry[] = [
   },
   {
     name: "r_hdrPeak",
-    default: "1000",
+    default: "400",
     platforms: HDR_PLATFORMS,
     description:
       "Your HDR display's usable peak brightness in nits — the main HDR setting. Highlights brighten up to this, and the auto white level is based on it. The best way to set it is the in-game HDR Calibration screen, which finds the brightness your panel actually reaches — often well below its rated peak. Your display's HDR rating is a fine starting point, but calibrating is better. The calibration screen goes up to 2000 nits, which covers current HDR displays; set by hand, the cvar accepts 250 to 10000.",
