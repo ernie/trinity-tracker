@@ -518,9 +518,15 @@ export function useTvEngine(opts: UseTvEngineOptions): UseTvEngine {
         });
       });
     };
+    // Wait well past the rotation animation: a vid_restart is one multi-second
+    // synchronous main-thread block, and firing it while iOS Safari is still
+    // settling a rotation leaves Safari's touch mapping offset from the paint
+    // (taps land ~a toolbar-height below the finger) until the user drags.
+    // Within-bucket resizes early-return in settle, so the delay only affects
+    // real restarts.
     const debounced = () => {
       if (timer) clearTimeout(timer);
-      timer = setTimeout(settle, 200);
+      timer = setTimeout(settle, 1000);
     };
     const observer = new ResizeObserver(debounced);
     observer.observe(canvas);
