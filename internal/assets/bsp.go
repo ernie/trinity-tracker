@@ -139,6 +139,14 @@ func parseEntities(text string, assets *BSPAssets) {
 		value = strings.ReplaceAll(value, "\\", "/")
 
 		switch strings.ToLower(key) {
+		case "classname":
+			// SP_func_plat hardcodes these in game code — no entity key
+			// names them, and no official pak ships them.
+			if value == "func_plat" {
+				assets.Sounds = append(assets.Sounds,
+					"sound/movers/plats/pt1_strt.wav",
+					"sound/movers/plats/pt1_end.wav")
+			}
 		case "music":
 			// Music value can contain a space-separated looping flag
 			parts := strings.Fields(value)
