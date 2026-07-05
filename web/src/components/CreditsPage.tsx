@@ -44,6 +44,9 @@ export function CreditsPage() {
           </a>
         </li>
         <li>
+          Jay Dolan: <a href="https://github.com/jdolan/quetoo">Quetoo</a>
+        </li>
+        <li>
           Everyone involved in the{" "}
           <a href="https://github.com/ioquake/ioq3">ioquake3</a> project over
           the years
