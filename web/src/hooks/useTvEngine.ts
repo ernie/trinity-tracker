@@ -480,7 +480,22 @@ export function useTvEngine(opts: UseTvEngineOptions): UseTvEngine {
     const mod = moduleRef.current;
     if (!canvas || !mod) return;
     let timer: ReturnType<typeof setTimeout> | null = null;
+    // iOS Safari's touch mapping ends up offset from the paint after a
+    // rotation + restart (taps land ~a toolbar-height below the finger) until
+    // a drag makes WebKit reconcile its viewports — do that drag's work here.
+    // Needed IN ADDITION to the settle delay below: each alone tested broken
+    // on device, the pair fixes it.
+    const reconcileViewport = () => {
+      window.scrollTo(0, 0);
+      const page = canvas.closest(".demo-player-page");
+      if (page instanceof HTMLElement) {
+        page.style.transform = "translateZ(0)";
+        page.getBoundingClientRect();
+        page.style.transform = "";
+      }
+    };
     const settle = () => {
+      reconcileViewport();
       const rect = canvas.getBoundingClientRect();
       if (rect.width === 0 || rect.height === 0) return;
       const dpr = window.devicePixelRatio || 1; // re-read: monitor moves change it
@@ -515,6 +530,7 @@ export function useTvEngine(opts: UseTvEngineOptions): UseTvEngine {
           canvas.style.visibility = "";
           setEngineReady(true);
           if (statusRef.current) statusRef.current.style.display = "none";
+          reconcileViewport();
         });
       });
     };
