@@ -33,9 +33,13 @@ const FLATSCREEN_DOWNLOADS: Record<
 const PCVR_DOWNLOADS: Partial<
   Record<DetectedOS, { asset: string; label: string }>
 > = {
-  // Repo renamed to trinity-vr, but release zips keep the q3vr-* artifact names.
-  windows: { asset: "q3vr-windows-mingw-x86_64.zip", label: "Windows (x64)" },
-  linux: { asset: "q3vr-linux-x86_64.zip", label: "Linux (x64)" },
+  // trinityvr-* are the canonical archives; the q3vr-* ones are a
+  // transitional auto-update bridge slated for removal.
+  windows: {
+    asset: "trinityvr-windows-msvc-x86_64.zip",
+    label: "Windows (x64)",
+  },
+  linux: { asset: "trinityvr-linux-x86_64.zip", label: "Linux (x64)" },
 };
 
 // Coarse desktop-OS detection from the UA string. Returns null on
