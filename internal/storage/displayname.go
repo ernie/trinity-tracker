@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -92,4 +93,52 @@ func CanonicalizeDisplayName(raw string) string {
 	s = displayNameMultiSpace.ReplaceAllString(s, " ")
 	s = strings.TrimSpace(s)
 	return strings.ToLower(s)
+}
+
+var (
+	ErrDisplayNameReserved = errors.New("display name is reserved")
+	ErrDisplayNameTaken    = errors.New("display name is taken")
+)
+
+// AdminSetUserDisplayName sets a user's locked display name to a new
+// identity (self-service may only recolor). raw must be cleaned and
+// canonical derived from it. Uniqueness is checked by user id so
+// unlinked users don't conflict with their own name.
+func (s *Store) AdminSetUserDisplayName(ctx context.Context, userID int64, raw, canonical string) error {
+	if canonical == "" {
+		return errors.New("display name canonical form is empty")
+	}
+	if isReservedName(canonical) {
+		return ErrDisplayNameReserved
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var taken int
+	if err := tx.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM users
+		WHERE display_name_canonical = ? AND id != ?
+	`, canonical, userID).Scan(&taken); err != nil {
+		return err
+	}
+	if taken > 0 {
+		return ErrDisplayNameTaken
+	}
+
+	res, err := tx.ExecContext(ctx, `
+		UPDATE users SET display_name = ?, display_name_canonical = ?
+		WHERE id = ?
+	`, raw, canonical, userID)
+	if err != nil {
+		return err
+	}
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("user not found: %d", userID)
+	}
+	return tx.Commit()
 }
