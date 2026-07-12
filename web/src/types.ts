@@ -344,6 +344,7 @@ export interface LoginCredentials {
 export interface User {
   id: number;
   username: string;
+  display_name: string;
   is_admin: boolean;
   player_id: number | null;
   player_name?: string | null;

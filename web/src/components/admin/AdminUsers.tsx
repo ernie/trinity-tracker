@@ -2,9 +2,11 @@ import { useState, useEffect, FormEvent } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import { ColoredText } from "../ColoredText";
+import { DisplayNameEditor } from "../DisplayNameEditor";
 import { PlayerStatsModal } from "../PlayerStatsModal";
 import type { User, PlayerProfile } from "../../types";
 import { apiFetch } from "../../authFetch";
+import { cleanQ3DisplayName, canonicalizeDisplayName } from "../../utils";
 
 export function AdminUsers() {
   const { auth } = useAuth();
@@ -30,6 +32,10 @@ export function AdminUsers() {
     [],
   );
   const [editPlayerId, setEditPlayerId] = useState<number | null>(null);
+  const [editingNameUserId, setEditingNameUserId] = useState<number | null>(
+    null,
+  );
+  const [editNameValue, setEditNameValue] = useState("");
   const [modalPlayer, setModalPlayer] = useState<{
     id: number;
     name: string;
@@ -197,6 +203,39 @@ export function AdminUsers() {
     setEditPlayerResults([]);
   };
 
+  const startEditingName = (user: User) => {
+    setEditingNameUserId(user.id);
+    setEditNameValue(user.display_name);
+  };
+
+  const cancelEditingName = () => {
+    setEditingNameUserId(null);
+    setEditNameValue("");
+  };
+
+  const handleUpdateDisplayName = async (userId: number) => {
+    const cleaned = cleanQ3DisplayName(editNameValue);
+    if (!cleaned || !canonicalizeDisplayName(cleaned)) return;
+    setError("");
+    try {
+      const res = await apiFetch(`/api/users/${userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ display_name: cleaned }),
+      });
+
+      if (res.ok) {
+        cancelEditingName();
+        fetchUsers();
+      } else {
+        const data = await res.json();
+        setError(data.error || "Failed to update display name");
+      }
+    } catch {
+      setError("Network error");
+    }
+  };
+
   const handleUpdatePlayerLink = async (userId: number) => {
     setError("");
     try {
@@ -327,6 +366,7 @@ export function AdminUsers() {
         <thead>
           <tr>
             <th>Username</th>
+            <th>Name</th>
             <th>Role</th>
             <th>Player</th>
             <th>Pwd Change</th>
@@ -338,6 +378,48 @@ export function AdminUsers() {
           {users.map((user) => (
             <tr key={user.id}>
               <td data-label="Username">{user.username}</td>
+              <td data-label="Name">
+                {editingNameUserId === user.id ? (
+                  <div className="edit-player-inline">
+                    <DisplayNameEditor
+                      value={editNameValue}
+                      onChange={setEditNameValue}
+                      mode="claim"
+                      onSubmit={() => handleUpdateDisplayName(user.id)}
+                    />
+                    <div className="edit-actions">
+                      <button
+                        className="admin-btn-primary"
+                        disabled={
+                          !canonicalizeDisplayName(
+                            cleanQ3DisplayName(editNameValue),
+                          )
+                        }
+                        onClick={() => handleUpdateDisplayName(user.id)}
+                      >
+                        Save
+                      </button>
+                      <button className="admin-btn" onClick={cancelEditingName}>
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <span className="player-link-display">
+                    {user.display_name ? (
+                      <ColoredText text={user.display_name} />
+                    ) : (
+                      <span className="admin-muted">—</span>
+                    )}
+                    <button
+                      className="edit-link-btn"
+                      onClick={() => startEditingName(user)}
+                    >
+                      Edit
+                    </button>
+                  </span>
+                )}
+              </td>
               <td data-label="Role">{user.is_admin ? "Admin" : "User"}</td>
               <td data-label="Player">
                 {editingUserId === user.id ? (
