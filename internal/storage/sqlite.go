@@ -1821,7 +1821,7 @@ func (s *Store) ListUsersWithPlayer(ctx context.Context) ([]UserWithPlayer, erro
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT u.id, u.username, u.password_hash, u.is_admin, u.player_id,
 		       u.password_change_required, u.created_at, u.last_login, u.game_token,
-		       u.disabled_at, p.name
+		       u.display_name, u.disabled_at, p.name
 		FROM users u
 		LEFT JOIN players p ON p.id = u.player_id
 		ORDER BY u.username
@@ -1841,7 +1841,7 @@ func (s *Store) ListUsersWithPlayer(ctx context.Context) ([]UserWithPlayer, erro
 		if err := rows.Scan(
 			&u.ID, &u.Username, &u.PasswordHash, &u.IsAdmin, &playerID,
 			&u.PasswordChangeRequired, &u.CreatedAt, &lastLogin, &u.GameToken,
-			&disabledAt, &playerName,
+			&u.DisplayName, &disabledAt, &playerName,
 		); err != nil {
 			return nil, err
 		}
@@ -1872,7 +1872,7 @@ func (s *Store) SearchUsersWithPlayer(ctx context.Context, query string, limit i
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT u.id, u.username, u.password_hash, u.is_admin, u.player_id,
 		       u.password_change_required, u.created_at, u.last_login, u.game_token,
-		       u.disabled_at, p.name
+		       u.display_name, u.disabled_at, p.name
 		FROM users u
 		LEFT JOIN players p ON p.id = u.player_id
 		WHERE u.username LIKE ? OR p.clean_name LIKE ? OR p.name LIKE ?
@@ -1894,7 +1894,7 @@ func (s *Store) SearchUsersWithPlayer(ctx context.Context, query string, limit i
 		if err := rows.Scan(
 			&u.ID, &u.Username, &u.PasswordHash, &u.IsAdmin, &playerID,
 			&u.PasswordChangeRequired, &u.CreatedAt, &lastLogin, &u.GameToken,
-			&disabledAt, &playerName,
+			&u.DisplayName, &disabledAt, &playerName,
 		); err != nil {
 			return nil, err
 		}
