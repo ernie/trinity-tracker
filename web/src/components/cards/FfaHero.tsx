@@ -35,8 +35,9 @@ interface FfaHeroProps {
   /** Featured player. Null shows the pre-first-frag placeholder so
    *  the strip's height stays stable across the match lifecycle. */
   player: FfaHeroPlayer | null;
-  /** Apply the gold + glow gild to the score. Caller controls this
-   *  so finished-but-tied matches don't get mis-gilded. */
+  /** Gild the winner: gold + glow on the portrait frame and score.
+   *  Caller controls this so finished-but-tied matches don't get
+   *  mis-gilded. */
   gildScore?: boolean;
   onPlayerClick?: (
     playerName: string,
@@ -88,7 +89,9 @@ export function FfaHero({ player, gildScore, onPlayerClick }: FfaHeroProps) {
           : undefined
       }
     >
-      <span className="duelist__portrait-wrap ffa-hero__portrait-wrap">
+      <span
+        className={`duelist__portrait-wrap ffa-hero__portrait-wrap ${gildScore ? "winner" : ""}`}
+      >
         <ModelHead model={player.model} size="lg" />
         {player.isBot ? (
           <BotBadge isBot skill={player.skill ?? 1} size="sm" />
