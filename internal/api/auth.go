@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"strings"
@@ -365,6 +366,7 @@ func (r *Router) handleCreateUser(w http.ResponseWriter, req *http.Request) {
 type UserResponse struct {
 	ID                     int64      `json:"id"`
 	Username               string     `json:"username"`
+	DisplayName            string     `json:"display_name"`
 	IsAdmin                bool       `json:"is_admin"`
 	PlayerID               *int64     `json:"player_id,omitempty"`
 	PlayerName             *string    `json:"player_name,omitempty"`
@@ -399,6 +401,7 @@ func (r *Router) handleListUsers(w http.ResponseWriter, req *http.Request) {
 		response[i] = UserResponse{
 			ID:                     u.ID,
 			Username:               u.Username,
+			DisplayName:            u.DisplayName,
 			IsAdmin:                u.IsAdmin,
 			PlayerID:               u.PlayerID,
 			PlayerName:             u.PlayerName,
@@ -474,8 +477,9 @@ func (r *Router) handleResetUserPassword(w http.ResponseWriter, req *http.Reques
 
 // UpdateUserRequest is the request body for updating user properties
 type UpdateUserRequest struct {
-	IsAdmin  *bool  `json:"is_admin,omitempty"`
-	PlayerID *int64 `json:"player_id,omitempty"`
+	IsAdmin     *bool   `json:"is_admin,omitempty"`
+	PlayerID    *int64  `json:"player_id,omitempty"`
+	DisplayName *string `json:"display_name,omitempty"`
 }
 
 // handleUpdateUser updates user properties (admin only)
@@ -520,6 +524,32 @@ func (r *Router) handleUpdateUser(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
+	if body.DisplayName != nil {
+		cleaned := domain.CleanQ3DisplayName(*body.DisplayName)
+		if cleaned == "" {
+			writeError(w, http.StatusBadRequest, "display name is empty after cleaning")
+			return
+		}
+		canonical := storage.CanonicalizeDisplayName(cleaned)
+		if canonical == "" {
+			writeError(w, http.StatusBadRequest, "display name is empty after canonicalization")
+			return
+		}
+		err := r.store.AdminSetUserDisplayName(req.Context(), userID, cleaned, canonical)
+		switch {
+		case err == nil:
+		case errors.Is(err, storage.ErrDisplayNameReserved):
+			writeError(w, http.StatusConflict, "display name is reserved")
+			return
+		case errors.Is(err, storage.ErrDisplayNameTaken):
+			writeError(w, http.StatusConflict, "display name is already taken")
+			return
+		default:
+			writeError(w, http.StatusInternalServerError, "failed to update display name")
+			return
+		}
+	}
+
 	writeJSON(w, http.StatusOK, map[string]string{"message": "user updated"})
 }
 
@@ -554,6 +584,7 @@ func (r *Router) handleGetAccountProfile(w http.ResponseWriter, req *http.Reques
 		User: UserResponse{
 			ID:                     user.ID,
 			Username:               user.Username,
+			DisplayName:            user.DisplayName,
 			IsAdmin:                user.IsAdmin,
 			PlayerID:               user.PlayerID,
 			PasswordChangeRequired: user.PasswordChangeRequired,
