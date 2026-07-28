@@ -43,14 +43,15 @@ anymore, because the embedded NATS server is free on a private
 install and dropping it wouldn't simplify anything.
 
 Q3 servers must run with `g_trinityHandshake 1` for their match stats
-to be persisted. Trinity servers typically don't run in pure mode —
-VR clients load the game module as a dll/so rather than a QVM, so
-`sv_pure` isn't available to keep vanilla ioquake3 clients out;
-`g_trinityHandshake` is the practical substitute. The handshake
-confirms each client is a real Trinity client and carries the auth
-credentials that make `!claim`-ed / `!link`-ed accounts actually
-useful. The hub rejects `match_start` for a server without the cvar
-enabled, so nothing lands in `match_player_stats` for that match.
+to be persisted. Trinity servers typically don't run in pure mode, and
+the config templates ship `sv_pure 0`. VR clients load VR-aware QVMs
+now, so pure mode would no longer shut them out, but it isn't what
+`g_trinityHandshake` does: pure mode pins the asset set, the handshake
+identifies the client. The handshake confirms each client is a real
+Trinity client and carries the auth credentials that make `!claim`-ed /
+`!link`-ed accounts actually useful. The hub rejects `match_start` for a
+server without the cvar enabled, so nothing lands in
+`match_player_stats` for that match.
 
 The hub records the most recently observed `handshake_required` value
 per server in `servers.handshake_required`. The schema default is 0,

@@ -75,7 +75,7 @@ const DOCS_ITEMS = [
   { path: "/docs/reference", label: "Reference", hint: "cvars · glossary" },
   { path: "/docs/reference#glossary", label: "Glossary" },
   {
-    path: "/docs/reference#color-codes",
+    path: "/docs/customize#color-codes",
     label: "Color codes",
     hint: "slider · cvars · chat/names",
   },

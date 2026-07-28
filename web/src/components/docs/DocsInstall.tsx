@@ -199,6 +199,16 @@ export function DocsInstall() {
               Auto-updates are handled by the installed app — see the Automatic
               Updates section below.
             </p>
+            <PlatformNote platform="pcvr">
+              <p>
+                <strong>Coming from Q3VR or an older Trinity VR?</strong> Check
+                your install's <code>baseq3</code> folder for{" "}
+                <code>pakQ3VR.pk3</code> and delete it. Its contents ship in the
+                Trinity mod paks now, and a leftover copy overrides them. The
+                updater only adds and replaces files — it never deletes — so a
+                copy from an older install sticks around on its own.
+              </p>
+            </PlatformNote>
           </PlatformTabs.Panel>
 
           <PlatformTabs.Panel platform="quest">
@@ -345,6 +355,15 @@ export function DocsInstall() {
             available, an indicator appears on the main menu — download and
             apply it from there. The engine handles the relaunch automatically.
           </p>
+          <PlatformNote platform="pcvr">
+            <p>
+              Updates add and replace files; they never delete. If your install
+              dates back to Q3VR or an early Trinity VR, delete{" "}
+              <code>baseq3/pakQ3VR.pk3</code> by hand — the assets it used to
+              carry ship in the Trinity mod paks now, and the stale copy
+              overrides them.
+            </p>
+          </PlatformNote>
         </PlatformOnly>
         <PlatformOnly platform="quest">
           <p>

@@ -830,6 +830,13 @@ export function DocsPlay() {
             Pickups respawn on timers that depend on the game type and the
             server's <code>g_mode</code> profile.
           </p>
+          <p>
+            Trinity predicts your pickups on your own machine, so an item
+            vanishes and your health, armor, or ammo moves the moment you touch
+            it instead of a round trip later. Your client tells the server it's
+            predicting (<code>cg_predictItems</code>, on by default) so both
+            sides agree on what you picked up and how much of it you got.
+          </p>
           <ul>
             <li>
               <strong>Armor</strong> — in vanilla Quake 3: Shard (+5), Yellow
@@ -883,8 +890,10 @@ export function DocsPlay() {
           <strong>Multiplayer</strong> from the main menu, then click the{" "}
           <em>Servers:</em> selector at the top until it reads{" "}
           <strong>Trinity</strong> — that filters the list to servers registered
-          with the hub. The same servers are also listed on this site, with live
-          status, at <Link to="/servers">Servers</Link>.
+          with the hub. The selector names each master server it knows, so you
+          pick a source by name rather than by slot number. The same servers are
+          also listed on this site, with live status, at{" "}
+          <Link to="/servers">Servers</Link>.
         </p>
       </div>
 
@@ -1064,8 +1073,8 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
           </h3>
           <p>
             Hold the secondary grip to stabilize the weapon. Two modes, set in{" "}
-            <strong>Setup → Controls → Two-Handed Weapons</strong> (or with{" "}
-            <code>vr_twoHandedWeapons</code> in autoexec):
+            <strong>Setup → VR Options → Controls → Two-Handed Weapons</strong>{" "}
+            (or with <code>vr_twoHandedWeapons</code> in autoexec):
           </p>
           <ul>
             <li>
@@ -1088,18 +1097,11 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
             tracking behavior, and on personal preference. Enable the feature
             first:
           </p>
-          <PlatformOnly platform="pcvr">
-            <p>
-              Toggle <strong>Setup → VR Options → Weapon Adjustment</strong>, or
-              set <code>vr_weaponAdjust 1</code> in autoexec.
-            </p>
-          </PlatformOnly>
-          <PlatformOnly platform="quest">
-            <p>
-              Toggle <strong>Setup → Controls → Weapon Adjustment</strong>, or
-              set <code>vr_weaponAdjust 1</code> in autoexec.
-            </p>
-          </PlatformOnly>
+          <p>
+            Toggle{" "}
+            <strong>Setup → VR Options → Controls → Weapon Adjustment</strong>,
+            or set <code>vr_weaponAdjust 1</code> in autoexec.
+          </p>
           <p>
             Then in-match,{" "}
             <strong>hold both grip triggers together for one second</strong>{" "}
@@ -1214,6 +1216,28 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
             flatscreen does — the icon tells flatscreen opponents who they're up
             against. The same icon shows up when you follow a VR player as a
             spectator.
+          </p>
+
+          <h3 className="docs-play__feature-title">
+            Pure servers and VR-aware game code
+          </h3>
+          <p>
+            Trinity's VR clients load the server's game code as QVM bytecode,
+            the same way a flatscreen client does — which means a{" "}
+            <code>sv_pure 1</code> server will accept you. That wasn't possible
+            when VR builds could only run game code compiled into the client.
+          </p>
+          <p>
+            The catch is that the QVM has to be <strong>built for VR</strong>.
+            Trinity's own mod is; a stock or third-party mod almost certainly
+            isn't, and loading it would hand your headset flatscreen code —
+            hands, head tracking, and the VR HUD would all go through functions
+            that don't know VR exists. So the client checks before loading
+            anything: a QVM with no VR support is skipped and your client falls
+            back to the VR game code built into it, while one built for a VR API
+            your client doesn't speak stops with an error rather than quietly
+            running the wrong game. A pure server takes the fallback away
+            entirely — if its QVM isn't VR-aware, a VR client can't join at all.
           </p>
         </div>
       </PlatformOnly>
@@ -1475,20 +1499,11 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
           The post-match download prompt's behavior is set with{" "}
           <code>cl_tvDownload</code> (Off / Decline / Accept):
         </p>
-        <PlatformOnly platform="flatscreen">
-          <p>
-            Pick the value under{" "}
-            <strong>Setup → Game Options → TVD Download</strong>, or set{" "}
-            <code>cl_tvDownload</code> in autoexec.
-          </p>
-        </PlatformOnly>
-        <PlatformOnly platform={["pcvr", "quest"]}>
-          <p>
-            Pick the value under{" "}
-            <strong>Setup → System → Network → TVD Download</strong>, or set{" "}
-            <code>cl_tvDownload</code> in autoexec.
-          </p>
-        </PlatformOnly>
+        <p>
+          Pick the value under{" "}
+          <strong>Setup → Game Options → TVD Download</strong>, or set{" "}
+          <code>cl_tvDownload</code> in autoexec.
+        </p>
         <p>
           The full value table lives on{" "}
           <Link to="/docs/reference#player-cvars">
@@ -1517,17 +1532,10 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
             Each hit floats up with the exact damage you dealt.
           </figcaption>
         </figure>
-        <PlatformOnly platform="flatscreen">
-          <p>
-            Toggle <strong>Setup → Game Options → Damage Numbers</strong>, or
-            set <code>cg_damagePlums 1</code> in autoexec.
-          </p>
-        </PlatformOnly>
-        <PlatformOnly platform={["pcvr", "quest"]}>
-          <p>
-            Set <code>cg_damagePlums 1</code> in autoexec.
-          </p>
-        </PlatformOnly>
+        <p>
+          Toggle <strong>Setup → Game Options → Damage Numbers</strong>, or set{" "}
+          <code>cg_damagePlums 1</code> in autoexec.
+        </p>
         <p>
           If the numbers read small on your screen,{" "}
           <code>cg_damagePlumScale</code> sizes them — it's a multiplier, so{" "}
@@ -1590,10 +1598,12 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
           Improved stencil shadows <code>cg_shadows 2</code>
         </h3>
         <p>
-          Real shadow volumes for player models, clipped against BSP geometry so
-          they don't bleed through walls. The default <code>cg_shadows 1</code>{" "}
-          draws blob shadows; <code>2</code> switches to stencil; <code>0</code>{" "}
-          disables them. Set in autoexec.
+          Real shadow volumes for player models, clipped against level geometry
+          so they don't bleed through walls. Pick it under{" "}
+          <strong>Setup → Graphics → Shadows</strong> — <em>None</em>,{" "}
+          <em>Low</em> (the default blob shadow), or <em>High</em> (stencil) —
+          or set <code>cg_shadows</code> to <code>0</code>, <code>1</code>, or{" "}
+          <code>2</code> in autoexec.
         </p>
         <figure className="docs-hud-figure">
           <LazyVideo
@@ -1602,6 +1612,18 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
           />
           <figcaption>Stencil shadow cast by the green armor.</figcaption>
         </figure>
+        <p>
+          Four cvars tune the stencil path: <code>r_shadowDistance</code> caps
+          how far shadows are drawn, and <code>r_shadowClip</code>,{" "}
+          <code>r_shadowClipPenetration</code>, and{" "}
+          <code>r_shadowClipExtension</code> control the clipping that keeps
+          them off the far side of walls. The starter configs ship sensible
+          values;{" "}
+          <Link to="/docs/reference#player-cvars">
+            Reference · Player CVars
+          </Link>{" "}
+          has the details.
+        </p>
         <PlatformOnly platform={["pcvr", "quest"]}>
           <p>
             Heavier than blobs — Quest 3 hardware can handle it; older headsets
@@ -1609,6 +1631,15 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
           </p>
         </PlatformOnly>
 
+        <h3 className="docs-play__feature-title">
+          Light coronas <code>r_flares</code>
+        </h3>
+        <p>
+          Lamps, torches, and the sun bloom into a soft corona when they come
+          into view, and fade as you turn away or move behind cover. The starter
+          configs enable it; <code>r_flares 0</code> turns it off, and{" "}
+          <code>r_flareSize</code> sets how wide the glow spreads.
+        </p>
         <h3 className="docs-play__feature-title">
           Greyscale rendering <code>r_mapGreyScale</code>
         </h3>
@@ -1669,10 +1700,11 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
             On an HDR display, Trinity can render true HDR — brighter, more
             lifelike highlights — in the desktop mirror window. The headset
             itself stays on Rec.709 color. It's a native Vulkan feature, off by
-            default; there's no in-game HDR menu in VR, so you enable it in{" "}
-            <code>autoexec.cfg</code> — the{" "}
+            default. Turn it on under{" "}
+            <strong>Setup → Graphics → HDR Display</strong>, then calibrate
+            under <strong>Setup → Display → HDR Calibration</strong>; the{" "}
             <Link to="/docs/customize#display-output">Customize guide</Link>{" "}
-            covers it.
+            walks through it.
           </p>
           <p>
             HDR can't be captured into a normal screenshot — it tone-maps back
@@ -1758,7 +1790,7 @@ set cg_deadBodyDarken 1`}</CopyableCommand>
         <p>
           The digits don't match the chat <code>^N</code> codes most players
           know from typing colored names — a long-standing Quake 3 quirk.{" "}
-          <Link to="/docs/reference#color-codes">Reference · Color codes</Link>{" "}
+          <Link to="/docs/customize#color-codes">Customize · Color codes</Link>{" "}
           has the side-by-side translation.
         </p>
         <p>

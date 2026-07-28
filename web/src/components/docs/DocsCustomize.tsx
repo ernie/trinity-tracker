@@ -175,7 +175,9 @@ export function DocsCustomize() {
           <PlatformOnly platform="flatscreen">
             <li>
               <code>cg_followMode</code> <PlatformChip platform="flatscreen" />{" "}
-              — spectator camera mode.
+              — which camera the follow view starts in. Toggling it in-game
+              writes back to the cvar, so this is the default you come back to.
+              Also under <strong>Setup → Game Options → Follow Camera</strong>.
               <ul>
                 <li>
                   <code>0</code> first-person follow
@@ -197,21 +199,46 @@ export function DocsCustomize() {
               third-person camera snaps to a new position when context changes
               (player switch, recenter). <code>1</code>: a continuous orbit you
               steer with the thumbstick — rotate around the player, zoom in/out,
-              and press B to recenter. Lives in the in-game Comfort menu because
-              continuous camera movement in VR takes strong VR legs.
+              and press B to recenter. Lives under{" "}
+              <strong>VR Options → Comfort</strong> because continuous camera
+              movement in VR takes strong VR legs.
             </li>
           </PlatformOnly>
         </ul>
       </div>
 
       <div className="about-section">
-        <DocsH2 id="display-output">Display output (HDR)</DocsH2>
-        <p>
-          On an HDR display, Trinity can output true HDR — brighter, more
-          lifelike highlights on lights, explosions, plasma, and sky — instead
-          of standard dynamic range. It needs the Vulkan renderer and HDR turned
-          on in your OS display settings, and it ships off by default.
-        </p>
+        <DocsH2 id="display-output">Display output</DocsH2>
+        <PlatformOnly platform="flatscreen">
+          <h3>Renderer</h3>
+          <p>
+            Trinity ships three renderers and picks one at launch with{" "}
+            <code>cl_renderer</code>: <code>vulkan</code> (the default),{" "}
+            <code>opengl2</code>, and <code>opengl</code> (the GL 1.1-compatible
+            legacy path, for very old hardware). It's latched — set it in{" "}
+            <code>autoexec.cfg</code>, or run <code>vid_restart</code> after
+            changing it. HDR output below is Vulkan-only.
+          </p>
+        </PlatformOnly>
+        <PlatformOnly platform="pcvr">
+          <h3>Renderer</h3>
+          <p>
+            Trinity VR ships as one binary with two renderers, picked at launch
+            with <code>cl_renderer</code>: <code>vulkan</code> (the default) and{" "}
+            <code>opengl2</code>. It's latched — set it in{" "}
+            <code>autoexec.cfg</code>, or run <code>vid_restart</code> after
+            changing it. HDR output below is Vulkan-only.
+          </p>
+        </PlatformOnly>
+        <PlatformOnly platform={["flatscreen", "pcvr"]}>
+          <h3>HDR</h3>
+          <p>
+            On an HDR display, Trinity can output true HDR — brighter, more
+            lifelike highlights on lights, explosions, plasma, and sky — instead
+            of standard dynamic range. It needs the Vulkan renderer and HDR
+            turned on in your OS display settings, and it ships off by default.
+          </p>
+        </PlatformOnly>
         <PlatformOnly platform="flatscreen">
           <p>
             Turn it on under <strong>Setup → Graphics → HDR Display</strong>,
@@ -235,11 +262,26 @@ export function DocsCustomize() {
         <PlatformOnly platform="pcvr">
           <p>
             HDR applies to the <strong>desktop mirror window</strong> only, not
-            the headset — the headset uses Rec.709 color. There is no in-game
-            HDR menu on PCVR, so enable it by adding <code>r_hdrDisplay 1</code>{" "}
-            and <code>r_hdrPeak</code> to <code>autoexec.cfg</code>. To find the
-            right <code>r_hdrPeak</code>, run the flatscreen client once and use
-            its HDR Calibration screen — or start from your display's rating.
+            the headset — the headset uses Rec.709 color.
+          </p>
+          <p>
+            Turn it on under <strong>Setup → Graphics → HDR Display</strong>,
+            then run <code>vid_restart</code>. Both menu rows gray out unless{" "}
+            <code>cl_renderer</code> is <code>vulkan</code>.
+          </p>
+          <p>
+            For <code>r_hdrPeak</code>, even easier: grab the number from a
+            flatscreen install. It's the same display, so it's the same number.
+            The screen is here too —{" "}
+            <strong>Setup → Display → HDR Calibration</strong>, raise{" "}
+            <strong>Peak</strong> until the inner rectangle's edge just vanishes
+            into the outer one. The mirror isn't HDR as the headset renders it,
+            so slide the headset up and read the pattern off the monitor.
+          </p>
+          <p>
+            Prefer the config file? Set <code>r_hdrDisplay 1</code> and{" "}
+            <code>r_hdrPeak</code> (your calibrated peak in nits) in{" "}
+            <code>autoexec.cfg</code>.
           </p>
         </PlatformOnly>
         <PlatformOnly platform="quest">
@@ -378,34 +420,8 @@ export function DocsCustomize() {
             body, legs, <code>color1</code> (rail core / weapon glow),{" "}
             <code>color2</code> (rail spiral). A 3-char string sets only the
             model tints; positions 4 and 5 inherit the enemy's own rail colors
-            if omitted.
-            <ul>
-              <li>
-                <code>1</code> blue
-              </li>
-              <li>
-                <code>2</code> green
-              </li>
-              <li>
-                <code>3</code> cyan
-              </li>
-              <li>
-                <code>4</code> red
-              </li>
-              <li>
-                <code>5</code> magenta
-              </li>
-              <li>
-                <code>6</code> yellow
-              </li>
-              <li>
-                <code>7</code> white
-              </li>
-              <li>
-                <code>?</code> in any position becomes the player's team color —
-                red, blue, or white (in FFA).
-              </li>
-            </ul>
+            if omitted. <a href="#color-codes">Color codes</a> below has the
+            digit-to-color table.
           </li>
           <li>
             <code>cg_teamModel "doom/pm"</code> — same as{" "}
@@ -422,14 +438,250 @@ export function DocsCustomize() {
         </ul>
       </div>
 
+      <div className="about-section">
+        <DocsH2 id="color-codes">Color codes</DocsH2>
+        <p>
+          Three things in Quake 3 use single-digit color codes, and they work
+          independently — the color slider in the player-settings menu, the{" "}
+          <code>color1</code> / <code>color2</code> cvars (and the force-model
+          overrides built on them), and the <code>^N</code> chat / player-name
+          escapes. The codes look the same on the surface but disagree about
+          which digit means which color, so it's easy to write <code>"4"</code>{" "}
+          in one place expecting red and get something else somewhere else. This
+          section is the translation table.
+        </p>
+
+        <h3>The player-settings color slider</h3>
+        <p>
+          The in-game settings menu shows seven color swatches in rainbow
+          spectrum order. Pick the color you want; the menu writes the
+          corresponding digit to <code>color1</code> for you.
+        </p>
+        <div className="docs-table-scroll">
+          <table className="docs-color-table">
+            <thead>
+              <tr>
+                <th>Slot</th>
+                <th>Visible swatch</th>
+                <th>
+                  Stored <code>color1</code>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>0</td>
+                <td>red</td>
+                <td>4</td>
+              </tr>
+              <tr>
+                <td>1</td>
+                <td>yellow</td>
+                <td>6</td>
+              </tr>
+              <tr>
+                <td>2</td>
+                <td>green</td>
+                <td>2</td>
+              </tr>
+              <tr>
+                <td>3</td>
+                <td>cyan</td>
+                <td>3</td>
+              </tr>
+              <tr>
+                <td>4</td>
+                <td>blue</td>
+                <td>1</td>
+              </tr>
+              <tr>
+                <td>5</td>
+                <td>magenta</td>
+                <td>5</td>
+              </tr>
+              <tr>
+                <td>6</td>
+                <td>white</td>
+                <td>7</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          You don't have to memorize the digits — the slider is there precisely
+          so you don't. The numbers matter when you're hand-editing a config or
+          setting <code>cg_enemyColors</code>, both of which skip the slider.
+        </p>
+
+        <h3>
+          <code>color1</code> / <code>color2</code> +{" "}
+          <code>cg_enemyColors</code> / <code>cg_teamColors</code>
+        </h3>
+        <p>
+          When you type these cvars by hand, the digit-to-color mapping is the
+          table below. <code>color1</code> drives your rail core, weapon glow,
+          and muzzle flash; <code>color2</code> drives the rail spiral.{" "}
+          <code>cg_enemyColors</code> and <code>cg_teamColors</code> use the
+          same digits in a five-character string (head, body, legs, color1,
+          color2); omitted positions inherit the player's own settings.
+        </p>
+        <div className="docs-table-scroll">
+          <table className="docs-color-table">
+            <thead>
+              <tr>
+                <th>Digit</th>
+                <th>Color</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <code>1</code>
+                </td>
+                <td>blue</td>
+              </tr>
+              <tr>
+                <td>
+                  <code>2</code>
+                </td>
+                <td>green</td>
+              </tr>
+              <tr>
+                <td>
+                  <code>3</code>
+                </td>
+                <td>cyan</td>
+              </tr>
+              <tr>
+                <td>
+                  <code>4</code>
+                </td>
+                <td>red</td>
+              </tr>
+              <tr>
+                <td>
+                  <code>5</code>
+                </td>
+                <td>magenta</td>
+              </tr>
+              <tr>
+                <td>
+                  <code>6</code>
+                </td>
+                <td>yellow</td>
+              </tr>
+              <tr>
+                <td>
+                  <code>7</code>
+                </td>
+                <td>white</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          A <code>?</code> placeholder anywhere in the string becomes the digit
+          for the player's team color at runtime — <code>'4'</code> on red,{" "}
+          <code>'1'</code> on blue, <code>'7'</code> in FFA — so one config
+          string stays team-aware across matches.
+        </p>
+
+        <h3>
+          Chat / name <code>^N</code> color escapes
+        </h3>
+        <p>
+          For text — chat, player names, frag feed, scoreboard, menus — escapes
+          like <code>^1text</code> use a different mapping entirely. This is the
+          one most players have memorized from years of typing colored names and
+          chat:
+        </p>
+        <div className="docs-table-scroll">
+          <table className="docs-color-table">
+            <thead>
+              <tr>
+                <th>Escape</th>
+                <th>Color</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <code>^0</code>
+                </td>
+                <td>black</td>
+              </tr>
+              <tr>
+                <td>
+                  <code>^1</code>
+                </td>
+                <td>red</td>
+              </tr>
+              <tr>
+                <td>
+                  <code>^2</code>
+                </td>
+                <td>green</td>
+              </tr>
+              <tr>
+                <td>
+                  <code>^3</code>
+                </td>
+                <td>yellow</td>
+              </tr>
+              <tr>
+                <td>
+                  <code>^4</code>
+                </td>
+                <td>blue</td>
+              </tr>
+              <tr>
+                <td>
+                  <code>^5</code>
+                </td>
+                <td>cyan</td>
+              </tr>
+              <tr>
+                <td>
+                  <code>^6</code>
+                </td>
+                <td>magenta</td>
+              </tr>
+              <tr>
+                <td>
+                  <code>^7</code>
+                </td>
+                <td>white</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          Only <code>2</code> (green) and <code>7</code> (white) mean the same
+          color in both this table and the cvar table above. Everything else
+          differs — most painfully, <code>1</code> and <code>4</code> swap. Chat{" "}
+          <code>^1</code> is red, but <code>color1 1</code> is blue. Chat{" "}
+          <code>^4</code> is blue, but <code>color1 4</code> is red. If you put{" "}
+          <code>^1MyName</code> in your player name expecting your rail to
+          match, it won't.
+        </p>
+        <p>
+          For names and chat that look the same to players on every engine, stay
+          within <code>^0</code>–<code>^7</code>.
+        </p>
+      </div>
+
       <PlatformOnly platform={["pcvr", "quest"]}>
         <div className="about-section">
           <DocsH2 id="vr" platforms={["pcvr", "quest"]}>
             VR comfort &amp; controllers
           </DocsH2>
           <p>
-            VR-specific cvars. Controller bindings live in your starter config
-            under the <code>vr_button_map_*</code> entries.
+            VR-specific cvars. Most have a menu row under{" "}
+            <strong>Setup → VR Options</strong> — <strong>Controls</strong> for
+            aiming and input, <strong>Comfort</strong> for vignette and turning,{" "}
+            <strong>HUD &amp; Display</strong> for HUD placement. The thumbstick
+            response endpoints are autoexec-only. Controller bindings live in
+            your starter config under the <code>vr_button_map_*</code> entries.
           </p>
           <ul className="docs-cvars">
             <li>
@@ -447,8 +699,9 @@ export function DocsCustomize() {
             <li>
               <code>vr_directionMode 0</code> / <code>1</code> — movement
               direction reference. The two modes follow either head orientation
-              or off-hand controller orientation; the in-game Controls menu
-              labels them explicitly.
+              or off-hand controller orientation;{" "}
+              <strong>VR Options → Controls → Direction Mode</strong> labels
+              them explicitly.
             </li>
             <li>
               <code>vr_twoHandedWeapons N</code> — two-handed weapon grip; hold
@@ -474,8 +727,9 @@ export function DocsCustomize() {
               response curve endpoints.
             </li>
             <li>
-              <code>vr_triggerSensitivity 0.9</code> — trigger pull threshold
-              for fire (<code>0.0</code>–<code>1.0</code>).
+              <code>vr_triggerSensitivity 0.25</code> — how light a trigger pull
+              fires the weapon. Higher is more sensitive, so a shorter pull
+              fires. Range <code>0.1</code>–<code>0.9</code>.
             </li>
             <li>
               <code>vr_hudScale 1.5</code> — HUD size multiplier in VR.

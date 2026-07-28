@@ -42,7 +42,7 @@ export const GLOSSARY: GlossaryEntry[] = [
   {
     term: "color codes",
     definition:
-      "Three places in Quake 3 use single-digit color codes that work independently and disagree about which digit means which color: the player-settings color slider, the color1/color2 cvars (and the cg_enemyColors/cg_teamColors overrides built on them), and the ^N chat / player-name escapes. See Reference · Color codes for the side-by-side translation.",
+      "Three places in Quake 3 use single-digit color codes that work independently and disagree about which digit means which color: the player-settings color slider, the color1/color2 cvars (and the cg_enemyColors/cg_teamColors overrides built on them), and the ^N chat / player-name escapes. See Customize · Color codes for the side-by-side translation.",
   },
   {
     term: "Console tap",

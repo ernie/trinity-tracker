@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Navigate, useLocation } from "react-router-dom";
 import { DocsH2 } from "./DocsH2";
 import { ReferenceSearch } from "./ReferenceSearch";
 import { CvarTable } from "./CvarTable";
@@ -30,6 +31,7 @@ import { GLOSSARY, type GlossaryEntry } from "../../data/glossary";
 // drawn from web/src/data/glossary.ts.
 export function DocsReference() {
   const { platform } = usePlatform();
+  const location = useLocation();
   const [filter, setFilter] = useState("");
   const [showAllPlatforms, setShowAllPlatforms] = useState(false);
 
@@ -69,6 +71,11 @@ export function DocsReference() {
   const showPlayerSection = searching || filteredPlayer.length > 0;
   const showVrSection = searching || filteredVr.length > 0;
 
+  // Color codes lives on Customize now, next to the cvars that use it.
+  if (location.hash === "#color-codes") {
+    return <Navigate to="/docs/customize#color-codes" replace />;
+  }
+
   return (
     <>
       <ReferenceSearch
@@ -100,238 +107,6 @@ export function DocsReference() {
           here.
         </p>
         <GlossaryList entries={filteredGlossary} />
-      </div>
-
-      <div className="about-section">
-        <DocsH2 id="color-codes">Color codes</DocsH2>
-        <p>
-          Three things in Quake 3 use single-digit color codes, and they work
-          independently — the color slider in the player-settings menu, the{" "}
-          <code>color1</code> / <code>color2</code> cvars (and the force-model
-          overrides built on them), and the <code>^N</code> chat / player-name
-          escapes. The codes look the same on the surface but disagree about
-          which digit means which color, so it's easy to write <code>"4"</code>{" "}
-          in one place expecting red and get something else somewhere else. This
-          section is the translation table.
-        </p>
-
-        <h3>The player-settings color slider</h3>
-        <p>
-          The in-game settings menu shows seven color swatches in rainbow
-          spectrum order. Pick the color you want; the menu writes the
-          corresponding digit to <code>color1</code> for you.
-        </p>
-        <div className="docs-table-scroll">
-          <table className="docs-color-table">
-            <thead>
-              <tr>
-                <th>Slot</th>
-                <th>Visible swatch</th>
-                <th>
-                  Stored <code>color1</code>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>0</td>
-                <td>red</td>
-                <td>4</td>
-              </tr>
-              <tr>
-                <td>1</td>
-                <td>yellow</td>
-                <td>6</td>
-              </tr>
-              <tr>
-                <td>2</td>
-                <td>green</td>
-                <td>2</td>
-              </tr>
-              <tr>
-                <td>3</td>
-                <td>cyan</td>
-                <td>3</td>
-              </tr>
-              <tr>
-                <td>4</td>
-                <td>blue</td>
-                <td>1</td>
-              </tr>
-              <tr>
-                <td>5</td>
-                <td>magenta</td>
-                <td>5</td>
-              </tr>
-              <tr>
-                <td>6</td>
-                <td>white</td>
-                <td>7</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <p>
-          You don't have to memorize the digits — the slider is there precisely
-          so you don't. The numbers matter when you're hand-editing a config or
-          setting <code>cg_enemyColors</code>, both of which skip the slider.
-        </p>
-
-        <h3>
-          <code>color1</code> / <code>color2</code> +{" "}
-          <code>cg_enemyColors</code> / <code>cg_teamColors</code>
-        </h3>
-        <p>
-          When you type these cvars by hand, the digit-to-color mapping is the
-          table below. <code>color1</code> drives your rail core, weapon glow,
-          and muzzle flash; <code>color2</code> drives the rail spiral.{" "}
-          <code>cg_enemyColors</code> and <code>cg_teamColors</code> use the
-          same digits in a five-character string (head, body, legs, color1,
-          color2); omitted positions inherit the player's own settings.
-        </p>
-        <div className="docs-table-scroll">
-          <table className="docs-color-table">
-            <thead>
-              <tr>
-                <th>Digit</th>
-                <th>Color</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>
-                  <code>1</code>
-                </td>
-                <td>blue</td>
-              </tr>
-              <tr>
-                <td>
-                  <code>2</code>
-                </td>
-                <td>green</td>
-              </tr>
-              <tr>
-                <td>
-                  <code>3</code>
-                </td>
-                <td>cyan</td>
-              </tr>
-              <tr>
-                <td>
-                  <code>4</code>
-                </td>
-                <td>red</td>
-              </tr>
-              <tr>
-                <td>
-                  <code>5</code>
-                </td>
-                <td>magenta</td>
-              </tr>
-              <tr>
-                <td>
-                  <code>6</code>
-                </td>
-                <td>yellow</td>
-              </tr>
-              <tr>
-                <td>
-                  <code>7</code>
-                </td>
-                <td>white</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <p>
-          A <code>?</code> placeholder anywhere in the string becomes the digit
-          for the player's team color at runtime — <code>'4'</code> on red,{" "}
-          <code>'1'</code> on blue, <code>'7'</code> in FFA — so one config
-          string stays team-aware across matches.
-        </p>
-
-        <h3>
-          Chat / name <code>^N</code> color escapes
-        </h3>
-        <p>
-          For text — chat, player names, frag feed, scoreboard, menus — escapes
-          like <code>^1text</code> use a different mapping entirely. This is the
-          one most players have memorized from years of typing colored names and
-          chat:
-        </p>
-        <div className="docs-table-scroll">
-          <table className="docs-color-table">
-            <thead>
-              <tr>
-                <th>Escape</th>
-                <th>Color</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>
-                  <code>^0</code>
-                </td>
-                <td>black</td>
-              </tr>
-              <tr>
-                <td>
-                  <code>^1</code>
-                </td>
-                <td>red</td>
-              </tr>
-              <tr>
-                <td>
-                  <code>^2</code>
-                </td>
-                <td>green</td>
-              </tr>
-              <tr>
-                <td>
-                  <code>^3</code>
-                </td>
-                <td>yellow</td>
-              </tr>
-              <tr>
-                <td>
-                  <code>^4</code>
-                </td>
-                <td>blue</td>
-              </tr>
-              <tr>
-                <td>
-                  <code>^5</code>
-                </td>
-                <td>cyan</td>
-              </tr>
-              <tr>
-                <td>
-                  <code>^6</code>
-                </td>
-                <td>magenta</td>
-              </tr>
-              <tr>
-                <td>
-                  <code>^7</code>
-                </td>
-                <td>white</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <p>
-          Only <code>2</code> (green) and <code>7</code> (white) mean the same
-          color in both this table and the cvar table above. Everything else
-          differs — most painfully, <code>1</code> and <code>4</code> swap. Chat{" "}
-          <code>^1</code> is red, but <code>color1 1</code> is blue. Chat{" "}
-          <code>^4</code> is blue, but <code>color1 4</code> is red. If you put{" "}
-          <code>^1MyName</code> in your player name expecting your rail to
-          match, it won't.
-        </p>
-        <p>
-          For names and chat that look the same to players on every engine, stay
-          within <code>^0</code>–<code>^7</code>.
-        </p>
       </div>
 
       {showPlayerSection && (

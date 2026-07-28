@@ -189,6 +189,15 @@ export function DocsServerAdmin() {
             works for duels; CTF and other team modes often want more.
           </li>
           <li>
+            <code>sv_pure 1</code> — require clients to run the game code from
+            your pk3s rather than loose files of their own. Trinity servers
+            historically ran <code>sv_pure 0</code> because VR clients could
+            only use the game code compiled into them; they load QVMs now, so
+            pure mode no longer locks VR players out. It does mean every client
+            needs your exact paks — leave it at <code>0</code> if you serve a
+            mixed crowd you'd rather not have to keep in sync.
+          </li>
+          <li>
             <code>g_clanRotation 1</code> — winner-stays clan rotation on Team
             Arena gametypes. When a match ends, the losing team's clan rotates
             out — its roster bots are swapped for the incoming clan's — and the

@@ -25,6 +25,10 @@ export interface CvarValueDoc {
 export interface CvarEntry {
   name: string;
   default: string;
+  // Platforms whose engine registers a different default than `default`.
+  // The reference resolves this against the reader's active platform so
+  // nobody is shown another platform's value.
+  defaultByPlatform?: Partial<Record<Platform, string>>;
   platforms: Platform[];
   description: string;
   // Optional value enumeration for cvars with discrete meaningful values.
@@ -70,6 +74,39 @@ export const PLAYER_CVARS: CvarEntry[] = [
       "Grey out dead bodies so they read as corpses. Requires pm or fb skins (the same skin family used by cg_enemyModel / cg_teamModel).",
   },
   {
+    name: "cg_drawFFABackground",
+    default: "0",
+    platforms: ALL_PLATFORMS,
+    description:
+      "Draw the shaded backdrop behind the HUD status area in non-team games. Surfaces in-game as Setup → Game Options → HUD Background.",
+  },
+  {
+    name: "cg_drawSpeed",
+    default: "0",
+    platforms: ALL_PLATFORMS,
+    description:
+      "Speedometer reading your current movement speed in units per second — the number movement-mode players tune strafe jumps against.",
+    values: [
+      { value: "0", meaning: "off" },
+      { value: "1", meaning: "upper right, stacked with the other readouts" },
+      { value: "2", meaning: "centered low on the screen" },
+    ],
+  },
+  {
+    name: "cg_drawTimer",
+    default: "0",
+    platforms: ALL_PLATFORMS,
+    description:
+      "Match clock in the HUD, counting down to the timelimit and prefixing overtime with OT.",
+  },
+  {
+    name: "cg_drawViewers",
+    default: "1",
+    platforms: ALL_PLATFORMS,
+    description:
+      "Show the Vadrigar eye and viewer count on your HUD while someone is watching the match live from the website. 0 hides it; it only ever appears when there's at least one viewer.",
+  },
+  {
     name: "cg_drawVoipSpeakers",
     default: "1",
     platforms: ALL_PLATFORMS,
@@ -81,7 +118,7 @@ export const PLAYER_CVARS: CvarEntry[] = [
     default: "",
     platforms: ALL_PLATFORMS,
     description:
-      "Up to five-digit color string for forced enemy models: head, body, legs, color1 (rail core / weapon glow), color2 (rail spiral). Shorter strings stop early — head/body/legs default to white if omitted; color1/color2 inherit from the enemy's own settings if omitted. Uses the same digit→color mapping as the player-settings color slider. See Reference · Color codes for the full mapping picture.",
+      "Up to five-digit color string for forced enemy models: head, body, legs, color1 (rail core / weapon glow), color2 (rail spiral). Shorter strings stop early — head/body/legs default to white if omitted; color1/color2 inherit from the enemy's own settings if omitted. Uses the same digit→color mapping as the player-settings color slider. See Customize · Color codes for the full mapping picture.",
     values: [
       { value: "1", meaning: "blue" },
       { value: "2", meaning: "green" },
@@ -107,12 +144,27 @@ export const PLAYER_CVARS: CvarEntry[] = [
     name: "cg_followMode",
     default: "0",
     platforms: ["flatscreen"],
-    description: "Spectator camera mode while following a player.",
+    description:
+      "Which camera the follow view starts in while spectating. Toggling the camera in-game writes back to this cvar, so it holds the default you return to. VR spectating steers with cg_smoothFollow instead.",
     values: [
       { value: "0", meaning: "first-person follow" },
       { value: "1", meaning: "third-person orbit camera" },
       { value: "2", meaning: "free-fly (TV playback only)" },
     ],
+  },
+  {
+    name: "cg_fovAdjust",
+    default: "0",
+    platforms: ["flatscreen"],
+    description:
+      "Widen cg_fov to suit the display's aspect ratio, so a wide monitor shows more at the sides rather than cropping top and bottom. A 4:3 display is unaffected.",
+  },
+  {
+    name: "cg_fragMessage",
+    default: "1",
+    platforms: ALL_PLATFORMS,
+    description:
+      "Center-screen confirmation naming who you just fragged. In free-for-all games it also reports your resulting place and score.",
   },
   {
     name: "cg_hitSounds",
@@ -124,6 +176,13 @@ export const PLAYER_CVARS: CvarEntry[] = [
       { value: "1", meaning: "lower pitch on bigger hits" },
       { value: "2", meaning: "higher pitch on bigger hits" },
     ],
+  },
+  {
+    name: "cg_playerShadow",
+    default: "1",
+    platforms: ALL_PLATFORMS,
+    description:
+      "Your own shadow, controlled separately from everyone else's. cg_shadows sets the style used for other players; this decides whether yours is drawn at all.",
   },
   {
     name: "cg_smoothFollow",
@@ -236,6 +295,25 @@ export const PLAYER_CVARS: CvarEntry[] = [
     ],
   },
   {
+    name: "r_flares",
+    default: "0",
+    defaultByPlatform: { quest: "1" },
+    platforms: ALL_PLATFORMS,
+    description:
+      "Corona glows on light sources — lamps, torches, and the sun bloom out when you look near them. The starter configs turn it on.",
+    values: [
+      { value: "0", meaning: "off" },
+      { value: "1", meaning: "on" },
+    ],
+  },
+  {
+    name: "r_flareSize",
+    default: "40",
+    platforms: ALL_PLATFORMS,
+    description:
+      "Radius of the corona drawn by r_flares. Larger values spread the glow wider around each light.",
+  },
+  {
     name: "r_greyscale",
     default: "0",
     platforms: ALL_PLATFORMS,
@@ -283,7 +361,7 @@ export const PLAYER_CVARS: CvarEntry[] = [
     description:
       "Your HDR display's usable peak brightness in nits — the main HDR setting. Highlights brighten up to this, and the auto white level is based on it. The best way to set it is the in-game HDR Calibration screen, which finds the brightness your panel actually reaches — often well below its rated peak. Your display's HDR rating is a fine starting point, but calibrating is better. The calibration screen goes up to 2000 nits, which covers current HDR displays; set by hand, the cvar accepts 250 to 10000.",
     notes:
-      "Calibrate it on the flatscreen HDR Calibration screen. PCVR has no in-game menu, so VR users can run the flatscreen client once to find their value.",
+      "Calibrate it on the HDR Calibration screen (Setup → Display), available on flatscreen and PCVR alike. It's the same number on both, so a flatscreen install is the convenient place to find it — in VR the mirror isn't HDR as the headset renders it, so you slide the headset up to read the pattern off the monitor.",
   },
   {
     name: "r_hdrSaturation",
@@ -314,6 +392,34 @@ export const PLAYER_CVARS: CvarEntry[] = [
       "Desaturate world map textures only — entities (players, weapons, items, projectiles, explosions) stay in full color. Practical visibility aid: enemies and powerups pop against grey walls. Range -1 to 1; positive values desaturate textures and lightmaps, negative values desaturate only lightmaps. Inherited from Quake3e.",
     notes:
       "Latched — requires vid_restart (or set in autoexec.cfg before launch) to take effect.",
+  },
+  {
+    name: "r_shadowClip",
+    default: "1",
+    platforms: ALL_PLATFORMS,
+    description:
+      "Clip stencil shadows (cg_shadows 2) against level geometry so they stop at walls and floors instead of bleeding through them.",
+  },
+  {
+    name: "r_shadowClipExtension",
+    default: "16",
+    platforms: ALL_PLATFORMS,
+    description:
+      "How far a clipped shadow vertex may be extended back toward the surface it belongs on. Raising it closes gaps where a shadow stops short; lowering it keeps shadows tighter to the caster.",
+  },
+  {
+    name: "r_shadowClipPenetration",
+    default: "4",
+    platforms: ALL_PLATFORMS,
+    description:
+      "How far a shadow vertex is allowed to pass through a surface before clipping pulls it back. Small values clip aggressively.",
+  },
+  {
+    name: "r_shadowDistance",
+    default: "256",
+    platforms: ALL_PLATFORMS,
+    description:
+      "How far from the caster a stencil shadow is drawn before it stops. Lower values trade shadow reach for frame time.",
   },
   {
     name: "ui_trinitySigil",
@@ -452,7 +558,8 @@ export const VR_CVARS: CvarEntry[] = [
     name: "vr_triggerSensitivity",
     default: "0.25",
     platforms: VR_PLATFORMS,
-    description: "Trigger pull threshold for fire (range 0.1–0.9).",
+    description:
+      "How light a trigger pull fires the weapon. Higher is more sensitive, so a shorter pull fires. Range 0.1 to 0.9.",
   },
   {
     name: "vr_twoHandedWeapons",
