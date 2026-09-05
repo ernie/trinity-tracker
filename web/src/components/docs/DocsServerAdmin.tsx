@@ -207,6 +207,30 @@ export function DocsServerAdmin() {
             custom team names quietly turn clan rosters and rotation off. The
             install templates ship it enabled with valid clan names.
           </li>
+          <li>
+            <code>g_grapple 1</code> — hand every player the grapple. It applies
+            at each player's next spawn with no restart. Off by default; the
+            trinity.run servers run with it on.
+          </li>
+          <li>
+            <code>g_damage_gh N</code> — damage an attached tether deals. Leave
+            it empty to use the game mode's value; <code>0</code> turns it off.{" "}
+            <code>g_knockback_gh</code> does the same for the pad's knockback.
+          </li>
+          <li>
+            <code>bot_grapple 0</code> — bots use the grapple whenever the
+            server hands it out, both to get around and to fight; <code>0</code>{" "}
+            keeps them off it. Getting around needs Trinity's navigation data (
+            <code>.aat</code>, shipped alongside the stock baseq3 and Team Arena
+            maps) — on other maps bots still fight with the grapple but travel
+            without it. <code>2</code> logs bot grapple activity to the console.
+          </li>
+          <li>
+            <code>sv_fps 40</code> — the Trinity default since engine v0.29.0,
+            and what the install script writes. The mod's movement and the
+            grapple's pull are tuned for it, so a server left at the stock{" "}
+            <code>20</code> plays a noticeably different game. Don't lower it.
+          </li>
         </ul>
       </div>
     </>

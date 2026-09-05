@@ -823,6 +823,11 @@ export function DocsPlay() {
               <strong>Chaingun</strong> <em>(Team Arena)</em> — belt-fed
               rapid-fire bullet weapon; sustained DPS.
             </li>
+            <li>
+              <strong>Grapple</strong> <em>(Trinity, server-enabled)</em> — a
+              tenth weapon some servers hand out at spawn. See{" "}
+              <Link to="/docs/play#grapple">Grapple</Link> below.
+            </li>
           </ul>
 
           <h3 className="docs-play__feature-title">Items</h3>
@@ -1378,12 +1383,77 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
       </div>
 
       <div className="about-section">
+        <DocsH2 id="grapple">Grapple</DocsH2>
+        <p>
+          Servers can hand every player a grapple: a tenth weapon in your
+          loadout from the moment you spawn that fires a chisel-clawed anchor
+          pad on a tether and pulls you to wherever it bites.
+        </p>
+        <p>
+          Set <strong>Grapple</strong> in the create server or single player
+          menu, or using <code>g_grapple 1</code> at the console or for a
+          dedicated server. It will be granted to players on their next spawn.
+        </p>
+        <figure className="docs-hud-figure">
+          <LazyVideo
+            webm="/assets/play/grapple.webm"
+            mp4="/assets/play/grapple.mp4"
+          />
+          <figcaption>
+            The pad stuck to the underside of a mover on q3dm19, a map that is
+            all moving platforms and long drops into the void. Expect the
+            grapple to save your life here more than once.
+          </figcaption>
+        </figure>
+        <h3 className="docs-play__feature-title">Using it</h3>
+        <PlatformOnly platform="flatscreen">
+          <p>
+            Select it like any other weapon. It lives in slot 10, so{" "}
+            <code>bind 0 "weapon 10"</code> puts it on the key right after the
+            BFG, and weapon next/previous cycles to it as well.
+          </p>
+        </PlatformOnly>
+        <PlatformOnly platform={["pcvr", "quest"]}>
+          <p>
+            It joins the weapon wheel whenever the server hands it out — hold
+            the primary grip, point at the grapple, release. Weapon position
+            adjustment works on it like any other weapon.
+          </p>
+        </PlatformOnly>
+        <ul>
+          <li>
+            <strong>Hold fire to throw.</strong> When the pad bites a wall, a
+            ceiling, or another player, the tether pulls you toward it. Keep
+            holding to stay attached.
+          </li>
+          <li>
+            <strong>Let go of fire (or switch weapons) to release.</strong>
+          </li>
+          <li>
+            <strong>An enemy with your claws in them takes damage</strong> the
+            whole time they stay attached (servers can tune that, or turn it
+            off). Teammates are safe: a pad that touches one simply drops.
+          </li>
+          <li>
+            <strong>It lets go on its own</strong> when either you or your
+            target dies or teleports.
+          </li>
+        </ul>
+        <p>
+          Bots use it too — to get around and to fight — so expect to be yanked
+          off a ledge now and then.
+        </p>
+      </div>
+
+      <div className="about-section">
         <DocsH2 id="clans">Team Arena clans</DocsH2>
         <p>
           On Team Arena servers, red and blue aren't just colors — they're
-          clans: Crusaders, Intruders, Pagans, Stroggs, and The Fallen. Bot
-          teammates come from the named five-member roster of the clan they
-          fight for, with the occasional free agent filling out a squad.
+          clans: Crusaders, Intruders, Pagans, Stroggs, The Fallen, and a sixth
+          added specially for fans of VR ports, who bring an exceptionally beefy
+          challenge. Bot teammates come from the named five-member roster of the
+          clan they fight for, with the occasional free agent filling out a
+          squad.
         </p>
         <p>
           Clans play winner-stays: when a match ends, the losing side's clan

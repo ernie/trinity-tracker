@@ -168,10 +168,6 @@ export function DocsCustomize() {
               </li>
             </ul>
           </li>
-          <li>
-            <code>ui_trinitySigil 1</code> — 3D Trinity sigil in the main menus.{" "}
-            <code>0</code> hides it. Default <code>1</code>.
-          </li>
           <PlatformOnly platform="flatscreen">
             <li>
               <code>cg_followMode</code> <PlatformChip platform="flatscreen" />{" "}

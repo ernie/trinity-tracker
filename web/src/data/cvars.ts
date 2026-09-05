@@ -421,12 +421,6 @@ export const PLAYER_CVARS: CvarEntry[] = [
     description:
       "How far from the caster a stencil shadow is drawn before it stops. Lower values trade shadow reach for frame time.",
   },
-  {
-    name: "ui_trinitySigil",
-    default: "1",
-    platforms: ALL_PLATFORMS,
-    description: "3D Trinity sigil in the main menus. 0 hides it.",
-  },
 ];
 
 // VR comfort, control, and rendering cvars. Curated set of the most-
@@ -609,6 +603,21 @@ export const VR_CVARS: CvarEntry[] = [
 // you run a Trinity server.
 export const SERVER_CVARS: CvarEntry[] = [
   {
+    name: "bot_grapple",
+    default: "1",
+    platforms: ALL_PLATFORMS,
+    description:
+      "Let bots use the grapple when the server hands it out (g_grapple), both to travel and to fight. Travel routes need Trinity navigation data (.aat), which ships with the stock baseq3 and Team Arena maps; elsewhere bots still fight with the grapple.",
+    values: [
+      { value: "0", meaning: "Bots never use the grapple" },
+      { value: "1", meaning: "Bots travel and fight with the grapple" },
+      {
+        value: "2",
+        meaning: "As 1, logging bot grapple activity to the console",
+      },
+    ],
+  },
+  {
     name: "com_writeConfig",
     default: "1",
     platforms: ALL_PLATFORMS,
@@ -621,6 +630,28 @@ export const SERVER_CVARS: CvarEntry[] = [
     platforms: ALL_PLATFORMS,
     description:
       "Winner-stays clan rotation in Team Arena: when a match ends, the losing team's clan rotates out (its roster bots swapped for the incoming clan's) and the next clan in teaminfo.txt order challenges the winner. Only engages when g_redteam / g_blueteam name real Team Arena clans (Crusaders, Intruders, Pagans, Stroggs, The Fallen); custom team names leave teams alone.",
+  },
+  {
+    name: "g_damage_gh",
+    default: "",
+    platforms: ALL_PLATFORMS,
+    description:
+      "Damage an attached grapple tether deals. Empty uses the game mode's value; 0 turns it off.",
+  },
+  {
+    name: "g_knockback_gh",
+    default: "",
+    platforms: ALL_PLATFORMS,
+    description:
+      "Knockback the grapple pad delivers on impact. Empty uses the game mode's value; 0 turns it off.",
+  },
+  {
+    name: "g_grapple",
+    default: "0",
+    platforms: ALL_PLATFORMS,
+    description:
+      "Hand every player the grapple at spawn: a tenth weapon with unlimited ammo that fires an anchor pad on a tether and pulls the player to wherever it bites. Also offered as Grapple on the create-server and single-player menus.",
+    notes: "Applies at each player's next spawn; no map_restart needed.",
   },
   {
     name: "g_logSync",

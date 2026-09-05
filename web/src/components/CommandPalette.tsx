@@ -60,6 +60,7 @@ const DOCS_ITEMS = [
   { path: "/docs/play#hud", label: "HUD" },
   { path: "/docs/play#scoreboard", label: "Scoreboard" },
   { path: "/docs/play#modes", label: "Game modes" },
+  { path: "/docs/play#grapple", label: "Grapple" },
   { path: "/docs/play#spectating-demos", label: "Spectating & demos" },
   { path: "/docs/play#feedback", label: "Visual & audio feedback" },
   { path: "/docs/play#forced-models", label: "Forced enemy / team models" },

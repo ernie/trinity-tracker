@@ -235,6 +235,18 @@ func buildGameBaseline(game string, pk3s []string, outputDir string) (*GameManif
 		baselineSet[path] = true
 	}
 
+	if trinityPak != "" {
+		base := filepath.Base(trinityPak)
+		mobileName := strings.TrimSuffix(base, filepath.Ext(base)) + "-mobile.pk3"
+		mobilePath := filepath.Join(outputDir, mobileName)
+		if err := WriteMobilePak(trinityPak, mobilePath, baselineSet); err != nil {
+			return nil, fmt.Errorf("write mobile pak: %w", err)
+		}
+		if info, err := os.Stat(mobilePath); err == nil {
+			log.Printf("  %s: %.1f MB", mobileName, float64(info.Size())/(1024*1024))
+		}
+	}
+
 	// Add Trinity pk3 contents to baseline set (loaded separately by demo player)
 	if trinityPak != "" {
 		r, err := zip.OpenReader(trinityPak)
