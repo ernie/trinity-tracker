@@ -5,28 +5,13 @@ export interface ReleaseInfo {
   displayName: string;
   version: string | null;
   url: string;
-  assetUrl?: string;
   bundled: boolean;
-}
-
-// Shape of the bits of GitHub's /releases/latest response we consume.
-interface GitHubAsset {
-  name: string;
-  browser_download_url: string;
 }
 
 interface RepoConfig {
   repo: string;
   displayName: string;
   bundled: boolean;
-  // Optional asset selector — when the API call succeeds, the matching
-  // asset's browser_download_url is exposed as ReleaseInfo.assetUrl.
-  // Use for repos whose canonical download is version-stamped (e.g.,
-  // an APK named with the release tag) where /releases/latest/download
-  // can't be used with a constant filename. Repos with stable asset
-  // names should skip the matcher and hardcode the redirect URL at the
-  // call site instead.
-  assetMatcher?: (asset: GitHubAsset) => boolean;
 }
 
 const REPOS: RepoConfig[] = [
@@ -34,12 +19,9 @@ const REPOS: RepoConfig[] = [
   { repo: "trinity-engine", displayName: "Trinity Engine", bundled: true },
   { repo: "trinity-vr", displayName: "Trinity VR", bundled: true },
   {
-    repo: "trinity-quest",
-    displayName: "Trinity Quest",
+    repo: "trinity-standalone",
+    displayName: "Trinity Standalone",
     bundled: true,
-    // APK is published as trinity-quest-<ver>.apk (version-stamped, so
-    // /releases/latest/download can't use a constant filename here).
-    assetMatcher: (a) => /^trinity-quest-.*\.apk$/.test(a.name),
   },
 ];
 
@@ -72,17 +54,19 @@ function setCache(releases: ReleaseInfo[]) {
   }
 }
 
+function placeholder(r: RepoConfig): ReleaseInfo {
+  return {
+    repo: r.repo,
+    displayName: r.displayName,
+    version: null,
+    url: `https://github.com/ernie/${r.repo}/releases/latest`,
+    bundled: r.bundled,
+  };
+}
+
 export function useGitHubReleases() {
   const [releases, setReleases] = useState<ReleaseInfo[]>(
-    () =>
-      getCached() ??
-      REPOS.map((r) => ({
-        repo: r.repo,
-        displayName: r.displayName,
-        version: null,
-        url: `https://github.com/ernie/${r.repo}/releases`,
-        bundled: r.bundled,
-      })),
+    () => getCached() ?? REPOS.map(placeholder),
   );
   const [loading, setLoading] = useState(() => getCached() === null);
 
@@ -90,40 +74,32 @@ export function useGitHubReleases() {
     // Cache hit was applied during state init — nothing to fetch.
     if (getCached()) return;
 
-    const promises = REPOS.map((r) =>
-      fetch(`https://api.github.com/repos/ernie/${r.repo}/releases/latest`)
-        .then((res) => {
-          if (!res.ok) throw new Error(`${res.status}`);
-          return res.json();
-        })
-        .then((data) => {
-          const assets: GitHubAsset[] = Array.isArray(data.assets)
-            ? data.assets
-            : [];
-          const matched = r.assetMatcher
-            ? assets.find(r.assetMatcher)
-            : undefined;
-          return {
-            repo: r.repo,
-            displayName: r.displayName,
-            version: data.tag_name as string,
-            url: `https://github.com/ernie/${r.repo}/releases/latest`,
-            assetUrl: matched?.browser_download_url,
-            bundled: r.bundled,
-          };
-        })
-        .catch(() => ({
-          repo: r.repo,
-          displayName: r.displayName,
-          version: null,
-          url: `https://github.com/ernie/${r.repo}/releases`,
-          bundled: r.bundled,
-        })),
-    );
+    const promises: Promise<{ ok: boolean; release: ReleaseInfo }>[] =
+      REPOS.map((r) =>
+        fetch(`https://api.github.com/repos/ernie/${r.repo}/releases/latest`)
+          .then((res) => {
+            if (!res.ok) throw new Error(`${res.status}`);
+            return res.json();
+          })
+          .then((data) => ({
+            ok: true,
+            release: {
+              repo: r.repo,
+              displayName: r.displayName,
+              version: data.tag_name as string,
+              url: `https://github.com/ernie/${r.repo}/releases/latest`,
+              bundled: r.bundled,
+            },
+          }))
+          .catch(() => ({ ok: false, release: placeholder(r) })),
+      );
 
     Promise.all(promises).then((results) => {
-      setReleases(results);
-      setCache(results);
+      setReleases(results.map((r) => r.release));
+      // Caching a failed lookup would pin this tab to it for the full TTL.
+      if (results.every((r) => r.ok)) {
+        setCache(results.map((r) => r.release));
+      }
       setLoading(false);
     });
   }, []);

@@ -22,8 +22,8 @@ export function DocsAccount() {
         <ul>
           <li>
             <strong>Stats follow you.</strong> Flatscreen at the office (no,
-            you'd never do that), PCVR at home, Quest on the road — sign in on
-            each one and they all count toward the same profile.
+            you'd never do that), PCVR at home, a standalone headset on the road
+            — sign in on each one and they all count toward the same profile.
           </li>
           <li>
             <strong>Verified player badge.</strong> A green checkmark shows up

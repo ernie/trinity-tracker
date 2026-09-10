@@ -2,11 +2,15 @@
 // never picked"; surfaced by the docs only as the gate for the
 // first-visit picker. After picking, the stored value is always one
 // of the three concrete platforms.
-export type Platform = "flatscreen" | "pcvr" | "quest";
+export type Platform = "flatscreen" | "pcvr" | "standalone";
 
 export const PLATFORM_STORAGE_KEY = "q3a_docs_platform";
 
-const VALID: ReadonlySet<string> = new Set(["flatscreen", "pcvr", "quest"]);
+const VALID: ReadonlySet<string> = new Set([
+  "flatscreen",
+  "pcvr",
+  "standalone",
+]);
 
 // Defensive read — anything not in the valid set (including a stale
 // value left by a future-self typo) returns null and triggers the

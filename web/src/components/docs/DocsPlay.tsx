@@ -624,7 +624,7 @@ const DEMO_PLAYER_CALLOUTS: CalloutData[] = [
 // Per docs principles: every menu path and cvar surface here is
 // verified against the relevant engine source — flatscreen items
 // against ../trinity-engine + ../trinity (mod), VR items against
-// ../trinity-vr (PCVR) or ../trinity-quest (Quest). Cvar enumeration belongs
+// ../trinity-vr (PCVR) or ../trinity-standalone. Cvar enumeration belongs
 // on /docs/reference, not here — this tab describes; Reference lists.
 //
 // Platform divergence is expressed as paired PlatformOnly blocks
@@ -771,7 +771,7 @@ export function DocsPlay() {
           <PlatformOnly platform="flatscreen">
             <p>Switch using keybinds or the scroll wheel.</p>
           </PlatformOnly>
-          <PlatformOnly platform={["pcvr", "quest"]}>
+          <PlatformOnly platform={["pcvr", "standalone"]}>
             <p>
               Switch via the weapon wheel — hold the primary grip to bring it
               up, point at the slot you want, release to select. The Trinity
@@ -1019,7 +1019,7 @@ export function DocsPlay() {
 // bind q "+voiprecord"     // PTT: hold to talk
 bind e "voiptarget"        // cycle channel: spatial → team → all`}</CopyableCommand>
         </PlatformOnly>
-        <PlatformOnly platform={["pcvr", "quest"]}>
+        <PlatformOnly platform={["pcvr", "standalone"]}>
           <p>
             The natural home is the <strong>primary thumbstick press</strong> —
             unbound by default and out of the way of weapon buttons. Trinity's
@@ -1067,9 +1067,9 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
         </figure>
       </div>
 
-      <PlatformOnly platform={["pcvr", "quest"]}>
+      <PlatformOnly platform={["pcvr", "standalone"]}>
         <div className="about-section">
-          <DocsH2 id="vr" platforms={["pcvr", "quest"]}>
+          <DocsH2 id="vr" platforms={["pcvr", "standalone"]}>
             VR-specific features
           </DocsH2>
 
@@ -1167,13 +1167,49 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
             the underlying cvar names if you'd rather set defaults from{" "}
             <code>autoexec.cfg</code>.
           </p>
-          <PlatformNote platform="quest">
+
+          <h3 className="docs-play__feature-title">
+            Refresh rate and supersampling
+          </h3>
+          <p>
+            <strong>Refresh Rate</strong> and <strong>Supersampling</strong>{" "}
+            live under <strong>Setup → VR Options → HUD &amp; Display</strong>.
+            The refresh-rate row lists the rates your headset supports and takes
+            effect as soon as you pick one. Higher refresh and supersampling
+            above 1.0 both cost frame budget — tune one, then check the other.
+          </p>
+
+          <h3 className="docs-play__feature-title">Foveated rendering</h3>
+          <p>
+            Trinity renders the edges of your view in less detail than the
+            center, which frees up GPU time for a higher refresh rate or heavier
+            settings. It's on by default. The controls live under{" "}
+            <strong>Setup → VR Options → HUD &amp; Display</strong>:
+          </p>
+          <ul>
+            <li>
+              <strong>Foveated Rendering</strong> — Off, Fixed, or Eye-Tracked.
+              Fixed keeps the sharp region at the center of each eye's view;
+              Eye-Tracked moves it with your gaze. Eye-Tracked is only offered
+              on headsets with eye tracking.
+            </li>
+            <li>
+              <strong>Foveation Strength</strong> — Low, Medium, or High. Higher
+              saves more GPU time and is more visible at the edges. Medium by
+              default.
+            </li>
+          </ul>
+          <p>
+            If neither row is there, your headset doesn't offer foveated
+            rendering and Trinity draws full detail everywhere. If your config
+            asks for a mode your headset can't do, the menu shows what's
+            actually in force.
+          </p>
+          <PlatformNote platform="standalone">
             <p>
-              Quest also exposes <strong>Refresh Rate</strong> and{" "}
-              <strong>Supersampling</strong> under{" "}
-              <strong>Setup → System → Graphics</strong>. Bumping refresh up (90
-              or 120) and supersampling above 1.0 both cost frame budget — tune
-              one, then check the other.
+              On headsets with eye tracking, Trinity asks for the eye-tracking
+              permission the first time it runs. Headsets without it never see
+              the dialog.
             </p>
           </PlatformNote>
 
@@ -1320,7 +1356,7 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
           <PlatformOnly platform="flatscreen">
             Hold <code>Tab</code> to pull it up.
           </PlatformOnly>
-          <PlatformOnly platform={["pcvr", "quest"]}>
+          <PlatformOnly platform={["pcvr", "standalone"]}>
             Press the secondary thumbstick to pull it up — the starter VR
             autoexec wires <code>+scores</code> to{" "}
             <code>vr_button_map_SECONDARYTHUMBSTICK</code>.
@@ -1413,7 +1449,7 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
             BFG, and weapon next/previous cycles to it as well.
           </p>
         </PlatformOnly>
-        <PlatformOnly platform={["pcvr", "quest"]}>
+        <PlatformOnly platform={["pcvr", "standalone"]}>
           <p>
             It joins the weapon wheel whenever the server hands it out — hold
             the primary grip, point at the grapple, release. Weapon position
@@ -1483,7 +1519,7 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
             sense mid-match.
           </p>
         </PlatformOnly>
-        <PlatformOnly platform={["pcvr", "quest"]}>
+        <PlatformOnly platform={["pcvr", "standalone"]}>
           <p>
             Toggle <strong>Setup → Comfort Options → Smooth Follow</strong> (or
             set <code>cg_smoothFollow 1</code> in autoexec). Once it's on, your
@@ -1694,10 +1730,10 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
           </Link>{" "}
           has the details.
         </p>
-        <PlatformOnly platform={["pcvr", "quest"]}>
+        <PlatformOnly platform={["pcvr", "standalone"]}>
           <p>
-            Heavier than blobs — Quest 3 hardware can handle it; older headsets
-            often can't.
+            Heavier than blobs — Quest 3-class hardware handles it; older
+            headsets often can't.
           </p>
         </PlatformOnly>
 

@@ -10,7 +10,8 @@ import { MODE_PROFILES } from "../ServerCard";
 // (Configuration + raw mode tables) with cvar-by-cvar tunables
 // organized by intent. Cvar inventory drawn from the curated starter
 // autoexec configs in web/public/configs/, descriptions verified
-// against trinity, trinity-vr, and trinity-quest cgame/engine sources.
+// against trinity, trinity-vr, and trinity-standalone cgame/engine
+// sources.
 // Descriptions are factual only — no editorial recommendations or
 // "tune if it feels X" advice; cvars do what they do, the user
 // decides.
@@ -41,12 +42,12 @@ export function DocsCustomize() {
             Trinity feature toggles, network tuning, bindings.
           </li>
         </ul>
-        <PlatformNote platform="quest">
+        <PlatformNote platform="standalone">
           <p>
-            On Quest, both files live at{" "}
-            <code>/sdcard/ioquake3Quest/baseq3/</code> on the headset's internal
-            storage rather than inside the app install. The engine creates that
-            directory on first launch.
+            On a standalone headset, both files live at{" "}
+            <code>/sdcard/Trinity/baseq3/</code> on the headset's internal
+            storage rather than inside the app install. Trinity creates that
+            folder on first launch.
           </p>
         </PlatformNote>
       </div>
@@ -90,18 +91,18 @@ export function DocsCustomize() {
               <DownloadIcon size={20} className="about-download-icon" />
             </a>
           </PlatformOnly>
-          <PlatformOnly platform="quest">
+          <PlatformOnly platform="standalone">
             <a
-              href="/configs/trinity-quest-autoexec.cfg"
+              href="/configs/trinity-standalone-autoexec.cfg"
               download="autoexec.cfg"
               className="about-download-item"
             >
               <div className="about-download-info">
-                <span className="about-download-name">Trinity Quest</span>
+                <span className="about-download-name">Trinity Standalone</span>
                 <span className="about-download-desc">
                   Trinity feature toggles, online network values, VR comfort
-                  settings, Meta Touch controller bindings, and Quest
-                  refresh-rate tuning.
+                  settings, controller bindings, and headset refresh-rate
+                  tuning.
                 </span>
               </div>
               <DownloadIcon size={20} className="about-download-icon" />
@@ -187,11 +188,11 @@ export function DocsCustomize() {
               </ul>
             </li>
           </PlatformOnly>
-          <PlatformOnly platform={["pcvr", "quest"]}>
+          <PlatformOnly platform={["pcvr", "standalone"]}>
             <li>
               <code>cg_smoothFollow 1</code>{" "}
-              <PlatformChip platform={["pcvr", "quest"]} /> — orbit camera for
-              VR third-person spectating. Default <code>0</code>: the
+              <PlatformChip platform={["pcvr", "standalone"]} /> — orbit camera
+              for VR third-person spectating. Default <code>0</code>: the
               third-person camera snaps to a new position when context changes
               (player switch, recenter). <code>1</code>: a continuous orbit you
               steer with the thumbstick — rotate around the player, zoom in/out,
@@ -217,13 +218,22 @@ export function DocsCustomize() {
           </p>
         </PlatformOnly>
         <PlatformOnly platform="pcvr">
-          <h3>Renderer</h3>
+          <h3>Direct rendering</h3>
           <p>
-            Trinity VR ships as one binary with two renderers, picked at launch
-            with <code>cl_renderer</code>: <code>vulkan</code> (the default) and{" "}
-            <code>opengl2</code>. It's latched — set it in{" "}
-            <code>autoexec.cfg</code>, or run <code>vid_restart</code> after
-            changing it. HDR output below is Vulkan-only.
+            <code>r_fbo 0</code> renders straight into the headset with no
+            post-processing pass. It's faster, and it costs you bloom, the HDR
+            mirror, screenshots, and overbright. Anti-aliasing is independent of
+            it — the <strong>MSAA</strong> row under{" "}
+            <strong>Setup → System → Graphics</strong> applies either way.
+          </p>
+        </PlatformOnly>
+        <PlatformOnly platform="standalone">
+          <h3>Direct rendering</h3>
+          <p>
+            <code>r_fbo 0</code> renders straight into the headset with no
+            post-processing pass. It's faster, and it costs you bloom.
+            Anti-aliasing is independent of it — the <strong>MSAA</strong> row
+            under <strong>Setup → System → Graphics</strong> applies either way.
           </p>
         </PlatformOnly>
         <PlatformOnly platform={["flatscreen", "pcvr"]}>
@@ -262,8 +272,7 @@ export function DocsCustomize() {
           </p>
           <p>
             Turn it on under <strong>Setup → Graphics → HDR Display</strong>,
-            then run <code>vid_restart</code>. Both menu rows gray out unless{" "}
-            <code>cl_renderer</code> is <code>vulkan</code>.
+            then run <code>vid_restart</code>.
           </p>
           <p>
             For <code>r_hdrPeak</code>, even easier: grab the number from a
@@ -280,9 +289,9 @@ export function DocsCustomize() {
             <code>autoexec.cfg</code>.
           </p>
         </PlatformOnly>
-        <PlatformOnly platform="quest">
+        <PlatformOnly platform="standalone">
           <p>
-            Quest does not do HDR. Its headset uses Rec.709 color management,
+            Standalone headsets don't do HDR. They use Rec.709 color management,
             handled automatically, which keeps the wide-gamut panel from
             over-saturating the game's colors. There is nothing to set.
           </p>
@@ -666,18 +675,19 @@ export function DocsCustomize() {
         </p>
       </div>
 
-      <PlatformOnly platform={["pcvr", "quest"]}>
+      <PlatformOnly platform={["pcvr", "standalone"]}>
         <div className="about-section">
-          <DocsH2 id="vr" platforms={["pcvr", "quest"]}>
+          <DocsH2 id="vr" platforms={["pcvr", "standalone"]}>
             VR comfort &amp; controllers
           </DocsH2>
           <p>
             VR-specific cvars. Most have a menu row under{" "}
             <strong>Setup → VR Options</strong> — <strong>Controls</strong> for
             aiming and input, <strong>Comfort</strong> for vignette and turning,{" "}
-            <strong>HUD &amp; Display</strong> for HUD placement. The thumbstick
-            response endpoints are autoexec-only. Controller bindings live in
-            your starter config under the <code>vr_button_map_*</code> entries.
+            <strong>HUD &amp; Display</strong> for HUD placement, display, and
+            rendering. The thumbstick response endpoints are autoexec-only.
+            Controller bindings live in your starter config under the{" "}
+            <code>vr_button_map_*</code> entries.
           </p>
           <ul className="docs-cvars">
             <li>
@@ -734,12 +744,24 @@ export function DocsCustomize() {
               <code>vr_hudDepth 3</code> — how far out the HUD renders in the
               field of view (<code>0</code>–<code>5</code>).
             </li>
+            <li>
+              <code>vr_refreshrate 90</code> — headset display refresh rate, in
+              Hz. The <strong>Refresh Rate</strong> row lists the rates your
+              headset supports; a value it can't do snaps to the nearest one it
+              can. Applies live.
+            </li>
+            <li>
+              <code>vr_foveation 2</code> / <code>vr_foveationStrength 2</code>{" "}
+              — foveated rendering mode and strength, the same settings as the{" "}
+              <strong>Foveated Rendering</strong> and{" "}
+              <strong>Foveation Strength</strong> rows. See{" "}
+              <Link to="/docs/play#vr">Play › VR-specific features</Link>.
+            </li>
           </ul>
-          <PlatformOnly platform="quest">
+          <PlatformOnly platform="standalone">
             <p>
-              Quest-only: <code>vr_refreshrate 120</code> sets the headset
-              display refresh rate; <code>com_maxfps 0</code> uncaps the
-              engine's frame rate so it tracks the headset.
+              <code>com_maxfps 0</code> uncaps the engine's frame rate so it
+              tracks the headset.
             </p>
           </PlatformOnly>
         </div>

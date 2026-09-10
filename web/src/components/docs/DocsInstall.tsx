@@ -42,6 +42,10 @@ const PCVR_DOWNLOADS: Partial<
   linux: { asset: "trinityvr-linux-x86_64.zip", label: "Linux (x64)" },
 };
 
+// The release also carries a legacy trinity-quest-<ver>.apk that only
+// pre-rename in-app updaters should reach.
+const STANDALONE_APK = "trinity-standalone.apk";
+
 // Coarse desktop-OS detection from the UA string. Returns null on
 // mobile or anything we don't recognize — those users get the "see
 // all builds" link instead. Mobile checks come first because Android
@@ -68,11 +72,11 @@ export function DocsInstall() {
 
   // Map releases to platform — release.repo identifies which engine
   // a binary is for. trinity-engine = flatscreen, trinity-vr = pcvr,
-  // trinity-quest = quest. The fourth ('trinity') is the mod itself,
-  // bundled with each engine, not a standalone download here.
+  // trinity-standalone = standalone. The fourth ('trinity') is the mod
+  // itself, bundled with each engine, not a separate download here.
   const flatscreen = releases.find((r) => r.repo === "trinity-engine");
   const pcvr = releases.find((r) => r.repo === "trinity-vr");
-  const quest = releases.find((r) => r.repo === "trinity-quest");
+  const standalone = releases.find((r) => r.repo === "trinity-standalone");
 
   return (
     <>
@@ -211,24 +215,21 @@ export function DocsInstall() {
             </PlatformNote>
           </PlatformTabs.Panel>
 
-          <PlatformTabs.Panel platform="quest">
+          <PlatformTabs.Panel platform="standalone">
             <p>
-              <strong>Trinity Quest</strong> runs natively on Meta Quest 2, 3,
-              and 3S — no PC required. Built on Team Beef's Quake3Quest port.
+              <strong>Trinity Standalone</strong> runs natively on Meta Quest 2,
+              Quest 3, Quest 3S, and Quest Pro, and on PICO headsets — no PC
+              required. Built on Team Beef's Quake3Quest port.
             </p>
-            {quest && (
-              <a
-                href={quest.assetUrl ?? quest.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="install-download-link"
-              >
-                Download Trinity Quest{quest.version ? ` ${quest.version}` : ""}{" "}
-                (.apk) →
-              </a>
-            )}
+            <a
+              href={`https://github.com/ernie/trinity-standalone/releases/latest/download/${STANDALONE_APK}`}
+              className="install-download-link"
+            >
+              Download Trinity Standalone
+              {standalone?.version ? ` ${standalone.version}` : ""} (.apk) →
+            </a>
             <p>
-              Sideload the <code>.apk</code> using{" "}
+              Sideload the <code>.apk</code> onto your headset —{" "}
               <a
                 href="https://sidequestvr.com/"
                 target="_blank"
@@ -236,20 +237,19 @@ export function DocsInstall() {
               >
                 SideQuest
               </a>{" "}
-              — the same tool people use for the standard Team Beef ports.
+              is the usual tool for this.
             </p>
-            <PlatformNote platform="quest">
+            <PlatformNote platform="standalone">
               <p>
-                <strong>
-                  Already have the Team Beef Quake3Quest installed?
-                </strong>{" "}
-                Uninstall it before installing Trinity's build — the two can't
-                coexist on the same headset. While you're uninstalling, take the
-                opportunity to clear any <code>autoexec.cfg</code> and{" "}
-                <code>q3config.cfg</code> files from{" "}
-                <code>/sdcard/ioquake3Quest/baseq3/</code> and{" "}
-                <code>/sdcard/ioquake3Quest/missionpack/</code> so Trinity
-                starts with fresh settings.
+                <strong>Already have Team Beef's Quake3Quest installed?</strong>{" "}
+                Trinity Standalone installs alongside it and, on first launch,
+                copies your game files and settings out of its folder. Nothing
+                you do in Trinity touches the Quake3Quest install.
+              </p>
+              <p>
+                <strong>Previously installed Trinity Quest?</strong> Trinity
+                Standalone will copy your game files and settings from it on
+                first launch. Once it has, feel free to delete the old version.
               </p>
             </PlatformNote>
           </PlatformTabs.Panel>
@@ -292,13 +292,14 @@ export function DocsInstall() {
             needed if you want to play Team Arena modes).
           </li>
         </ul>
-        <PlatformNote platform="quest">
+        <PlatformNote platform="standalone">
           <p>
-            On Quest, Trinity's asset folders live at{" "}
-            <code>/sdcard/ioquake3Quest/baseq3/</code> and{" "}
-            <code>/sdcard/ioquake3Quest/missionpack/</code> on the headset's
-            internal storage. The engine creates these directories on first
-            launch. Use SideQuest's file browser to copy each{" "}
+            On a standalone headset, Trinity's asset folders live at{" "}
+            <code>/sdcard/Trinity/baseq3/</code> and{" "}
+            <code>/sdcard/Trinity/missionpack/</code> on the headset's internal
+            storage. Trinity creates <code>baseq3</code> on first launch; create{" "}
+            <code>missionpack</code> yourself if you want Team Arena. Use
+            SideQuest's file browser, or any file manager, to copy each{" "}
             <code>pak0.pk3</code> into the matching folder.
           </p>
         </PlatformNote>
@@ -365,12 +366,13 @@ export function DocsInstall() {
             </p>
           </PlatformNote>
         </PlatformOnly>
-        <PlatformOnly platform="quest">
+        <PlatformOnly platform="standalone">
           <p>
             Trinity checks for new releases on startup. When an update is
             available, an indicator appears on the main menu — download and
             apply it from there. After Android finishes installing the new APK,
-            relaunch Trinity from the headset's app library.
+            relaunch Trinity from the headset's app library. Updates install as
+            a normal app update, so your icon and your files stay put.
           </p>
         </PlatformOnly>
       </div>
@@ -437,11 +439,11 @@ export function DocsInstall() {
             </details>
           </PlatformOnly>
 
-          <PlatformOnly platform="quest">
+          <PlatformOnly platform="standalone">
             <details className="install-trouble">
               <summary>
                 Trinity won't launch — "pak0.pk3" is missing
-                <PlatformChip platform="quest" />
+                <PlatformChip platform="standalone" />
               </summary>
               <div className="install-trouble__body">
                 <p>
@@ -461,9 +463,15 @@ export function DocsInstall() {
                 <p>
                   Re-check Step 2 (and Step 3 for the point-release patches).{" "}
                   <code>pak0.pk3</code> should sit in{" "}
-                  <code>/sdcard/ioquake3Quest/baseq3/</code> on the headset, and{" "}
-                  <code>/sdcard/ioquake3Quest/missionpack/pak0.pk3</code> too if
-                  you want Team Arena.
+                  <code>/sdcard/Trinity/baseq3/</code> on the headset, and{" "}
+                  <code>/sdcard/Trinity/missionpack/pak0.pk3</code> too if you
+                  want Team Arena.
+                </p>
+                <p>
+                  If you upgraded from Trinity Quest and the file is in{" "}
+                  <code>/sdcard/ioquake3Quest/baseq3/</code> instead, Trinity
+                  Standalone copies it over on the next launch, as long as its
+                  own <code>baseq3</code> has no <code>pak0.pk3</code> yet.
                 </p>
               </div>
             </details>
@@ -491,24 +499,27 @@ export function DocsInstall() {
             </details>
           </PlatformOnly>
 
-          <PlatformOnly platform="quest">
+          <PlatformOnly platform="standalone">
             <details className="install-trouble">
               <summary>
-                APK won't install
-                <PlatformChip platform="quest" />
+                Trinity keeps offering an update
+                <PlatformChip platform="standalone" />
               </summary>
               <div className="install-trouble__body">
                 <p>
-                  The most common cause of this is the older Team Beef release
-                  being on your headset. The updated version is signed by a
-                  different author and can't install over top of the Team Beef
-                  release. Uninstall the Team Beef Quake3Quest through Quest's
-                  app library, then install Trinity's build. While you're at it,
-                  clear any <code>autoexec.cfg</code> and{" "}
-                  <code>q3config.cfg</code> files from{" "}
-                  <code>/sdcard/ioquake3Quest/baseq3/</code> and{" "}
-                  <code>/sdcard/ioquake3Quest/missionpack/</code> so Trinity
-                  starts with fresh settings.
+                  You're launching the old app. Its update installs Trinity
+                  Standalone alongside it rather than replacing it, so the old
+                  app is untouched and offers the same update again next launch.
+                </p>
+                <p>
+                  In your library the old app is called{" "}
+                  <strong>Quake3Quest</strong> and the new one is{" "}
+                  <strong>Trinity</strong> — app id{" "}
+                  <code>io.ernie.trinity</code> rather than{" "}
+                  <code>com.drbeef.ioq3quest</code>. Launch Trinity, then remove
+                  the old install once it has copied your files across. You can
+                  delete <code>/sdcard/ioquake3Quest/</code> too if you want the
+                  space back.
                 </p>
               </div>
             </details>
@@ -519,6 +530,13 @@ export function DocsInstall() {
               Update isn't being detected, or you're stuck on an older version
             </summary>
             <div className="install-trouble__body">
+              <PlatformNote platform="standalone">
+                <p>
+                  On Trinity Quest v1.2.66 or older, the updater can't finish on
+                  its own. Sideload the current <code>.apk</code> once (Step 1)
+                  and you're back on automatic updates.
+                </p>
+              </PlatformNote>
               <p>
                 If you aren't receiving updates, you can force a re-check from
                 the in-game console:
@@ -529,7 +547,7 @@ export function DocsInstall() {
                   <PlatformOnly platform="flatscreen">
                     Default key is <code>~</code>.
                   </PlatformOnly>
-                  <PlatformOnly platform={["pcvr", "quest"]}>
+                  <PlatformOnly platform={["pcvr", "standalone"]}>
                     In VR, open it from the in-game menu — there's no keyboard{" "}
                     <code>~</code> binding in VR.
                   </PlatformOnly>

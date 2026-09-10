@@ -66,17 +66,17 @@ export function usePlatform(): PlatformContextValue {
 export const PLATFORM_LABELS: Record<Platform, string> = {
   flatscreen: "Flatscreen",
   pcvr: "PCVR",
-  quest: "Quest",
+  standalone: "Standalone",
 };
 
 export const PLATFORM_DESCRIPTIONS: Record<Platform, string> = {
   flatscreen: "Trinity Engine on desktop monitor — keyboard + mouse.",
   pcvr: "Trinity VR on a PC-tethered VR headset.",
-  quest: "Trinity Quest standalone on Meta Quest 2, 3, or 3S.",
+  standalone: "Trinity Standalone on a Meta Quest or PICO headset — no PC.",
 };
 
 export const PLATFORM_ORDER: readonly Platform[] = [
   "flatscreen",
   "pcvr",
-  "quest",
+  "standalone",
 ] as const;

@@ -4,7 +4,7 @@ import type { Platform } from "../components/docs/platformStorage";
 // walking Cvar_Get / CG_CVAR registrations in:
 //   - flatscreen: ../trinity-engine + ../trinity (mod)
 //   - pcvr:       ../trinity-vr (engine + bundled cgame)
-//   - quest:      ../trinity-quest (engine + bundled cgame)
+//   - standalone: ../trinity-standalone (engine + bundled cgame)
 //
 // Each entry is verified against the registering source. Defaults,
 // platforms, and behavior reflect what the code actually does — no
@@ -38,10 +38,10 @@ export interface CvarEntry {
   notes?: string;
 }
 
-const ALL_PLATFORMS: Platform[] = ["flatscreen", "pcvr", "quest"];
-const VR_PLATFORMS: Platform[] = ["pcvr", "quest"];
-// HDR display output is Vulkan-only: flatscreen, plus the PCVR desktop
-// mirror. Quest has no HDR (its headset uses Rec.709 color management).
+const ALL_PLATFORMS: Platform[] = ["flatscreen", "pcvr", "standalone"];
+const VR_PLATFORMS: Platform[] = ["pcvr", "standalone"];
+// HDR display output reaches a monitor: flatscreen, plus the PCVR
+// desktop mirror.
 const HDR_PLATFORMS: Platform[] = ["flatscreen", "pcvr"];
 
 // Player-facing cvars: cgame, ui, and Trinity-specific client engine
@@ -297,7 +297,7 @@ export const PLAYER_CVARS: CvarEntry[] = [
   {
     name: "r_flares",
     default: "0",
-    defaultByPlatform: { quest: "1" },
+    defaultByPlatform: { standalone: "1" },
     platforms: ALL_PLATFORMS,
     description:
       "Corona glows on light sources — lamps, torches, and the sun bloom out when you look near them. The starter configs turn it on.",
@@ -426,7 +426,7 @@ export const PLAYER_CVARS: CvarEntry[] = [
 // VR comfort, control, and rendering cvars. Curated set of the most-
 // tweaked values; the full vr_button_map_* and vr_weapon_adjustment_*
 // inventories live in the starter autoexec configs (typically tuned
-// there, not at runtime). PCVR + Quest unless noted.
+// there, not at runtime). PCVR + Standalone unless noted.
 export const VR_CVARS: CvarEntry[] = [
   {
     name: "vr_6dof",
@@ -450,6 +450,34 @@ export const VR_CVARS: CvarEntry[] = [
     values: [
       { value: "0", meaning: "follow head (HMD) orientation" },
       { value: "1", meaning: "follow off-hand controller orientation" },
+    ],
+  },
+  {
+    name: "vr_foveation",
+    default: "2",
+    platforms: VR_PLATFORMS,
+    description:
+      "Foveated rendering — renders the edges of your view in less detail than the center, freeing up GPU time. Set it from VR Options → HUD & Display → Foveated Rendering. A mode your headset can't do falls back to one it can, and the cvar is rewritten to match.",
+    values: [
+      { value: "0", meaning: "off" },
+      { value: "1", meaning: "fixed — sharp region at the center of each eye" },
+      {
+        value: "2",
+        meaning:
+          "eye-tracked — sharp region follows your gaze; headsets with eye tracking only",
+      },
+    ],
+  },
+  {
+    name: "vr_foveationStrength",
+    default: "2",
+    platforms: VR_PLATFORMS,
+    description:
+      "How much detail the edges give up under foveated rendering. VR Options → HUD & Display → Foveation Strength.",
+    values: [
+      { value: "1", meaning: "low" },
+      { value: "2", meaning: "medium" },
+      { value: "3", meaning: "high — most GPU time saved, most visible" },
     ],
   },
   {
@@ -487,9 +515,9 @@ export const VR_CVARS: CvarEntry[] = [
   {
     name: "vr_refreshrate",
     default: "90",
-    platforms: ["quest"],
+    platforms: VR_PLATFORMS,
     description:
-      "Quest headset display refresh rate (typical: 72, 90, 120). Pair with com_maxfps 0 so the engine tracks the headset.",
+      "Headset display refresh rate, in Hz. VR Options → HUD & Display → Refresh Rate lists the rates your headset supports; a value it can't do snaps to the nearest one it can. Applies live.",
   },
   {
     name: "vr_righthanded",
@@ -507,7 +535,7 @@ export const VR_CVARS: CvarEntry[] = [
   {
     name: "vr_screenCurvature",
     default: "0.5",
-    platforms: ["quest"],
+    platforms: ["standalone"],
     description:
       "Curvature of the virtual screen used for flat-screen content (menus, console). 0 = flat, 1 = max curve.",
   },
@@ -524,7 +552,7 @@ export const VR_CVARS: CvarEntry[] = [
   {
     name: "vr_superSampling",
     default: "1.0",
-    platforms: ["quest"],
+    platforms: VR_PLATFORMS,
     description: "Render supersampling factor (1.0 = native, >1.0 = upsample).",
     notes: "Latched — requires engine restart to take effect.",
   },
