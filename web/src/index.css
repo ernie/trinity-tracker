@@ -14827,11 +14827,12 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   padding: 1px 5px;
 }
 
-.cvar-entry__notes {
-  margin: 8px 0 0;
+.about-section .cvar-entry__notes {
+  margin: 12px 0 0;
+  padding-top: 10px;
+  border-top: var(--rule);
   color: var(--text-dim);
-  font-size: 0.9em;
-  font-style: italic;
+  font-size: 0.85rem;
 }
 
 /* Glossary list — same card pattern as cvars but with a term head

@@ -530,6 +530,16 @@ export function DocsCustomize() {
           same digits in a five-character string (head, body, legs, color1,
           color2); omitted positions inherit the player's own settings.
         </p>
+        <p>
+          By default, Trinity servers give everyone on red or blue in a team
+          game their team's <code>color1</code> — <code>4</code> on red,{" "}
+          <code>1</code> on blue — while <code>color2</code> stays each player's
+          own, and give each stock bot its own <code>color1</code> /{" "}
+          <code>color2</code> pair. Server operators can switch these off with{" "}
+          <code>g_forceTeamColors</code> and <code>g_botColors</code>. Either
+          way, the fourth and fifth digits of <code>cg_teamColors</code> recolor
+          your teammates on your screen.
+        </p>
         <div className="docs-table-scroll">
           <table className="docs-color-table">
             <thead>

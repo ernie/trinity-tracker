@@ -653,6 +653,23 @@ export const SERVER_CVARS: CvarEntry[] = [
       "Write archived cvars back to q3config_server.cfg. On hosts running several server instances out of one install, the write-back makes instances inherit each other's archived values (last writer wins). trinity.cfg sets 0 so server config stays fully declarative.",
   },
   {
+    name: "g_botColors",
+    default: "1",
+    platforms: ALL_PLATFORMS,
+    description:
+      "Give the stock bots their own effects colors — color1 and color2, the same pair players pick for themselves — from scripts/botcolors.txt. Team Arena clan bots take their base bot's colors. To use your own list, ship a scripts/botcolors.txt in a pk3 whose name sorts after Trinity's pak8t.pk3 (pak3t.pk3 for Team Arena). See Customize · Color codes for what each color drives.",
+    values: [
+      {
+        value: "0",
+        meaning:
+          "Bots use the colors from their bots.txt entry, or red and magenta when it has none",
+      },
+      { value: "1", meaning: "Bots listed in botcolors.txt use its colors" },
+    ],
+    notes:
+      "Latched — takes effect at the next map load, for bots added after it.",
+  },
+  {
     name: "g_clanRotation",
     default: "0",
     platforms: ALL_PLATFORMS,
@@ -672,6 +689,18 @@ export const SERVER_CVARS: CvarEntry[] = [
     platforms: ALL_PLATFORMS,
     description:
       "Knockback the grapple pad delivers on impact. Empty uses the game mode's value; 0 turns it off.",
+  },
+  {
+    name: "g_forceTeamColors",
+    default: "1",
+    platforms: ALL_PLATFORMS,
+    description:
+      "In team games, give every player on red or blue their team's color1, so rail cores and weapon glow match the team. color2, the rail spiral, stays each player's own. Players can still recolor teammates on their own screen with cg_teamColors.",
+    values: [
+      { value: "0", meaning: "Players keep their own color1" },
+      { value: "1", meaning: "Players on red or blue use their team's color1" },
+    ],
+    notes: "Applies immediately to everyone connected; no map_restart needed.",
   },
   {
     name: "g_grapple",
