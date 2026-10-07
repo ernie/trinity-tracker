@@ -10616,6 +10616,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   z-index: 2;
   display: grid;
   grid-template-columns: 1fr auto 1fr;
+  column-gap: 24px;
   align-items: center;
   padding: 22px 36px 0;
 }
@@ -10690,6 +10691,44 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   color: var(--text);
 }
 
+.hero__actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.hero__download {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px 6px 12px;
+  font-family: "Cinzel", serif;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+  text-decoration: none;
+  border: 1px solid var(--ember-strong);
+  border-radius: var(--radius-pill);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 110, 60, 0.22),
+    rgba(255, 110, 60, 0.08)
+  );
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  box-shadow: 0 0 18px rgba(255, 110, 60, 0.25);
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+.hero__download:hover,
+.hero__download:focus-visible {
+  color: #fff;
+  box-shadow:
+    0 0 0 1px rgba(255, 110, 60, 0.5),
+    0 0 30px rgba(255, 110, 60, 0.4);
+}
+
 .hero__pill {
   display: flex;
   align-items: center;
@@ -10736,14 +10775,15 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   opacity: 0.5;
 }
 
-/* Inline-but-narrow viewports (landscape phone, small tablet). Drop
-   the grid in favor of flex so the nav sits in the gap between
-   brand and pill via auto-margins — not at viewport center, where
-   the brand's wider footprint can shove it left into the wordmark. */
-@media (max-width: 1023px) {
+/* Too narrow to center the nav between brand and actions. Drop the
+   grid in favor of flex so the nav sits in the gap between them via
+   auto-margins — not at viewport center, where the brand's wider
+   footprint can shove it left into the wordmark. */
+@media (max-width: 1119px) {
   .hero__header {
     display: flex;
     align-items: center;
+    gap: 16px;
   }
   .hero__nav {
     margin: 0 auto;
@@ -10753,9 +10793,9 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   }
 }
 
-/* Stacked layout for narrow viewports — phone portrait + iPhone
-   SE / 12 mini landscape. Re-enable grid for the two-row layout. */
-@media (max-width: 800px) {
+/* Too narrow for brand, nav and actions in one row. Re-enable grid
+   for the two-row layout. */
+@media (max-width: 999px) {
   .hero__header {
     display: grid;
     grid-template-columns: 1fr auto;
@@ -10768,10 +10808,11 @@ h2.docs-h2:focus-within .docs-h2__anchor {
     grid-column: 1;
     grid-row: 1;
   }
-  .hero__pill {
+  .hero__actions {
     grid-column: 2;
     grid-row: 1;
     justify-self: end;
+    gap: 10px;
   }
   .hero__nav {
     grid-column: 1 / -1;

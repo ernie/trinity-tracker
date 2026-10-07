@@ -5,6 +5,8 @@ import { useLiveData } from "../../contexts/LiveDataContext";
 import { plural, formatFragTime } from "./format";
 import { HeroHeader } from "./HeroHeader";
 import { ArrowIcon } from "../ArrowIcon";
+import { InstallerDownloadLink } from "../InstallerDownloadLink";
+import { useInstallerDownload } from "../../hooks/useInstallerDownload";
 import { pickHeroVariant } from "./heroVariants";
 
 // Preserve the non-breaking-space treatment the static headline used
@@ -20,6 +22,7 @@ export function HeroSection() {
   // stable across re-renders. Route navigation that unmounts and remounts
   // the landing will pick a fresh variant — matches "random per visit".
   const [variant] = useState(pickHeroVariant);
+  const installer = useInstallerDownload();
 
   // Pulse line 1: pre-WS and quiet share one line — the swap-in on connect
   // conveyed nothing and read as a glitch. Only real news (players fragging)
@@ -99,9 +102,12 @@ export function HeroSection() {
         </div>
 
         <div className="landing-hero__cta-row">
-          <Link to="/docs" className="landing-cta-primary">
+          <InstallerDownloadLink
+            download={installer}
+            className="landing-cta-primary"
+          >
             Enter the arena
-          </Link>
+          </InstallerDownloadLink>
           <Link to="/leaderboard" className="landing-cta-secondary">
             See the leaderboard <ArrowIcon direction="right" />
           </Link>

@@ -15,13 +15,10 @@ interface RepoConfig {
 }
 
 const REPOS: RepoConfig[] = [
-  { repo: "trinity", displayName: "Trinity Mod", bundled: false },
-  { repo: "trinity-engine", displayName: "Trinity Engine", bundled: true },
-  { repo: "trinity-vr", displayName: "Trinity VR", bundled: true },
   {
-    repo: "trinity-standalone",
-    displayName: "Trinity Standalone",
-    bundled: true,
+    repo: "trinity-installer",
+    displayName: "Trinity Installer",
+    bundled: false,
   },
 ];
 
@@ -64,6 +61,43 @@ function placeholder(r: RepoConfig): ReleaseInfo {
   };
 }
 
+// One lookup per page load, shared by every component using the hook.
+let inflight: Promise<ReleaseInfo[]> | null = null;
+
+function fetchReleases(): Promise<ReleaseInfo[]> {
+  if (inflight) return inflight;
+  const promises: Promise<{ ok: boolean; release: ReleaseInfo }>[] = REPOS.map(
+    (r) =>
+      fetch(`https://api.github.com/repos/ernie/${r.repo}/releases/latest`)
+        .then((res) => {
+          if (!res.ok) throw new Error(`${res.status}`);
+          return res.json();
+        })
+        .then((data) => ({
+          ok: true,
+          release: {
+            repo: r.repo,
+            displayName: r.displayName,
+            version: data.tag_name as string,
+            url: `https://github.com/ernie/${r.repo}/releases/latest`,
+            bundled: r.bundled,
+          },
+        }))
+        .catch(() => ({ ok: false, release: placeholder(r) })),
+  );
+  inflight = Promise.all(promises).then((results) => {
+    const releases = results.map((r) => r.release);
+    // Caching a failed lookup would pin this tab to it for the full TTL.
+    if (results.every((r) => r.ok)) {
+      setCache(releases);
+    } else {
+      inflight = null;
+    }
+    return releases;
+  });
+  return inflight;
+}
+
 export function useGitHubReleases() {
   const [releases, setReleases] = useState<ReleaseInfo[]>(
     () => getCached() ?? REPOS.map(placeholder),
@@ -73,35 +107,15 @@ export function useGitHubReleases() {
   useEffect(() => {
     // Cache hit was applied during state init — nothing to fetch.
     if (getCached()) return;
-
-    const promises: Promise<{ ok: boolean; release: ReleaseInfo }>[] =
-      REPOS.map((r) =>
-        fetch(`https://api.github.com/repos/ernie/${r.repo}/releases/latest`)
-          .then((res) => {
-            if (!res.ok) throw new Error(`${res.status}`);
-            return res.json();
-          })
-          .then((data) => ({
-            ok: true,
-            release: {
-              repo: r.repo,
-              displayName: r.displayName,
-              version: data.tag_name as string,
-              url: `https://github.com/ernie/${r.repo}/releases/latest`,
-              bundled: r.bundled,
-            },
-          }))
-          .catch(() => ({ ok: false, release: placeholder(r) })),
-      );
-
-    Promise.all(promises).then((results) => {
-      setReleases(results.map((r) => r.release));
-      // Caching a failed lookup would pin this tab to it for the full TTL.
-      if (results.every((r) => r.ok)) {
-        setCache(results.map((r) => r.release));
-      }
+    let live = true;
+    fetchReleases().then((result) => {
+      if (!live) return;
+      setReleases(result);
       setLoading(false);
     });
+    return () => {
+      live = false;
+    };
   }, []);
 
   return { releases, loading };

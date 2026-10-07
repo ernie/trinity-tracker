@@ -1,11 +1,15 @@
-// Bespoke landing hero header — brand · sparse nav · live pill.
+// Bespoke landing hero header — brand · sparse nav · download + live pill.
 // Replaces the standard <Header> over the wallpaper.
 import { Link } from "react-router-dom";
 import { useLiveData } from "../../contexts/LiveDataContext";
+import { useInstallerDownload } from "../../hooks/useInstallerDownload";
+import { DownloadIcon } from "../DownloadIcon";
+import { InstallerDownloadLink } from "../InstallerDownloadLink";
 import { derivePillState } from "../pillState";
 
 export function HeroHeader() {
   const { activeHumanPlayersCount, connectionStatus } = useLiveData();
+  const installer = useInstallerDownload();
   // Shared with StatusPill: live (humans fragging), quiet (hub up or still
   // connecting, arena empty), offline (the feed is genuinely unreachable).
   // Class name `quiet` is kept as an internal CSS hook even though the
@@ -37,10 +41,24 @@ export function HeroHeader() {
         <Link to="/docs">Docs</Link>
       </nav>
 
-      <span className={`hero__pill ${stateClass}`} aria-live="polite">
-        <span className="dot" aria-hidden />
-        {label}
-      </span>
+      <div className="hero__actions">
+        <InstallerDownloadLink
+          download={installer}
+          className="hero__download"
+          title={
+            installer.direct
+              ? `Download the Trinity Installer${installer.version ? ` ${installer.version}` : ""} for ${installer.platform}`
+              : undefined
+          }
+        >
+          <DownloadIcon size={14} />
+          Install
+        </InstallerDownloadLink>
+        <span className={`hero__pill ${stateClass}`} aria-live="polite">
+          <span className="dot" aria-hidden />
+          {label}
+        </span>
+      </div>
     </header>
   );
 }
