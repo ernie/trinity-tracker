@@ -10,8 +10,7 @@ import { MODE_PROFILES } from "../ServerCard";
 // (Configuration + raw mode tables) with cvar-by-cvar tunables
 // organized by intent. Cvar inventory drawn from the curated starter
 // autoexec configs in web/public/configs/, descriptions verified
-// against trinity, trinity-vr, and trinity-standalone cgame/engine
-// sources.
+// against trinity, trinity-engine, and trinity-standalone sources.
 // Descriptions are factual only — no editorial recommendations or
 // "tune if it feels X" advice; cvars do what they do, the user
 // decides.
@@ -42,12 +41,12 @@ export function DocsCustomize() {
             Trinity feature toggles, network tuning, bindings.
           </li>
         </ul>
-        <PlatformNote platform="standalone">
+        <PlatformNote platform="vr">
           <p>
-            On a standalone headset, both files live at{" "}
-            <code>/sdcard/Trinity/baseq3/</code> on the headset's internal
-            storage rather than inside the app install. Trinity creates that
-            folder on first launch.
+            On a PC, VR uses the same install and files as flat play. On Quest
+            and PICO, both files live at <code>/sdcard/Trinity/baseq3/</code> on
+            the headset's internal storage. On a Steam Frame, they live in{" "}
+            <code>~/.trinity/baseq3/</code>.
           </p>
         </PlatformNote>
       </div>
@@ -75,34 +74,45 @@ export function DocsCustomize() {
               <DownloadIcon size={20} className="about-download-icon" />
             </a>
           </PlatformOnly>
-          <PlatformOnly platform="pcvr">
+          <PlatformOnly platform="vr">
             <a
               href="/configs/trinity-vr-autoexec.cfg"
               download="autoexec.cfg"
               className="about-download-item"
             >
               <div className="about-download-info">
-                <span className="about-download-name">Trinity VR</span>
+                <span className="about-download-name">VR on a PC</span>
                 <span className="about-download-desc">
                   Trinity feature toggles, online network values, VR comfort
-                  settings, and Meta Touch controller bindings.
+                  settings, and desktop-GPU renderer presets.
                 </span>
               </div>
               <DownloadIcon size={20} className="about-download-icon" />
             </a>
-          </PlatformOnly>
-          <PlatformOnly platform="standalone">
+            <a
+              href="/configs/trinity-frame-autoexec.cfg"
+              download="autoexec.cfg"
+              className="about-download-item"
+            >
+              <div className="about-download-info">
+                <span className="about-download-name">Steam Frame</span>
+                <span className="about-download-desc">
+                  The PC set with blob shadows, the headset pacing frames, and
+                  the Frame's full refresh rate.
+                </span>
+              </div>
+              <DownloadIcon size={20} className="about-download-icon" />
+            </a>
             <a
               href="/configs/trinity-standalone-autoexec.cfg"
               download="autoexec.cfg"
               className="about-download-item"
             >
               <div className="about-download-info">
-                <span className="about-download-name">Trinity Standalone</span>
+                <span className="about-download-name">Quest or PICO</span>
                 <span className="about-download-desc">
-                  Trinity feature toggles, online network values, VR comfort
-                  settings, controller bindings, and headset refresh-rate
-                  tuning.
+                  Tuned lighter for the headset's mobile GPU, with refresh-rate
+                  tuning and comfort defaults.
                 </span>
               </div>
               <DownloadIcon size={20} className="about-download-icon" />
@@ -110,6 +120,107 @@ export function DocsCustomize() {
           </PlatformOnly>
         </div>
       </div>
+
+      <PlatformOnly platform="vr">
+        <div className="about-section">
+          <DocsH2 id="vr" platforms={["vr"]}>
+            VR comfort &amp; controllers
+          </DocsH2>
+          <p>
+            Controller buttons are bound like keys, in{" "}
+            <strong>Setup → VR Options → Bindings</strong>. Each action has a{" "}
+            <strong>Button</strong> and an <strong>Alt + Button</strong> column,
+            the rows show your controller's own button glyphs, and bindings
+            follow your hands — switching handedness or the thumbsticks moves
+            the glyphs, not the actions. At the console the same bindings are{" "}
+            <code>
+              vrbind &lt;context&gt;[+alt] &lt;key&gt; &lt;command&gt;
+            </code>
+            .
+          </p>
+          <p>
+            The cvars below are VR-specific. Most have a menu row under{" "}
+            <strong>Setup → VR Options</strong> — <strong>Controls</strong> for
+            aiming and input, <strong>Comfort</strong> for vignette and turning,{" "}
+            <strong>HUD &amp; Display</strong> for HUD placement, display, and
+            rendering. The thumbstick response endpoints are autoexec-only.
+          </p>
+          <ul className="docs-cvars">
+            <li>
+              <code>vr_snapturn 0</code> — snap turn angle in degrees.
+              <ul>
+                <li>
+                  <code>0</code> smooth turn
+                </li>
+                <li>
+                  <code>N</code> (any nonzero value, e.g. <code>45</code>) snap
+                  by N degrees per stick flick
+                </li>
+              </ul>
+            </li>
+            <li>
+              <code>vr_directionMode 0</code> / <code>1</code> — movement
+              direction reference. The two modes follow either head orientation
+              or off-hand controller orientation;{" "}
+              <strong>VR Options → Controls → Direction Mode</strong> labels
+              them explicitly.
+            </li>
+            <li>
+              <code>vr_twoHandedWeapons N</code> — two-handed weapon grip; hold
+              the secondary grip to stabilize the weapon. Default <code>0</code>
+              .
+              <ul>
+                <li>
+                  <code>0</code> off — one-handed aiming
+                </li>
+                <li>
+                  <code>1</code> basic — the weapon aims along the line from
+                  your primary controller toward your secondary controller
+                </li>
+                <li>
+                  <code>2</code> virtual gun stock — the weapon anchors near
+                  your face, like sighting along a stock
+                </li>
+              </ul>
+            </li>
+            <li>
+              <code>vr_thumbstickDeadzone 0.1</code> /{" "}
+              <code>vr_thumbstickFullDeflection 0.85</code> — thumbstick
+              response curve endpoints.
+            </li>
+            <li>
+              <code>vr_triggerSensitivity 0.25</code> — how light a trigger pull
+              fires the weapon. Higher is more sensitive, so a shorter pull
+              fires. Range <code>0.1</code>–<code>0.9</code>.
+            </li>
+            <li>
+              <code>vr_hudScale 1</code> — HUD size multiplier in VR. Default{" "}
+              <code>1</code>.
+            </li>
+            <li>
+              <code>vr_hudDepth 3</code> — how far out the HUD renders in the
+              field of view (<code>0</code>–<code>5</code>).
+            </li>
+            <li>
+              <code>vr_refreshrate 90</code> — headset display refresh rate, in
+              Hz. The <strong>Refresh Rate</strong> row lists the rates your
+              headset supports; a value it can't do snaps to the nearest one it
+              can. Applies live.
+            </li>
+            <li>
+              <code>vr_foveation 2</code> / <code>vr_foveationStrength 2</code>{" "}
+              — foveated rendering mode and strength, the same settings as the{" "}
+              <strong>Foveated Rendering</strong> and{" "}
+              <strong>Foveation Strength</strong> rows. See{" "}
+              <Link to="/docs/play#vr">Play › VR-specific features</Link>.
+            </li>
+          </ul>
+          <p>
+            On Quest and PICO, <code>com_maxfps 0</code> uncaps the engine's
+            frame rate so it tracks the headset.
+          </p>
+        </div>
+      </PlatformOnly>
 
       <div className="about-section">
         <DocsH2 id="trinity-features">Trinity feature toggles</DocsH2>
@@ -140,8 +251,9 @@ export function DocsCustomize() {
             </ul>
           </li>
           <li>
-            <code>cg_damageEffect 1</code> — directional red vignette overlay
-            when taking damage. Default <code>0</code>.
+            <code>cg_damageEffect 0</code> — the classic blood blob when taking
+            damage, instead of the directional red vignette. Default{" "}
+            <code>1</code>.
           </li>
           <li>
             <code>com_blood 2</code> — modern blood that reacts to how hard you
@@ -169,38 +281,24 @@ export function DocsCustomize() {
               </li>
             </ul>
           </li>
-          <PlatformOnly platform="flatscreen">
-            <li>
-              <code>cg_followMode</code> <PlatformChip platform="flatscreen" />{" "}
-              — which camera the follow view starts in. Toggling it in-game
-              writes back to the cvar, so this is the default you come back to.
-              Also under <strong>Setup → Game Options → Follow Camera</strong>.
-              <ul>
-                <li>
-                  <code>0</code> first-person follow
-                </li>
-                <li>
-                  <code>1</code> third-person orbit camera
-                </li>
-                <li>
-                  <code>2</code> free-fly (TV playback only)
-                </li>
-              </ul>
-            </li>
-          </PlatformOnly>
-          <PlatformOnly platform={["pcvr", "standalone"]}>
-            <li>
-              <code>cg_smoothFollow 1</code>{" "}
-              <PlatformChip platform={["pcvr", "standalone"]} /> — orbit camera
-              for VR third-person spectating. Default <code>0</code>: the
-              third-person camera snaps to a new position when context changes
-              (player switch, recenter). <code>1</code>: a continuous orbit you
-              steer with the thumbstick — rotate around the player, zoom in/out,
-              and press B to recenter. Lives under{" "}
-              <strong>VR Options → Comfort</strong> because continuous camera
-              movement in VR takes strong VR legs.
-            </li>
-          </PlatformOnly>
+          <li>
+            <code>cg_followMode</code> — which camera the follow view starts in,
+            when spectating live or watching a TV demo, flat or in VR. Toggling
+            it in-game writes back to the cvar, so this is the default you come
+            back to. Also under{" "}
+            <strong>Setup → Game Options → Follow Camera</strong>.
+            <ul>
+              <li>
+                <code>0</code> first-person follow
+              </li>
+              <li>
+                <code>1</code> third-person orbit camera
+              </li>
+              <li>
+                <code>2</code> free-fly (TV playback only)
+              </li>
+            </ul>
+          </li>
         </ul>
       </div>
 
@@ -217,26 +315,17 @@ export function DocsCustomize() {
             changing it. HDR output below is Vulkan-only.
           </p>
         </PlatformOnly>
-        <PlatformOnly platform="pcvr">
+        <PlatformOnly platform="vr">
           <h3>Direct rendering</h3>
           <p>
             <code>r_fbo 0</code> renders straight into the headset with no
-            post-processing pass. It's faster, and it costs you bloom, the HDR
-            mirror, screenshots, and overbright. Anti-aliasing is independent of
-            it — the <strong>MSAA</strong> row under{" "}
+            post-processing pass. It's faster, and it costs you bloom (and, on a
+            PC, the HDR mirror, screenshots, and overbright). Anti-aliasing is
+            independent of it — the <strong>MSAA</strong> row under{" "}
             <strong>Setup → System → Graphics</strong> applies either way.
           </p>
         </PlatformOnly>
-        <PlatformOnly platform="standalone">
-          <h3>Direct rendering</h3>
-          <p>
-            <code>r_fbo 0</code> renders straight into the headset with no
-            post-processing pass. It's faster, and it costs you bloom.
-            Anti-aliasing is independent of it — the <strong>MSAA</strong> row
-            under <strong>Setup → System → Graphics</strong> applies either way.
-          </p>
-        </PlatformOnly>
-        <PlatformOnly platform={["flatscreen", "pcvr"]}>
+        <PlatformOnly platform={["flatscreen", "vr"]}>
           <h3>HDR</h3>
           <p>
             On an HDR display, Trinity can output true HDR — brighter, more
@@ -265,11 +354,15 @@ export function DocsCustomize() {
             <Link to="/docs/reference">reference</Link>.
           </p>
         </PlatformOnly>
-        <PlatformOnly platform="pcvr">
+        <PlatformOnly platform="vr">
           <p>
-            HDR applies to the <strong>desktop mirror window</strong> only, not
-            the headset — the headset uses Rec.709 color.
+            In VR, HDR applies only to the{" "}
+            <strong>desktop mirror window</strong> on a PC. Headsets — tethered
+            or standalone — use Rec.709 color, handled automatically, which
+            keeps wide-gamut panels from over-saturating the game's colors.
+            There is nothing to set in the headset.
           </p>
+          <p>For the mirror on a PC:</p>
           <p>
             Turn it on under <strong>Setup → Graphics → HDR Display</strong>,
             then run <code>vid_restart</code>.
@@ -287,13 +380,6 @@ export function DocsCustomize() {
             Prefer the config file? Set <code>r_hdrDisplay 1</code> and{" "}
             <code>r_hdrPeak</code> (your calibrated peak in nits) in{" "}
             <code>autoexec.cfg</code>.
-          </p>
-        </PlatformOnly>
-        <PlatformOnly platform="standalone">
-          <p>
-            Standalone headsets don't do HDR. They use Rec.709 color management,
-            handled automatically, which keeps the wide-gamut panel from
-            over-saturating the game's colors. There is nothing to set.
           </p>
         </PlatformOnly>
       </div>
@@ -684,98 +770,6 @@ export function DocsCustomize() {
           within <code>^0</code>–<code>^7</code>.
         </p>
       </div>
-
-      <PlatformOnly platform={["pcvr", "standalone"]}>
-        <div className="about-section">
-          <DocsH2 id="vr" platforms={["pcvr", "standalone"]}>
-            VR comfort &amp; controllers
-          </DocsH2>
-          <p>
-            VR-specific cvars. Most have a menu row under{" "}
-            <strong>Setup → VR Options</strong> — <strong>Controls</strong> for
-            aiming and input, <strong>Comfort</strong> for vignette and turning,{" "}
-            <strong>HUD &amp; Display</strong> for HUD placement, display, and
-            rendering. The thumbstick response endpoints are autoexec-only.
-            Controller bindings live in your starter config under the{" "}
-            <code>vr_button_map_*</code> entries.
-          </p>
-          <ul className="docs-cvars">
-            <li>
-              <code>vr_snapturn 0</code> — snap turn angle in degrees.
-              <ul>
-                <li>
-                  <code>0</code> smooth turn
-                </li>
-                <li>
-                  <code>N</code> (any nonzero value, e.g. <code>45</code>) snap
-                  by N degrees per stick flick
-                </li>
-              </ul>
-            </li>
-            <li>
-              <code>vr_directionMode 0</code> / <code>1</code> — movement
-              direction reference. The two modes follow either head orientation
-              or off-hand controller orientation;{" "}
-              <strong>VR Options → Controls → Direction Mode</strong> labels
-              them explicitly.
-            </li>
-            <li>
-              <code>vr_twoHandedWeapons N</code> — two-handed weapon grip; hold
-              the secondary grip to stabilize the weapon. Default <code>0</code>
-              .
-              <ul>
-                <li>
-                  <code>0</code> off — one-handed aiming
-                </li>
-                <li>
-                  <code>1</code> basic — the weapon aims along the line from
-                  your primary controller toward your secondary controller
-                </li>
-                <li>
-                  <code>2</code> virtual gun stock — the weapon anchors near
-                  your face, like sighting along a stock
-                </li>
-              </ul>
-            </li>
-            <li>
-              <code>vr_thumbstickDeadzone 0.1</code> /{" "}
-              <code>vr_thumbstickFullDeflection 0.85</code> — thumbstick
-              response curve endpoints.
-            </li>
-            <li>
-              <code>vr_triggerSensitivity 0.25</code> — how light a trigger pull
-              fires the weapon. Higher is more sensitive, so a shorter pull
-              fires. Range <code>0.1</code>–<code>0.9</code>.
-            </li>
-            <li>
-              <code>vr_hudScale 1.5</code> — HUD size multiplier in VR.
-            </li>
-            <li>
-              <code>vr_hudDepth 3</code> — how far out the HUD renders in the
-              field of view (<code>0</code>–<code>5</code>).
-            </li>
-            <li>
-              <code>vr_refreshrate 90</code> — headset display refresh rate, in
-              Hz. The <strong>Refresh Rate</strong> row lists the rates your
-              headset supports; a value it can't do snaps to the nearest one it
-              can. Applies live.
-            </li>
-            <li>
-              <code>vr_foveation 2</code> / <code>vr_foveationStrength 2</code>{" "}
-              — foveated rendering mode and strength, the same settings as the{" "}
-              <strong>Foveated Rendering</strong> and{" "}
-              <strong>Foveation Strength</strong> rows. See{" "}
-              <Link to="/docs/play#vr">Play › VR-specific features</Link>.
-            </li>
-          </ul>
-          <PlatformOnly platform="standalone">
-            <p>
-              <code>com_maxfps 0</code> uncaps the engine's frame rate so it
-              tracks the headset.
-            </p>
-          </PlatformOnly>
-        </div>
-      </PlatformOnly>
 
       <div className="about-section">
         <DocsH2 id="network">Network tuning</DocsH2>

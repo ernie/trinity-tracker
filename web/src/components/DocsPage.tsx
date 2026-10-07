@@ -1,22 +1,27 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { useLocation, Outlet } from "react-router-dom";
 import { DocsTocRail, type DocSection } from "./docs/DocsTocRail";
 import { DocsOnThisPage } from "./docs/DocsOnThisPage";
 import { DocsPrevNext } from "./docs/DocsPrevNext";
-import { PlatformProvider } from "./docs/PlatformContext";
+import { PlatformProvider, usePlatform } from "./docs/PlatformContext";
 import { PlatformPicker } from "./docs/PlatformPicker";
 import { PlatformBadge } from "./docs/PlatformBadge";
 
-export function DocsPage() {
-  const location = useLocation();
-  const contentRef = useRef<HTMLDivElement>(null);
+// Right rail. Re-scans the page's headings whenever the docs subroute
+// or the platform changes, since platform-only sections come and go
+// with the platform. The Outlet mounts the new subpage; rAF lets the
+// DOM settle before we read it.
+function DocsSectionsRail({
+  contentRef,
+}: {
+  contentRef: RefObject<HTMLDivElement | null>;
+}) {
+  const { pathname } = useLocation();
+  const { platform } = usePlatform();
   const [sections, setSections] = useState<DocSection[]>([]);
 
-  // Re-scan headings whenever the docs subroute changes. The Outlet
-  // mounts the new subpage; rAF lets the DOM settle before we read it.
   useEffect(() => {
-    let raf = 0;
-    const scan = () => {
+    const raf = requestAnimationFrame(() => {
       const nodes = contentRef.current?.querySelectorAll("h2[id]") ?? [];
       const next: DocSection[] = [];
       nodes.forEach((n) => {
@@ -28,10 +33,16 @@ export function DocsPage() {
         }
       });
       setSections(next);
-    };
-    raf = requestAnimationFrame(scan);
+    });
     return () => cancelAnimationFrame(raf);
-  }, [location.pathname]);
+  }, [contentRef, pathname, platform]);
+
+  return <DocsOnThisPage sections={sections} />;
+}
+
+export function DocsPage() {
+  const location = useLocation();
+  const contentRef = useRef<HTMLDivElement>(null);
 
   // Route changes inside the docs (prev/next, TOC clicks) need explicit
   // scroll handling — React Router doesn't reset scroll, so without this
@@ -68,7 +79,7 @@ export function DocsPage() {
           </main>
 
           <aside className="docs-layout__right">
-            <DocsOnThisPage sections={sections} />
+            <DocsSectionsRail contentRef={contentRef} />
           </aside>
         </div>
       </div>

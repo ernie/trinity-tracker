@@ -1,10 +1,8 @@
 import type { Platform } from "../components/docs/platformStorage";
 
-// Trinity-introduced cvars across the three engines. Inventory built by
-// walking Cvar_Get / CG_CVAR registrations in:
-//   - flatscreen: ../trinity-engine + ../trinity (mod)
-//   - pcvr:       ../trinity-vr (engine + bundled cgame)
-//   - standalone: ../trinity-standalone (engine + bundled cgame)
+// Trinity-introduced cvars. Inventory built by walking Cvar_Get /
+// CG_CVAR registrations in ../trinity-engine (flat and PC/Frame VR),
+// ../trinity-standalone (Quest/PICO/Frame APK) and ../trinity (mod).
 //
 // Each entry is verified against the registering source. Defaults,
 // platforms, and behavior reflect what the code actually does — no
@@ -38,20 +36,21 @@ export interface CvarEntry {
   notes?: string;
 }
 
-const ALL_PLATFORMS: Platform[] = ["flatscreen", "pcvr", "standalone"];
-const VR_PLATFORMS: Platform[] = ["pcvr", "standalone"];
-// HDR display output reaches a monitor: flatscreen, plus the PCVR
-// desktop mirror.
-const HDR_PLATFORMS: Platform[] = ["flatscreen", "pcvr"];
+const ALL_PLATFORMS: Platform[] = ["flatscreen", "vr"];
+const VR_PLATFORMS: Platform[] = ["vr"];
+// HDR display output reaches a monitor: flat play, plus the desktop
+// mirror of VR on a PC.
+const HDR_PLATFORMS: Platform[] = ["flatscreen", "vr"];
 
 // Player-facing cvars: cgame, ui, and Trinity-specific client engine
 // cvars. Sorted alphabetically by name (Reference convention).
 export const PLAYER_CVARS: CvarEntry[] = [
   {
     name: "cg_damageEffect",
-    default: "0",
+    default: "1",
     platforms: ALL_PLATFORMS,
-    description: "Directional red vignette overlay when taking damage.",
+    description:
+      "Directional red vignette overlay when taking damage. 0 shows the classic blood blob instead.",
   },
   {
     name: "cg_damagePlums",
@@ -143,9 +142,9 @@ export const PLAYER_CVARS: CvarEntry[] = [
   {
     name: "cg_followMode",
     default: "0",
-    platforms: ["flatscreen"],
+    platforms: ALL_PLATFORMS,
     description:
-      "Which camera the follow view starts in while spectating. Toggling the camera in-game writes back to this cvar, so it holds the default you return to. VR spectating steers with cg_smoothFollow instead.",
+      "Which camera the follow view starts in while spectating or watching a TV demo, flat or in VR. Toggling the camera in-game writes back to this cvar, so it holds the default you return to. In VR the turn stick orbits the third-person camera.",
     values: [
       { value: "0", meaning: "first-person follow" },
       { value: "1", meaning: "third-person orbit camera" },
@@ -183,13 +182,6 @@ export const PLAYER_CVARS: CvarEntry[] = [
     platforms: ALL_PLATFORMS,
     description:
       "Your own shadow, controlled separately from everyone else's. cg_shadows sets the style used for other players; this decides whether yours is drawn at all.",
-  },
-  {
-    name: "cg_smoothFollow",
-    default: "0",
-    platforms: VR_PLATFORMS,
-    description:
-      "Orbit camera for VR third-person spectating. Default 0: the third-person camera snaps to a new position when context changes (player switch, recenter). 1: a continuous orbit you steer with the thumbstick — rotate around the player, zoom in/out, B to recenter. Lives in the in-game Comfort menu because continuous camera movement in VR takes strong VR legs.",
   },
   {
     name: "cg_teamColors",
@@ -296,11 +288,10 @@ export const PLAYER_CVARS: CvarEntry[] = [
   },
   {
     name: "r_flares",
-    default: "0",
-    defaultByPlatform: { standalone: "1" },
+    default: "1",
     platforms: ALL_PLATFORMS,
     description:
-      "Corona glows on light sources — lamps, torches, and the sun bloom out when you look near them. The starter configs turn it on.",
+      "Corona glows on light sources — lamps, torches, and the sun bloom out when you look near them.",
     values: [
       { value: "0", meaning: "off" },
       { value: "1", meaning: "on" },
@@ -333,7 +324,7 @@ export const PLAYER_CVARS: CvarEntry[] = [
     default: "0",
     platforms: HDR_PLATFORMS,
     description:
-      "Output true HDR for brighter highlights and more lifelike color. Requires the Vulkan renderer and an HDR-capable display with HDR turned on in your OS. On PCVR this affects the desktop mirror window only, not the headset. Not the same as r_hdr, which only sets internal rendering precision.",
+      "Output true HDR for brighter highlights and more lifelike color. Requires the Vulkan renderer and an HDR-capable display with HDR turned on in your OS. In VR on a PC this affects the desktop mirror window only, not the headset. Not the same as r_hdr, which only sets internal rendering precision.",
     values: [
       { value: "0", meaning: "standard dynamic range (default)" },
       { value: "1", meaning: "true HDR output" },
@@ -361,7 +352,7 @@ export const PLAYER_CVARS: CvarEntry[] = [
     description:
       "Your HDR display's usable peak brightness in nits — the main HDR setting. Highlights brighten up to this, and the auto white level is based on it. The best way to set it is the in-game HDR Calibration screen, which finds the brightness your panel actually reaches — often well below its rated peak. Your display's HDR rating is a fine starting point, but calibrating is better. The calibration screen goes up to 2000 nits, which covers current HDR displays; set by hand, the cvar accepts 250 to 10000.",
     notes:
-      "Calibrate it on the HDR Calibration screen (Setup → Display), available on flatscreen and PCVR alike. It's the same number on both, so a flatscreen install is the convenient place to find it — in VR the mirror isn't HDR as the headset renders it, so you slide the headset up to read the pattern off the monitor.",
+      "Calibrate it on the HDR Calibration screen (Setup → Display), available flat and in VR alike. It's the same number on both, so flat play is the convenient place to find it — in VR the mirror isn't HDR as the headset renders it, so you slide the headset up to read the pattern off the monitor.",
   },
   {
     name: "r_hdrSaturation",
@@ -424,13 +415,13 @@ export const PLAYER_CVARS: CvarEntry[] = [
 ];
 
 // VR comfort, control, and rendering cvars. Curated set of the most-
-// tweaked values; the full vr_button_map_* and vr_weapon_adjustment_*
-// inventories live in the starter autoexec configs (typically tuned
-// there, not at runtime). PCVR + Standalone unless noted.
+// tweaked values; vr_weapon_adjustment_* is left out because the
+// in-game weapon adjust sets it. Buttons are bound in the VR bindings
+// menu, not through cvars.
 export const VR_CVARS: CvarEntry[] = [
   {
     name: "vr_6dof",
-    default: "1",
+    default: "0",
     platforms: VR_PLATFORMS,
     description:
       "True 6DoF body tracking. 1 drives the in-game player position directly from real-world movement — single-player only. 0 translates body motion into Quake 3 movement input commands, which is what the multiplayer protocol expects.",
@@ -535,18 +526,19 @@ export const VR_CVARS: CvarEntry[] = [
   {
     name: "vr_screenCurvature",
     default: "0.5",
-    platforms: ["standalone"],
+    platforms: VR_PLATFORMS,
     description:
       "Curvature of the virtual screen used for flat-screen content (menus, console). 0 = flat, 1 = max curve.",
   },
   {
     name: "vr_snapturn",
-    default: "45",
+    default: "0",
     platforms: VR_PLATFORMS,
     description: "Snap turn angle in degrees per stick flick.",
     values: [
       { value: "0", meaning: "smooth turn (continuous rotation)" },
-      { value: "N", meaning: "snap by N degrees per flick (e.g. 45)" },
+      { value: "1", meaning: "snap by 45 degrees per flick" },
+      { value: "N", meaning: "snap by N degrees per flick (e.g. 30)" },
     ],
   },
   {
@@ -602,13 +594,6 @@ export const VR_CVARS: CvarEntry[] = [
           "virtual gun stock — weapon anchors near your face, like sighting along a stock",
       },
     ],
-  },
-  {
-    name: "vr_uturn",
-    default: "0",
-    platforms: VR_PLATFORMS,
-    description:
-      "Enable a 180° U-turn snap (typically bound to a controller button).",
   },
   {
     name: "vr_weaponScope",

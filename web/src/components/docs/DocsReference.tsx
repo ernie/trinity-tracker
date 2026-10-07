@@ -27,8 +27,7 @@ import { GLOSSARY, type GlossaryEntry } from "../../data/glossary";
 // reader doesn't see an empty VR CVars heading.
 //
 // Cvar inventory drawn from web/src/data/cvars.ts (verified against
-// trinity-engine + trinity, trinity-vr, and trinity-standalone
-// sources). Glossary
+// trinity-engine, trinity-standalone, and trinity sources). Glossary
 // drawn from web/src/data/glossary.ts.
 export function DocsReference() {
   const { platform } = usePlatform();
@@ -141,12 +140,12 @@ export function DocsReference() {
             />
           </DocsH2>
           <p>
-            VR comfort, control, and rendering cvars on PCVR (Trinity VR) and
-            Standalone (Trinity Standalone). Per-controller button bindings (
-            <code>vr_button_map_*</code>) and per-weapon offset strings (
-            <code>vr_weapon_adjustment_N</code>) live in your starter autoexec
-            config rather than here — they're typically tuned there once and
-            forgotten.
+            VR comfort, control, and rendering cvars, on a PC, a Steam Frame,
+            Quest, or PICO. Buttons are bound in{" "}
+            <strong>Setup → VR Options → Bindings</strong> rather than through
+            cvars, and the per-weapon offset strings (
+            <code>vr_weapon_adjustment_N</code>) are written by the in-game
+            weapon adjust, so neither is listed here.
           </p>
           <CvarTable entries={filteredVr} hidePlatforms={!showAllPlatforms} />
         </div>

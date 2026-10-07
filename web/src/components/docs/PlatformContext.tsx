@@ -64,19 +64,16 @@ export function usePlatform(): PlatformContextValue {
 // Human-readable platform labels for UI. Centralized so picker, tabs,
 // badge, and note all stay in lockstep.
 export const PLATFORM_LABELS: Record<Platform, string> = {
-  flatscreen: "Flatscreen",
-  pcvr: "PCVR",
-  standalone: "Standalone",
+  flatscreen: "Flat",
+  vr: "VR",
 };
 
 export const PLATFORM_DESCRIPTIONS: Record<Platform, string> = {
-  flatscreen: "Trinity Engine on desktop monitor — keyboard + mouse.",
-  pcvr: "Trinity VR on a PC-tethered VR headset.",
-  standalone: "Trinity Standalone on a Meta Quest or PICO headset — no PC.",
+  flatscreen: "On a monitor with keyboard and mouse.",
+  vr: "In a VR headset: SteamVR on a PC, Steam Frame, Meta Quest, or PICO.",
 };
 
 export const PLATFORM_ORDER: readonly Platform[] = [
   "flatscreen",
-  "pcvr",
-  "standalone",
+  "vr",
 ] as const;

@@ -40,25 +40,25 @@ describe("platformStorage", () => {
   test("loadPlatform returns each valid platform", () => {
     localStorage.setItem(PLATFORM_STORAGE_KEY, "flatscreen");
     expect(loadPlatform()).toBe("flatscreen");
-    localStorage.setItem(PLATFORM_STORAGE_KEY, "pcvr");
-    expect(loadPlatform()).toBe("pcvr");
-    localStorage.setItem(PLATFORM_STORAGE_KEY, "standalone");
-    expect(loadPlatform()).toBe("standalone");
+    localStorage.setItem(PLATFORM_STORAGE_KEY, "vr");
+    expect(loadPlatform()).toBe("vr");
   });
 
-  test("loadPlatform returns null for the retired quest value", () => {
-    localStorage.setItem(PLATFORM_STORAGE_KEY, "quest");
-    expect(loadPlatform()).toBe(null);
+  test("loadPlatform returns null for the retired VR values", () => {
+    for (const retired of ["quest", "pcvr", "standalone"]) {
+      localStorage.setItem(PLATFORM_STORAGE_KEY, retired);
+      expect(loadPlatform()).toBe(null);
+    }
   });
 
   test("savePlatform writes the value and survives a load", () => {
-    savePlatform("standalone");
-    expect(loadPlatform()).toBe("standalone");
+    savePlatform("vr");
+    expect(loadPlatform()).toBe("vr");
   });
 
   test("savePlatform overwrites an earlier value", () => {
     savePlatform("flatscreen");
-    savePlatform("pcvr");
-    expect(loadPlatform()).toBe("pcvr");
+    savePlatform("vr");
+    expect(loadPlatform()).toBe("vr");
   });
 });

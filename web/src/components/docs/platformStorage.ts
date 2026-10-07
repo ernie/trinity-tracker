@@ -1,16 +1,12 @@
-// Three platform identities, one stored at a time. `null` = "user has
+// Two platform identities, one stored at a time. `null` = "user has
 // never picked"; surfaced by the docs only as the gate for the
 // first-visit picker. After picking, the stored value is always one
-// of the three concrete platforms.
-export type Platform = "flatscreen" | "pcvr" | "standalone";
+// of the two concrete platforms.
+export type Platform = "flatscreen" | "vr";
 
 export const PLATFORM_STORAGE_KEY = "q3a_docs_platform";
 
-const VALID: ReadonlySet<string> = new Set([
-  "flatscreen",
-  "pcvr",
-  "standalone",
-]);
+const VALID: ReadonlySet<string> = new Set(["flatscreen", "vr"]);
 
 // Defensive read — anything not in the valid set (including a stale
 // value left by a future-self typo) returns null and triggers the

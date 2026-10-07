@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import { DocsH2 } from "./DocsH2";
 import { DocsModeTabs } from "./DocsModeTabs";
 import { PlatformOnly } from "./PlatformOnly";
-import { PlatformNote } from "./PlatformNote";
 import { CopyableCommand } from "./CopyableCommand";
 import { ZoomableImage } from "./ZoomableImage";
 import { CalloutImage, CalloutLegend, type CalloutData } from "./CalloutImage";
@@ -623,8 +622,8 @@ const DEMO_PLAYER_CALLOUTS: CalloutData[] = [
 //
 // Per docs principles: every menu path and cvar surface here is
 // verified against the relevant engine source — flatscreen items
-// against ../trinity-engine + ../trinity (mod), VR items against
-// ../trinity-vr (PCVR) or ../trinity-standalone. Cvar enumeration belongs
+// against ../trinity-engine + ../trinity (mod), VR items against the
+// same plus ../trinity-standalone. Cvar enumeration belongs
 // on /docs/reference, not here — this tab describes; Reference lists.
 //
 // Platform divergence is expressed as paired PlatformOnly blocks
@@ -771,11 +770,10 @@ export function DocsPlay() {
           <PlatformOnly platform="flatscreen">
             <p>Switch using keybinds or the scroll wheel.</p>
           </PlatformOnly>
-          <PlatformOnly platform={["pcvr", "standalone"]}>
+          <PlatformOnly platform="vr">
             <p>
-              Switch via the weapon wheel — hold the primary grip to bring it
-              up, point at the slot you want, release to select. The Trinity
-              starter VR autoexec wires this by default.
+              Switch via the weapon wheel — hold your weapon hand's grip to
+              bring it up, point at the slot you want, release to select.
             </p>
           </PlatformOnly>
           <ul>
@@ -1019,25 +1017,25 @@ export function DocsPlay() {
 // bind q "+voiprecord"     // PTT: hold to talk
 bind e "voiptarget"        // cycle channel: spatial → team → all`}</CopyableCommand>
         </PlatformOnly>
-        <PlatformOnly platform={["pcvr", "standalone"]}>
+        <PlatformOnly platform="vr">
           <p>
-            The natural home is the <strong>primary thumbstick press</strong> —
-            unbound by default and out of the way of weapon buttons. Trinity's
-            starter VR autoexec wires the thumbrests to <code>+alt</code>, which
-            gives every other button a second action when you rest your thumb on
-            the controller. Pair them like this:
+            It's bound already: <strong>click the turn stick</strong> to talk,
+            and hold <strong>Alt</strong> while clicking it to cycle the
+            channel. Alt is the thumbrest on Touch controllers and a bumper on
+            the Steam Frame, and it gives every button a second action. Change
+            either in <strong>Setup → VR Options → Bindings</strong> — for voice
+            activity instead, bind the stick click to <code>voipvadtoggle</code>
+            .
           </p>
-          <CopyableCommand>{`seta vr_button_map_PRIMARYTHUMBSTICK "+voiprecord"          // PTT: hold to talk
-// seta vr_button_map_PRIMARYTHUMBSTICK "voipvadtoggle"     // VAD: tap to mute/unmute
-seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + click stick to cycle channel`}</CopyableCommand>
         </PlatformOnly>
 
         <p>
-          Voice chat playback volume lives in{" "}
-          <strong>Setup → System → Sound</strong> (the <em>VOIP Volume</em>{" "}
-          slider) on every client. The rest of the voice surface — VAD
-          threshold, channel mutes, the on-HUD speaker list, and the engine mic
-          meter — is autoexec-only;{" "}
+          The voice settings are in <strong>Setup → System → Sound</strong> on
+          every client: voice chat on or off, <em>Activation</em> (push to talk
+          or when speaking), the voice-activity <em>Threshold</em>, and the{" "}
+          <em>VOIP Volume</em> slider. Push to talk and voice target can also be
+          bound under <strong>Setup → Controls</strong>. Channel mutes, the
+          on-HUD speaker list, and the engine mic meter are autoexec-only;{" "}
           <Link to="/docs/reference#player-cvars">
             Reference · Player CVars
           </Link>{" "}
@@ -1067,9 +1065,9 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
         </figure>
       </div>
 
-      <PlatformOnly platform={["pcvr", "standalone"]}>
+      <PlatformOnly platform="vr">
         <div className="about-section">
-          <DocsH2 id="vr" platforms={["pcvr", "standalone"]}>
+          <DocsH2 id="vr" platforms={["vr"]}>
             VR-specific features
           </DocsH2>
 
@@ -1143,10 +1141,15 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
             <li>
               <strong>B button</strong> — reset to default: <em>tap</em> resets
               just the selected parameter; <em>hold for two seconds</em> resets
-              every parameter on the current weapon (controller buzzes when the
-              full reset fires).
+              every parameter on the current weapon. A bar fills while you hold,
+              and the controller buzzes when the full reset fires.
             </li>
           </ul>
+          <p>
+            The strip's footer names the buttons you have bound; A and B are the
+            defaults, changeable in the Adjust rows of{" "}
+            <strong>Setup → VR Options → Bindings</strong>.
+          </p>
           <p>
             Switch weapons mid-adjustment to tune another one — the strip
             reloads automatically. Changes write back to the per-weapon offset
@@ -1158,10 +1161,9 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
 
           <h3 className="docs-play__feature-title">Comfort options</h3>
           <p>
-            Snap turn, comfort vignette, height adjust, smooth spectator camera,
-            haptic intensity, HUD depth / scale / Y-offset, and the
-            single-player 6DoF toggle all live in{" "}
-            <strong>Setup → Comfort Options</strong>, with sliders so you can
+            Snap turn, comfort vignette, height adjust, haptic intensity, HUD
+            depth / scale / Y-offset, and the single-player 6DoF toggle all live
+            in <strong>Setup → Comfort Options</strong>, with sliders so you can
             tune by feel. The{" "}
             <Link to="/docs/reference#vr-cvars">VR CVars</Link> reference lists
             the underlying cvar names if you'd rather set defaults from{" "}
@@ -1205,42 +1207,33 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
             asks for a mode your headset can't do, the menu shows what's
             actually in force.
           </p>
-          <PlatformNote platform="standalone">
-            <p>
-              On headsets with eye tracking, Trinity asks for the eye-tracking
-              permission the first time it runs. Headsets without it never see
-              the dialog.
-            </p>
-          </PlatformNote>
+          <p>
+            On a Quest or PICO with eye tracking, Trinity asks for the
+            eye-tracking permission the first time it runs. Headsets without it
+            never see the dialog.
+          </p>
 
           <h3 className="docs-play__feature-title">VR controls</h3>
           <p>
             Direction mode (head vs secondary controller reference), snap turn
-            angle, U-turn, handedness, weapon scope (railgun zoom), trigger
-            sensitivity, control schema, and the thumbstick swap all live in{" "}
-            <strong>Setup → Controls</strong>. Per-button assignments live in
-            the <code>vr_button_map_*</code> entries in your starter autoexec —
-            see <Link to="/docs/customize">Customize</Link>.
+            angle, handedness, weapon scope (railgun zoom), trigger sensitivity,
+            and the thumbstick swap all live in{" "}
+            <strong>Setup → Controls</strong>. Buttons are bound in{" "}
+            <strong>Setup → VR Options → Bindings</strong>, with a Button and an
+            Alt + Button column per action and your controller's own button
+            glyphs — see <Link to="/docs/customize#vr">Customize</Link>.
           </p>
 
           <h3 className="docs-play__feature-title">VR keyboard</h3>
           <p>
             When you need to type — chat messages, console commands, name fields
-            — Trinity opens a virtual keyboard with two cursors, one red and one
-            blue, one per controller. Aim a cursor at a key and pull that
-            controller's trigger to press it. Alternating between cursors is
-            much faster than pecking letter-by-letter with one.
+            — Trinity opens a keyboard on the virtual screen, laid out like a
+            65% PC keyboard: the main block, Home / End / Page Up / Page Down,
+            and arrow keys. Either hand types: point at a key, where a pool of
+            light marks it, and pull the trigger; hold the trigger to repeat.
+            Shift applies to the next character only; Caps Lock latches. Close
+            it with Escape, the Menu button, or a click outside the keyboard.
           </p>
-          <figure className="docs-hud-figure">
-            <ZoomableImage
-              src="/assets/play/vr-keyboard.jpg"
-              alt="The Trinity VR virtual keyboard floating in front of the player, with a red cursor from one controller and a blue cursor from the other, both pointing at keys."
-            />
-            <figcaption>
-              Two cursors, one per controller — type by aiming and pulling the
-              matching trigger.
-            </figcaption>
-          </figure>
 
           <h3 className="docs-play__feature-title">
             VR shows on the scoreboard as a handicap
@@ -1356,10 +1349,8 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
           <PlatformOnly platform="flatscreen">
             Hold <code>Tab</code> to pull it up.
           </PlatformOnly>
-          <PlatformOnly platform={["pcvr", "standalone"]}>
-            Press the secondary thumbstick to pull it up — the starter VR
-            autoexec wires <code>+scores</code> to{" "}
-            <code>vr_button_map_SECONDARYTHUMBSTICK</code>.
+          <PlatformOnly platform="vr">
+            Click the move stick to pull it up.
           </PlatformOnly>
         </p>
         <p>
@@ -1449,11 +1440,11 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
             BFG, and weapon next/previous cycles to it as well.
           </p>
         </PlatformOnly>
-        <PlatformOnly platform={["pcvr", "standalone"]}>
+        <PlatformOnly platform="vr">
           <p>
             It joins the weapon wheel whenever the server hands it out — hold
-            the primary grip, point at the grapple, release. Weapon position
-            adjustment works on it like any other weapon.
+            your weapon hand's grip, point at the grapple, release. Weapon
+            position adjustment works on it like any other weapon.
           </p>
         </PlatformOnly>
         <ul>
@@ -1519,13 +1510,13 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
             sense mid-match.
           </p>
         </PlatformOnly>
-        <PlatformOnly platform={["pcvr", "standalone"]}>
+        <PlatformOnly platform="vr">
           <p>
-            Toggle <strong>Setup → Comfort Options → Smooth Follow</strong> (or
-            set <code>cg_smoothFollow 1</code> in autoexec). Once it's on, your
-            primary thumbstick orbits the camera around the player you're
-            following. It lives in Comfort Options because continuous camera
-            movement in VR takes strong VR legs.
+            The same <strong>Follow Camera</strong> setting applies in VR. While
+            following, the turn stick orbits the camera, snapping if you use
+            snap turn; the buttons that switch views, recenter, and free the
+            camera are in the Follow rows of{" "}
+            <strong>Setup → VR Options → Bindings</strong>.
           </p>
         </PlatformOnly>
 
@@ -1723,14 +1714,13 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
           how far shadows are drawn, and <code>r_shadowClip</code>,{" "}
           <code>r_shadowClipPenetration</code>, and{" "}
           <code>r_shadowClipExtension</code> control the clipping that keeps
-          them off the far side of walls. The starter configs ship sensible
-          values;{" "}
+          them off the far side of walls. The defaults are sensible;{" "}
           <Link to="/docs/reference#player-cvars">
             Reference · Player CVars
           </Link>{" "}
           has the details.
         </p>
-        <PlatformOnly platform={["pcvr", "standalone"]}>
+        <PlatformOnly platform="vr">
           <p>
             Heavier than blobs — Quest 3-class hardware handles it; older
             headsets often can't.
@@ -1742,8 +1732,8 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
         </h3>
         <p>
           Lamps, torches, and the sun bloom into a soft corona when they come
-          into view, and fade as you turn away or move behind cover. The starter
-          configs enable it; <code>r_flares 0</code> turns it off, and{" "}
+          into view, and fade as you turn away or move behind cover. It's on by
+          default; <code>r_flares 0</code> turns it off, and{" "}
           <code>r_flareSize</code> sets how wide the glow spreads.
         </p>
         <h3 className="docs-play__feature-title">
@@ -1798,7 +1788,7 @@ seta vr_button_map_PRIMARYTHUMBSTICK_ALT "voiptarget"       // hold thumbrest + 
             on the real display.
           </p>
         </PlatformOnly>
-        <PlatformOnly platform="pcvr">
+        <PlatformOnly platform="vr">
           <h3 className="docs-play__feature-title">
             HDR on the desktop mirror <code>r_hdrDisplay</code>
           </h3>

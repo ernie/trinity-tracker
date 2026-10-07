@@ -9,8 +9,8 @@ import { type Platform } from "./platformStorage";
 interface PlatformTabsProps {
   children: ReactNode;
   // Some `<PlatformTabs>` blocks won't have a panel for every
-  // platform (e.g., a VR-only feature with PCVR + Standalone panels
-  // but no Flatscreen). The tabs only render entries for the
+  // platform (e.g., a VR-only feature with a VR panel but no
+  // Flatscreen one). The tabs only render entries for the
   // platforms a Panel exists for.
 }
 
