@@ -10,8 +10,13 @@ export function detectOS(): DetectedOS | null {
   const ua = navigator.userAgent;
   if (/Android/i.test(ua)) return null;
   if (/iPhone|iPad|iPod/i.test(ua)) return null;
+  // Phones and tablets in "desktop site" mode send a desktop UA.
+  if (!window.matchMedia("(any-pointer: fine)").matches) return null;
   if (/Windows/i.test(ua)) return "windows";
-  if (/Mac OS X|Macintosh/i.test(ua)) return "macos";
+  // iPadOS reports itself as macOS; only the touch points give it away.
+  if (/Mac OS X|Macintosh/i.test(ua)) {
+    return navigator.maxTouchPoints > 1 ? null : "macos";
+  }
   if (/Linux|X11/i.test(ua)) return "linux";
   return null;
 }

@@ -10832,6 +10832,13 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   }
 }
 
+/* Enter the arena covers install when the header can't fit the button. */
+@media (max-width: 559px) {
+  .hero__download {
+    display: none;
+  }
+}
+
 /* ── Landing hero ──────────────────────────────────────── */
 .landing-hero {
   position: relative;
