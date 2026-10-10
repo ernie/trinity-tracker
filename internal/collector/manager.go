@@ -20,15 +20,15 @@ import (
 
 // ServerManager orchestrates log parsing for all configured Q3 servers.
 type ServerManager struct {
-	cfg      *config.Config
-	server   hub.ServerClient
-	rpc      hub.RPCClient
-	pub      hub.FactPublisher
-	livePub  hub.LiveEventPublisher
-	liveReg  *livestream.Registry
+	cfg     *config.Config
+	server  hub.ServerClient
+	rpc     hub.RPCClient
+	pub     hub.FactPublisher
+	livePub hub.LiveEventPublisher
+	liveReg *livestream.Registry
 	// consoleReg receives console-tap lines per server. See SetConsoleRegistry.
 	consoleReg *console.Registry
-	q3client *Q3Client
+	q3client   *Q3Client
 
 	kickRegistrar func() // wired by SetRegistrarKick; nil until then
 

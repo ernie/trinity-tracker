@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ernie/trinity-tracker/internal/q3color"
 	"github.com/ernie/trinity-tracker/internal/domain"
+	"github.com/ernie/trinity-tracker/internal/q3color"
 )
 
 // helper: build a LeaderboardResponse with N synthetic entries.

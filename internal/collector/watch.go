@@ -26,7 +26,7 @@ const (
 // the "pending" flags (nil = not armed).
 type watchKeyState struct {
 	watched    bool
-	lastSent   int       // count last rcon'd while watched
+	lastSent   int // count last rcon'd while watched
 	lastSendAt time.Time
 	confirm    *time.Timer
 	grace      *time.Timer
