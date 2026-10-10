@@ -10,7 +10,7 @@ import { MODE_PROFILES } from "../ServerCard";
 // (Configuration + raw mode tables) with cvar-by-cvar tunables
 // organized by intent. Cvar inventory drawn from the curated starter
 // autoexec configs in web/public/configs/, descriptions verified
-// against trinity, trinity-engine, and trinity-standalone sources.
+// against trinity-engine (every platform) and trinity (mod) sources.
 // Descriptions are factual only — no editorial recommendations or
 // "tune if it feels X" advice; cvars do what they do, the user
 // decides.
@@ -55,7 +55,9 @@ export function DocsCustomize() {
         <DocsH2 id="starter-configs">Starter config</DocsH2>
         <p>
           A pre-curated <code>autoexec.cfg</code> for your platform — drop it
-          into your <code>baseq3</code> folder and edit to taste.
+          into your <code>baseq3</code> folder and edit to taste. Each config
+          holds only settings that have no menu row; everything else is set in{" "}
+          <strong>Setup</strong>.
         </p>
         <div className="about-downloads">
           <PlatformOnly platform="flatscreen">
@@ -65,10 +67,13 @@ export function DocsCustomize() {
               className="about-download-item"
             >
               <div className="about-download-info">
-                <span className="about-download-name">Trinity Engine</span>
+                <span className="about-download-name">
+                  Flatscreen (PC or Mac)
+                </span>
                 <span className="about-download-desc">
-                  Trinity feature toggles, online network values, and Quake3e
-                  renderer presets.
+                  Hit sounds, memory and renderer quality settings, widescreen
+                  FOV, a 250 fps cap, a larger console, key binds, and an F4
+                  demo-record toggle.
                 </span>
               </div>
               <DownloadIcon size={20} className="about-download-icon" />
@@ -83,8 +88,9 @@ export function DocsCustomize() {
               <div className="about-download-info">
                 <span className="about-download-name">VR on a PC</span>
                 <span className="about-download-desc">
-                  Trinity feature toggles, online network values, VR comfort
-                  settings, and desktop-GPU renderer presets.
+                  Hit sounds, memory and sound-latency settings, texture
+                  filtering, dithering, a thumbstick dead zone, and an F4
+                  demo-record toggle.
                 </span>
               </div>
               <DownloadIcon size={20} className="about-download-icon" />
@@ -97,22 +103,21 @@ export function DocsCustomize() {
               <div className="about-download-info">
                 <span className="about-download-name">Steam Frame</span>
                 <span className="about-download-desc">
-                  The PC set with blob shadows, the headset pacing frames, and
-                  the Frame's full refresh rate.
+                  Hit sounds, memory settings, dithering, a thumbstick dead
+                  zone, and an F4 demo-record toggle.
                 </span>
               </div>
               <DownloadIcon size={20} className="about-download-icon" />
             </a>
             <a
-              href="/configs/trinity-standalone-autoexec.cfg"
+              href="/configs/trinity-android-autoexec.cfg"
               download="autoexec.cfg"
               className="about-download-item"
             >
               <div className="about-download-info">
                 <span className="about-download-name">Quest or PICO</span>
                 <span className="about-download-desc">
-                  Tuned lighter for the headset's mobile GPU, with refresh-rate
-                  tuning and comfort defaults.
+                  The same settings as the Steam Frame config.
                 </span>
               </div>
               <DownloadIcon size={20} className="about-download-icon" />
@@ -141,9 +146,10 @@ export function DocsCustomize() {
           <p>
             The cvars below are VR-specific. Most have a menu row under{" "}
             <strong>Setup → VR Options</strong> — <strong>Controls</strong> for
-            aiming and input, <strong>Comfort</strong> for vignette and turning,{" "}
-            <strong>HUD &amp; Display</strong> for HUD placement, display, and
-            rendering. The thumbstick response endpoints are autoexec-only.
+            aiming, input, and turning, <strong>Comfort</strong> for vignette,
+            height, and haptics, <strong>HUD &amp; Display</strong> for HUD
+            placement, display, and rendering. The thumbstick response endpoints
+            are autoexec-only.
           </p>
           <ul className="docs-cvars">
             <li>
@@ -203,9 +209,9 @@ export function DocsCustomize() {
             </li>
             <li>
               <code>vr_refreshrate 90</code> — headset display refresh rate, in
-              Hz. The <strong>Refresh Rate</strong> row lists the rates your
-              headset supports; a value it can't do snaps to the nearest one it
-              can. Applies live.
+              Hz. The <strong>Refresh Rate</strong> row lists only the rates
+              your headset's runtime reports, lowest first; a value it can't do
+              snaps to the nearest one it can. Applies live.
             </li>
             <li>
               <code>vr_foveation 2</code> / <code>vr_foveationStrength 2</code>{" "}
@@ -216,8 +222,8 @@ export function DocsCustomize() {
             </li>
           </ul>
           <p>
-            On Quest and PICO, <code>com_maxfps 0</code> uncaps the engine's
-            frame rate so it tracks the headset.
+            While VR is running, the headset paces every frame at its own
+            refresh rate; <code>com_maxfps</code> applies to flatscreen play.
           </p>
         </div>
       </PlatformOnly>
@@ -262,8 +268,17 @@ export function DocsCustomize() {
             <code>2</code>.
           </li>
           <li>
+            <code>cg_bloodDensity 2</code> — how much modern blood is drawn:{" "}
+            <code>0</code> Light, <code>1</code> Medium, <code>2</code> Heavy.
+            Default <code>2</code> on a PC and <code>0</code> on Steam Frame,
+            Quest and PICO. Also under{" "}
+            <strong>Setup → Game Options → Blood Density</strong>, greyed out
+            unless Blood is Modern.
+          </li>
+          <li>
             <code>cg_drawTimer 1</code> — match timer in the HUD. Default{" "}
-            <code>0</code>.
+            <code>0</code>. Also under{" "}
+            <strong>Setup → Game Options → Show Time</strong>.
           </li>
           <li>
             <code>cl_tvDownload 1</code> — TV demo download offer behavior at
@@ -315,6 +330,14 @@ export function DocsCustomize() {
             changing it. HDR output below is Vulkan-only.
           </p>
         </PlatformOnly>
+        <PlatformNote platform="vr">
+          <p>
+            Steam Frame, Quest and PICO play VR only, with the Vulkan renderer
+            only, and have no Display Mode setting. On a PC,{" "}
+            <strong>Setup → Display → Display Mode</strong> picks flatscreen or
+            VR.
+          </p>
+        </PlatformNote>
         <PlatformOnly platform="vr">
           <h3>Direct rendering</h3>
           <p>
@@ -336,7 +359,7 @@ export function DocsCustomize() {
         </PlatformOnly>
         <PlatformOnly platform="flatscreen">
           <p>
-            Turn it on under <strong>Setup → Graphics → HDR Display</strong>,
+            Turn it on under <strong>Setup → Display → HDR Display</strong>,
             then run <code>vid_restart</code>. Calibrate under{" "}
             <strong>Setup → Display → HDR Calibration</strong>: raise{" "}
             <strong>Peak</strong> until the inner rectangle's edge just vanishes
@@ -356,16 +379,15 @@ export function DocsCustomize() {
         </PlatformOnly>
         <PlatformOnly platform="vr">
           <p>
-            In VR, HDR applies only to the{" "}
-            <strong>desktop mirror window</strong> on a PC. Headsets — tethered
-            or standalone — use Rec.709 color, handled automatically, which
-            keeps wide-gamut panels from over-saturating the game's colors.
-            There is nothing to set in the headset.
+            Headsets render standard range. In VR, HDR output applies only to
+            the <strong>desktop mirror window</strong> on a PC, with the Vulkan
+            renderer. Steam Frame, Quest and PICO have no HDR output.
           </p>
           <p>For the mirror on a PC:</p>
           <p>
-            Turn it on under <strong>Setup → Graphics → HDR Display</strong>,
-            then run <code>vid_restart</code>.
+            For the mirror on a PC, turn it on under{" "}
+            <strong>Setup → Display → HDR Display</strong>, then run{" "}
+            <code>vid_restart</code>.
           </p>
           <p>
             For <code>r_hdrPeak</code>, even easier: grab the number from a
@@ -773,17 +795,29 @@ export function DocsCustomize() {
 
       <div className="about-section">
         <DocsH2 id="network">Network tuning</DocsH2>
+        <p>
+          The snapshot rate always follows the server's <code>sv_fps</code>;
+          clients have no <code>snaps</code> setting.
+        </p>
         <ul className="docs-cvars">
           <li>
-            <code>cl_maxpackets 125</code> — outgoing packet rate ceiling, in
-            packets per second.
-          </li>
-          <li>
-            <code>snaps 40</code> — requested snapshot rate from the server.
+            <code>cl_packetdup 1</code> — <strong>Packet Recovery</strong>, the
+            one row in <strong>Setup → Network</strong>: <strong>Low</strong> /{" "}
+            <strong>Medium</strong> / <strong>High</strong> = <code>1</code> /{" "}
+            <code>2</code> / <code>3</code>, default Low on every platform. Each
+            packet also resends your inputs from the packets before it, so Low
+            rides out one lost packet in a row, Medium two and High three. Raise
+            it on Wi-Fi or other unreliable links; the cost is a little upload.
           </li>
           <li>
             <code>rate 50000</code> — bandwidth budget for the connection, in
-            bytes per second.
+            bytes per second. Console only; the default suits modern
+            connections.
+          </li>
+          <li>
+            <code>cl_maxpackets 125</code> — outgoing packet rate ceiling, in
+            packets per second. Console only; the default suits modern
+            connections.
           </li>
           <li>
             <code>cl_guidServerUniq 0</code> — keep your <code>qkey</code>

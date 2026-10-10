@@ -100,9 +100,11 @@ export function DocsInstall() {
         <PlatformNote platform="vr">
           <p>
             On a PC, one Trinity install plays both flat and in VR, through
-            SteamVR or any OpenXR runtime. On a Steam Frame, Quest, or PICO,
-            Trinity runs on the headset itself — the computer is only needed to
-            install it.
+            SteamVR or any OpenXR runtime; pick one at{" "}
+            <strong>Setup → Display → Display Mode</strong>. On a Steam Frame,
+            Quest, or PICO, Trinity runs on the headset itself — the computer is
+            only needed to install it — and plays VR only, with the Vulkan
+            renderer and no Display Mode setting.
           </p>
         </PlatformNote>
         <div className="install-complete">
@@ -126,6 +128,12 @@ export function DocsInstall() {
             On Quest and PICO the update installs as a normal app update, so
             your icon and files stay put. After Android finishes installing it,
             relaunch Trinity from the headset's app library.
+          </p>
+          <p>
+            An existing Quest or PICO install moves onto the Trinity Engine
+            build with its next in-app update. The app, its icon, and the{" "}
+            <code>/sdcard/Trinity</code> folder (configs and <code>qkey</code>)
+            stay; old cvars in your configs are ignored.
           </p>
         </PlatformNote>
       </div>

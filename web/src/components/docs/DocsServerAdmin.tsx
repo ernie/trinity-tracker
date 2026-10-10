@@ -189,13 +189,10 @@ export function DocsServerAdmin() {
             works for duels; CTF and other team modes often want more.
           </li>
           <li>
-            <code>sv_pure 1</code> — require clients to run the game code from
-            your pk3s rather than loose files of their own. Trinity servers
-            historically ran <code>sv_pure 0</code> because VR clients could
-            only use the game code compiled into them; they load QVMs now, so
-            pure mode no longer locks VR players out. It does mean every client
-            needs your exact paks — leave it at <code>0</code> if you serve a
-            mixed crowd you'd rather not have to keep in sync.
+            <code>sv_pure 1</code> — VR clients load your QVMs the same way
+            flatscreen clients do, so a pure server running a VR-aware mod such
+            as Trinity accepts VR players. A pure server running a mod without
+            VR support sends VR players back to the main menu.
           </li>
           <li>
             <code>g_clanRotation 1</code> — winner-stays clan rotation on Team

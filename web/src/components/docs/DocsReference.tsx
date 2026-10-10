@@ -27,7 +27,7 @@ import { GLOSSARY, type GlossaryEntry } from "../../data/glossary";
 // reader doesn't see an empty VR CVars heading.
 //
 // Cvar inventory drawn from web/src/data/cvars.ts (verified against
-// trinity-engine, trinity-standalone, and trinity sources). Glossary
+// trinity-engine and trinity sources). Glossary
 // drawn from web/src/data/glossary.ts.
 export function DocsReference() {
   const { platform } = usePlatform();

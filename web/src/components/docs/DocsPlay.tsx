@@ -621,9 +621,8 @@ const DEMO_PLAYER_CALLOUTS: CalloutData[] = [
 //      head/weapon tracking and grip-based weapon adjustment.
 //
 // Per docs principles: every menu path and cvar surface here is
-// verified against the relevant engine source — flatscreen items
-// against ../trinity-engine + ../trinity (mod), VR items against the
-// same plus ../trinity-standalone. Cvar enumeration belongs
+// verified against the relevant source — ../trinity-engine (every
+// platform) + ../trinity (mod). Cvar enumeration belongs
 // on /docs/reference, not here — this tab describes; Reference lists.
 //
 // Platform divergence is expressed as paired PlatformOnly blocks
@@ -773,7 +772,12 @@ export function DocsPlay() {
           <PlatformOnly platform="vr">
             <p>
               Switch via the weapon wheel — hold your weapon hand's grip to
-              bring it up, point at the slot you want, release to select.
+              bring it up, point at the slot you want, release to select. The
+              gauntlet joins the wheel with{" "}
+              <strong>
+                Setup → VR Options → Controls → Gauntlet On Weapon Wheel
+              </strong>
+              .
             </p>
           </PlatformOnly>
           <ul>
@@ -1091,28 +1095,24 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
           </ul>
 
           <h3 className="docs-play__feature-title">
-            In-game weapon position adjustment <code>vr_weaponAdjust</code>
+            In-game weapon position adjustment
           </h3>
           <p>
             Trinity lets you tune how each weapon sits in your hand without
             leaving the game — useful because the "right" position depends on
             any weapon model replacements you use, on your VR controller's
-            tracking behavior, and on personal preference. Enable the feature
-            first:
+            tracking behavior, and on personal preference.
           </p>
           <p>
-            Toggle{" "}
-            <strong>Setup → VR Options → Controls → Weapon Adjustment</strong>,
-            or set <code>vr_weaponAdjust 1</code> in autoexec.
+            Adjustment mode is the <strong>Weapon adjust</strong> action in{" "}
+            <strong>Setup → VR Options → Bindings</strong> (console command{" "}
+            <code>weapon_adjust</code>). It has no default binding.
           </p>
           <p>
-            Then in-match,{" "}
-            <strong>hold both grip triggers together for one second</strong>{" "}
-            (controller buzzes when it fires) to enter adjustment mode. A
-            parameter strip appears at the top of your view with seven values
-            you can tune for the current weapon: <em>scale</em>, <em>right</em>,{" "}
-            <em>up</em>, <em>fwd</em>, <em>pitch</em>, <em>yaw</em>, and{" "}
-            <em>roll</em>.
+            Adjustment mode shows a parameter strip at the top of your view with
+            seven values you can tune for the current weapon: <em>scale</em>,{" "}
+            <em>right</em>, <em>up</em>, <em>fwd</em>, <em>pitch</em>,{" "}
+            <em>yaw</em>, and <em>roll</em>.
           </p>
           <figure className="docs-hud-figure">
             <ZoomableImage
@@ -1161,10 +1161,12 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
 
           <h3 className="docs-play__feature-title">Comfort options</h3>
           <p>
-            Snap turn, comfort vignette, height adjust, haptic intensity, HUD
-            depth / scale / Y-offset, and the single-player 6DoF toggle all live
-            in <strong>Setup → Comfort Options</strong>, with sliders so you can
-            tune by feel. The{" "}
+            Comfort vignette, height adjust, haptic intensity, and the
+            single-player 6DoF toggle live in{" "}
+            <strong>Setup → VR Options → Comfort</strong>. Snap turn is under{" "}
+            <strong>Setup → VR Options → Controls</strong>, and HUD depth /
+            scale / vertical position under{" "}
+            <strong>Setup → VR Options → HUD &amp; Display</strong>. The{" "}
             <Link to="/docs/reference#vr-cvars">VR CVars</Link> reference lists
             the underlying cvar names if you'd rather set defaults from{" "}
             <code>autoexec.cfg</code>.
@@ -1176,9 +1178,9 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
           <p>
             <strong>Refresh Rate</strong> and <strong>Supersampling</strong>{" "}
             live under <strong>Setup → VR Options → HUD &amp; Display</strong>.
-            The refresh-rate row lists the rates your headset supports and takes
-            effect as soon as you pick one. Higher refresh and supersampling
-            above 1.0 both cost frame budget — tune one, then check the other.
+            The refresh-rate row lists only the rates your headset's runtime
+            reports, lowest first, and takes effect as soon as you pick one.
+            Higher refresh and supersampling above 1.0 both cost frame budget.
           </p>
 
           <h3 className="docs-play__feature-title">Foveated rendering</h3>
@@ -1218,7 +1220,7 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
             Direction mode (head vs secondary controller reference), snap turn
             angle, handedness, weapon scope (railgun zoom), trigger sensitivity,
             and the thumbstick swap all live in{" "}
-            <strong>Setup → Controls</strong>. Buttons are bound in{" "}
+            <strong>Setup → VR Options → Controls</strong>. Buttons are bound in{" "}
             <strong>Setup → VR Options → Bindings</strong>, with a Button and an
             Alt + Button column per action and your controller's own button
             glyphs — see <Link to="/docs/customize#vr">Customize</Link>.
@@ -1233,6 +1235,18 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
             light marks it, and pull the trigger; hold the trigger to repeat.
             Shift applies to the next character only; Caps Lock latches. Close
             it with Escape, the Menu button, or a click outside the keyboard.
+          </p>
+          <p>
+            It opens when you reach a text field with the stick, a click, or
+            Enter, and sits above or below the field you're editing so the text
+            stays visible.
+          </p>
+          <p>
+            While it's open, the controller buttons bound in the{" "}
+            <strong>VKB</strong> tab of{" "}
+            <strong>Setup → VR Options → Bindings</strong> type Space,
+            Backspace, Tab, and Enter; Backspace repeats while held. Each bound
+            button's glyph shows in the corner of its key.
           </p>
 
           <h3 className="docs-play__feature-title">
@@ -1256,22 +1270,18 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
             Pure servers and VR-aware game code
           </h3>
           <p>
-            Trinity's VR clients load the server's game code as QVM bytecode,
-            the same way a flatscreen client does — which means a{" "}
-            <code>sv_pure 1</code> server will accept you. That wasn't possible
-            when VR builds could only run game code compiled into the client.
+            Trinity runs the server's or mod's cgame and UI game code as QVM
+            bytecode, the same way a flatscreen client does — which means a{" "}
+            <code>sv_pure 1</code> server running a VR-aware mod will accept
+            you.
           </p>
           <p>
-            The catch is that the QVM has to be <strong>built for VR</strong>.
-            Trinity's own mod is; a stock or third-party mod almost certainly
-            isn't, and loading it would hand your headset flatscreen code —
-            hands, head tracking, and the VR HUD would all go through functions
-            that don't know VR exists. So the client checks before loading
-            anything: a QVM with no VR support is skipped and your client falls
-            back to the VR game code built into it, while one built for a VR API
-            your client doesn't speak stops with an error rather than quietly
-            running the wrong game. A pure server takes the fallback away
-            entirely — if its QVM isn't VR-aware, a VR client can't join at all.
+            The catch is that in VR the QVM has to be{" "}
+            <strong>built for VR</strong>. Trinity's mod is; most other mods
+            aren't. On a non-pure baseq3 or Team Arena server, the engine swaps
+            in its built-in VR game code. Anywhere else, a QVM without VR
+            support sends you to the main menu, still in VR, with a message
+            naming the pak. On a PC you can switch to flatscreen to play it.
           </p>
         </div>
       </PlatformOnly>
@@ -1663,9 +1673,14 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
         </figure>
         <p>
           Pick <strong>Setup → Game Options → Blood</strong> (Off / Classic /
-          Modern), or set <code>com_blood</code> in autoexec. The{" "}
-          <code>cg_blood*</code> cvars in the sample autoexec fine-tune the
-          modern look — splatter size, how long marks linger, and more.
+          Modern), or set <code>com_blood</code> in autoexec.
+        </p>
+        <p>
+          <strong>Setup → Game Options → Blood Density</strong>, under Blood,
+          sets how much modern blood is drawn: Light, Medium, or Heavy (
+          <code>cg_bloodDensity</code> <code>0</code> / <code>1</code> /{" "}
+          <code>2</code>). It's greyed out unless Blood is Modern. It defaults
+          to Heavy on a PC and Light on Steam Frame, Quest, and PICO.
         </p>
 
         <h3 className="docs-play__feature-title">
@@ -1765,7 +1780,7 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
           (entities included) — less useful for gameplay but handy for
           screenshots or aesthetic preference. Range <code>-1</code> to{" "}
           <code>1</code>; requires <code>r_fbo 1</code>. Both cvars come from
-          Quake3e, the renderer Trinity's flatscreen engine is built on.
+          Quake3e, the engine Trinity runs on every platform.
         </p>
 
         <PlatformOnly platform="flatscreen">
@@ -1777,7 +1792,7 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
             lifelike highlights on lights, explosions, plasma, and sky — instead
             of standard dynamic range. It's a native Vulkan feature, off by
             default. Turn it on under{" "}
-            <strong>Setup → Graphics → HDR Display</strong>, then calibrate it
+            <strong>Setup → Display → HDR Display</strong>, then calibrate it
             under <strong>Setup → Display → HDR Calibration</strong>; the{" "}
             <Link to="/docs/customize#display-output">Customize guide</Link>{" "}
             walks through it.
@@ -1794,11 +1809,13 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
           </h3>
           <p>
             On an HDR display, Trinity can render true HDR — brighter, more
-            lifelike highlights — in the desktop mirror window. The headset
-            itself stays on Rec.709 color. It's a native Vulkan feature, off by
-            default. Turn it on under{" "}
-            <strong>Setup → Graphics → HDR Display</strong>, then calibrate
-            under <strong>Setup → Display → HDR Calibration</strong>; the{" "}
+            lifelike highlights — in the desktop mirror window (
+            <strong>Setup → VR Options → Desktop Mirror</strong>). The headset
+            itself renders standard range. Quest and PICO have no desktop
+            mirror, and the Steam Frame starts with it off. HDR is a native
+            Vulkan feature, off by default. Turn it on under{" "}
+            <strong>Setup → Display → HDR Display</strong>, then calibrate under{" "}
+            <strong>Setup → Display → HDR Calibration</strong>; the{" "}
             <Link to="/docs/customize#display-output">Customize guide</Link>{" "}
             walks through it.
           </p>

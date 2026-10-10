@@ -1,14 +1,15 @@
 import type { Platform } from "../components/docs/platformStorage";
 
 // Trinity-introduced cvars. Inventory built by walking Cvar_Get /
-// CG_CVAR registrations in ../trinity-engine (flat and PC/Frame VR),
-// ../trinity-standalone (Quest/PICO/Frame APK) and ../trinity (mod).
+// CG_CVAR registrations in ../trinity-engine (every platform) and
+// ../trinity (mod).
 //
 // Each entry is verified against the registering source. Defaults,
 // platforms, and behavior reflect what the code actually does — no
-// invented cvars, no hallucinated defaults. ROM/internal cvars
+// invented cvars, no hallucinated defaults. Internal ROM cvars
 // (cl_trinityLoginStatus, cg_tvTime, cg_tvDuration, cg_tvdOffer) are
-// excluded since users can't set them.
+// excluded. Read-only cvars a player may want to check (cl_platform,
+// r_hdrActive) are listed and marked read-only.
 //
 // Mostly Trinity additions, with a small handful of Quake3e-inherited
 // renderer cvars (r_greyscale, r_mapGreyScale) included because they
@@ -46,6 +47,20 @@ const HDR_PLATFORMS: Platform[] = ["flatscreen", "vr"];
 // cvars. Sorted alphabetically by name (Reference convention).
 export const PLAYER_CVARS: CvarEntry[] = [
   {
+    name: "cg_bloodDensity",
+    default: "2",
+    platforms: ALL_PLATFORMS,
+    description:
+      "How much modern blood (com_blood 2) is drawn. Setup → Game Options → Blood Density.",
+    values: [
+      { value: "0", meaning: "Light" },
+      { value: "1", meaning: "Medium" },
+      { value: "2", meaning: "Heavy" },
+    ],
+    notes:
+      "Defaults to 0 (Light) on Steam Frame, Quest and PICO, and 2 (Heavy) on a PC.",
+  },
+  {
     name: "cg_damageEffect",
     default: "1",
     platforms: ALL_PLATFORMS,
@@ -71,13 +86,6 @@ export const PLAYER_CVARS: CvarEntry[] = [
     platforms: ALL_PLATFORMS,
     description:
       "Grey out dead bodies so they read as corpses. Requires pm or fb skins (the same skin family used by cg_enemyModel / cg_teamModel).",
-  },
-  {
-    name: "cg_drawFFABackground",
-    default: "0",
-    platforms: ALL_PLATFORMS,
-    description:
-      "Draw the shaded backdrop behind the HUD status area in non-team games. Surfaces in-game as Setup → Game Options → HUD Background.",
   },
   {
     name: "cg_drawSpeed",
@@ -237,6 +245,42 @@ export const PLAYER_CVARS: CvarEntry[] = [
       "Seconds the 'Download last match?' prompt stays up before timing out. The prompt appears at the start of the next match if the server offered a TVD download (sv_tvDownload + sv_dlURL).",
   },
   {
+    name: "cg_weaponSelectorGauntlet",
+    default: "0",
+    platforms: VR_PLATFORMS,
+    description:
+      "Put the gauntlet on the weapon wheel's default set, first in order. Surfaces in-game as Setup → VR Options → Controls → Gauntlet On Weapon Wheel. A custom cg_weaponSelectorWeapons list decides for itself.",
+  },
+  {
+    name: "cg_weaponSelectorWeapons",
+    default: "(empty)",
+    platforms: VR_PLATFORMS,
+    description:
+      "The weapons on the weapon wheel, in order; the last lands in the top slot. Empty uses the default set: every weapon in weapon order, the gauntlet only with cg_weaponSelectorGauntlet, and the grapple last whenever the server hands it out. Tokens are weapon numbers or item names (with or without the weapon_ prefix); * inserts the default set, and !name hides a weapon from later tokens and * (put exclusions first). Not saved, so set it in autoexec.cfg.",
+  },
+  {
+    name: "cl_packetdup",
+    default: "1",
+    platforms: ALL_PLATFORMS,
+    description:
+      "How many earlier packets' inputs each packet repeats; a value of N rides out N packets lost in a row. Raise it on Wi-Fi or other unreliable links; the cost is a little upload. Surfaces in-game as Setup → Network → Packet Recovery (Low / Medium / High = 1 / 2 / 3).",
+  },
+  {
+    name: "cl_platform",
+    default: "(your device)",
+    platforms: ALL_PLATFORMS,
+    description: "The device the client runs on.",
+    values: [
+      { value: "windows", meaning: "Windows PC" },
+      { value: "macos", meaning: "Mac" },
+      { value: "linux", meaning: "Linux PC" },
+      { value: "frame", meaning: "Steam Frame" },
+      { value: "pico", meaning: "PICO" },
+      { value: "quest", meaning: "Meta Quest" },
+    ],
+    notes: "Read-only — reports the platform; you can't set it.",
+  },
+  {
     name: "cl_trinityToken",
     default: "",
     platforms: ALL_PLATFORMS,
@@ -276,7 +320,7 @@ export const PLAYER_CVARS: CvarEntry[] = [
     default: "2",
     platforms: ALL_PLATFORMS,
     description:
-      "Blood style. Modern blood reacts to how hard you hit — bigger hits throw more blood, gibs get flung by the killing blow, and splatter pools on the walls and floor around the kill. Classic restores Quake 3's original sprite blood. Surfaces in-game as Setup → Game Options → Blood, and the cg_blood* cvars in the platform autoexec.cfg fine-tune the modern look.",
+      "Modern blood reacts to how hard you hit — bigger hits throw more blood, gibs get flung by the killing blow, and splatter pools on the walls and floor around the kill. Surfaces in-game as Setup → Game Options → Blood; how much modern blood is drawn is set by cg_bloodDensity (Setup → Game Options → Blood Density).",
     values: [
       { value: "0", meaning: "off" },
       { value: "1", meaning: "classic — original Quake 3 sprite blood" },
@@ -508,7 +552,7 @@ export const VR_CVARS: CvarEntry[] = [
     default: "90",
     platforms: VR_PLATFORMS,
     description:
-      "Headset display refresh rate, in Hz. VR Options → HUD & Display → Refresh Rate lists the rates your headset supports; a value it can't do snaps to the nearest one it can. Applies live.",
+      "Headset display refresh rate, in Hz. VR Options → HUD & Display → Refresh Rate lists only the rates your headset's runtime reports, lowest first; a value it can't do snaps to the nearest one it can. Applies live.",
   },
   {
     name: "vr_righthanded",
