@@ -10,7 +10,7 @@ The stack:
 
 | Component | What it does |
 |-----------|--------------|
-| **trinity-engine** | Forked ioquake3 server binary (`trinity.ded`) + the trinity mod QVMs (bundled in the same release zip). Vanilla ioquake3 won't work — the tracker keys on log lines only the trinity mod and engine emit. |
+| **trinity-engine** | Forked Quake3e server binary (`trinity.ded`) + the trinity mod QVMs (bundled in the same release zip). Vanilla ioquake3 won't work — the tracker keys on log lines only the trinity mod and engine emit. |
 | **trinity-tracker** | Daemon (`trinity`) that tails the q3 server log and publishes facts to the hub. This repo. |
 | **nginx + certbot** | Required. Serves recorded demos + levelshots over HTTPS so the hub UI can load them (the hub 302s users to your `public_url`, and an HTTPS page can't fetch content from a non-HTTPS host), and runs a `dl.<hostname>` fast-download vhost (HTTP + HTTPS on the same `:80`/`:443`) so q3 clients can pull missing custom-map pk3s when they connect. See §6. |
 

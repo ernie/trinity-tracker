@@ -11,7 +11,7 @@ import (
 const OOBHeader = "\xff\xff\xff\xff"
 
 // Command tokens we send or accept on the wire. Values match dpmaster
-// and the ioquake3 fork at ../trinity-engine.
+// and the Quake3e fork at ../trinity-engine.
 const (
 	cmdHeartbeat          = "heartbeat"
 	cmdGetinfo            = "getinfo"
