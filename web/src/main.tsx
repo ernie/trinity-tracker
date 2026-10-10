@@ -27,6 +27,7 @@ import { CreditsPage } from "./components/CreditsPage";
 import { AdminPage } from "./components/admin/AdminPage";
 import { AdminUsers } from "./components/admin/AdminUsers";
 import { AdminSessions } from "./components/admin/AdminSessions";
+import { AdminPlatforms } from "./components/admin/AdminPlatforms";
 import { AdminPlayers } from "./components/admin/AdminPlayers";
 import { AdminSources } from "./components/admin/AdminSources";
 import { AdminFeatured } from "./components/admin/AdminFeatured";
@@ -78,6 +79,7 @@ createRoot(document.getElementById("root")!).render(
                   />
                   <Route path="users" element={<AdminUsers />} />
                   <Route path="sessions" element={<AdminSessions />} />
+                  <Route path="platforms" element={<AdminPlatforms />} />
                   <Route path="players" element={<AdminPlayers />} />
                   <Route path="sources" element={<AdminSources />} />
                   <Route path="featured" element={<AdminFeatured />} />

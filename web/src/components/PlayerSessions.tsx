@@ -1,5 +1,6 @@
 import { usePlayerSessions } from "../hooks/usePlayerSessions";
 import { formatDateTime, formatDuration } from "../utils/formatters";
+import { SessionPlatform } from "./SessionPlatform";
 
 interface PlayerSessionsProps {
   playerId: number;
@@ -47,6 +48,7 @@ export function PlayerSessions({ playerId }: PlayerSessionsProps) {
             <th>Duration</th>
             <th>Engine</th>
             <th>Trinity</th>
+            <th>Platform</th>
             <th>IP Address</th>
           </tr>
         </thead>
@@ -67,6 +69,12 @@ export function PlayerSessions({ playerId }: PlayerSessionsProps) {
               </td>
               <td data-label="Trinity" className="client-version">
                 {session.client_version || "-"}
+              </td>
+              <td data-label="Platform">
+                <SessionPlatform
+                  platform={session.platform}
+                  isVR={session.is_vr}
+                />
               </td>
               <td data-label="IP" className="ip-address">
                 {session.ip_address || "-"}

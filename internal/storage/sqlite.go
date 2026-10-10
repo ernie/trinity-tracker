@@ -2605,7 +2605,8 @@ func (s *Store) GetPlayerSessions(ctx context.Context, playerID int64, limit int
 	}
 
 	query := `
-		SELECT s.id, s.server_id, srv.source, srv.key, s.joined_at, s.left_at, s.duration_seconds, s.ip_address, s.client_engine, s.client_version
+		SELECT s.id, s.server_id, srv.source, srv.key, s.joined_at, s.left_at, s.duration_seconds, s.ip_address, s.client_engine, s.client_version,
+		       COALESCE(s.platform, ''), COALESCE(s.is_vr, FALSE)
 		FROM sessions s
 		JOIN player_guids pg ON s.player_guid_id = pg.id
 		JOIN servers srv ON s.server_id = srv.id
@@ -2633,7 +2634,7 @@ func (s *Store) GetPlayerSessions(ctx context.Context, playerID int64, limit int
 		var leftAt sql.NullTime
 		var durationSeconds sql.NullInt64
 		var ipAddress, clientEngine, clientVersion sql.NullString
-		if err := rows.Scan(&ps.ID, &ps.ServerID, &ps.ServerSource, &ps.ServerKey, &ps.JoinedAt, &leftAt, &durationSeconds, &ipAddress, &clientEngine, &clientVersion); err != nil {
+		if err := rows.Scan(&ps.ID, &ps.ServerID, &ps.ServerSource, &ps.ServerKey, &ps.JoinedAt, &leftAt, &durationSeconds, &ipAddress, &clientEngine, &clientVersion, &ps.Platform, &ps.IsVR); err != nil {
 			return nil, err
 		}
 		if leftAt.Valid {
@@ -2678,7 +2679,8 @@ func (s *Store) GetRecentSessions(ctx context.Context, filter SessionFilter, lim
 		SELECT s.id, s.server_id, srv.source, srv.key,
 		       p.id, p.name, p.clean_name,
 		       s.joined_at, s.left_at, s.duration_seconds,
-		       s.ip_address, s.client_engine, s.client_version
+		       s.ip_address, s.client_engine, s.client_version,
+		       COALESCE(s.platform, ''), COALESCE(s.is_vr, FALSE)
 		FROM sessions s
 		JOIN player_guids pg ON s.player_guid_id = pg.id
 		JOIN players p ON pg.player_id = p.id
@@ -2728,6 +2730,7 @@ func (s *Store) GetRecentSessions(ctx context.Context, filter SessionFilter, lim
 			&as.PlayerID, &as.PlayerName, &as.PlayerCleanName,
 			&as.JoinedAt, &leftAt, &durationSeconds,
 			&ipAddress, &clientEngine, &clientVersion,
+			&as.Platform, &as.IsVR,
 		); err != nil {
 			return nil, err
 		}
@@ -2749,4 +2752,53 @@ func (s *Store) GetRecentSessions(ctx context.Context, filter SessionFilter, lim
 		sessions = append(sessions, as)
 	}
 	return sessions, rows.Err()
+}
+
+// GetPlatformStats sums play time from finished sessions only.
+func (s *Store) GetPlatformStats(ctx context.Context, since, until *time.Time) (*domain.PlatformStats, error) {
+	where := ` WHERE p.is_bot = FALSE`
+	var args []interface{}
+	if since != nil {
+		where += ` AND s.joined_at >= ?`
+		args = append(args, formatTimestamp(*since))
+	}
+	if until != nil {
+		where += ` AND s.joined_at <= ?`
+		args = append(args, formatTimestamp(*until))
+	}
+	from := `
+		FROM sessions s
+		JOIN player_guids pg ON s.player_guid_id = pg.id
+		JOIN players p ON pg.player_id = p.id`
+
+	stats := &domain.PlatformStats{Rows: []domain.PlatformStatsRow{}}
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT COALESCE(s.platform, ''), COALESCE(s.is_vr, FALSE),
+		       COUNT(DISTINCT p.id), COUNT(*), COALESCE(SUM(s.duration_seconds), 0)`+from+where+`
+		GROUP BY 1, 2
+		ORDER BY 3 DESC, 1, 2`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var r domain.PlatformStatsRow
+		if err := rows.Scan(&r.Platform, &r.IsVR, &r.Players, &r.Sessions, &r.PlaytimeSeconds); err != nil {
+			return nil, err
+		}
+		stats.Rows = append(stats.Rows, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	err = s.db.QueryRowContext(ctx, `
+		SELECT COUNT(DISTINCT p.id),
+		       COUNT(DISTINCT CASE WHEN s.is_vr THEN p.id END),
+		       COUNT(*), COALESCE(SUM(s.duration_seconds), 0)`+from+where, args...).
+		Scan(&stats.Players, &stats.VRPlayers, &stats.Sessions, &stats.PlaytimeSeconds)
+	if err != nil {
+		return nil, err
+	}
+	return stats, nil
 }

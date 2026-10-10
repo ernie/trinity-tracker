@@ -226,6 +226,7 @@ func NewRouter(store *storage.Store, manager *collector.ServerManager, writer *h
 	r.mux.HandleFunc("POST /api/admin/sources/{source}/rotate-creds", r.requireAdmin(r.handleRotateSourceCreds))
 	r.mux.HandleFunc("POST /api/admin/sources/{source}/owner", r.requireAdmin(r.handleTransferSourceOwner))
 	r.mux.HandleFunc("GET /api/admin/sessions", r.requireAdmin(r.handleListAdminSessions))
+	r.mux.HandleFunc("GET /api/admin/platform-stats", r.requireAdmin(r.handlePlatformStats))
 	r.mux.HandleFunc("GET /api/admin/audit", r.requireAdmin(r.handleListAudit))
 
 	// Owner-scoped self-service. GET /api/sources/mine returns the

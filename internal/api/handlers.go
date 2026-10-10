@@ -630,6 +630,27 @@ func (r *Router) handleListAdminSessions(w http.ResponseWriter, req *http.Reques
 	writeJSON(w, http.StatusOK, sessions)
 }
 
+// handlePlatformStats takes optional RFC3339 since/until bounds on joined_at.
+func (r *Router) handlePlatformStats(w http.ResponseWriter, req *http.Request) {
+	var since, until *time.Time
+	if v := req.URL.Query().Get("since"); v != "" {
+		if t, err := time.Parse(time.RFC3339, v); err == nil {
+			since = &t
+		}
+	}
+	if v := req.URL.Query().Get("until"); v != "" {
+		if t, err := time.Parse(time.RFC3339, v); err == nil {
+			until = &t
+		}
+	}
+	stats, err := r.store.GetPlatformStats(req.Context(), since, until)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, stats)
+}
+
 // handleFeatureMatch toggles a match's is_featured flag. POST sets it to 1,
 // DELETE clears it. Wired through requireAdmin so this handler trusts the
 // caller's admin status.

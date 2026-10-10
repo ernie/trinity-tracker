@@ -73,3 +73,43 @@ func TestUpdateSessionClientInfoRecordsPlatform(t *testing.T) {
 		t.Errorf("platform = %q, want pico", platform)
 	}
 }
+
+func TestGetPlatformStats(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	quest := newTestSession(t, s, "GUIDQ", true)
+	pc := newTestSession(t, s, "GUIDPC", false)
+	if err := s.UpdateSessionClientInfo(ctx, quest.ID, "e", "v", "quest"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.UpdateSessionClientInfo(ctx, pc.ID, "e", "v", "windows"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.EndSession(ctx, pc.ID, pc.JoinedAt.Add(10*time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+
+	stats, err := s.GetPlatformStats(ctx, nil, nil)
+	if err != nil {
+		t.Fatalf("GetPlatformStats: %v", err)
+	}
+	if stats.Players != 2 || stats.VRPlayers != 1 || stats.Sessions != 2 || stats.PlaytimeSeconds != 600 {
+		t.Errorf("totals = %+v, want 2 players, 1 VR, 2 sessions, 600 s", stats)
+	}
+	got := map[string]bool{}
+	for _, r := range stats.Rows {
+		got[r.Platform] = r.IsVR
+	}
+	if len(stats.Rows) != 2 || !got["quest"] || got["windows"] {
+		t.Errorf("rows = %+v, want quest VR and windows flat", stats.Rows)
+	}
+
+	future := time.Now().Add(time.Hour)
+	stats, err = s.GetPlatformStats(ctx, &future, nil)
+	if err != nil {
+		t.Fatalf("GetPlatformStats since: %v", err)
+	}
+	if stats.Players != 0 || len(stats.Rows) != 0 {
+		t.Errorf("future window = %+v, want empty", stats)
+	}
+}

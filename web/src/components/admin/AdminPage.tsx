@@ -7,6 +7,7 @@ import { apiFetch } from "../../authFetch";
 const ADMIN_TABS = [
   { path: "users", label: "Users" },
   { path: "sessions", label: "Sessions" },
+  { path: "platforms", label: "Platforms" },
   { path: "players", label: "Players" },
   { path: "sources", label: "Sources" },
   { path: "featured", label: "Featured" },

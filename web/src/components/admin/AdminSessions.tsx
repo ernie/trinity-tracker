@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { apiFetch } from "../../authFetch";
 import { ColoredText } from "../ColoredText";
+import { SessionPlatform } from "../SessionPlatform";
 import { formatDateTime, formatDuration } from "../../utils/formatters";
 import type { AdminSession, Server } from "../../types";
 import {
@@ -167,6 +168,7 @@ export function AdminSessions() {
             <th>Duration</th>
             <th>IP</th>
             <th>Client</th>
+            <th>Platform</th>
           </tr>
         </thead>
         <tbody>
@@ -198,11 +200,14 @@ export function AdminSessions() {
                   ? `${s.client_engine}${s.client_version ? ` ${s.client_version}` : ""}`
                   : "—"}
               </td>
+              <td data-label="Platform">
+                <SessionPlatform platform={s.platform} isVR={s.is_vr} />
+              </td>
             </tr>
           ))}
           {visibleSessions.length === 0 && !loading && (
             <tr>
-              <td colSpan={6} className="admin-empty">
+              <td colSpan={7} className="admin-empty">
                 No sessions found.
               </td>
             </tr>

@@ -410,6 +410,24 @@ export interface PlayerSession {
   ip_address?: string;
   client_engine?: string;
   client_version?: string;
+  platform?: string;
+  is_vr: boolean;
+}
+
+export interface PlatformStatsRow {
+  platform: string;
+  is_vr: boolean;
+  players: number;
+  sessions: number;
+  playtime_seconds: number;
+}
+
+export interface PlatformStats {
+  rows: PlatformStatsRow[];
+  players: number;
+  vr_players: number;
+  sessions: number;
+  playtime_seconds: number;
 }
 
 export interface AdminSession {
@@ -426,6 +444,8 @@ export interface AdminSession {
   ip_address?: string;
   client_engine?: string;
   client_version?: string;
+  platform?: string;
+  is_vr: boolean;
 }
 
 export interface PlayerName {

@@ -66,6 +66,8 @@ type PlayerSession struct {
 	IPAddress       string     `json:"ip_address,omitempty"`
 	ClientEngine    string     `json:"client_engine,omitempty"`
 	ClientVersion   string     `json:"client_version,omitempty"`
+	Platform        string     `json:"platform,omitempty"`
+	IsVR            bool       `json:"is_vr"`
 }
 
 // AdminSession is a session row for the admin sessions view, with player identity included.
@@ -83,6 +85,26 @@ type AdminSession struct {
 	IPAddress       string     `json:"ip_address,omitempty"`
 	ClientEngine    string     `json:"client_engine,omitempty"`
 	ClientVersion   string     `json:"client_version,omitempty"`
+	Platform        string     `json:"platform,omitempty"`
+	IsVR            bool       `json:"is_vr"`
+}
+
+// PlatformStatsRow counts one platform and mode (VR or flat) over a window.
+type PlatformStatsRow struct {
+	Platform        string `json:"platform"`
+	IsVR            bool   `json:"is_vr"`
+	Players         int64  `json:"players"`
+	Sessions        int64  `json:"sessions"`
+	PlaytimeSeconds int64  `json:"playtime_seconds"`
+}
+
+// PlatformStats totals count each player once, though a player can appear in several rows.
+type PlatformStats struct {
+	Rows            []PlatformStatsRow `json:"rows"`
+	Players         int64              `json:"players"`
+	VRPlayers       int64              `json:"vr_players"`
+	Sessions        int64              `json:"sessions"`
+	PlaytimeSeconds int64              `json:"playtime_seconds"`
 }
 
 // PlayerStats holds aggregated stats for a player (for leaderboards)

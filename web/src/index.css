@@ -5484,6 +5484,44 @@ h2 {
   color: var(--text-dim);
 }
 
+.session-platform {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.session-platform__vr {
+  width: 16px;
+  height: 16px;
+}
+
+.platform-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+  margin: var(--space-4) 0;
+}
+
+.platform-totals dt {
+  color: var(--text-dim);
+  font-size: 0.8rem;
+}
+
+.platform-totals dd {
+  margin: 0;
+  font-size: 1.2rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.platform-stats-table td {
+  font-variant-numeric: tabular-nums;
+}
+
+.platform-stats-note {
+  color: var(--text-dim);
+  font-size: 0.8rem;
+}
+
 .sessions-loading,
 .sessions-error,
 .sessions-empty {
