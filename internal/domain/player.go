@@ -50,6 +50,8 @@ type Session struct {
 	IPAddress       string     `json:"ip_address,omitempty"`
 	ClientEngine    string     `json:"client_engine,omitempty"`
 	ClientVersion   string     `json:"client_version,omitempty"`
+	Platform        string     `json:"platform,omitempty"`
+	IsVR            bool       `json:"is_vr"`
 }
 
 // PlayerSession represents a session for display (includes server name)

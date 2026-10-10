@@ -15,6 +15,7 @@ const (
 	FactPlayerLeave         = "player_leave"
 	FactPresenceSnapshot    = "presence_snapshot"
 	FactTrinityHandshake    = "trinity_handshake"
+	FactPlayerVR            = "player_vr"
 	FactServerStartup       = "server_startup"
 	FactServerShutdown      = "server_shutdown"
 	FactDemoFinalized       = "demo_finalized"
@@ -174,13 +175,19 @@ type PlayerLeaveData struct {
 	Reason          string    `json:"reason,omitempty"`
 }
 
-// TrinityHandshakeData carries the engine/version portion of a Trinity
-// handshake onto the session row. The optional auth portion of the same
-// handshake flows separately through the greet RPC.
+// TrinityHandshakeData carries the engine/version/platform portion of a
+// Trinity handshake onto the session row. The optional auth portion of
+// the same handshake flows separately through the greet RPC.
 type TrinityHandshakeData struct {
 	GUID          string `json:"guid"`
 	ClientEngine  string `json:"client_engine"`
 	ClientVersion string `json:"client_version"`
+	Platform      string `json:"platform"`
+}
+
+// PlayerVRData reports a joined player switching into VR.
+type PlayerVRData struct {
+	GUID string `json:"guid"`
 }
 
 // ServerStartupData is emitted when the collector observes its game

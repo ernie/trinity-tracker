@@ -103,7 +103,9 @@ CREATE TABLE IF NOT EXISTS sessions (
     duration_seconds INTEGER,
     ip_address TEXT DEFAULT '',
     client_engine TEXT DEFAULT '',
-    client_version TEXT DEFAULT ''
+    client_version TEXT DEFAULT '',
+    platform TEXT DEFAULT '',          -- cl_platform, from the Trinity handshake
+    is_vr BOOLEAN DEFAULT FALSE        -- set once VR runs, never cleared
 );
 
 CREATE INDEX IF NOT EXISTS idx_sessions_player_guid_id ON sessions(player_guid_id);

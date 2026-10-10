@@ -279,6 +279,7 @@ type TrinityHandshakeData struct {
 	Proto     int
 	Version   string
 	Engine    string
+	Platform  string // the client's cl_platform
 	Username  string // empty if not authenticated
 	TokenHash string // empty if not authenticated
 }
@@ -341,8 +342,8 @@ var (
 	serverShutdownRegex       = regexp.MustCompile(`^ServerShutdown:$`)
 	cvarChangeRegex           = regexp.MustCompile(`^CvarChange: (\w+)\\(.+)$`)
 	trinityChallengeRegex     = regexp.MustCompile(`^TrinityChallenge: (\d+) (\S+) (\S+)$`)
-	trinityHandshakeAuthRegex = regexp.MustCompile(`^TrinityHandshake: (\d+) (\d+) (\S+) (\S+) (\S+) (\S+)$`)
-	trinityHandshakeRegex     = regexp.MustCompile(`^TrinityHandshake: (\d+) (\d+) (\S+) (\S+)$`)
+	trinityHandshakeAuthRegex = regexp.MustCompile(`^TrinityHandshake: (\d+) (\d+) (\S+) (\S+) (\S+) (\S+) (\S+)$`)
+	trinityHandshakeRegex     = regexp.MustCompile(`^TrinityHandshake: (\d+) (\d+) (\S+) (\S+) (\S+)$`)
 	// Demo lifecycle (emitted by trinity-engine sv_tv.c). Only the
 	// "saved" path produces a fact; the discard line is a no-op marker
 	// for log review.
@@ -1023,8 +1024,9 @@ func ParseLine(line string) (*LogEvent, error) {
 			Proto:     proto,
 			Version:   match[3],
 			Engine:    match[4],
-			Username:  match[5],
-			TokenHash: match[6],
+			Platform:  match[5],
+			Username:  match[6],
+			TokenHash: match[7],
 		}
 		return event, nil
 	}
@@ -1038,6 +1040,7 @@ func ParseLine(line string) (*LogEvent, error) {
 			Proto:     proto,
 			Version:   match[3],
 			Engine:    match[4],
+			Platform:  match[5],
 		}
 		return event, nil
 	}

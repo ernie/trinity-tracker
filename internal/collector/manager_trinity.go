@@ -88,6 +88,7 @@ func (m *ServerManager) handleTrinityHandshake(ctx context.Context, serverID int
 				GUID:          client.guid,
 				ClientEngine:  data.Engine,
 				ClientVersion: data.Version,
+				Platform:      data.Platform,
 			},
 		})
 	}

@@ -124,6 +124,12 @@ func decodeEventPayload(event string, raw json.RawMessage) (interface{}, error) 
 			return nil, fmt.Errorf("hub: decode %s: %w", event, err)
 		}
 		return p, nil
+	case domain.FactPlayerVR:
+		var p domain.PlayerVRData
+		if err := json.Unmarshal(raw, &p); err != nil {
+			return nil, fmt.Errorf("hub: decode %s: %w", event, err)
+		}
+		return p, nil
 	case domain.FactServerStartup:
 		var p domain.ServerStartupData
 		if err := json.Unmarshal(raw, &p); err != nil {

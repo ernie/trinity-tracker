@@ -835,9 +835,9 @@ func (s *Store) SplitGUID(ctx context.Context, playerGUIDID int64) (*domain.Play
 // CreateSession starts a new player session
 func (s *Store) CreateSession(ctx context.Context, sess *domain.Session) error {
 	result, err := s.db.ExecContext(ctx, `
-		INSERT INTO sessions (player_guid_id, server_id, joined_at, ip_address)
-		VALUES (?, ?, ?, ?)
-	`, sess.PlayerGUIDID, sess.ServerID, formatTimestamp(sess.JoinedAt), sess.IPAddress)
+		INSERT INTO sessions (player_guid_id, server_id, joined_at, ip_address, is_vr)
+		VALUES (?, ?, ?, ?, ?)
+	`, sess.PlayerGUIDID, sess.ServerID, formatTimestamp(sess.JoinedAt), sess.IPAddress, sess.IsVR)
 	if err != nil {
 		return err
 	}
@@ -845,11 +845,19 @@ func (s *Store) CreateSession(ctx context.Context, sess *domain.Session) error {
 	return nil
 }
 
-// UpdateSessionClientInfo sets the client engine and version from the Trinity handshake.
-func (s *Store) UpdateSessionClientInfo(ctx context.Context, sessionID int64, engine, version string) error {
+// UpdateSessionClientInfo sets the client engine, version and platform from the Trinity handshake.
+func (s *Store) UpdateSessionClientInfo(ctx context.Context, sessionID int64, engine, version, platform string) error {
 	_, err := s.db.ExecContext(ctx, `
-		UPDATE sessions SET client_engine = ?, client_version = ? WHERE id = ?
-	`, engine, version, sessionID)
+		UPDATE sessions SET client_engine = ?, client_version = ?, platform = ? WHERE id = ?
+	`, engine, version, platform, sessionID)
+	return err
+}
+
+// MarkSessionVR is one-way: a later switch to flatscreen leaves the session VR.
+func (s *Store) MarkSessionVR(ctx context.Context, sessionID int64) error {
+	_, err := s.db.ExecContext(ctx, `
+		UPDATE sessions SET is_vr = TRUE WHERE id = ? AND is_vr = FALSE
+	`, sessionID)
 	return err
 }
 

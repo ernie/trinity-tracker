@@ -120,6 +120,7 @@ type clientState struct {
 	model              string // player model (e.g., "sarge/krusade")
 	isBot              bool
 	isVR               bool
+	vrSeen             bool // ran VR at any point in this stint
 	isTrinityEngine    bool
 	trinityUserType    int
 	skill              float64 // bot skill level (1-5), 0 if human
@@ -1029,6 +1030,7 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 		client.cleanName = domain.CleanQ3Name(data.Name)
 		client.isBot = data.IsBot
 		client.isVR = data.IsVR
+		client.vrSeen = client.vrSeen || data.IsVR
 		client.trinityUserType = data.TrinityUserType
 		client.isTrinityEngine = data.IsTrinityEngine
 		client.skill = data.Skill
@@ -1058,6 +1060,15 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 					Model:     client.model,
 					IsVR:      client.isVR,
 				},
+			})
+		}
+		// a switch into VR after joining; the join already recorded the starting mode
+		if !replayMode && wasBegan && client.guid != "" && !client.isBot && client.isVR && !prevIsVR {
+			m.pub.Publish(domain.FactEvent{
+				Type:      domain.FactPlayerVR,
+				ServerID:  serverID,
+				Timestamp: event.Timestamp,
+				Data:      domain.PlayerVRData{GUID: client.guid},
 			})
 		}
 
@@ -1606,6 +1617,7 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 						model:     client.model,
 						isBot:     client.isBot,
 						isVR:      client.isVR,
+						vrSeen:    client.isVR,
 						skill:     client.skill,
 						team:      data.NewTeam,
 						joinedAt:  event.Timestamp,
@@ -2025,6 +2037,7 @@ func (state *serverState) savePreviousClient(client *clientState) {
 		prev.clientID = client.clientID
 		prev.team = client.team
 		prev.model = client.model
+		prev.vrSeen = prev.vrSeen || client.vrSeen
 	} else {
 		state.previousClients[client.guid] = client
 	}
@@ -2079,7 +2092,7 @@ func (m *ServerManager) buildMatchEndPlayers(state *serverState, computeVictory 
 			IsBot:             client.isBot,
 			JoinedLate:        joinedLate,
 			JoinedAt:          client.joinedAt,
-			IsVR:              client.isVR,
+			IsVR:              client.isVR || client.vrSeen,
 		})
 	}
 
@@ -2122,7 +2135,7 @@ func (m *ServerManager) buildMatchEndPlayers(state *serverState, computeVictory 
 			IsBot:             client.isBot,
 			JoinedLate:        joinedLate,
 			JoinedAt:          client.joinedAt,
-			IsVR:              client.isVR,
+			IsVR:              client.isVR || client.vrSeen,
 		})
 	}
 

@@ -258,6 +258,8 @@ func (w *Writer) dispatch(ctx context.Context, e domain.FactEvent) {
 		w.handlePlayerLeave(ctx, e.ServerID, data)
 	case domain.TrinityHandshakeData:
 		w.handleTrinityHandshake(ctx, e.ServerID, data)
+	case domain.PlayerVRData:
+		w.handlePlayerVR(ctx, e.ServerID, data)
 	case domain.ServerStartupData:
 		w.handleServerStartup(ctx, e.ServerID, data)
 	case domain.ServerShutdownData:
@@ -493,6 +495,7 @@ func (w *Writer) handlePlayerJoin(ctx context.Context, serverID int64, data doma
 		ServerID:     serverID,
 		JoinedAt:     data.JoinedAt,
 		IPAddress:    data.IP,
+		IsVR:         data.IsVR,
 	}
 	if err := w.store.CreateSession(ctx, session); err != nil {
 		log.Printf("hub: CreateSession for GUID %s: %v", data.GUID, err)
@@ -533,11 +536,25 @@ func (w *Writer) handleTrinityHandshake(ctx context.Context, serverID int64, dat
 	if session == nil {
 		return
 	}
-	if err := w.store.UpdateSessionClientInfo(ctx, session.ID, data.ClientEngine, data.ClientVersion); err != nil {
+	if err := w.store.UpdateSessionClientInfo(ctx, session.ID, data.ClientEngine, data.ClientVersion, data.Platform); err != nil {
 		log.Printf("hub: UpdateSessionClientInfo for GUID %s: %v", data.GUID, err)
 		return
 	}
-	log.Printf("hub: trinity_handshake session=%d guid=%s engine=%q version=%q", session.ID, data.GUID, data.ClientEngine, data.ClientVersion)
+	log.Printf("hub: trinity_handshake session=%d guid=%s engine=%q version=%q platform=%q", session.ID, data.GUID, data.ClientEngine, data.ClientVersion, data.Platform)
+}
+
+func (w *Writer) handlePlayerVR(ctx context.Context, serverID int64, data domain.PlayerVRData) {
+	session, err := w.resolveOpenSession(ctx, serverID, data.GUID)
+	if err != nil {
+		log.Printf("hub: player_vr resolve session: %v", err)
+		return
+	}
+	if session == nil {
+		return
+	}
+	if err := w.store.MarkSessionVR(ctx, session.ID); err != nil {
+		log.Printf("hub: MarkSessionVR for GUID %s: %v", data.GUID, err)
+	}
 }
 
 func (w *Writer) handleServerStartup(ctx context.Context, serverID int64, data domain.ServerStartupData) {

@@ -78,7 +78,7 @@ The column drives three places, all on the hub:
   waste packets querying servers below the bar.
 
 Match-scoped events (`match_end`, `match_settings_update`,
-`match_crashed`, `demo_finalized`, `trinity_handshake`) are implicitly
+`match_crashed`, `demo_finalized`, `trinity_handshake`, `player_vr`) are implicitly
 gated by their UUID lookups (`GetMatchByUUID`, open-session
 resolution) returning nil when the originating `match_start` was
 rejected. Sessions and presence still flow internally for
