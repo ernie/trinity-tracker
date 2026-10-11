@@ -1178,6 +1178,13 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
             On a Quest or PICO with eye tracking, Trinity asks for the
             eye-tracking permission the first time it runs.
           </p>
+          <p>
+            On PC VR through SteamVR's Steam Link, Eye-Tracked needs the
+            headset's eye data shared with the PC: if the sharp region doesn't
+            follow your gaze, turn on{" "}
+            <strong>Share eye tracking data to other apps on this PC</strong> in
+            SteamVR's Steam Link settings.
+          </p>
 
           <h3 className="docs-play__feature-title">VR controls</h3>
           <p>
@@ -1396,9 +1403,9 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
         <h3 className="docs-play__feature-title">Using it</h3>
         <PlatformOnly platform="flatscreen">
           <p>
-            It lives in slot 10, so <code>bind 0 "weapon 10"</code> puts it on
-            the key right after the BFG, and weapon next/previous cycles to it
-            as well.
+            It's on <code>0</code>, the key after the BFG (
+            <strong>Setup → Controls → Shoot → Grapple</strong>), and weapon
+            next/previous cycles to it as well.
           </p>
         </PlatformOnly>
         <PlatformOnly platform="vr">
@@ -1574,8 +1581,9 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
           />
         </figure>
         <p>
-          Toggle <strong>Setup → Game Options → Damage Numbers</strong>, or set{" "}
-          <code>cg_damagePlums 1</code> in autoexec.
+          On by default. Turn them off under{" "}
+          <strong>Setup → Game Options → Damage Numbers</strong>, or with{" "}
+          <code>cg_damagePlums 0</code>.
         </p>
         <p>
           <code>cg_damagePlumScale</code> sizes them (default <code>1.0</code>).
@@ -1620,7 +1628,7 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
         </h3>
         <p>
           Directional red vignette overlay when taking damage — replaces the
-          default screen-wide blood splatter with a subtler indicator that also
+          classic screen-wide blood splatter with a subtler indicator that also
           tells you which direction the hit came from.
         </p>
         <figure className="docs-hud-figure">
@@ -1634,8 +1642,8 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
           </figcaption>
         </figure>
         <p>
-          Toggle <strong>Setup → Game Options → Damage Effect</strong> (Classic
-          / Modern), or set <code>cg_damageEffect 1</code> in autoexec.
+          On by default. <strong>Setup → Game Options → Damage Effect</strong>{" "}
+          switches back to Classic, as does <code>cg_damageEffect 0</code>.
         </p>
 
         <h3 className="docs-play__feature-title">
@@ -1756,10 +1764,10 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
           Hit Sounds <code>cg_hitSounds</code>
         </h3>
         <p>
-          Damage-scaled audio feedback on successful hits — a different tone
-          fires depending on how much damage you dealt. Set{" "}
-          <code>cg_hitSounds 1</code> in autoexec for lower pitch on bigger
-          hits, or <code>2</code> for higher pitch on bigger hits.
+          A different tone for each hit depending on how much damage you dealt.
+          Set <strong>Setup → Game Options → Hit Sounds</strong> to Big Hits Low
+          for lower pitch on bigger hits, or Big Hits High for higher pitch;
+          Classic keeps the game's own sound.
         </p>
         <p>The four tones, by damage dealt:</p>
         <ul className="docs-hitsounds">

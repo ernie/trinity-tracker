@@ -69,7 +69,7 @@ export const PLAYER_CVARS: CvarEntry[] = [
   },
   {
     name: "cg_damagePlums",
-    default: "0",
+    default: "1",
     platforms: ALL_PLATFORMS,
     description: "Floating damage numbers above each hit.",
   },
@@ -100,7 +100,7 @@ export const PLAYER_CVARS: CvarEntry[] = [
   },
   {
     name: "cg_drawTimer",
-    default: "0",
+    default: "1",
     platforms: ALL_PLATFORMS,
     description:
       "Match clock in the HUD, counting down to the timelimit and prefixing overtime with OT.",
@@ -160,7 +160,7 @@ export const PLAYER_CVARS: CvarEntry[] = [
   },
   {
     name: "cg_fovAdjust",
-    default: "0",
+    default: "1",
     platforms: ["flatscreen"],
     description:
       "Widen cg_fov to suit the display's aspect ratio, so a wide monitor shows more at the sides rather than cropping top and bottom. A 4:3 display is unaffected.",
@@ -176,19 +176,16 @@ export const PLAYER_CVARS: CvarEntry[] = [
     name: "cg_hitSounds",
     default: "0",
     platforms: ALL_PLATFORMS,
-    description: "Damage-scaled hit sound feedback.",
+    description: "The sound a hit makes. Setup → Game Options → Hit Sounds.",
     values: [
-      { value: "0", meaning: "off" },
-      { value: "1", meaning: "lower pitch on bigger hits" },
-      { value: "2", meaning: "higher pitch on bigger hits" },
+      {
+        value: "0",
+        meaning:
+          "Classic: the game's own, baseq3's single beep or Team Arena's armor tones",
+      },
+      { value: "1", meaning: "Big Hits Low: lower pitch on bigger hits" },
+      { value: "2", meaning: "Big Hits High: higher pitch on bigger hits" },
     ],
-  },
-  {
-    name: "cg_playerShadow",
-    default: "1",
-    platforms: ALL_PLATFORMS,
-    description:
-      "Your own shadow, controlled separately from everyone else's. cg_shadows sets the style used for other players; this decides whether yours is drawn at all.",
   },
   {
     name: "cg_teamColors",
@@ -325,6 +322,14 @@ export const PLAYER_CVARS: CvarEntry[] = [
     ],
   },
   {
+    name: "r_displayRefresh",
+    default: "0",
+    platforms: ["flatscreen"],
+    description:
+      "Refresh rate for exclusive fullscreen, in Hz. 0 uses the mode's own rate. Windowed and Borderless always run at the desktop's rate. Set it under Setup → System → Graphics → Refresh Rate.",
+    notes: "Latched — takes effect after a vid_restart.",
+  },
+  {
     name: "r_flares",
     default: "1",
     platforms: ALL_PLATFORMS,
@@ -336,6 +341,28 @@ export const PLAYER_CVARS: CvarEntry[] = [
     default: "40",
     platforms: ALL_PLATFORMS,
     description: "Radius of the corona drawn by r_flares.",
+  },
+  {
+    name: "r_fullscreen",
+    default: "2",
+    platforms: ["flatscreen"],
+    description:
+      "Window mode, the Window Mode row under Setup → System → Graphics.",
+    values: [
+      { value: "0", meaning: "Windowed" },
+      {
+        value: "1",
+        meaning:
+          "Fullscreen: exclusive, at the chosen resolution and refresh rate",
+      },
+      {
+        value: "2",
+        meaning:
+          "Borderless: covers the desktop at its own resolution and refresh rate",
+      },
+    ],
+    notes:
+      "Latched — takes effect after a vid_restart. Alt+Enter switches to windowed and back to whichever fullscreen kind you used last.",
   },
   {
     name: "r_greyscale",
@@ -396,6 +423,24 @@ export const PLAYER_CVARS: CvarEntry[] = [
     platforms: HDR_PLATFORMS,
     description:
       "Works with r_hdrSaturation: how intense a highlight must be before it reaches its maximum bleed toward white. Lower makes bright cores whiten sooner. Range 0.5 to 3.0.",
+  },
+  {
+    name: "r_hdrSdrCurve",
+    default: "1",
+    platforms: HDR_PLATFORMS,
+    description:
+      "How HDR output decodes SDR content: the menus, the HUD and everything below paper white. Also the SDR Gamma row under Setup → Display.",
+    values: [
+      {
+        value: "0",
+        meaning:
+          "sRGB, as Windows shows SDR apps in HDR; darks look lifted and colors a little washed out",
+      },
+      {
+        value: "1",
+        meaning: "2.2, matching how the game looks on an SDR monitor",
+      },
+    ],
   },
   {
     name: "r_hdrSoftKnee",

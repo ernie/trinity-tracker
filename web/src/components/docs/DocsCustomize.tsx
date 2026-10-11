@@ -2,7 +2,6 @@ import { Link } from "react-router-dom";
 import { DocsH2 } from "./DocsH2";
 import { PlatformOnly } from "./PlatformOnly";
 import { PlatformNote } from "./PlatformNote";
-import { PlatformChip } from "./PlatformChip";
 import { MODE_PROFILES } from "../ServerCard";
 
 // /docs/customize — cvar-by-cvar tunables organized by intent,
@@ -157,8 +156,8 @@ export function DocsCustomize() {
         <DocsH2 id="trinity-features">Trinity feature toggles</DocsH2>
         <ul className="docs-cvars">
           <li>
-            <code>cg_damagePlums 1</code> — floating damage numbers above each
-            hit. Default <code>0</code>.
+            <code>cg_damagePlums 0</code> — hides the floating damage numbers
+            above each hit. Default <code>1</code>.
           </li>
           <li>
             <code>cg_damagePlumScale 1.5</code> — size multiplier for the damage
@@ -166,17 +165,18 @@ export function DocsCustomize() {
             .
           </li>
           <li>
-            <code>cg_hitSounds 1</code> — damage-scaled hit sound feedback.
-            Default <code>0</code>.
+            <code>cg_hitSounds 0</code> — <strong>Hit Sounds</strong> in Game
+            Options.
             <ul>
               <li>
-                <code>0</code> off
+                <code>0</code> Classic: the game's own, baseq3's single beep or
+                Team Arena's armor tones
               </li>
               <li>
-                <code>1</code> lower pitch on bigger hits
+                <code>1</code> Big Hits Low: lower pitch on bigger hits
               </li>
               <li>
-                <code>2</code> higher pitch on bigger hits
+                <code>2</code> Big Hits High: higher pitch on bigger hits
               </li>
             </ul>
           </li>
@@ -200,8 +200,8 @@ export function DocsCustomize() {
             unless Blood is Modern.
           </li>
           <li>
-            <code>cg_drawTimer 1</code> — match timer in the HUD. Default{" "}
-            <code>0</code>. Also under{" "}
+            <code>cg_drawTimer 0</code> — hides the match timer in the HUD.
+            Default <code>1</code>. Also under{" "}
             <strong>Setup → Game Options → Show Time</strong>.
           </li>
           <li>
@@ -272,6 +272,35 @@ export function DocsCustomize() {
             <strong>Setup → System → Graphics</strong> applies either way.
           </p>
         </PlatformOnly>
+        <PlatformOnly platform="flatscreen">
+          <h3>Window mode</h3>
+          <p>
+            <strong>Setup → System → Graphics → Window Mode</strong> picks how
+            the game fills your screen:
+          </p>
+          <ul>
+            <li>
+              <strong>Borderless</strong> (the default) covers the desktop at
+              its own resolution and refresh rate, with no mode switch, so
+              alt-tab is instant.
+            </li>
+            <li>
+              <strong>Fullscreen</strong> takes the display exclusively, at the
+              Resolution and Refresh Rate you choose.
+            </li>
+            <li>
+              <strong>Windowed</strong> runs in a window at the chosen
+              Resolution.
+            </li>
+          </ul>
+          <p>
+            Resolution lists what your display reports, grouped by aspect ratio
+            with your desktop's shape first. <strong>Custom</strong> takes any
+            size: pick a ratio, type the width or height, and the other fills
+            in. <kbd>Alt</kbd>+<kbd>Enter</kbd> switches to windowed and back to
+            whichever fullscreen kind you used last.
+          </p>
+        </PlatformOnly>
         <PlatformOnly platform={["flatscreen", "vr"]}>
           <h3>HDR</h3>
           <p>
@@ -290,6 +319,13 @@ export function DocsCustomize() {
             reaches. Set <strong>Highlight</strong> to taste.{" "}
             <code>r_hdrActive</code> reads <code>1</code> once HDR is genuinely
             live.
+          </p>
+          <p>
+            <strong>SDR Gamma</strong>, right under HDR Display, sets how the
+            menus and the rest of the standard-range picture look in HDR.{" "}
+            <strong>2.2</strong> (the default) matches how the game looks on an
+            SDR monitor; <strong>sRGB</strong> matches how Windows shows SDR
+            apps in HDR, with lifted darks and slightly washed-out color.
           </p>
           <p>
             Prefer the config file? Set <code>r_hdrDisplay 1</code> and{" "}
@@ -364,13 +400,12 @@ export function DocsCustomize() {
             <code>cl_voipVADThreshold 0.1</code> — VAD activation threshold;
             only meaningful when <code>cl_voipUseVAD 1</code>.
           </li>
-          <PlatformOnly platform="flatscreen">
-            <li>
-              <code>cl_voipShowMeter 1</code>{" "}
-              <PlatformChip platform="flatscreen" /> — engine-drawn
-              microphone-level meter on screen.
-            </li>
-          </PlatformOnly>
+          <li>
+            <code>cl_voipGainDuringCapture 1</code> — game volume while you
+            transmit, from <code>0.2</code> to <code>1</code> (the default);
+            lower it if your mic sends game audio. In the menus: Sound →
+            Transmit Game Volume.
+          </li>
           <li>
             <code>cg_drawVoipSpeakers 1</code> — list of currently- speaking
             players in the upper-right of the HUD, with channel-colored speaker
