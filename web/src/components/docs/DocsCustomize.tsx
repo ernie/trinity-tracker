@@ -3,17 +3,13 @@ import { DocsH2 } from "./DocsH2";
 import { PlatformOnly } from "./PlatformOnly";
 import { PlatformNote } from "./PlatformNote";
 import { PlatformChip } from "./PlatformChip";
-import { DownloadIcon } from "../DownloadIcon";
 import { MODE_PROFILES } from "../ServerCard";
 
-// /docs/customize — Phase 3c rewrite. Replaces the Phase 2 lift
-// (Configuration + raw mode tables) with cvar-by-cvar tunables
-// organized by intent. Cvar inventory drawn from the curated starter
-// autoexec configs in web/public/configs/, descriptions verified
-// against trinity-engine (every platform) and trinity (mod) sources.
-// Descriptions are factual only — no editorial recommendations or
-// "tune if it feels X" advice; cvars do what they do, the user
-// decides.
+// /docs/customize — cvar-by-cvar tunables organized by intent,
+// descriptions verified against trinity-engine (every platform) and
+// trinity (mod) sources. Descriptions are factual only — no editorial
+// recommendations or "tune if it feels X" advice; cvars do what they
+// do, the user decides.
 export function DocsCustomize() {
   return (
     <>
@@ -49,81 +45,6 @@ export function DocsCustomize() {
             <code>~/.trinity/baseq3/</code>.
           </p>
         </PlatformNote>
-      </div>
-
-      <div className="about-section">
-        <DocsH2 id="starter-configs">Starter config</DocsH2>
-        <p>
-          A pre-curated <code>autoexec.cfg</code> for your platform — drop it
-          into your <code>baseq3</code> folder and edit to taste. Each config
-          holds only settings that have no menu row; everything else is set in{" "}
-          <strong>Setup</strong>.
-        </p>
-        <div className="about-downloads">
-          <PlatformOnly platform="flatscreen">
-            <a
-              href="/configs/trinity-autoexec.cfg"
-              download="autoexec.cfg"
-              className="about-download-item"
-            >
-              <div className="about-download-info">
-                <span className="about-download-name">
-                  Flatscreen (PC or Mac)
-                </span>
-                <span className="about-download-desc">
-                  Hit sounds, memory and renderer quality settings, widescreen
-                  FOV, a 250 fps cap, a larger console, key binds, and an F4
-                  demo-record toggle.
-                </span>
-              </div>
-              <DownloadIcon size={20} className="about-download-icon" />
-            </a>
-          </PlatformOnly>
-          <PlatformOnly platform="vr">
-            <a
-              href="/configs/trinity-vr-autoexec.cfg"
-              download="autoexec.cfg"
-              className="about-download-item"
-            >
-              <div className="about-download-info">
-                <span className="about-download-name">VR on a PC</span>
-                <span className="about-download-desc">
-                  Hit sounds, memory and sound-latency settings, texture
-                  filtering, dithering, a thumbstick dead zone, and an F4
-                  demo-record toggle.
-                </span>
-              </div>
-              <DownloadIcon size={20} className="about-download-icon" />
-            </a>
-            <a
-              href="/configs/trinity-frame-autoexec.cfg"
-              download="autoexec.cfg"
-              className="about-download-item"
-            >
-              <div className="about-download-info">
-                <span className="about-download-name">Steam Frame</span>
-                <span className="about-download-desc">
-                  Hit sounds, memory settings, dithering, a thumbstick dead
-                  zone, and an F4 demo-record toggle.
-                </span>
-              </div>
-              <DownloadIcon size={20} className="about-download-icon" />
-            </a>
-            <a
-              href="/configs/trinity-android-autoexec.cfg"
-              download="autoexec.cfg"
-              className="about-download-item"
-            >
-              <div className="about-download-info">
-                <span className="about-download-name">Quest or PICO</span>
-                <span className="about-download-desc">
-                  The same settings as the Steam Frame config.
-                </span>
-              </div>
-              <DownloadIcon size={20} className="about-download-icon" />
-            </a>
-          </PlatformOnly>
-        </div>
       </div>
 
       <PlatformOnly platform="vr">

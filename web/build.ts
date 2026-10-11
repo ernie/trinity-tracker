@@ -17,7 +17,7 @@ const result = await Bun.build({
   splitting: true,
   minify: true,
   target: "browser",
-  external: ["/engine/*", "/assets/*", "/configs/*"],
+  external: ["/engine/*", "/assets/*"],
   define: { "process.env.NODE_ENV": '"production"' },
 });
 
