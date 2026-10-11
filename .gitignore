@@ -31,6 +31,7 @@ vendor/
 # Claude
 .claude/
 CLAUDE.md
+AGENTS.md
 .superpowers/
 docs/superpowers/
 .playwright-mcp/
