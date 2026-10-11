@@ -89,7 +89,7 @@ export function DocsReference() {
       {!showAllPlatforms && (
         <p className="docs-reference__platform-note">
           Showing cvars relevant to <strong>{PLATFORM_LABELS[platform]}</strong>
-          . Tap <em>Show all platforms</em> in the search bar to widen the view.
+          .
         </p>
       )}
 
@@ -103,8 +103,7 @@ export function DocsReference() {
         </DocsH2>
         <p>
           Definitions of Trinity- and Quake-specific terms that come up across
-          the docs. If you're skimming and a word looks foreign, it's probably
-          here.
+          the docs.
         </p>
         <GlossaryList entries={filteredGlossary} />
       </div>
@@ -120,8 +119,6 @@ export function DocsReference() {
           </DocsH2>
           <p>
             Trinity-introduced client-side cvars — cgame, UI, and Trinity login.
-            Place these in your <code>autoexec.cfg</code> if you want them to
-            persist across launches.
           </p>
           <CvarTable
             entries={filteredPlayer}

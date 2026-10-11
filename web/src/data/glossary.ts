@@ -25,19 +25,9 @@ export const GLOSSARY: GlossaryEntry[] = [
       "Quake 3's 1.32 point release patches — pak1.pk3 through pak8.pk3 plus the missionpack patches. Required for Trinity to launch correctly.",
   },
   {
-    term: "autoexec.cfg",
-    definition:
-      "Quake 3 config file read on every launch and never overwritten by the engine. Where Trinity feature toggles, network tuning, and bindings persist. Lives in the baseq3 folder.",
-  },
-  {
-    term: "baseq3",
-    definition:
-      "Quake 3's base game asset folder. Holds pak0.pk3 (the retail asset bundle), the 1.32 patch pk3s, and Trinity's autoexec.cfg / q3config.cfg.",
-  },
-  {
     term: "cvar",
     definition:
-      "Quake 3's \"config variable\" — a runtime setting. Persistent cvars (CVAR_ARCHIVE) save to q3config.cfg on shutdown. Latched cvars (CVAR_LATCH) require a map_restart before changes take effect. Read-only cvars (CVAR_ROM) are managed by the engine and can't be set by the player.",
+      "Latched cvars take effect on whichever restart re-reads them: vid_restart for renderer cvars, the next map for game cvars. Read-only cvars (CVAR_ROM) are managed by the engine and can't be set by the player.",
   },
   {
     term: "color codes",
@@ -70,11 +60,6 @@ export const GLOSSARY: GlossaryEntry[] = [
       "pak0.pk3 — the retail Quake 3 base assets archive. Comes in two copies: one in baseq3 (required for Trinity to run at all) and one in missionpack (required only for Team Arena gametypes like One Flag CTF, Overload, and Harvester). Both come from a legitimate Quake 3 install (Steam, retail CD, etc.).",
   },
   {
-    term: "pk3",
-    definition:
-      "Quake 3's PK3 archive format — a renamed ZIP file. Maps, models, sounds, and shaders ship in pk3 files placed in baseq3 (or missionpack). The engine loads the base game's pak0–pakN first, then any other pk3s in the folder in alphabetical order. When two custom pk3s contain the same asset, the later-loading one wins — so naming a conflicting pk3 later alphabetically (e.g. z-mymap.pk3) makes it the override.",
-  },
-  {
     term: "qkey",
     definition:
       "Quake 3's per-install identity file. Generated on first launch; the seed for your GUID. Lives in the engine's per-user data directory.",
@@ -82,17 +67,17 @@ export const GLOSSARY: GlossaryEntry[] = [
   {
     term: "RCON",
     definition:
-      "Remote console. Quake 3's server admin protocol — issue commands to a remote q3 server using its rconpassword. Trinity's collector uses RCON to deliver welcome messages and !claim / !help replies back to players in-game.",
+      "Remote console (rconpassword). Trinity's collector uses it to deliver welcome messages and !claim / !help replies to players in-game.",
   },
   {
     term: "sv_dlURL",
     definition:
-      'Server cvar for the base URL where clients fetch PK3s and TV demos via fastdl. Required by sv_tvDownload. Trinity\'s bundled bootstrap-nginx.sh stands up a matching dl.<your-host> vhost; the wizard sets this to "https://dl.<your-host>" automatically.',
+      "Server cvar for the fastdl base URL clients fetch PK3s and TV demos from. See Server Admin · Required server cvars.",
   },
   {
     term: "Trinity Handshake",
     definition:
-      "Set g_trinityHandshake 1 to gate a server to verified Trinity clients. With it on, non-Trinity clients are disconnected after 10 seconds, and logged-in Trinity players have their account auto-linked during the handshake — no !claim or !link needed. Without it, the hub rejects match stats from your server.",
+      "g_trinityHandshake 1 gates a server to verified Trinity clients and links logged-in players' accounts during the handshake. See Server Admin · Required server cvars.",
   },
   {
     term: "TVD",

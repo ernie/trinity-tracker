@@ -25,8 +25,7 @@ export function DocsCustomize() {
               <code>q3config.cfg</code>
             </strong>{" "}
             — auto-saved on shutdown and overwritten by anything you change in
-            the in-game menus. Don't edit this by hand; your changes get stomped
-            next time the game closes.
+            the in-game menus.
           </li>
           <li>
             <strong>
@@ -63,6 +62,11 @@ export function DocsCustomize() {
               vrbind &lt;context&gt;[+alt] &lt;key&gt; &lt;command&gt;
             </code>
             .
+          </p>
+          <p>
+            The <strong>VKB</strong> tab holds the bindings that apply while the
+            VR keyboard is open: Space, Backspace, Tab, and Enter. Its{" "}
+            <code>vrbind</code> context is <code>keyboard</code>.
           </p>
           <p>
             The cvars below are VR-specific. Most have a menu row under{" "}
@@ -151,7 +155,6 @@ export function DocsCustomize() {
 
       <div className="about-section">
         <DocsH2 id="trinity-features">Trinity feature toggles</DocsH2>
-        <p>Trinity-introduced cvars.</p>
         <ul className="docs-cvars">
           <li>
             <code>cg_damagePlums 1</code> — floating damage numbers above each
@@ -272,10 +275,9 @@ export function DocsCustomize() {
         <PlatformOnly platform={["flatscreen", "vr"]}>
           <h3>HDR</h3>
           <p>
-            On an HDR display, Trinity can output true HDR — brighter, more
-            lifelike highlights on lights, explosions, plasma, and sky — instead
-            of standard dynamic range. It needs the Vulkan renderer and HDR
-            turned on in your OS display settings, and it ships off by default.
+            On an HDR display, Trinity can output true HDR instead of standard
+            dynamic range. It needs the Vulkan renderer and HDR turned on in
+            your OS display settings, and it ships off by default.
           </p>
         </PlatformOnly>
         <PlatformOnly platform="flatscreen">
@@ -304,17 +306,14 @@ export function DocsCustomize() {
             the <strong>desktop mirror window</strong> on a PC, with the Vulkan
             renderer. Steam Frame, Quest and PICO have no HDR output.
           </p>
-          <p>For the mirror on a PC:</p>
           <p>
             For the mirror on a PC, turn it on under{" "}
             <strong>Setup → Display → HDR Display</strong>, then run{" "}
             <code>vid_restart</code>.
           </p>
           <p>
-            For <code>r_hdrPeak</code>, even easier: grab the number from a
-            flatscreen install. It's the same display, so it's the same number.
-            The screen is here too —{" "}
-            <strong>Setup → Display → HDR Calibration</strong>, raise{" "}
+            A peak calibrated in flatscreen applies unchanged. The screen is
+            here too — <strong>Setup → Display → HDR Calibration</strong>, raise{" "}
             <strong>Peak</strong> until the inner rectangle's edge just vanishes
             into the outer one. The mirror isn't HDR as the headset renders it,
             so slide the headset up and read the pattern off the monitor.
@@ -330,9 +329,9 @@ export function DocsCustomize() {
       <div className="about-section">
         <DocsH2 id="voice-chat">Voice chat</DocsH2>
         <p>
-          Voice chat cvars. <code>cl_*</code> values are engine-side (recording,
-          output volume, channel mutes); <code>cg_drawVoipSpeakers</code> is
-          cgame-side (the on-HUD active-speaker list). See{" "}
+          <code>cl_*</code> values are engine-side (recording, output volume,
+          channel mutes); <code>cg_drawVoipSpeakers</code> is cgame-side (the
+          on-HUD active-speaker list). See{" "}
           <Link to="/docs/install#troubleshooting">
             the Install page's troubleshooting section
           </Link>{" "}
@@ -340,8 +339,7 @@ export function DocsCustomize() {
         </p>
         <ul className="docs-cvars">
           <li>
-            <code>cl_voip 1</code> — voice chat enabled client-side (default).{" "}
-            <code>0</code> disables it entirely.
+            <code>cl_voip 1</code> — voice chat enabled client-side (default).
           </li>
           <li>
             <code>cl_voipVolume 1.0</code> — incoming voice playback volume,
@@ -353,8 +351,8 @@ export function DocsCustomize() {
             <code>0</code>.
             <ul>
               <li>
-                <code>0</code> push-to-talk — bind <code>+voiprecord</code> and
-                hold to transmit
+                <code>0</code> push-to-talk: hold{" "}
+                <strong>VoIP PTT / Toggle</strong>
               </li>
               <li>
                 <code>1</code> voice-activity detection: transmits when the mic
@@ -376,29 +374,20 @@ export function DocsCustomize() {
           <li>
             <code>cg_drawVoipSpeakers 1</code> — list of currently- speaking
             players in the upper-right of the HUD, with channel-colored speaker
-            icons. <code>0</code> hides it.
+            icons.
           </li>
           <li>
             <code>cl_voipMuteAll</code> / <code>cl_voipMuteSpatial</code> /{" "}
             <code>cl_voipMuteDirect</code> / <code>cl_voipMuteTeam</code> —
-            self-mute incoming voice on a per-channel basis (<code>1</code>{" "}
-            mutes, <code>0</code> unmutes).
+            self-mute incoming voice on a per-channel basis.
           </li>
         </ul>
-        <p>
-          Voice commands worth binding. <code>+voiprecord</code> and{" "}
-          <code>voipvadtoggle</code> are an either/or — which you use depends on
-          your <code>cl_voipUseVAD</code> mode:
-        </p>
+        <p>Voice commands worth binding:</p>
         <ul className="docs-cvars">
           <li>
-            <code>+voiprecord</code> — hold to transmit while in push-to-talk
-            mode (<code>cl_voipUseVAD 0</code>). Inert in VAD mode.
-          </li>
-          <li>
-            <code>voipvadtoggle</code> — toggles <code>cl_voipVADMuted</code>{" "}
-            (mic mute) on and off while in VAD mode (
-            <code>cl_voipUseVAD 1</code>). Inert in push-to-talk mode.
+            <code>+voiprecord</code>, the <strong>VoIP PTT / Toggle</strong>{" "}
+            row: hold to talk in push-to-talk, tap to mute or unmute with voice
+            activity.
           </li>
           <li>
             <code>voiptarget [spatial|team|all]</code> — sets{" "}
@@ -423,7 +412,6 @@ export function DocsCustomize() {
           up the scoreboard to see it as a small icon in the top-right of the
           HUD.
         </p>
-        <p>The icons you'll see:</p>
         <div className="docs-modes">
           {Object.values(MODE_PROFILES).map((m) => (
             <div key={m.icon} className="docs-mode-item">
@@ -439,10 +427,9 @@ export function DocsCustomize() {
       <div className="about-section">
         <DocsH2 id="player-models">Forced enemy / team models</DocsH2>
         <p>
-          Override what other players' models render as so that enemies and
-          teammates are visually distinct. Skins suffixed with <code>/pm</code>{" "}
-          (promode) or <code>/fb</code> (fullbright) accept the color overrides;
-          stock skins ignore them.
+          Override what other players' models render as. Skins suffixed with{" "}
+          <code>/pm</code> (promode) or <code>/fb</code> (fullbright) accept the
+          color overrides; stock skins ignore them.
         </p>
         <ul className="docs-cvars">
           <li>
@@ -480,16 +467,12 @@ export function DocsCustomize() {
           <code>color1</code> / <code>color2</code> cvars (and the force-model
           overrides built on them), and the <code>^N</code> chat / player-name
           escapes. The codes look the same on the surface but disagree about
-          which digit means which color, so it's easy to write <code>"4"</code>{" "}
-          in one place expecting red and get something else somewhere else. This
-          section is the translation table.
+          which digit means which color.
         </p>
 
         <h3>The player-settings color slider</h3>
         <p>
-          The in-game settings menu shows seven color swatches in rainbow
-          spectrum order. Pick the color you want; the menu writes the
-          corresponding digit to <code>color1</code> for you.
+          The slider's swatches store these <code>color1</code> digits:
         </p>
         <div className="docs-table-scroll">
           <table className="docs-color-table">
@@ -542,9 +525,9 @@ export function DocsCustomize() {
           </table>
         </div>
         <p>
-          You don't have to memorize the digits — the slider is there precisely
-          so you don't. The numbers matter when you're hand-editing a config or
-          setting <code>cg_enemyColors</code>, both of which skip the slider.
+          The digits matter only when hand-editing <code>color1</code>/
+          <code>color2</code> or <code>cg_enemyColors</code>/
+          <code>cg_teamColors</code>.
         </p>
 
         <h3>
@@ -635,9 +618,7 @@ export function DocsCustomize() {
         </h3>
         <p>
           For text — chat, player names, frag feed, scoreboard, menus — escapes
-          like <code>^1text</code> use a different mapping entirely. This is the
-          one most players have memorized from years of typing colored names and
-          chat:
+          like <code>^1text</code> use a different mapping entirely:
         </p>
         <div className="docs-table-scroll">
           <table className="docs-color-table">
@@ -704,9 +685,7 @@ export function DocsCustomize() {
           color in both this table and the cvar table above. Everything else
           differs — most painfully, <code>1</code> and <code>4</code> swap. Chat{" "}
           <code>^1</code> is red, but <code>color1 1</code> is blue. Chat{" "}
-          <code>^4</code> is blue, but <code>color1 4</code> is red. If you put{" "}
-          <code>^1MyName</code> in your player name expecting your rail to
-          match, it won't.
+          <code>^4</code> is blue, but <code>color1 4</code> is red.
         </p>
         <p>
           For names and chat that look the same to players on every engine, stay

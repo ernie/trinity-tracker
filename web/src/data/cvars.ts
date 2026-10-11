@@ -77,22 +77,21 @@ export const PLAYER_CVARS: CvarEntry[] = [
     name: "cg_damagePlumScale",
     default: "1.0",
     platforms: ALL_PLATFORMS,
-    description:
-      "Size multiplier for cg_damagePlums numbers — helpful on physically small screens where the default size sits near the legibility floor.",
+    description: "Size multiplier for cg_damagePlums numbers.",
   },
   {
     name: "cg_deadBodyDarken",
     default: "1",
     platforms: ALL_PLATFORMS,
     description:
-      "Grey out dead bodies so they read as corpses. Requires pm or fb skins (the same skin family used by cg_enemyModel / cg_teamModel).",
+      "Grey out dead bodies so they read as corpses. Requires pm or fb skins.",
   },
   {
     name: "cg_drawSpeed",
     default: "0",
     platforms: ALL_PLATFORMS,
     description:
-      "Speedometer reading your current movement speed in units per second — the number movement-mode players tune strafe jumps against.",
+      "Speedometer reading your current movement speed in units per second.",
     values: [
       { value: "0", meaning: "off" },
       { value: "1", meaning: "upper right, stacked with the other readouts" },
@@ -111,7 +110,7 @@ export const PLAYER_CVARS: CvarEntry[] = [
     default: "1",
     platforms: ALL_PLATFORMS,
     description:
-      "Show the Vadrigar eye and viewer count on your HUD while someone is watching the match live from the website. 0 hides it; it only ever appears when there's at least one viewer.",
+      "Show the Vadrigar eye and viewer count on your HUD while someone is watching the match live from the website.",
   },
   {
     name: "cg_drawVoipSpeakers",
@@ -125,7 +124,7 @@ export const PLAYER_CVARS: CvarEntry[] = [
     default: "",
     platforms: ALL_PLATFORMS,
     description:
-      "Up to five-digit color string for forced enemy models: head, body, legs, color1 (rail core / weapon glow), color2 (rail spiral). Shorter strings stop early — head/body/legs default to white if omitted; color1/color2 inherit from the enemy's own settings if omitted. Uses the same digit→color mapping as the player-settings color slider. See Customize · Color codes for the full mapping picture.",
+      "Up to five-digit color string for forced enemy models: head, body, legs, color1 (rail core / weapon glow), color2 (rail spiral). Shorter strings stop early — head/body/legs default to white if omitted; color1/color2 inherit from the enemy's own settings if omitted. Uses the same digit→color mapping as the player-settings color slider.",
     values: [
       { value: "1", meaning: "blue" },
       { value: "2", meaning: "green" },
@@ -145,7 +144,7 @@ export const PLAYER_CVARS: CvarEntry[] = [
     default: "",
     platforms: ALL_PLATFORMS,
     description:
-      'Force every enemy to render as this model + skin pair (e.g. "keel/pm"). Empty disables. Skins suffixed with /pm (promode) or /fb (fullbright) accept the cg_enemyColors override.',
+      'Force every enemy to render as this model + skin pair (e.g. "keel/pm"). Skins suffixed with /pm (promode) or /fb (fullbright) accept the cg_enemyColors override.',
   },
   {
     name: "cg_followMode",
@@ -203,7 +202,7 @@ export const PLAYER_CVARS: CvarEntry[] = [
     default: "",
     platforms: ALL_PLATFORMS,
     description:
-      'Force every teammate to render as this model + skin pair (e.g. "doom/pm"). Empty disables.',
+      'Force every teammate to render as this model + skin pair (e.g. "doom/pm").',
   },
   {
     name: "cg_trinityAnnounce",
@@ -211,10 +210,6 @@ export const PLAYER_CVARS: CvarEntry[] = [
     platforms: ALL_PLATFORMS,
     description:
       "Play audio announcements for players when they join a server and when they win a match in FFA or 1v1. Eligible players have a custom announcer clip in the zzz-trinity-announcer.pk3 that ships alongside the mod.",
-    values: [
-      { value: "0", meaning: "off" },
-      { value: "1", meaning: "on" },
-    ],
   },
   {
     name: "cg_trueShotgun",
@@ -234,8 +229,7 @@ export const PLAYER_CVARS: CvarEntry[] = [
     name: "cg_tvTimeline",
     default: "1",
     platforms: ALL_PLATFORMS,
-    description:
-      "Show the timeline scrubber UI when watching TV demos. 0 hides it.",
+    description: "Show the timeline scrubber UI when watching TV demos.",
   },
   {
     name: "cg_tvdTimeout",
@@ -286,7 +280,7 @@ export const PLAYER_CVARS: CvarEntry[] = [
     platforms: ALL_PLATFORMS,
     description: "Trinity authentication token.",
     notes:
-      "Normally set by the in-game Account login flow. Power users can paste a long-lived game token from their Account page into autoexec.cfg directly to pre-authenticate a fresh install — see Docs · Account. Marked CVAR_PROTECTED so it can't be exported via /cvarlist.",
+      "Normally set by the in-game Account login flow. You can paste a long-lived game token from their Account page into autoexec.cfg directly to pre-authenticate a fresh install — see Docs · Account. Marked CVAR_PROTECTED so it can't be exported via /cvarlist.",
   },
   {
     name: "cl_trinityTracker",
@@ -301,7 +295,7 @@ export const PLAYER_CVARS: CvarEntry[] = [
     platforms: ALL_PLATFORMS,
     description: "Logged-in Trinity username.",
     notes:
-      "Normally set by the in-game Account login flow. Power users can pre-set this in autoexec.cfg paired with cl_trinityToken — see Docs · Account.",
+      "Normally set by the in-game Account login flow. You can pre-set this in autoexec.cfg paired with cl_trinityToken — see Docs · Account.",
   },
   {
     name: "cl_tvDownload",
@@ -336,31 +330,26 @@ export const PLAYER_CVARS: CvarEntry[] = [
     platforms: ALL_PLATFORMS,
     description:
       "Corona glows on light sources — lamps, torches, and the sun bloom out when you look near them.",
-    values: [
-      { value: "0", meaning: "off" },
-      { value: "1", meaning: "on" },
-    ],
   },
   {
     name: "r_flareSize",
     default: "40",
     platforms: ALL_PLATFORMS,
-    description:
-      "Radius of the corona drawn by r_flares. Larger values spread the glow wider around each light.",
+    description: "Radius of the corona drawn by r_flares.",
   },
   {
     name: "r_greyscale",
     default: "0",
     platforms: ALL_PLATFORMS,
     description:
-      "Desaturate the entire rendered frame, entities included. Range -1 to 1; 1 is full greyscale, 0 is full color. Requires r_fbo 1. Inherited from Quake3e — useful as a screenshot / aesthetic option, or paired with r_mapGreyScale.",
+      "Desaturate the entire rendered frame, entities included. Range -1 to 1; 1 is full greyscale, 0 is full color. Requires r_fbo 1. Inherited from Quake3e.",
   },
   {
     name: "r_hdrActive",
     default: "0",
     platforms: HDR_PLATFORMS,
     description:
-      "Read-only status: 1 when HDR output is genuinely live — an HDR-capable display with HDR switched on in your OS — otherwise 0.",
+      "1 when HDR output is genuinely live — an HDR-capable display with HDR switched on in your OS — otherwise 0.",
     notes: "Read-only — reports HDR state; you can't set it.",
   },
   {
@@ -369,10 +358,6 @@ export const PLAYER_CVARS: CvarEntry[] = [
     platforms: HDR_PLATFORMS,
     description:
       "Output true HDR for brighter highlights and more lifelike color. Requires the Vulkan renderer and an HDR-capable display with HDR turned on in your OS. In VR on a PC this affects the desktop mirror window only, not the headset. Not the same as r_hdr, which only sets internal rendering precision.",
-    values: [
-      { value: "0", meaning: "standard dynamic range (default)" },
-      { value: "1", meaning: "true HDR output" },
-    ],
     notes: "Latched — takes effect after a vid_restart.",
   },
   {
@@ -380,14 +365,14 @@ export const PLAYER_CVARS: CvarEntry[] = [
     default: "1.0",
     platforms: HDR_PLATFORMS,
     description:
-      "Extra pop for the brightest highlights in HDR — lights, explosions, plasma, sky. 1 is natural; raise for punchier highlights, lower for a calmer look. Does not change overall brightness. Range 0.5 to 4.0.",
+      "Brightness of the brightest highlights in HDR — lights, explosions, plasma, sky. 1 is natural; higher brightens them, lower calms them. Does not change overall brightness. Range 0.5 to 4.0.",
   },
   {
     name: "r_hdrPaperWhite",
     default: "0",
     platforms: HDR_PLATFORMS,
     description:
-      "How bright normal white looks in HDR (menus, HUD, fully-lit surfaces), in nits. 0 = auto (recommended): a comfortable level chosen from your display's peak. Set a value yourself to override — higher is brighter. Range 0 to 1000.",
+      "How bright normal white looks in HDR (menus, HUD, fully-lit surfaces), in nits. 0 = auto (recommended): a comfortable level chosen from your display's peak. Set a value yourself to override. Range 0 to 1000.",
   },
   {
     name: "r_hdrPeak",
@@ -475,13 +460,13 @@ export const VR_CVARS: CvarEntry[] = [
     default: "0.0",
     platforms: VR_PLATFORMS,
     description:
-      "Comfort vignette (tunnel-vision darkening) intensity during motion. Higher values reduce VR motion sickness at the cost of peripheral visibility.",
+      "Comfort vignette (tunnel-vision darkening) intensity during motion.",
   },
   {
     name: "vr_directionMode",
     default: "1",
     platforms: VR_PLATFORMS,
-    description: "Movement direction reference when moving.",
+    description: "What 'forward' follows.",
     values: [
       { value: "0", meaning: "follow head (HMD) orientation" },
       { value: "1", meaning: "follow off-hand controller orientation" },
@@ -520,7 +505,7 @@ export const VR_CVARS: CvarEntry[] = [
     default: "0.5",
     platforms: VR_PLATFORMS,
     description:
-      "Controller vibration / haptic feedback intensity, 0.0 to 1.0.",
+      "Controller vibration strength, 0.0 to 1.0; higher is stronger.",
   },
   {
     name: "vr_hudDepth",
@@ -533,13 +518,15 @@ export const VR_CVARS: CvarEntry[] = [
     name: "vr_hudScale",
     default: "1.0",
     platforms: VR_PLATFORMS,
-    description: "HUD size multiplier in VR.",
+    description:
+      "HUD size multiplier in VR, 0.5 to 2.0 in the menu; higher is larger.",
   },
   {
     name: "vr_hudYOffset",
     default: "0",
     platforms: VR_PLATFORMS,
-    description: "Vertical HUD position offset.",
+    description:
+      "Vertical HUD offset, -200 to 200 in the menu; positive raises the HUD.",
   },
   {
     name: "vr_lasersight",
@@ -565,7 +552,7 @@ export const VR_CVARS: CvarEntry[] = [
     default: "0",
     platforms: VR_PLATFORMS,
     description:
-      "Roll the HMD view when taking damage. Off by default — uncomfortable for many players.",
+      "Roll the HMD view when taking damage. Uncomfortable for many players.",
   },
   {
     name: "vr_screenCurvature",
@@ -596,21 +583,19 @@ export const VR_CVARS: CvarEntry[] = [
     name: "vr_switchThumbsticks",
     default: "0",
     platforms: VR_PLATFORMS,
-    description: "Swap primary / secondary thumbstick assignments.",
+    description: "1 swaps the move and turn sticks between hands.",
   },
   {
     name: "vr_thumbstickDeadzone",
     default: "0.15",
     platforms: VR_PLATFORMS,
-    description:
-      "Thumbstick dead-zone threshold (input below this is treated as zero).",
+    description: "Thumbstick dead-zone threshold.",
   },
   {
     name: "vr_thumbstickFullDeflection",
     default: "0.85",
     platforms: VR_PLATFORMS,
-    description:
-      "Thumbstick full-deflection threshold (input above this is treated as max).",
+    description: "Thumbstick full-deflection threshold.",
   },
   {
     name: "vr_triggerSensitivity",
@@ -710,14 +695,14 @@ export const SERVER_CVARS: CvarEntry[] = [
     default: "",
     platforms: ALL_PLATFORMS,
     description:
-      "Damage an attached grapple tether deals. Empty uses the game mode's value; 0 turns it off.",
+      "Damage an attached grapple tether deals. Empty uses the game mode's value.",
   },
   {
     name: "g_knockback_gh",
     default: "",
     platforms: ALL_PLATFORMS,
     description:
-      "Knockback the grapple pad delivers on impact. Empty uses the game mode's value; 0 turns it off.",
+      "Knockback the grapple pad delivers on impact. Empty uses the game mode's value.",
   },
   {
     name: "g_forceTeamColors",
@@ -725,10 +710,6 @@ export const SERVER_CVARS: CvarEntry[] = [
     platforms: ALL_PLATFORMS,
     description:
       "In team games, give every player on red or blue their team's color1, so rail cores and weapon glow match the team. color2, the rail spiral, stays each player's own. Players can still recolor teammates on their own screen with cg_teamColors.",
-    values: [
-      { value: "0", meaning: "Players keep their own color1" },
-      { value: "1", meaning: "Players on red or blue use their team's color1" },
-    ],
     notes: "Applies immediately to everyone connected; no map_restart needed.",
   },
   {
@@ -736,7 +717,7 @@ export const SERVER_CVARS: CvarEntry[] = [
     default: "0",
     platforms: ALL_PLATFORMS,
     description:
-      "Hand every player the grapple at spawn: a tenth weapon with unlimited ammo that fires an anchor pad on a tether and pulls the player to wherever it bites. Also offered as Grapple on the create-server and single-player menus.",
+      "Hand every player the grapple at spawn: a tenth weapon with unlimited ammo. Also offered as Grapple on the create-server and single-player menus.",
     notes: "Applies at each player's next spawn; no map_restart needed.",
   },
   {
@@ -751,7 +732,7 @@ export const SERVER_CVARS: CvarEntry[] = [
     default: "0",
     platforms: ALL_PLATFORMS,
     description:
-      "Game profile — selects the movement physics (acceleration, air control, friction) and the combat ruleset (per-weapon damage and knockback, ammo caps, armor mechanics — CPMA adds a tiered system with a lower-tier green armor on top of yellow and red — spawn health, and item respawn timing). QL Turbo pairs Quake Live combat with CPMA-style air control.",
+      "Game profile — selects the movement physics (acceleration, air control, friction) and the combat ruleset (per-weapon damage and knockback, ammo caps, armor mechanics, spawn health, and item respawn timing). QL Turbo pairs Quake Live combat with CPMA-style air control.",
     values: [
       { value: "0", meaning: "Quake 3" },
       { value: "1", meaning: "CPMA" },
@@ -765,14 +746,13 @@ export const SERVER_CVARS: CvarEntry[] = [
     default: "0",
     platforms: ALL_PLATFORMS,
     description:
-      "Cap sudden-death overtime in minutes. 0 is unbounded — a tied match can produce huge demo files (and matches that never end). Pick a value that fits your mode; team modes like CTF often want more than duels.",
+      "Cap sudden-death overtime in minutes. 0 is unbounded — a tied match can produce huge demo files. Team modes like CTF often want more than duels.",
   },
   {
     name: "g_rotation",
     default: "",
     platforms: ALL_PLATFORMS,
-    description:
-      "Path to a map rotation file for automated map cycling. Empty disables rotation; any other value is taken as a filename.",
+    description: "Path to a map rotation file for automated map cycling.",
   },
   {
     name: "g_teamDMSpawnThreshold",
@@ -853,7 +833,7 @@ export const SERVER_CVARS: CvarEntry[] = [
     default: "0",
     platforms: ALL_PLATFORMS,
     description:
-      "Broadcast the in-progress match to the hub for live spectating — viewers watch from the website while the match is still being played.",
+      "Broadcast the in-progress match to the hub for live spectating.",
     notes:
       "Required (= 1) for the server to participate in the Trinity network.",
   },

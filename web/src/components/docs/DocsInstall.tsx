@@ -18,10 +18,8 @@ export function DocsInstall() {
       <div className="about-section">
         <DocsH2 id="get-quake3">Step 1 — Get Quake III Arena</DocsH2>
         <p>
-          Trinity is a mod, not a replacement game — you need a legitimate copy
-          of Quake 3 Arena (which includes the Team Arena mission pack) to play.
-          The game's <code>pak0.pk3</code> files hold the original assets and
-          aren't redistributable, so you bring your own.
+          Trinity needs a retail Quake III Arena with Team Arena; it uses their{" "}
+          <code>pak0.pk3</code> files.
         </p>
         <p>
           Buy{" "}
@@ -93,10 +91,6 @@ export function DocsInstall() {
             prompt in the headset.
           </li>
         </ul>
-        <p>
-          When it finishes, the installer says where Trinity and its game files
-          went and which shortcuts it made.
-        </p>
         <PlatformNote platform="vr">
           <p>
             On a PC, one Trinity install plays both flat and in VR, through
@@ -107,12 +101,6 @@ export function DocsInstall() {
             renderer and no Display Mode setting.
           </p>
         </PlatformNote>
-        <div className="install-complete">
-          <p className="install-complete__title">
-            That's it — Trinity is installed and ready to play.
-          </p>
-          <p>Have fun! We'll see you in the arena.</p>
-        </div>
       </div>
 
       <div className="about-section">
@@ -140,7 +128,6 @@ export function DocsInstall() {
 
       <div className="about-section">
         <DocsH2 id="troubleshooting">Troubleshooting</DocsH2>
-        <p>The most common install issues, with what to check first.</p>
         <div className="install-troubleshooting">
           <details className="install-trouble">
             <summary>A security popup appears when I launch</summary>
@@ -152,11 +139,10 @@ export function DocsInstall() {
                   anyway."
                 </li>
                 <li>
-                  <strong>macOS:</strong> a dialog will confirm the app was
-                  downloaded from the internet. Click "Open" to continue.
+                  <strong>macOS:</strong> click "Open" in the first-launch
+                  dialog.
                 </li>
               </ul>
-              <p>Subsequent launches won't prompt.</p>
             </div>
           </details>
 
@@ -204,7 +190,6 @@ export function DocsInstall() {
           <details className="install-trouble">
             <summary>I can't hear other players on voice chat</summary>
             <div className="install-trouble__body">
-              <p>A few things to check, in order:</p>
               <ul>
                 <li>
                   <strong>Are you receiving voice at all?</strong> When someone
@@ -213,16 +198,12 @@ export function DocsInstall() {
                   appear, you're not getting voice from the server.
                 </li>
                 <li>
-                  <strong>Voice volume.</strong> The game has a separate
-                  voice-chat volume from main and music volume — find the voice
-                  slider in the in-game audio settings. If your other volumes
-                  are loud, voice can be drowned out without you realizing it's
-                  just turned down.
+                  <strong>Voice volume.</strong> Voice has its own volume (
+                  <code>cl_voipVolume</code>), separate from main and music.
                 </li>
                 <li>
-                  <strong>Client setting.</strong> <code>cl_voip 1</code> must
-                  be set in your config (it's the default, so this is usually
-                  fine).
+                  <strong>Client setting.</strong> <code>cl_voip 1</code>{" "}
+                  (default).
                 </li>
                 <li>
                   <strong>Server setting.</strong> If the indicators never
@@ -244,15 +225,13 @@ export function DocsInstall() {
               </p>
               <ul>
                 <li>
-                  <strong>Speaker with an X next to it.</strong> You're
-                  self-muted. Unmute and try again.
+                  <strong>Speaker with an X next to it.</strong> You're muted;
+                  press <strong>VoIP PTT / Toggle</strong> to unmute.
                 </li>
                 <li>
-                  <strong>Speaker with no sound waves.</strong> Your mic is on
-                  but you're not currently transmitting. Depending on your voice
-                  settings, you may need to press a bound input — push-to-talk
-                  requires holding a key while you speak; voice-activity mode
-                  transmits automatically when it picks up sound.
+                  <strong>Speaker with no sound waves.</strong> In push-to-talk,
+                  hold your <strong>VoIP PTT / Toggle</strong> binding; with
+                  voice activity, speak above <code>cl_voipVADThreshold</code>.
                 </li>
                 <li>
                   <strong>Speaker with sound waves.</strong> You're

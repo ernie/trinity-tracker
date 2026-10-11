@@ -41,8 +41,7 @@ export function DocsWelcome() {
         <p className="docs-welcome__lead">
           Trinity is Quake 3 with modern conveniences — VR, voice chat, and
           shared stats — built on top of the original game you know. It's
-          backwards-compatible with vanilla Q3 servers, so installing it never
-          costs you the rest of the community.
+          backwards-compatible with vanilla Q3 servers.
         </p>
       </div>
 
@@ -52,7 +51,7 @@ export function DocsWelcome() {
           <Link to="/docs/install" className="docs-welcome__persona-card">
             <span className="docs-welcome__persona-title">Install</span>
             <span className="docs-welcome__persona-teaser">
-              You're just 3 steps away from playing Trinity.
+              Get Quake III Arena and run the Trinity Installer.
             </span>
             <ArrowIcon
               direction="right"
@@ -64,7 +63,8 @@ export function DocsWelcome() {
           <Link to="/docs/play" className="docs-welcome__persona-card">
             <span className="docs-welcome__persona-title">Play</span>
             <span className="docs-welcome__persona-teaser">
-              What you'll want to know to get the most out of Trinity.
+              Accounts, voice chat, VR, the HUD, game modes, the grapple, and
+              demos.
             </span>
             <ArrowIcon
               direction="right"
@@ -90,7 +90,6 @@ export function DocsWelcome() {
       <div className="about-section">
         <DocsH2 id="watch-featured">Watch a match</DocsH2>
         <p>
-          Curious before you commit?{" "}
           {liveServer ? (
             <>
               <a
@@ -123,8 +122,8 @@ export function DocsWelcome() {
       <div className="about-section">
         <DocsH2 id="get-help">Get help, get involved</DocsH2>
         <p>
-          Stuck on something or just want to say hi?{" "}
-          <a href={DISCORD_INVITE_URL}>Trinity Discord</a> is the place.
+          Questions and help:{" "}
+          <a href={DISCORD_INVITE_URL}>the Trinity Discord</a>.
         </p>
       </div>
     </>

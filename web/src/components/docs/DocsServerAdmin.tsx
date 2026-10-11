@@ -9,12 +9,8 @@ export function DocsServerAdmin() {
       <div className="about-section">
         <DocsH2 id="who-this-is-for">Who this is for</DocsH2>
         <p>
-          Trinity is open to any Q3 server operator who wants to participate. If
-          you run (or are thinking about running) a Quake 3 server and want
-          match stats, demos, and player accounts to flow through the Trinity
-          network, this page walks you through it. If you're just here to play,
-          you can skip this section and head back to{" "}
-          <Link to="/docs">Welcome</Link>.
+          Connect a Q3 server to the Trinity network for stats, demos and
+          accounts.
         </p>
       </div>
 
@@ -46,10 +42,8 @@ export function DocsServerAdmin() {
                 <code>_</code>, or <code>-</code>. Shorter is better.
               </li>
               <li>
-                <strong>Purpose</strong> <em>(optional)</em> — if you're not
-                already a familiar face on the Discord, this is a good place to
-                introduce yourself: who you are, what your server's about,
-                anything that helps the reviewing admin recognize you.
+                <strong>Purpose</strong> <em>(optional)</em> — anything the
+                reviewer should know about you and your server.
               </li>
             </ul>
             New requests go through admin review; re-requesting a name you
@@ -92,20 +86,14 @@ export function DocsServerAdmin() {
           </li>
         </ol>
         <p>
-          Questions, troubleshooting, or just saying hi:{" "}
-          <a href={DISCORD_INVITE_URL}>the Trinity Discord</a> is where the
-          community lives.
+          Help: <a href={DISCORD_INVITE_URL}>the Trinity Discord</a>.
         </p>
       </div>
 
       <div className="about-section">
         <DocsH2 id="required-server-cvars">Required server cvars</DocsH2>
         <div className="docs-tip">
-          <p>
-            The install script sets all of these for you. They're listed here so
-            you know what they do and don't accidentally remove them from your
-            config later.
-          </p>
+          <p>The install script sets all of these for you.</p>
         </div>
         <p>Four for wiring your collector into the hub:</p>
         <ul>
@@ -118,8 +106,7 @@ export function DocsServerAdmin() {
             remote console for your servers:{" "}
             <code>trinity console &lt;server&gt;</code> sends rcon commands or
             follows the live console from anywhere you can log in, no shell
-            access to the game box needed. Stats still flow without it, but you
-            lose remote console access.
+            access to the game box needed. Stats flow without it.
           </li>
           <li>
             <code>g_trinityHandshake 1</code> — gates the server to verified
@@ -170,10 +157,6 @@ export function DocsServerAdmin() {
 
       <div className="about-section">
         <DocsH2 id="recommended-server-cvars">Recommended server cvars</DocsH2>
-        <p>
-          Knobs for protecting your disk and shaping how matches play. Tune to
-          your setup:
-        </p>
         <ul>
           <li>
             <code>sv_tvAutoMinPlayers 1</code> +{" "}
@@ -184,9 +167,8 @@ export function DocsServerAdmin() {
           <li>
             <code>g_overtimelimit N</code> — cap sudden-death overtime at N
             minutes. The default of <code>0</code> is unbounded, which can
-            produce huge demo files (and matches that never end) if a tied match
-            drags on. Pick a value that fits your mode — a couple of minutes
-            works for duels; CTF and other team modes often want more.
+            produce huge demo files if a tied match drags on. A couple of
+            minutes works for duels; CTF and other team modes often want more.
           </li>
           <li>
             <code>sv_pure 1</code> — VR clients load your QVMs the same way

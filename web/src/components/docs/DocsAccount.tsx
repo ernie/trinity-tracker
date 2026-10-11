@@ -21,10 +21,9 @@ export function DocsAccount() {
         </p>
         <ul>
           <li>
-            <strong>Stats follow you.</strong> Flatscreen at the office (no,
-            you'd never do that), VR on your PC at home, a standalone headset on
-            the road — sign in on each one and they all count toward the same
-            profile.
+            <strong>Stats follow you.</strong> Flatscreen at the office, VR on
+            your PC at home, a standalone headset on the road — sign in on each
+            one and they all count toward the same profile.
           </li>
           <li>
             <strong>Verified player badge.</strong> A green checkmark shows up
@@ -35,13 +34,11 @@ export function DocsAccount() {
           </li>
           <li>
             <strong>Name lock.</strong> On Trinity servers, your in-game name is
-            locked to your account's display name — you always show up with a
-            consistent identity across sessions and servers. Your name is
-            protected: if anyone else joins with the same name, they're
-            automatically renamed. The bots enjoy the same protection — every
-            stock Q3 and Team Arena character (clan rosters included) owns its
-            name the way you own yours, so nobody can masquerade as Xaero
-            either.
+            locked to your account's display name. Your name is protected: if
+            anyone else joins with the same name, they're automatically renamed.
+            The bots enjoy the same protection — every stock Q3 and Team Arena
+            character (clan rosters included) owns its name the way you own
+            yours, so nobody can masquerade as Xaero either.
           </li>
           <li>
             <strong>Announcer clips.</strong> Eligible players get custom audio
@@ -90,8 +87,8 @@ export function DocsAccount() {
           <li>
             Pick a display name, username, and password for your account. The
             display name supports Quake 3 color codes (e.g.,{" "}
-            <ColoredText text="^1Ph^7R4g" />) — you'll see a live preview as you
-            type. You can restyle your display name anytime from your{" "}
+            <ColoredText text="^1Ph^7R4g" />
+            ). You can restyle your display name anytime from your{" "}
             <Link to="/account">Account page</Link>. You're done — your in-game
             identity on that server is now linked.
           </li>
@@ -111,18 +108,15 @@ export function DocsAccount() {
       <div className="about-section">
         <DocsH2 id="authentication">Log in</DocsH2>
         <p>
-          Once you have an account, log in from the in-game{" "}
-          <strong>Account</strong> menu — the option lives on the main menu,
-          same as any other Quake 3 menu item. Enter your username and password
-          and Trinity stores them in your config.
+          Log in from <strong>Account</strong> on the main menu; Trinity saves
+          the credentials to your config.
         </p>
         <p>
-          Power-user alternative: add <code>cl_trinityUser</code> and{" "}
-          <code>cl_trinityToken</code> to your <code>autoexec.cfg</code>{" "}
-          directly. Your game token (a long generated string, not your password)
-          lives on your <Link to="/account">Account page</Link> — copy it once
-          and paste it into the autoexec on every install you want
-          pre-authenticated.
+          Or add <code>cl_trinityUser</code> and <code>cl_trinityToken</code> to
+          your <code>autoexec.cfg</code> directly. Your game token (a long
+          generated string, not your password) lives on your{" "}
+          <Link to="/account">Account page</Link> — copy it once and paste it
+          into the autoexec on every install you want pre-authenticated.
         </p>
         <p>
           Either way, once your client has valid credentials, Trinity bundles
@@ -134,30 +128,26 @@ export function DocsAccount() {
       <div className="about-section">
         <DocsH2 id="link-devices">Link another device or install</DocsH2>
         <p>
-          You don't need to do anything special — just log in on the new install
-          (in-game Account menu, or autoexec cvars) and play. The first time you
-          join a Trinity server with valid credentials, that install's identity
-          gets bound to your account.
+          Log in on the new install (Account menu or autoexec cvars) and play.
+          The first time you join a Trinity server with valid credentials, that
+          install's identity gets bound to your account.
         </p>
         <p>
           If automatic linking misses for some reason, there's a manual
           fallback. From your <Link to="/account">Account page</Link>, generate
           a six-digit link code, then in-game on the install you want to link,
-          type <code>!link 482917</code> (substituting your actual code). Same
-          end result.
+          type <code>!link 482917</code>.
         </p>
       </div>
 
       <div className="about-section">
         <DocsH2 id="sessions-security">Sessions and security</DocsH2>
         <p>
-          Logging in on this site keeps you signed in per browser. If you ever
-          want to cut every session loose at once — a shared computer you forgot
-          to log out of, a session you suspect leaked — the{" "}
+          If you ever want to cut every session loose at once — a shared
+          computer you forgot to log out of, a session you suspect leaked — the{" "}
           <strong>Security</strong> section of your{" "}
           <Link to="/account">Account page</Link> has a{" "}
-          <strong>Log out everywhere</strong> button. It signs you out of the
-          site on every browser and device, immediately. Changing your password
+          <strong>Log out everywhere</strong> button. Changing your password
           does the same thing as a side effect.
         </p>
         <p>
@@ -182,9 +172,7 @@ export function DocsAccount() {
           keep stats merged without an account, you'd need to copy your{" "}
           <code>qkey</code> file between installs, set{" "}
           <code>cl_guidServerUniq 0</code> to keep it stable across servers, or
-          use <code>!link</code> to merge any identities that drifted apart. It
-          works, but it's the kind of thing accounts exist to avoid — most
-          players claim sooner or later.
+          use <code>!link</code> to merge any identities that drifted apart.
         </p>
       </div>
     </>
