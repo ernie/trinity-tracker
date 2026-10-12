@@ -651,7 +651,7 @@ export const VR_CVARS: CvarEntry[] = [
   },
   {
     name: "vr_twoHandedWeapons",
-    default: "0",
+    default: "1",
     platforms: VR_PLATFORMS,
     description:
       "Two-handed weapon stabilization mode — controls how the weapon points when you hold the secondary grip with your off hand.",
@@ -673,7 +673,8 @@ export const VR_CVARS: CvarEntry[] = [
     name: "vr_weaponScope",
     default: "1",
     platforms: VR_PLATFORMS,
-    description: "Enable railgun zoom in VR.",
+    description:
+      "Enable railgun zoom in VR. To zoom, raise the railgun to your face and hold the secondary grip with your off hand in front of it. Zoomed shots aim from your face through your off hand, whatever vr_twoHandedWeapons is set to.",
   },
   {
     name: "vr_worldscale",

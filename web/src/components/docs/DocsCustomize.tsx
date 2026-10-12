@@ -97,7 +97,7 @@ export function DocsCustomize() {
             </li>
             <li>
               <code>vr_twoHandedWeapons N</code> — two-handed weapon grip; hold
-              the secondary grip to stabilize the weapon. Default <code>0</code>
+              the secondary grip to stabilize the weapon. Default <code>1</code>
               .
               <ul>
                 <li>
