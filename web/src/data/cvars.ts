@@ -388,25 +388,27 @@ export const PLAYER_CVARS: CvarEntry[] = [
     notes: "Latched — takes effect after a vid_restart.",
   },
   {
-    name: "r_hdrHighlight",
+    name: "r_hdrHighlightBoost",
     default: "1.0",
     platforms: HDR_PLATFORMS,
     description:
-      "Brightness of the brightest highlights in HDR — lights, explosions, plasma, sky. 1 is natural; higher brightens them, lower calms them. Does not change overall brightness. Range 0.5 to 4.0.",
+      "How bright the brightest highlights get in HDR: lights, explosions, plasma and sky. 1 is natural; higher makes them brighter but makes very bright highlights look more alike, lower calms them. Does not change overall brightness. Range 0.5 to 2.0.",
+    notes:
+      "Set it with the Highlight Boost slider in the display settings, available while HDR output is on.",
   },
   {
     name: "r_hdrPaperWhite",
     default: "0",
     platforms: HDR_PLATFORMS,
     description:
-      "How bright normal white looks in HDR (menus, HUD, fully-lit surfaces), in nits. 0 = auto (recommended): a comfortable level chosen from your display's peak. Set a value yourself to override. Range 0 to 1000.",
+      "How bright normal white looks in HDR (menus, HUD, fully-lit surfaces), in nits. 0 = auto (recommended): a comfortable level chosen from your display's peak. Set a value yourself to override. Range 0 to 1000. On macOS the system sets the white level, so this has no effect there.",
   },
   {
     name: "r_hdrPeak",
     default: "400",
     platforms: HDR_PLATFORMS,
     description:
-      "Your HDR display's usable peak brightness in nits — the main HDR setting. Highlights brighten up to this, and the auto white level is based on it. The best way to set it is the in-game HDR Calibration screen, which finds the brightness your panel actually reaches — often well below its rated peak. Your display's HDR rating is a fine starting point, but calibrating is better. The calibration screen goes up to 2000 nits, which covers current HDR displays; set by hand, the cvar accepts 250 to 10000.",
+      "Your HDR display's usable peak brightness in nits — the main HDR setting. Highlights brighten up to this, and the auto white level is based on it. The best way to set it is the in-game HDR Calibration screen, which finds the brightness your panel actually reaches — often well below its rated peak. Your display's HDR rating is a fine starting point, but calibrating is better. The calibration screen goes up to 2000 nits, which covers current HDR displays; set by hand, the cvar accepts 250 to 10000. On macOS the system reports the display's peak, so this has no effect there and the calibration screen isn't offered.",
     notes:
       "Calibrate it on the HDR Calibration screen (Setup → Display), available flat and in VR alike. It's the same number on both, so flat play is the convenient place to find it — in VR the mirror isn't HDR as the headset renders it, so you slide the headset up to read the pattern off the monitor.",
   },
