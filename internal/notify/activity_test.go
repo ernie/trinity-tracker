@@ -15,9 +15,8 @@ import (
 
 func contains(haystack, needle string) bool { return strings.Contains(haystack, needle) }
 
-// fakePoller returns a fixed status for each server. Good enough for
-// the activity-trigger tests — embed-body details are tested
-// separately via the renderer's own assertions.
+// fakePoller returns a fixed status per server; embed_test.go covers
+// the embed bodies.
 type fakePoller struct {
 	byID map[int64]*domain.ServerStatus
 }
@@ -29,9 +28,7 @@ func (f *fakePoller) GetServerStatus(id int64) *domain.ServerStatus {
 	return f.byID[id]
 }
 
-// fakeTimer is the controllable Stopper used in tests. The notifier
-// stores it on the per-server state and may call Stop() to cancel;
-// the test calls fireAll() to simulate the timer elapsing.
+// fakeTimer fires only when the test calls fireAll.
 type fakeTimer struct {
 	fn      func()
 	stopped bool
@@ -43,8 +40,6 @@ func (t *fakeTimer) Stop() bool {
 	return !prev
 }
 
-// fakeClock collects fakeTimer instances so a test can iterate
-// pending fires in order.
 type fakeClock struct {
 	mu      sync.Mutex
 	pending []*fakeTimer
@@ -58,10 +53,7 @@ func (c *fakeClock) after(_ time.Duration, fn func()) Stopper {
 	return t
 }
 
-// fireAll runs every non-stopped pending fn. Older stopped timers
-// stay in the list but are skipped — this mirrors how the notifier
-// nils its tracked timer when it cancels, while the system timer
-// might still exist transiently.
+// fireAll runs every pending timer that wasn't stopped.
 func (c *fakeClock) fireAll() {
 	c.mu.Lock()
 	pending := c.pending
@@ -86,9 +78,8 @@ func (c *fakeClock) pendingLen() int {
 	return n
 }
 
-// capturePoster records every webhook POST and PATCH so the test
-// can assert on fire counts and order. Posts get sequential ids
-// so the editor can match by message id.
+// capturePoster records every post and edit. Posts get sequential ids
+// so edits can be matched to them.
 type capturePoster struct {
 	mu      sync.Mutex
 	embeds  []discord.Embed
@@ -177,9 +168,8 @@ func (c *capturePoster) waitForEdits(t *testing.T, n int) {
 	t.Fatalf("timed out waiting for %d edit(s), have %d", n, c.editCount())
 }
 
-// setup spins a fresh notifier wired to a hub.Presence we can
-// manipulate directly to simulate the writer's RecordJoin/Leave
-// before each OnHumanJoin/Leave invocation.
+// setup returns a notifier over a hub.Presence the test updates itself,
+// as the writer does before each OnHumanJoin or OnHumanLeave.
 func setup(t *testing.T, serverID int64) (*Notifier, *hub.Presence, *fakeClock, *capturePoster, *fakePoller) {
 	t.Helper()
 	presence := hub.NewPresence()
@@ -211,9 +201,8 @@ func setup(t *testing.T, serverID int64) (*Notifier, *hub.Presence, *fakeClock, 
 	return n, presence, clock, poster, poller
 }
 
-// recordJoin / recordLeave mirror what hub.Writer does before calling
-// OnHumanJoin / OnHumanLeave. Slot is arbitrary; only the IsBot flag
-// matters for HumanCount.
+// recordJoin and recordLeave do what hub.Writer does before calling
+// OnHumanJoin and OnHumanLeave. Only IsBot matters to HumanCount.
 func recordJoin(p *hub.Presence, serverID int64, clientNum int, guid string) {
 	p.RecordJoin(serverID, clientNum, hub.PresenceEntry{GUID: guid, IsBot: false})
 }
@@ -222,16 +211,12 @@ func recordLeave(p *hub.Presence, serverID int64, clientNum int, guid string) {
 	p.RecordLeave(serverID, clientNum, guid)
 }
 
-// 0→1 schedules the going-active timer (delayed) — no immediate
-// POST. After the timer fires, exactly one going-active embed lands.
-// A subsequent 1→2 join doesn't fire another.
 func TestNotifier_FirstHumanFiresActiveAfterDelay(t *testing.T) {
 	const serverID = int64(7)
 	n, presence, clock, poster, _ := setup(t, serverID)
 
 	recordJoin(presence, serverID, 0, "guid-A")
 	n.OnHumanJoin(serverID)
-	// The going-active fire is now timer-gated; not immediate.
 	time.Sleep(20 * time.Millisecond)
 	if got := len(poster.embeds); got != 0 {
 		t.Fatalf("active should not fire before delay elapses, got %d (%v)", got, poster.titles())
@@ -243,7 +228,6 @@ func TestNotifier_FirstHumanFiresActiveAfterDelay(t *testing.T) {
 	clock.fireAll()
 	poster.waitFor(t, 1)
 
-	// Subsequent join 1→2 must not schedule or fire.
 	recordJoin(presence, serverID, 1, "guid-B")
 	n.OnHumanJoin(serverID)
 	time.Sleep(20 * time.Millisecond)
@@ -256,9 +240,6 @@ func TestNotifier_FirstHumanFiresActiveAfterDelay(t *testing.T) {
 	}
 }
 
-// Connect-and-drop inside the going-active delay: cancel the pending
-// active fire. Nothing posted on either side — Discord never heard
-// about this connection.
 func TestNotifier_DropInsideActiveDelayCancels(t *testing.T) {
 	const serverID = int64(7)
 	n, presence, clock, poster, _ := setup(t, serverID)
@@ -269,17 +250,13 @@ func TestNotifier_DropInsideActiveDelayCancels(t *testing.T) {
 		t.Fatalf("expected 1 pending active timer, got %d", got)
 	}
 
-	// Drop before the active-delay elapses.
 	recordLeave(presence, serverID, 0, "guid-A")
 	n.OnHumanLeave(serverID)
 
-	// Pending active should be cancelled; no inactive timer should
-	// have been scheduled (we never told Discord they were active).
 	if got := clock.pendingLen(); got != 0 {
-		t.Fatalf("active timer should be cancelled and no inactive scheduled, got %d still pending", got)
+		t.Fatalf("active timer should be canceled and no inactive scheduled, got %d still pending", got)
 	}
 
-	// Even if a stale fn was queued, fireAll() skips stopped ones.
 	clock.fireAll()
 	time.Sleep(20 * time.Millisecond)
 	if got := len(poster.embeds); got != 0 {
@@ -287,8 +264,6 @@ func TestNotifier_DropInsideActiveDelayCancels(t *testing.T) {
 	}
 }
 
-// Full active→inactive lifecycle: active timer fires, then last
-// human leaves, then inactive timer fires.
 func TestNotifier_FullLifecycle(t *testing.T) {
 	const serverID = int64(7)
 	n, presence, clock, poster, _ := setup(t, serverID)
@@ -316,8 +291,6 @@ func TestNotifier_FullLifecycle(t *testing.T) {
 	}
 }
 
-// 1→0 then 0→1 inside the inactive debounce window cancels the
-// pending inactive — Discord never sees the flap.
 func TestNotifier_RejoinInsideInactiveDebounceCancels(t *testing.T) {
 	const serverID = int64(7)
 	n, presence, clock, poster, _ := setup(t, serverID)
@@ -330,8 +303,6 @@ func TestNotifier_RejoinInsideInactiveDebounceCancels(t *testing.T) {
 	recordLeave(presence, serverID, 0, "guid-A")
 	n.OnHumanLeave(serverID)
 
-	// Rejoin inside the inactive-debounce window: cancel timer, no
-	// fire on either side.
 	recordJoin(presence, serverID, 1, "guid-A")
 	n.OnHumanJoin(serverID)
 	time.Sleep(20 * time.Millisecond)
@@ -342,18 +313,15 @@ func TestNotifier_RejoinInsideInactiveDebounceCancels(t *testing.T) {
 	clock.fireAll()
 	time.Sleep(20 * time.Millisecond)
 	if got := len(poster.embeds); got != 1 {
-		t.Fatalf("cancelled inactive timer should not have fired, got %d (%v)", got, poster.titles())
+		t.Fatalf("canceled inactive timer should not have fired, got %d (%v)", got, poster.titles())
 	}
 }
 
-// Busy-at-boot servers (humans pre-loaded via PresenceSnapshot,
-// without an OnHumanJoin) must not refire "going active" on the
-// next join. The count==1 clause carries this — count goes 1→2,
-// 2→3, etc, never reaching 1 in a way that would fire.
 func TestNotifier_BusyAtBootDoesNotRefireActive(t *testing.T) {
 	const serverID = int64(7)
 	n, presence, clock, poster, _ := setup(t, serverID)
 
+	// Loaded by PresenceSnapshot, so no OnHumanJoin.
 	recordJoin(presence, serverID, 0, "guid-A")
 
 	recordJoin(presence, serverID, 1, "guid-B")
@@ -368,13 +336,11 @@ func TestNotifier_BusyAtBootDoesNotRefireActive(t *testing.T) {
 	}
 }
 
-// Busy-at-boot drain: snapshot pre-loaded humans, they all leave,
-// the inactive fire must still happen even though we never saw an
-// OnHumanJoin. Covers the "!= declaredInactive" gate.
 func TestNotifier_BusyAtBootDrainFiresInactive(t *testing.T) {
 	const serverID = int64(7)
 	n, presence, clock, poster, _ := setup(t, serverID)
 
+	// Loaded by PresenceSnapshot, so no OnHumanJoin.
 	recordJoin(presence, serverID, 0, "guid-A")
 	recordJoin(presence, serverID, 1, "guid-B")
 
@@ -398,9 +364,8 @@ func TestNotifier_BusyAtBootDrainFiresInactive(t *testing.T) {
 	}
 }
 
-// Bot-only churn never reaches the notifier because the writer's
-// handler filters bots, but if it did somehow (synthetic test of
-// the count-based gate), HumanCount stays at 0 so no fire.
+// The writer filters bots before calling the notifier; this checks the
+// count-based gate on its own.
 func TestNotifier_BotJoinDoesNotFire(t *testing.T) {
 	const serverID = int64(7)
 	n, presence, clock, poster, _ := setup(t, serverID)
@@ -417,9 +382,7 @@ func TestNotifier_BotJoinDoesNotFire(t *testing.T) {
 	}
 }
 
-// Server with no poller status logs a skip and posts nothing —
-// defensive against the brief window after notifier startup before
-// the first UDP poll lands.
+// Right after startup the first UDP poll may not have landed yet.
 func TestNotifier_NoStatusSkipsFire(t *testing.T) {
 	const serverID = int64(7)
 	n, presence, clock, poster, poller := setup(t, serverID)
@@ -435,9 +398,6 @@ func TestNotifier_NoStatusSkipsFire(t *testing.T) {
 	}
 }
 
-// After going-active has fired and recorded a message id, a
-// second human joining schedules a refresh that PATCHes the same
-// message id with an updated embed. No new POST.
 func TestNotifier_AdditionalJoinSchedulesRefresh(t *testing.T) {
 	const serverID = int64(7)
 	n, presence, clock, poster, _ := setup(t, serverID)
@@ -447,7 +407,6 @@ func TestNotifier_AdditionalJoinSchedulesRefresh(t *testing.T) {
 	clock.fireAll() // active timer
 	poster.waitFor(t, 1)
 
-	// Second player joins while declared=active.
 	recordJoin(presence, serverID, 1, "guid-B")
 	n.OnHumanJoin(serverID)
 	if got := clock.pendingLen(); got != 1 {
@@ -469,9 +428,6 @@ func TestNotifier_AdditionalJoinSchedulesRefresh(t *testing.T) {
 	}
 }
 
-// A leave that keeps count > 0 also refreshes the roster so the
-// embed reflects the new player list. Same commitment window as
-// joins (no twitchy updates from a player who immediately rejoins).
 func TestNotifier_LeaveWithRemainingSchedulesRefresh(t *testing.T) {
 	const serverID = int64(7)
 	n, presence, clock, poster, _ := setup(t, serverID)
@@ -486,7 +442,6 @@ func TestNotifier_LeaveWithRemainingSchedulesRefresh(t *testing.T) {
 	clock.fireAll() // first refresh
 	poster.waitForEdits(t, 1)
 
-	// One player leaves; another remains. Refresh should fire.
 	recordLeave(presence, serverID, 0, "guid-A")
 	n.OnHumanLeave(serverID)
 	if got := clock.pendingLen(); got != 1 {
@@ -500,10 +455,6 @@ func TestNotifier_LeaveWithRemainingSchedulesRefresh(t *testing.T) {
 	}
 }
 
-// While the going-inactive debounce is pending we don't schedule
-// a refresh — the inactive fire would supersede it. Avoids a
-// "Server is active with 0 players" frame between the leave and
-// the inactive fire.
 func TestNotifier_NoRefreshWhileInactivePending(t *testing.T) {
 	const serverID = int64(7)
 	n, presence, clock, poster, _ := setup(t, serverID)
@@ -515,21 +466,11 @@ func TestNotifier_NoRefreshWhileInactivePending(t *testing.T) {
 
 	recordLeave(presence, serverID, 0, "guid-A")
 	n.OnHumanLeave(serverID)
-	// Pending should be exactly the inactive debounce — no refresh.
 	if got := clock.pendingLen(); got != 1 {
 		t.Fatalf("expected only inactive timer, got %d pending", got)
 	}
-
-	// Even if a stray rejoin happens, cancelling inactive shouldn't
-	// schedule a refresh until count > 0 *and* declared==active.
-	// (After the rejoin, declared remains active, so a refresh is
-	// allowed and expected — this checks that the inactive-pending
-	// case alone doesn't schedule one.)
 }
 
-// Going-inactive clears activeMessageID and the next 0→1 starts a
-// fresh POST. Without this the second "active" would PATCH the
-// previous (now silent) embed.
 func TestNotifier_InactiveClearsActiveMessageID(t *testing.T) {
 	const serverID = int64(7)
 	n, presence, clock, poster, _ := setup(t, serverID)
@@ -544,7 +485,6 @@ func TestNotifier_InactiveClearsActiveMessageID(t *testing.T) {
 	clock.fireAll() // inactive
 	poster.waitFor(t, 2)
 
-	// Next 0→1 transition should produce a third POST, not a PATCH.
 	recordJoin(presence, serverID, 1, "guid-B")
 	n.OnHumanJoin(serverID)
 	clock.fireAll() // active
@@ -555,10 +495,6 @@ func TestNotifier_InactiveClearsActiveMessageID(t *testing.T) {
 	}
 }
 
-// OnMatchStart while active schedules a refresh so a map change
-// (or a new match on the same map with reset scores) updates the
-// embed. The 30s window lets the UDP poller observe the new
-// mapname cvar before we PATCH.
 func TestNotifier_MatchStartRefreshesWhileActive(t *testing.T) {
 	const serverID = int64(7)
 	n, presence, clock, poster, poller := setup(t, serverID)
@@ -568,8 +504,7 @@ func TestNotifier_MatchStartRefreshesWhileActive(t *testing.T) {
 	clock.fireAll() // active
 	poster.waitFor(t, 1)
 
-	// Update poller status to simulate the new map landing in the
-	// next UDP poll cycle, then trigger OnMatchStart.
+	// The next poll sees the new map.
 	poller.byID[serverID].Map = "q3dm6"
 	n.OnMatchStart(serverID)
 	if got := clock.pendingLen(); got != 1 {
@@ -584,8 +519,6 @@ func TestNotifier_MatchStartRefreshesWhileActive(t *testing.T) {
 	}
 }
 
-// OnMatchStart on an inactive or pre-announce server is a no-op:
-// nothing to refresh.
 func TestNotifier_MatchStartIgnoredWhenInactive(t *testing.T) {
 	const serverID = int64(7)
 	n, _, clock, _, _ := setup(t, serverID)
@@ -596,9 +529,6 @@ func TestNotifier_MatchStartIgnoredWhenInactive(t *testing.T) {
 	}
 }
 
-// Discord 404 on PATCH means someone deleted the message in the
-// channel. The notifier clears its cached id so future events
-// don't keep failing against a tombstone.
 func TestNotifier_EditNotFoundClearsMessageID(t *testing.T) {
 	const serverID = int64(7)
 	n, presence, clock, poster, _ := setup(t, serverID)
@@ -608,15 +538,12 @@ func TestNotifier_EditNotFoundClearsMessageID(t *testing.T) {
 	clock.fireAll() // active
 	poster.waitFor(t, 1)
 
-	// Next refresh hits a 404.
 	poster.editErr = discord.ErrMessageNotFound
 	recordJoin(presence, serverID, 1, "guid-B")
 	n.OnHumanJoin(serverID)
-	clock.fireAll() // refresh (will fail with 404)
+	clock.fireAll() // refresh, which gets the 404
 	time.Sleep(20 * time.Millisecond)
 
-	// A follow-up event must NOT schedule another refresh — the id
-	// is gone so maybeScheduleRefresh has nothing to refresh.
 	recordJoin(presence, serverID, 2, "guid-C")
 	n.OnHumanJoin(serverID)
 	if got := clock.pendingLen(); got != 0 {

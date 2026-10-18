@@ -1,16 +1,10 @@
-// Two platform identities, one stored at a time. `null` = "user has
-// never picked"; surfaced by the docs only as the gate for the
-// first-visit picker. After picking, the stored value is always one
-// of the two concrete platforms.
 export type Platform = "flatscreen" | "vr";
 
 export const PLATFORM_STORAGE_KEY = "q3a_docs_platform";
 
 const VALID: ReadonlySet<string> = new Set(["flatscreen", "vr"]);
 
-// Defensive read — anything not in the valid set (including a stale
-// value left by a future-self typo) returns null and triggers the
-// re-pick flow rather than silently rendering wrong-platform content.
+// null means no valid choice is stored, so the picker shows.
 export function loadPlatform(): Platform | null {
   try {
     const raw = localStorage.getItem(PLATFORM_STORAGE_KEY);
@@ -25,7 +19,7 @@ export function savePlatform(p: Platform): void {
   try {
     localStorage.setItem(PLATFORM_STORAGE_KEY, p);
   } catch {
-    // Private-browsing throws on setItem; nothing to do, the picker
-    // will just re-fire next visit.
+    // Private browsing can throw here; the picker shows again next
+    // visit.
   }
 }

@@ -11,34 +11,31 @@ import (
 	"strings"
 )
 
-// requiredBaseq3 is the pak set the trinity-engine fork expects in
-// baseq3/. pak0 is the retail asset (not redistributable); pak1–pak8
-// are the id Software 1.32 point release patch data, redistributed
-// under the EULA reproduced below.
+// requiredBaseq3 is the pak set the engine expects in baseq3/. pak0 is
+// the retail game's and can't be redistributed; pak1–pak8 are id
+// Software's 1.32 point release patch data, redistributed under its
+// EULA.
 var requiredBaseq3 = []string{
 	"pak0.pk3",
 	"pak1.pk3", "pak2.pk3", "pak3.pk3", "pak4.pk3",
 	"pak5.pk3", "pak6.pk3", "pak7.pk3", "pak8.pk3",
 }
 
-// requiredMissionpack is the same idea for missionpack/, only checked
-// when an operator has at least one Team Arena server configured.
+// requiredMissionpack is the pak set for missionpack/, checked when at
+// least one Team Arena server is configured.
 var requiredMissionpack = []string{
 	"pak0.pk3",
 	"pak1.pk3", "pak2.pk3", "pak3.pk3",
 }
 
 const (
-	// patchZipName is the file the wizard fetches for the 1.32 point
-	// release patch data. Hub operators drop the (re-zipped) ioquake3.org
-	// bundle into <static_dir>/downloads/ once at hub setup time; every
-	// install fetches it from there. Zip layout: `baseq3/pakN.pk3` and
-	// `missionpack/pakN.pk3` at the top level.
+	// patchZipName is the 1.32 point release patch data, which the hub
+	// serves from <static_dir>/downloads/ for every install to fetch.
 	patchZipName = "quake3-1.32-pk3s.zip"
 
-	// canonBaseq3 / canonMP are the filenames the prereq/install banner
-	// suggests the operator copy their retail pak0s as. When present in
-	// the wizard's CWD they're auto-staged without a prompt.
+	// canonBaseq3 and canonMP are the names the install banner asks the
+	// operator to give their retail pak0s. Found in the working
+	// directory, they're placed without a prompt.
 	canonBaseq3 = "q3-pak0.pk3"
 	canonMP     = "mp-pak0.pk3"
 )
@@ -50,42 +47,34 @@ type PakStepOptions struct {
 	UseSystemd  bool   // controls whether the auto-start prompt fires
 	TrinityBin  string // path to the installed trinity binary; defaults to /usr/local/bin/trinity
 
-	// HubHost is the hostname the wizard uses to fetch hub-hosted
-	// downloads (patch zip) over HTTPS when no local copy is found.
-	// Required for collector-only installs that have to pull from a
-	// remote hub.
+	// HubHost is the hub the patch zip is fetched from over HTTPS when
+	// there's no local copy.
 	HubHost string
 
 	// StaticDir is the hub's web-asset root (e.g. /var/lib/trinity/web).
-	// On a hub install, zips found via Cwd are mirrored into
-	// StaticDir/downloads/ so future collectors can fetch them from
-	// this hub. Empty on collector-only installs.
+	// On a hub, zips found in Cwd are mirrored into StaticDir/downloads/
+	// for collectors to fetch. Empty on collector-only installs.
 	StaticDir string
 
-	// Cwd is the directory `trinity init` was launched from. The wizard
-	// looks here first for operator-supplied zips (patch bundle),
-	// matching the pak0 staging pattern. This is how a first hub install
-	// bootstraps before any other hub exists to fetch from.
+	// Cwd is the directory `trinity init` was launched from, searched
+	// first for an operator-supplied patch zip. That's how the first hub
+	// gets the zip.
 	Cwd string
 
 	Out      io.Writer
 	Prompter Prompter
 }
 
-// PakStepResult tells the caller what happened so it can adjust the
-// trailing "Next steps:" output (e.g. skip the start-command line if
-// services were already started here).
+// PakStepResult tells the caller which "Next steps" lines still apply.
 type PakStepResult struct {
 	AllReady bool
 	Baked    bool // levelshots + demobake were run
 	Started  bool
 }
 
-// RunPakStep performs the post-apply pak placement and optional
-// auto-start. It's best-effort UX polish — every failure path falls
-// back to telling the operator what to do manually, and the wizard
-// still considers itself successful. Returns information the caller
-// uses to decide what (if anything) to print as remaining steps.
+// RunPakStep places paks after Apply and offers to start the services.
+// Every failure falls back to telling the operator what to do by hand,
+// and the wizard still succeeds.
 func RunPakStep(opts PakStepOptions) PakStepResult {
 	result := PakStepResult{}
 	out := opts.Out
@@ -107,30 +96,25 @@ func RunPakStep(opts PakStepOptions) PakStepResult {
 		return result
 	}
 
-	// pak0s first — we can't fetch these from anywhere, so the operator
-	// has to provide them. Both gametypes are offered unconditionally:
-	// adding a TA server later shouldn't require re-running the wizard
-	// just to drop a pak0 in.
+	// Only the operator can supply the pak0s. Team Arena's is offered
+	// even without a Team Arena server, so adding one later needs no
+	// rerun.
 	if contains(missingBaseq3, "pak0.pk3") {
-		stagePak0(opts, out, cwd, "baseq3", canonBaseq3, "retail Quake 3")
+		stagePak0(opts, out, cwd, "baseq3", canonBaseq3, "retail Quake III Arena")
 	}
 	if contains(missingMP, "pak0.pk3") {
 		stagePak0(opts, out, cwd, "missionpack", canonMP, "Team Arena")
 	}
 
-	// Re-check what's still missing after pak0 staging — the patch zip
-	// only matters if any of pak1+ are absent.
 	missingBaseq3 = missingPaks(opts.Quake3Dir, "baseq3", requiredBaseq3)
 	missingMP = missingPaks(opts.Quake3Dir, "missionpack", requiredMissionpack)
 	patchesMissing := anyPatchMissing(missingBaseq3) || anyPatchMissing(missingMP)
 	if patchesMissing {
 		offerPatchDownload(opts, out)
-		// Re-stat one more time so the auto-start gate sees fresh state.
 		missingBaseq3 = missingPaks(opts.Quake3Dir, "baseq3", requiredBaseq3)
 		missingMP = missingPaks(opts.Quake3Dir, "missionpack", requiredMissionpack)
 	}
 
-	// Final status.
 	if len(missingBaseq3) == 0 && len(missingMP) == 0 {
 		fmt.Fprintln(out, "  All required pak files are now in place.")
 		result.AllReady = true
@@ -147,14 +131,12 @@ func RunPakStep(opts PakStepOptions) PakStepResult {
 	for _, f := range missingMP {
 		fmt.Fprintf(out, "    %s\n", filepath.Join(opts.Quake3Dir, "missionpack", f))
 	}
-	fmt.Fprintln(out, "  Place these manually before starting the q3 servers.")
+	fmt.Fprintln(out, "  Copy these in yourself before starting the game servers.")
 	return result
 }
 
 // missingPaks returns the subset of names that aren't present in
-// quake3Dir/mod. A non-existent mod directory simply means everything
-// is missing — the engine install step creates it, but a manual
-// install or a re-run after rm could miss it.
+// quake3Dir/mod; a missing mod directory means all of them.
 func missingPaks(quake3Dir, mod string, names []string) []string {
 	var out []string
 	for _, n := range names {
@@ -184,15 +166,12 @@ func contains(xs []string, s string) bool {
 	return false
 }
 
-// stagePak0 places a pak0.pk3 into quake3Dir/mod. First tries the
-// canonical filename the install banner asked the operator to drop in
-// CWD (silent if found); falls back to a path prompt that accepts any
-// filename anywhere on the filesystem. Blank answer = skip and let
-// the operator copy it manually later.
+// stagePak0 places a pak0.pk3 into quake3Dir/mod: canonName from the
+// working directory without a prompt if it's there, otherwise any file
+// the operator names. A blank answer skips it.
 func stagePak0(opts PakStepOptions, out io.Writer, cwd, mod, canonName, label string) {
 	dest := filepath.Join(opts.Quake3Dir, mod, "pak0.pk3")
 
-	// Canonical-named candidate in CWD: zero-prompt path.
 	if cwd != "" {
 		candidate := filepath.Join(cwd, canonName)
 		if isPlausiblePak(candidate) {
@@ -205,7 +184,6 @@ func stagePak0(opts PakStepOptions, out io.Writer, cwd, mod, canonName, label st
 		}
 	}
 
-	// Operator-supplied path.
 	for {
 		prompt := fmt.Sprintf("  Path to %s pak0.pk3 (blank to skip)", label)
 		path, err := opts.Prompter.Optional(prompt, "")
@@ -215,11 +193,9 @@ func stagePak0(opts PakStepOptions, out io.Writer, cwd, mod, canonName, label st
 		}
 		path = strings.TrimSpace(path)
 		if path == "" {
-			fmt.Fprintf(out, "  (skipped — drop pak0.pk3 at %s before starting the server)\n", dest)
+			fmt.Fprintf(out, "  (skipped: put pak0.pk3 at %s before starting the server)\n", dest)
 			return
 		}
-		// Expand ~ for convenience; not bothering with $VAR — operators
-		// don't expect shell expansion in interactive prompts.
 		if strings.HasPrefix(path, "~/") {
 			if home, herr := os.UserHomeDir(); herr == nil {
 				path = filepath.Join(home, path[2:])
@@ -250,10 +226,9 @@ func stagePak0(opts PakStepOptions, out io.Writer, cwd, mod, canonName, label st
 	}
 }
 
-// isPlausiblePak does a cheap magic-number check (PK\x03\x04, the zip
-// local file header). Stops the operator from typing the path to a
-// random text file and finding out only when the q3 server fails to
-// boot. Doesn't validate the contents — id's pak0 is just a zip.
+// isPlausiblePak checks for the zip magic number (PK\x03\x04), so a
+// wrong path fails at the prompt instead of when the game server
+// boots.
 func isPlausiblePak(path string) bool {
 	f, err := os.Open(path)
 	if err != nil {
@@ -267,8 +242,9 @@ func isPlausiblePak(path string) bool {
 	return buf[0] == 'P' && buf[1] == 'K' && buf[2] == 0x03 && buf[3] == 0x04
 }
 
-// installPakFile copies src into dest (atomically, via temp + rename),
-// 0644, owned by the service user. mod parent dir is created if absent.
+// installPakFile copies src to dest atomically (temp file and rename),
+// mode 0644 and owned by the service user, creating the mod directory
+// if needed.
 func installPakFile(src, dest, serviceUser string) error {
 	if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
 		return err
@@ -306,9 +282,8 @@ func installPakFile(src, dest, serviceUser string) error {
 	return nil
 }
 
-// chownByName changes ownership to user:user using the system's
-// `chown` command — saves us a uid/gid lookup and matches what the
-// rest of the apply phase does.
+// chownByName changes ownership to user:user with the system's `chown`,
+// which resolves the name.
 func chownByName(path, user string) {
 	if user == "" {
 		return
@@ -317,25 +292,20 @@ func chownByName(path, user string) {
 	_ = cmd.Run()
 }
 
-// offerPatchDownload runs the EULA flow + zip fetch + extract for the
-// id Software 1.32 point-release pk3s. Always returns; failures are
-// reported to the operator and the wizard moves on to the auto-start
-// gate (which then sees the patches still missing and skips itself).
+// offerPatchDownload shows the EULA, then fetches and extracts the id
+// Software 1.32 point release pk3s. It reports failures and returns;
+// with the patches still missing, auto-start is skipped.
 func offerPatchDownload(opts PakStepOptions, out io.Writer) {
 	fmt.Fprintln(out)
-	fmt.Fprintln(out, "  The Quake 3 1.32 point-release patches are required for the server to")
-	fmt.Fprintln(out, "  run correctly. They are distributed under the id Software EULA,")
-	fmt.Fprintln(out, "  reproduced on the next screen.")
+	fmt.Fprintln(out, "  The servers need the Quake III Arena 1.32 point-release patches. They")
+	fmt.Fprintln(out, "  are distributed under the id Software EULA, shown on the next screen.")
 	fmt.Fprintln(out)
-	// Gate the pager — `more` scrolls/clears the screen and the lead-in
-	// above is the only context the operator gets that this isn't a
-	// random terminal-spam event.
 	_ = opts.Prompter.Pause("  Press Enter to view the EULA: ")
 
 	if err := pageEULA(); err != nil {
-		fmt.Fprintf(out, "  (failed to show EULA via `more`: %v)\n", err)
+		fmt.Fprintf(out, "  (couldn't show the EULA with `more`: %v)\n", err)
 		if url := hubURL(opts.HubHost, "/quake3-eula"); url != "" {
-			fmt.Fprintf(out, "  EULA is also available at %s\n", url)
+			fmt.Fprintf(out, "  The EULA is also at %s\n", url)
 		}
 	}
 
@@ -354,21 +324,19 @@ func offerPatchDownload(opts PakStepOptions, out io.Writer) {
 	fmt.Fprintln(out, "  Patches installed.")
 }
 
-// printManualInstall tells the operator how to recover when the
-// automated fetch couldn't run — either by dropping the zip in the
-// install dir on a future re-run, or by extracting it manually.
+// printManualInstall tells the operator how to recover when the fetch
+// couldn't run: put the zip in the working directory and rerun, or
+// extract it by hand.
 func printManualInstall(out io.Writer, opts PakStepOptions, name string) {
-	fmt.Fprintf(out, "  Manual install: drop %s into the install directory and re-run trinity init,\n", name)
-	fmt.Fprintf(out, "  or extract it manually into %s\n", opts.Quake3Dir)
+	fmt.Fprintf(out, "  To install them yourself, put %s in the directory you ran trinity init\n", name)
+	fmt.Fprintf(out, "  from and run it again, or extract it into %s\n", opts.Quake3Dir)
 	if url := hubURL(opts.HubHost, "/downloads/"+name); url != "" && opts.StaticDir == "" {
 		fmt.Fprintf(out, "  (the hub serves it at %s).\n", url)
 	}
 }
 
 // hubURL builds an https://<host><path> URL when host is non-empty,
-// returning "" when there's no configured hub (which would mean the
-// wizard is running outside any expected mode — caller should handle
-// the empty case).
+// or "" when no hub is configured.
 func hubURL(host, path string) string {
 	if host == "" {
 		return ""
@@ -381,10 +349,8 @@ func fileExists(path string) bool {
 	return err == nil && !info.IsDir()
 }
 
-// pageEULA pipes the embedded EULA text through `more` so the operator
-// has to scroll through it. `more` ships with util-linux on every
-// supported distro; if it's somehow missing, fall back to a plain
-// print + "press enter when done" so the wizard still works.
+// pageEULA pipes the EULA through `more` so the operator scrolls
+// through it. Without `more` it prints the text and waits for Enter.
 func pageEULA() error {
 	if _, err := exec.LookPath("more"); err != nil {
 		fmt.Print(quake3EULA)
@@ -403,14 +369,12 @@ func pageEULA() error {
 // fetchAndExtractMods locates the named zip (preferring a local copy
 // under StaticDir/downloads/, otherwise fetching from the hub over
 // HTTPS) and extracts every entry whose top-level dir is one of the
-// allowed mods into <Quake3Dir>/<mod>/<rest>. Existing files are left
-// alone — we only fill gaps, never overwrite operator copies.
+// allowed mods into <Quake3Dir>/<mod>/<rest>. Existing files are kept.
 //
-// Hub-hosted zips have `baseq3/...` and/or `missionpack/...` at the
-// top level. Some upstream patch zips wrap everything in a single
-// release-name dir (e.g. `quake3-latest-pk3s/baseq3/...`); we strip
-// that wrapper transparently. Entries outside the allowed mods (or
-// that resolve outside their mod dir via "..") are skipped.
+// The zip has `baseq3/...` and `missionpack/...` at the top level, or
+// inside one wrapper directory (e.g. `quake3-latest-pk3s/`), which is
+// stripped. Entries outside the allowed mods, or escaping their mod
+// directory with "..", are skipped.
 func fetchAndExtractMods(opts PakStepOptions, out io.Writer, name string, mods []string) error {
 	zipPath, cleanup, err := resolveZip(opts, out, name)
 	if err != nil {
@@ -442,7 +406,7 @@ func fetchAndExtractMods(opts PakStepOptions, out io.Writer, name string, mods [
 		}
 		modRoot := filepath.Join(opts.Quake3Dir, mod)
 		dest := filepath.Join(modRoot, rest)
-		// Zip-slip guard: filepath.Join + .. could escape the mod dir.
+		// A ".." in the entry could escape the mod dir.
 		if !strings.HasPrefix(dest, modRoot+string(os.PathSeparator)) {
 			continue
 		}
@@ -461,9 +425,8 @@ func fetchAndExtractMods(opts PakStepOptions, out io.Writer, name string, mods [
 }
 
 // detectWrapperDir returns "wrapper/" when every entry in the zip
-// shares one non-allowed top-level dir (the typical patch zip layout),
-// or "" when entries already start with allowed mod names. Mixed
-// layouts return "" — we'd rather extract nothing than partially.
+// shares one top-level dir that isn't an allowed mod (the usual patch
+// zip layout), and "" otherwise, including for mixed layouts.
 func detectWrapperDir(files []*zip.File, allowed map[string]bool) string {
 	tops := make(map[string]bool)
 	for _, entry := range files {
@@ -490,21 +453,19 @@ func detectWrapperDir(files []*zip.File, allowed map[string]bool) string {
 // resolveZip returns a filesystem path to the named zip. Sources are
 // tried in order:
 //
-//  1. opts.Cwd/<name> — operator-staged file in the install dir, the
-//     same pattern as pak0 staging. Mirrored into StaticDir/downloads/
-//     on a hub install so the hub serves it to future collectors.
-//  2. opts.StaticDir/downloads/<name> — already-mirrored copy, common
-//     on a hub re-run.
-//  3. https://<HubHost>/downloads/<name> — collector pulling from a
-//     remote hub. Downloaded into a tempfile.
+//  1. opts.Cwd/<name>: a copy the operator put in the working
+//     directory, mirrored into StaticDir/downloads/ on a hub.
+//  2. opts.StaticDir/downloads/<name>: the hub's mirrored copy.
+//  3. https://<HubHost>/downloads/<name>: downloaded from a remote hub
+//     into a temp file.
 //
-// The cleanup func removes the tempfile when the source was downloaded;
-// it's a no-op when the path was a local file we shouldn't touch.
+// The cleanup func removes the temp file after a download and does
+// nothing for a local path.
 func resolveZip(opts PakStepOptions, out io.Writer, name string) (string, func(), error) {
 	if opts.Cwd != "" {
 		staged := filepath.Join(opts.Cwd, name)
 		if _, err := os.Stat(staged); err == nil {
-			fmt.Fprintf(out, "  Using %s from current directory ...\n", name)
+			fmt.Fprintf(out, "  Using %s from the current directory…\n", name)
 			mirrorToDownloads(staged, opts, out, name)
 			return staged, func() {}, nil
 		}
@@ -512,15 +473,15 @@ func resolveZip(opts PakStepOptions, out io.Writer, name string) (string, func()
 	if opts.StaticDir != "" {
 		local := filepath.Join(opts.StaticDir, "downloads", name)
 		if _, err := os.Stat(local); err == nil {
-			fmt.Fprintf(out, "  Using local %s ...\n", local)
+			fmt.Fprintf(out, "  Using local %s…\n", local)
 			return local, func() {}, nil
 		}
 	}
 	url := hubURL(opts.HubHost, "/downloads/"+name)
 	if url == "" {
-		return "", func() {}, fmt.Errorf("no source for %s — drop it into the current directory and re-run", name)
+		return "", func() {}, fmt.Errorf("no copy of %s found; put it in the current directory and run again", name)
 	}
-	fmt.Fprintf(out, "  Downloading %s ...\n", url)
+	fmt.Fprintf(out, "  Downloading %s…\n", url)
 	tmp, err := os.CreateTemp("", "trinity-dl-*.zip")
 	if err != nil {
 		return "", func() {}, err
@@ -551,9 +512,9 @@ func resolveZip(opts PakStepOptions, out io.Writer, name string) (string, func()
 	return tmpPath, cleanup, nil
 }
 
-// mirrorToDownloads copies a CWD-staged zip into <StaticDir>/downloads/
-// so the hub serves it to future collector installs. No-op when no
-// StaticDir (collector install) or when a copy already exists.
+// mirrorToDownloads copies a zip from the working directory into
+// <StaticDir>/downloads/ for collectors to fetch, unless there's no
+// StaticDir or a copy is already there.
 func mirrorToDownloads(src string, opts PakStepOptions, out io.Writer, name string) {
 	if opts.StaticDir == "" {
 		return
@@ -603,14 +564,11 @@ func extractZipEntry(entry *zip.File, dest string) error {
 	return os.Rename(tmpPath, dest)
 }
 
-// runBake produces the levelshot images and demo-playback pk3s the
-// hub serves to web viewers. Runs unconditionally when paks are in
-// place — there's no reason to make the operator do this manually
-// once we know the data files needed are present. Both subcommands
-// run as the service user via runuser (util-linux, ships everywhere)
-// so the assets they write are readable by the running trinity
-// service. Returns true if at least one bake step finished cleanly;
-// failures are reported and treated as non-fatal.
+// runBake produces the levelshot images and demo-playback pk3s the hub
+// serves to web viewers, once the paks are in place. Both subcommands
+// run as the service user through runuser so the trinity service can
+// read what they write. It returns true if at least one step finished;
+// failures are reported and don't stop the wizard.
 func runBake(opts PakStepOptions, out io.Writer) bool {
 	bin := opts.TrinityBin
 	if bin == "" {
@@ -625,7 +583,7 @@ func runBake(opts PakStepOptions, out io.Writer) bool {
 	}
 	any := false
 	for _, sub := range []string{"levelshots", "demobake"} {
-		fmt.Fprintf(out, "  Running trinity %s ...\n", sub)
+		fmt.Fprintf(out, "  Running trinity %s…\n", sub)
 		cmd := exec.Command("runuser", "-u", user, "--", bin, sub)
 		cmd.Stdout = out
 		cmd.Stderr = out
@@ -639,14 +597,14 @@ func runBake(opts PakStepOptions, out io.Writer) bool {
 	return any
 }
 
-// maybeAutoStart prompts to start trinity + quake3-servers.target. No-op
-// when systemd isn't in play. Returns true when the start command ran
-// (regardless of the operator's per-service success).
+// maybeAutoStart offers to start trinity and quake3-servers.target when
+// systemd is in use. It returns true when the start command ran, however
+// each service fared.
 func maybeAutoStart(opts PakStepOptions, out io.Writer) bool {
 	if !opts.UseSystemd {
 		return false
 	}
-	confirm, err := opts.Prompter.YesNo("\nStart trinity and the q3 servers now?", true)
+	confirm, err := opts.Prompter.YesNo("\nStart trinity and the game servers now?", true)
 	if err != nil || !confirm {
 		return false
 	}

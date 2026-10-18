@@ -41,17 +41,13 @@ export function ActivityLog({
     loadActivityFilters(),
   );
 
-  // Drop legacy per-axis filter keys once on mount so the old prefs
-  // don't linger. Prior versions persisted three separate keys
-  // (server / source / include-bots); the new model collapses them
-  // into q3a_activity_filters.
+  // Nothing reads these keys; clear them from browsers that saved them.
   useEffect(() => {
     localStorage.removeItem("q3a_activity_server_filter");
     localStorage.removeItem("q3a_activity_source_filter");
     localStorage.removeItem("q3a_activity_include_bots");
   }, []);
 
-  // Live human players grouped by server, for the "X playing" header.
   const humanPlayersWithServer = useMemo(() => {
     const players: Array<{ player: Player; serverName: string }> = [];
     for (const [, status] of servers.entries()) {
@@ -68,9 +64,6 @@ export function ActivityLog({
     return players.sort((a, b) => b.player.score - a.player.score);
   }, [servers, hasMultipleSources]);
 
-  // Apply all filter axes in series. Bot filtering is orthogonal to the
-  // categorical filters (it's a player-attribute check). Match-start
-  // events have no player attribution and are never bot-filtered.
   const filteredActivities = useMemo(() => {
     const hiddenSources = new Set(filters.hiddenSources);
     const hiddenServers = new Set(filters.hiddenServers);
@@ -104,7 +97,7 @@ export function ActivityLog({
       {humanPlayersWithServer.length > 0 && (
         <div className="active-players-section">
           <div className="active-players-header">
-            {humanPlayersWithServer.length} Playing
+            {humanPlayersWithServer.length} playing
           </div>
           <ul className="active-players-list">
             {humanPlayersWithServer.map(({ player, serverName }) => (
@@ -190,8 +183,8 @@ export function ActivityLog({
           <div className="activity-item">
             <span className="activity-message info">
               {activities.length === 0
-                ? "Waiting for events..."
-                : "No events match the current filters"}
+                ? "Waiting for events…"
+                : "No events match these filters"}
             </span>
           </div>
         )}
@@ -321,8 +314,7 @@ function getActivityIcon(activity: ActivityItem): React.ReactNode {
     }
   }
 
-  // Transient pickup uses the carrier silhouette; medal disc is reserved
-  // for the cumulative score event. Skull color is the carrier's enemy.
+  // The skull takes the color of the carrier's enemy.
   if (activityType === "skull_pickup" && team !== undefined) {
     const skullTeam = team === 1 ? "blue" : "red";
     return <SkullIcon team={skullTeam} title="Skull picked up" />;
@@ -330,8 +322,7 @@ function getActivityIcon(activity: ActivityItem): React.ReactNode {
   if (activityType === "skull_score") {
     return <MedalIcon type="skull" showCount={false} />;
   }
-  // Transient damage gets the attacker glyph; destroy keeps the medal disc.
-  // event.team is the obelisk being hit, which is also the reticle color.
+  // team is the obelisk being hit.
   if (activityType === "obelisk_damage" && team !== undefined) {
     const obeliskTeam = team === 1 ? "red" : "blue";
     return (

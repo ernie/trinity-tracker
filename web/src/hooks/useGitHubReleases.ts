@@ -105,7 +105,7 @@ export function useGitHubReleases() {
   const [loading, setLoading] = useState(() => getCached() === null);
 
   useEffect(() => {
-    // Cache hit was applied during state init — nothing to fetch.
+    // A cache hit is already in the initial state.
     if (getCached()) return;
     let live = true;
     fetchReleases().then((result) => {

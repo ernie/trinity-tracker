@@ -4,16 +4,9 @@ import type { CvarEntry } from "../../data/cvars";
 
 interface CvarTableProps {
   entries: CvarEntry[];
-  // When true, suppress the per-cvar platform chips (used by the Server
-  // CVars section, where every entry applies to any Trinity server
-  // regardless of which client architecture connects).
   hidePlatforms?: boolean;
 }
 
-// Renders a list of cvars as cards: name + default + platform chips
-// in the head row, description below, optional value enumeration and
-// notes. Receives an already-filtered list — filtering happens in the
-// parent.
 export function CvarTable({ entries, hidePlatforms }: CvarTableProps) {
   const { platform } = usePlatform();
   if (entries.length === 0) {
@@ -37,7 +30,7 @@ export function CvarTable({ entries, hidePlatforms }: CvarTableProps) {
               <ul className="cvar-entry__values">
                 {entry.values.map((v) => (
                   <li key={v.value}>
-                    <code>{v.value}</code> — {v.meaning}
+                    <code>{v.value}</code> {v.meaning}
                   </li>
                 ))}
               </ul>

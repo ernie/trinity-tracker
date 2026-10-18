@@ -9,26 +9,21 @@ import (
 	"github.com/ernie/trinity-tracker/internal/natsbus"
 )
 
-// SetRconClient wires the hub-side NATS RCON proxy. Set in main.go
-// when running with NATS; left nil in tests and in single-machine
-// installs that have no remote sources to reach. When nil, dispatch
-// falls back to the in-process manager (and errors for any source
-// that isn't local).
+// SetRconClient plugs in the NATS RCON proxy. Without one, only the
+// local source can take RCON commands.
 func (r *Router) SetRconClient(c *natsbus.RconClient) {
 	r.rconClient = c
 }
 
-// SetLocalSource marks one source name as in-process — RCON requests
-// for it short-circuit through the local ServerManager rather than
-// round-tripping through NATS. Empty (the default) means "no local
-// source" and is correct for hub-only deployments.
+// SetLocalSource names the source this process collects for; its RCON
+// goes straight to the local ServerManager. A hub with no collector
+// leaves it empty.
 func (r *Router) SetLocalSource(source string) {
 	r.localSource = source
 }
 
-// dispatchRcon routes the proxy request: in-process for the local
-// source, NATS for everything else. Caller is responsible for having
-// already authorized the request.
+// dispatchRcon sends an already authorized command to the local
+// ServerManager or, for other sources, over NATS.
 func (r *Router) dispatchRcon(ctx context.Context, server *domain.Server, command string, claims *auth.Claims, role natsbus.RconRole) (string, error) {
 	if r.testRconDispatch != nil {
 		return r.testRconDispatch(server, command, role)

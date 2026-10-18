@@ -13,15 +13,13 @@ import (
 )
 
 // ErrMessageNotFound is returned by EditWebhookMessage when Discord
-// reports 404 for the target message — typically because someone
-// deleted it from the channel. Callers should clear any cached
-// message ID rather than retry.
+// reports 404 for the target message, usually because someone deleted
+// it from the channel. Callers clear their cached message ID.
 var ErrMessageNotFound = errors.New("discord: webhook message not found")
 
-// PostWebhook sends one or more embeds to a Discord webhook URL.
-// Discord returns 204 on success (no body); we treat 2xx as ok and
-// surface the body on anything else so cron-emailed errors are
-// diagnostic. Use PostWebhookForID when you need to edit the
+// PostWebhook sends one or more embeds to a Discord webhook URL. A
+// non-2xx error carries Discord's response body so cron-mailed
+// failures say what went wrong. Use PostWebhookForID to edit the
 // message later.
 func PostWebhook(ctx context.Context, url string, embeds ...Embed) error {
 	body, err := json.Marshal(WebhookPayload{Embeds: embeds})
@@ -48,10 +46,9 @@ func PostWebhook(ctx context.Context, url string, embeds ...Embed) error {
 	return nil
 }
 
-// PostWebhookForID is PostWebhook with the ?wait=true query that
-// makes Discord return the created message's JSON body instead of
-// a bare 204. Returns the message's id so callers can later edit
-// or delete it via EditWebhookMessage.
+// PostWebhookForID is PostWebhook with ?wait=true, which makes
+// Discord return the created message. It returns the message's id
+// for a later EditWebhookMessage.
 func PostWebhookForID(ctx context.Context, url string, embed Embed) (string, error) {
 	body, err := json.Marshal(WebhookPayload{Embeds: []Embed{embed}})
 	if err != nil {
@@ -90,10 +87,9 @@ func PostWebhookForID(ctx context.Context, url string, embed Embed) (string, err
 	return parsed.ID, nil
 }
 
-// EditWebhookMessage PATCHes an existing webhook message previously
-// posted with PostWebhookForID. Returns ErrMessageNotFound when
-// Discord reports 404 (message deleted) so callers can stop
-// retrying and drop their cached id.
+// EditWebhookMessage PATCHes a webhook message posted with
+// PostWebhookForID. It returns ErrMessageNotFound when the message
+// was deleted.
 func EditWebhookMessage(ctx context.Context, webhookURL, messageID string, embed Embed) error {
 	body, err := json.Marshal(WebhookPayload{Embeds: []Embed{embed}})
 	if err != nil {

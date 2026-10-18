@@ -12,17 +12,10 @@ import (
 	"github.com/ernie/trinity-tracker/internal/q3color"
 )
 
-// digestCategory describes how to render one leaderboard category for
-// either the Discord embed (Title with emoji) or the CLI table
-// (CLILabel, plain). The registry covers all 14 API categories so
-// operators can swap any of them in via discord.digest.categories
-// or `trinity leaderboard --category=...`. Must stay in sync with
+// digestCategory renders one leaderboard category in the Discord embed
+// (Title) or the CLI table (CLILabel). Keep the registry in sync with
 // internal/api.validCategories and internal/config.validDigestCategories.
-//
-// Headline is the prepositional phrase used in the author bar when
-// this category produces the embed's headlining player, e.g. "most
-// frags" → "🥇 NilClass · most frags". Designed to drop in after
-// "<name> · " naturally.
+// Headline follows "<name> · " in the author bar: "🥇 NilClass · most frags".
 type digestCategory struct {
 	Title    string // Discord embed field name (with emoji)
 	CLILabel string // CLI column header (plain, all-caps)
@@ -30,34 +23,28 @@ type digestCategory struct {
 	Format   func(domain.LeaderboardEntry) string
 }
 
-// fmtInt and fmtKD avoid pulling fmt into the closure's capture set
-// at every callsite; same effect as inlining but the registry stays
-// readable.
 func fmtInt(n int64) string  { return fmt.Sprintf("%d", n) }
 func fmtKD(r float64) string { return fmt.Sprintf("%.2f", r) }
 
 var digestCategoryRegistry = map[string]digestCategory{
 	"frags":              {Title: "🔥 Frags", CLILabel: "FRAGS", Headline: "most frags", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.TotalFrags) }},
 	"deaths":             {Title: "🪦 Deaths", CLILabel: "DEATHS", Headline: "most deaths", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.TotalDeaths) }},
-	"kd_ratio":           {Title: "⚖️ K/D Ratio", CLILabel: "K/D", Headline: "best K/D", Format: func(e domain.LeaderboardEntry) string { return fmtKD(e.KDRatio) }},
+	"kd_ratio":           {Title: "⚖️ K/D ratio", CLILabel: "K/D", Headline: "best K/D", Format: func(e domain.LeaderboardEntry) string { return fmtKD(e.KDRatio) }},
 	"matches":            {Title: "🎮 Matches", CLILabel: "MATCHES", Headline: "most matches", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.CompletedMatches) }},
 	"victories":          {Title: "🏆 Victories", CLILabel: "VICTORIES", Headline: "most victories", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.Victories) }},
 	"captures":           {Title: "🚩 Captures", CLILabel: "CAPTURES", Headline: "most flag captures", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.Captures) }},
-	"flag_returns":       {Title: "🔁 Flag Returns", CLILabel: "RETURNS", Headline: "most flag returns", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.FlagReturns) }},
+	"flag_returns":       {Title: "🔁 Flag returns", CLILabel: "RETURNS", Headline: "most flag returns", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.FlagReturns) }},
 	"assists":            {Title: "🤝 Assists", CLILabel: "ASSISTS", Headline: "most assists", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.Assists) }},
-	"defends":            {Title: "🛡️ Defends", CLILabel: "DEFENDS", Headline: "most defends", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.Defends) }},
+	"defends":            {Title: "🛡️ Defense", CLILabel: "DEFENSE", Headline: "most defense medals", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.Defends) }},
 	"impressives":        {Title: "⚡ Impressives", CLILabel: "IMPRESSIVES", Headline: "most impressives", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.Impressives) }},
 	"excellents":         {Title: "💎 Excellents", CLILabel: "EXCELLENTS", Headline: "most excellents", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.Excellents) }},
 	"humiliations":       {Title: "😂 Humiliations", CLILabel: "HUMILIATIONS", Headline: "most humiliations", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.Humiliations) }},
-	"skulls_delivered":   {Title: "💀 Skulls Delivered", CLILabel: "SKULLS", Headline: "most skulls delivered", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.SkullsDelivered) }},
-	"obelisks_destroyed": {Title: "💥 Obelisks Destroyed", CLILabel: "OBELISKS", Headline: "most obelisks destroyed", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.ObelisksDestroyed) }},
+	"skulls_delivered":   {Title: "💀 Skulls delivered", CLILabel: "SKULLS", Headline: "most skulls delivered", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.SkullsDelivered) }},
+	"obelisks_destroyed": {Title: "💥 Obelisks destroyed", CLILabel: "OBELISKS", Headline: "most obelisks destroyed", Format: func(e domain.LeaderboardEntry) string { return fmtInt(e.ObelisksDestroyed) }},
 }
 
-// defaultDigestCategories is the order / selection used when
-// discord.digest.categories is unset. Mirrors the /leaderboard page's
-// gameType=all ordering, paired so each two-column row reads as a
-// thematic couplet (volume/efficiency, kill/death, win/lose, skill
-// medals, CTF offense/return, team support, harvester/overload).
+// defaultDigestCategories follows the leaderboard page's order for all
+// game types, paired so each two-column row belongs together.
 var defaultDigestCategories = []string{
 	"matches", "kd_ratio",
 	"frags", "deaths",
@@ -68,33 +55,17 @@ var defaultDigestCategories = []string{
 	"skulls_delivered", "obelisks_destroyed",
 }
 
-// trinityEmbedColor is a muted teal, matches the website's accent.
 const trinityEmbedColor = 0x2A9D8F
 
-// renderDigestEmbed builds the single Discord embed shown by the
-// weekly digest. results is the per-category leaderboard responses
-// (key = API category name); categories is the ordered list to render
-// (typically defaultDigestCategories or config override). topN caps
-// how many entries appear per field. footerURL is embedded as the
-// title's hyperlink so clicking the title reproduces the snapshot.
-// publicBase (e.g. "https://trinity.run") is the host portraits are
-// served from. staticDir is the local filesystem root those portraits
-// live under (cfg.Server.StaticDir) — used to skip a 404-bound icon
-// URL when the player's custom model isn't on disk. Pass "" for
-// publicBase or staticDir to skip the leader callout entirely.
+// renderDigestEmbed builds the digest's one embed. results is keyed by
+// API category; topN caps entries per field; footerURL becomes the
+// title link, so a click opens the same snapshot. Portraits are served
+// from publicBase and checked on disk under staticDir. An empty
+// publicBase skips the leader callout.
 func renderDigestEmbed(results map[string]*domain.LeaderboardResponse, categories []string, topN int, footerURL, publicBase, staticDir string, now time.Time) discord.Embed {
-	// embedMinWidthPad is a run of U+2800 BRAILLE PATTERN BLANK
-	// characters appended to the footer text. Discord's layout engine
-	// reserves the full footer width when computing the embed's
-	// minimum size, so a long invisible-but-counted footer string
-	// pushes the embed out to its column-max width. The image-as-
-	// spacer technique is folklore — Discord ignores image
-	// dimensions entirely (see discord-api-docs#5300, discord.js
-	// #1468). U+2800 renders as zero visible width across modern
-	// Discord clients but still counts for layout, unlike U+3000
-	// which can render as a visible gap on some themes. 60 chars
-	// is enough to hit max width on desktop without overflowing on
-	// narrow mobile viewports.
+	// Discord sizes an embed to fit its footer, and U+2800 (braille
+	// blank) is invisible but still counts, so 60 of them widen the
+	// embed to its desktop maximum while still fitting on mobile.
 	const embedMinWidthPad = "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀" +
 		"⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀" +
 		"⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀" +
@@ -103,7 +74,7 @@ func renderDigestEmbed(results map[string]*domain.LeaderboardResponse, categorie
 		"⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀"
 
 	embed := discord.Embed{
-		Title: "This Week's Leaderboard",
+		Title: "This week's leaderboard",
 		URL:   footerURL,
 		Color: trinityEmbedColor,
 		Footer: &discord.Footer{
@@ -111,24 +82,9 @@ func renderDigestEmbed(results map[string]*domain.LeaderboardResponse, categorie
 		},
 	}
 
-	// Leader callout: the #1 player from the first non-empty
-	// configured category gets their name + portrait + the category's
-	// headline phrase in the embed's `author` slot. Discord renders
-	// this as `[icon] name` at the very top of the embed — closest
-	// native equivalent of a labeled portrait. The headline phrase
-	// (e.g. "most frags") explains *why* this player is the headline,
-	// since Discord doesn't let us style or annotate the icon.
-	//
-	// Discord's author.name is plain text — no markdown, no ANSI —
-	// so we use the player's CleanName (stripped of Q3 color codes).
-	// A 🥇 emoji + the headline phrase stand in for the missing
-	// formatting: "🥇 NilClass · most frags".
-	//
-	// Filesystem fallback: if the player's custom model isn't on
-	// disk, we point IconURL at the generic silhouette so Discord
-	// doesn't render a broken image. The name + profile link still
-	// appear, so the leader callout is meaningful even without the
-	// player's actual portrait.
+	// The leader of the first non-empty category takes the author slot.
+	// author.name is plain text, so it uses CleanName. A custom model
+	// missing on disk gets the generic silhouette as its icon.
 	if publicBase != "" {
 		for _, cat := range categories {
 			r := results[cat]
@@ -156,8 +112,7 @@ func renderDigestEmbed(results map[string]*domain.LeaderboardResponse, categorie
 		}
 	}
 
-	// Pull the period bounds from the first response that has them.
-	// All responses use the same as_of/period so any will do.
+	// Every response shares as_of and period, so any one gives the bounds.
 	for _, cat := range categories {
 		r := results[cat]
 		if r == nil || r.PeriodStart == nil || r.PeriodEnd == nil {
@@ -170,25 +125,13 @@ func renderDigestEmbed(results map[string]*domain.LeaderboardResponse, categorie
 		break
 	}
 
-	// Layout: 2 visible fields per row at 1/3 embed width each, with
-	// invisible 3rd-slot spacers. Combined with the embed-widening
-	// image (set below), this gives ~200px per cell — wide enough
-	// that 12-char player names + scores don't wrap inside the
-	// ```ansi``` block.
-	//
-	// Mechanics: Discord packs inline fields up to 3/row. After
-	// every pair we append a zero-width-space inline field, so the
-	// row reads [F, F, S] (S invisible). When the total real-field
-	// count is odd, the trailing field would otherwise render
-	// full-width on its own row — to keep its width consistent with
-	// the others we add TWO trailing spacers instead of one,
-	// producing [F, S, S] = 3 inline slots, F at 1/3 width.
+	// Discord packs up to three inline fields per row. Each pair gets a
+	// blank third field, so every field is a third of the embed wide; an
+	// odd last field gets two blanks so it keeps that width.
 	realCount := 0
 	for _, cat := range categories {
 		spec, ok := digestCategoryRegistry[cat]
 		if !ok {
-			// Unknown category — config validator should have caught
-			// this, but skip gracefully rather than panicking.
 			continue
 		}
 		embed.Fields = append(embed.Fields, discord.Field{
@@ -209,26 +152,16 @@ func renderDigestEmbed(results map[string]*domain.LeaderboardResponse, categorie
 	return embed
 }
 
-// blankInlineField returns the empty zero-width-space inline field
-// used to pad rows in the 2-per-row layout. Pulled into a helper so
-// the layout logic reads cleanly and the ZWS character has one
-// canonical site.
+// blankInlineField uses zero-width spaces because Discord requires a
+// field's name and value to be non-empty.
 func blankInlineField() discord.Field {
 	return discord.Field{Name: "​", Value: "​", Inline: true}
 }
 
-// renderCategoryField produces one field's body as a Discord ```ansi
-// code block. Empty leaderboards (e.g. no CTF in the period) collapse
-// to a single italic placeholder so the embed shape is stable
-// week-to-week.
-//
-// Layout per row (left-aligned name, left-aligned score):
-//
-//	<rank>. <verif badge> <platform badge> <name>   <value>
-//
-// Both columns (name and value) are left-aligned at fixed positions
-// computed from the widest row in this field. q3color.VisibleWidth
-// keeps the math honest in the face of ANSI codes and emoji widths.
+// renderCategoryField renders a field as a Discord ```ansi block of
+// "<rank>. <name>   <value>" rows, with the value column aligned on the
+// widest visible name. An empty leaderboard gets a placeholder so the
+// embed keeps its shape.
 func renderCategoryField(r *domain.LeaderboardResponse, spec digestCategory, topN int) string {
 	if r == nil || len(r.Entries) == 0 {
 		return "_(no activity)_"
@@ -238,11 +171,6 @@ func renderCategoryField(r *domain.LeaderboardResponse, spec digestCategory, top
 		n = len(r.Entries)
 	}
 
-	// First pass: build the prefix (rank + colored name) for each row
-	// and find the widest. We pad to that on emit. (Badges were
-	// dropped from the embed to buy back name-column width — a
-	// 12-char name + 4-cell badge prefix wraps in a 1/3-width Discord
-	// cell; without badges we comfortably fit ~16 chars.)
 	type rowParts struct {
 		prefix string
 		value  string
@@ -266,22 +194,14 @@ func renderCategoryField(r *domain.LeaderboardResponse, spec digestCategory, top
 		if padding < 0 {
 			padding = 0
 		}
-		// Three-space gutter between the name column and the value
-		// column — wider than typical for breathing room since the
-		// values are visually different (numbers/decimals).
 		fmt.Fprintf(&b, "%s%s   %s\n", row.prefix, strings.Repeat(" ", padding), row.value)
 	}
 	b.WriteString("```")
 	return b.String()
 }
 
-// playerVerificationBadge returns a single-cell glyph with an ANSI
-// background indicating the player's account status. Always emitted
-// (even for unverified) so columns stay aligned across rows.
-//
-//	admin:      ★ on yellow bg, dark fg
-//	verified:   ✓ on green bg, dark fg
-//	unverified: ? on dark bg, white fg
+// playerVerificationBadge is one cell wide for every state so columns
+// stay aligned.
 func playerVerificationBadge(verified, admin bool) string {
 	switch {
 	case admin:
@@ -293,12 +213,8 @@ func playerVerificationBadge(verified, admin bool) string {
 	}
 }
 
-// playerPlatformBadge returns a 2-cell emoji indicating the player's
-// platform. Always emitted so the column width stays consistent
-// regardless of mix.
-//
-//	VR:    🥽 (goggles)
-//	flat:  🖥️ (desktop computer)
+// playerPlatformBadge is two cells wide for both platforms so columns
+// stay aligned.
 func playerPlatformBadge(isVR bool) string {
 	if isVR {
 		return "🥽"
@@ -306,12 +222,9 @@ func playerPlatformBadge(isVR bool) string {
 	return "🖥️"
 }
 
-// portraitExists checks whether the URL path's portrait file is
-// present on disk. The digest runs on the hub host so we can stat
-// the local copy directly — faster than HEADing the public URL,
-// and avoids posting a Discord embed with a broken-image icon when
-// a player uses a custom model we don't have. Returns true when
-// staticDir is empty (skip-the-check fallback).
+// portraitExists stats the portrait on disk, since the digest runs on
+// the hub host, so a custom model we lack doesn't post a broken icon.
+// An empty staticDir skips the check.
 func portraitExists(staticDir, urlPath string) bool {
 	if staticDir == "" {
 		return true
@@ -321,16 +234,14 @@ func portraitExists(staticDir, urlPath string) bool {
 	return err == nil && !info.IsDir()
 }
 
-// portraitPath turns a Q3 model string ("doom/default", "*james",
-// "sarge") into the URL path the website serves portraits at:
-// /assets/portraits/{head}/icon_{skin}.png. Mirrors
-// web/src/components/PlayerPortrait.tsx::getPortraitPath. Returns ""
-// for an empty model — caller falls back to no portrait icon.
+// portraitPath maps a Q3 model string ("doom/default", "*james",
+// "sarge") to the site's portrait path. Keep it in step with
+// getPortraitPath in web/src/components/PlayerPortrait.tsx.
 func portraitPath(model string) string {
 	if model == "" {
 		return ""
 	}
-	// Strip Team Arena asterisk prefix (e.g. "*james" → "james").
+	// Team Arena models carry a leading asterisk.
 	if strings.HasPrefix(model, "*") {
 		model = model[1:]
 	}
@@ -346,8 +257,6 @@ func portraitPath(model string) string {
 	return fmt.Sprintf("/assets/portraits/%s/icon_%s.png", head, skin)
 }
 
-// humanPeriod turns the API's period enum into a phrase suitable for
-// the embed description.
 func humanPeriod(p string) string {
 	switch p {
 	case "day":

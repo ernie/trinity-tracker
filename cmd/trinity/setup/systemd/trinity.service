@@ -1,10 +1,8 @@
 [Unit]
 Description=Trinity
-# Trinity starts before quake3-servers.target activates the per-server
-# instances (which have After=trinity.service). The reverse ordering
-# would create a cycle via the per-server units' PartOf= → target →
-# After= back to trinity. Log files don't exist until the q3 servers
-# spawn, so the tailer's "wait for file" retry covers the launch race.
+# Starts before quake3-servers.target, whose game servers have
+# After=trinity.service. The log tailer waits for each server's log
+# file to appear.
 After=network.target
 Before=quake3-servers.target
 
@@ -16,8 +14,8 @@ ExecStart=/usr/local/bin/trinity serve
 Restart=on-failure
 RestartSec=5
 
-# Sandboxing. Trinity reads /etc/trinity, writes /var/lib/trinity
-# (SQLite + NATS state), and reads /var/log/quake3 for the log tailer.
+# Sandboxing: Trinity reads /etc/trinity and /var/log/quake3, and writes
+# /var/lib/trinity (the SQLite database and NATS state).
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true

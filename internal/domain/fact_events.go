@@ -2,9 +2,9 @@ package domain
 
 import "time"
 
-// Fact events flow from the collector to the hub writer and drive
-// authoritative database writes. Wire identity rule: payloads carry
-// GUIDs and match UUIDs, never DB row IDs.
+// Fact events flow from the collector to the hub writer and drive the
+// database writes. Payloads identify players and matches by GUID and
+// match UUID, since database row IDs differ between collector and hub.
 
 const (
 	FactMatchStart          = "match_start"
@@ -19,20 +19,18 @@ const (
 	FactServerStartup       = "server_startup"
 	FactServerShutdown      = "server_shutdown"
 	FactDemoFinalized       = "demo_finalized"
-	// FactRconExec is one accepted /rcon command observed by the engine
-	// (sv_main.c::SVC_RemoteCommand). Drives a source_audit row with
-	// action "rcon.exec" — same column the web-dispatched rcon path
-	// writes — so both surfaces share an audit view.
+	// FactRconExec is one accepted /rcon command the engine logged
+	// (SVC_RemoteCommand in sv_main.c). It writes a source_audit row with
+	// action "rcon.exec", the same action web RCON writes, so both share
+	// one audit view.
 	FactRconExec = "rcon_exec"
-	// FactRconDenied is one rejected /rcon attempt (bad password / no
-	// password set). Drives a source_audit row with action "rcon.denied".
-	// Source IP only — never the attempted password.
+	// FactRconDenied is one rejected /rcon attempt (wrong or unset
+	// password). It writes a source_audit row with action "rcon.denied".
 	FactRconDenied = "rcon_denied"
 )
 
-// FactEvent is the in-process envelope carrying a payload from the
-// collector to the hub writer. The NATS wire envelope wraps this with
-// source/seq/schema_version fields.
+// FactEvent carries a payload from the collector to the hub writer in
+// process. The NATS Envelope adds source, seq and schema version.
 type FactEvent struct {
 	Type      string      `json:"type"`
 	ServerID  int64       `json:"server_id"`
@@ -40,17 +38,14 @@ type FactEvent struct {
 	Data      interface{} `json:"data"`
 }
 
-// MatchStartData is emitted on WarmupEnd. MatchUUID is assigned by the
-// collector and is the key for subsequent match events.
+// MatchStartData is emitted on WarmupEnd. The collector assigns
+// MatchUUID, which keys the match's later events.
 //
 // HandshakeRequired reflects the server's g_trinityHandshake cvar. The
-// collector refuses to publish match_start when false; the hub double-
-// checks. This gates stats to clients that submit a Trinity handshake.
-// Trinity servers typically don't run in pure mode because VR clients
-// load the game module as a dll/so rather than a QVM, so sv_pure isn't
-// available to keep vanilla ioquake3 clients out; g_trinityHandshake is
-// the practical substitute. Whether the handshake carries valid auth
-// info is independent; the gate fires on handshake presence, not auth.
+// collector publishes match_start only when it's set, and the hub
+// checks again, so stats come only from servers that admit Trinity
+// clients alone. The gate is on the handshake itself; whether it
+// carries a valid login doesn't matter here.
 type MatchStartData struct {
 	MatchUUID         string    `json:"match_uuid"`
 	MapName           string    `json:"map"`
@@ -107,18 +102,17 @@ type MatchSettingsUpdateData struct {
 	Mode      string `json:"mode,omitempty"`
 }
 
-// MatchCrashedData is emitted when a new InitGame arrives while a
-// previous match is still open (i.e., no Exit or Shutdown was seen).
-// The hub writer marks the old match as exit_reason="crashed".
+// MatchCrashedData is emitted when a new InitGame arrives while the
+// previous match is still open, with no Exit or Shutdown seen. The hub
+// writer sets the old match's exit_reason to "crashed".
 type MatchCrashedData struct {
 	MatchUUID string    `json:"match_uuid"`
 	EndedAt   time.Time `json:"ended_at"`
 }
 
 // PlayerJoinData is emitted on ClientBegin. MatchUUID is empty when the
-// player joins outside a live match (warmup, between matches).
-// client_engine / client_version are NOT set here — they arrive later
-// via TrinityHandshakeData once the handshake completes.
+// player joins outside a live match (warmup, between matches). The
+// client engine and version arrive later in TrinityHandshakeData.
 type PlayerJoinData struct {
 	MatchUUID string `json:"match_uuid,omitempty"`
 	GUID      string `json:"guid"`
@@ -128,23 +122,20 @@ type PlayerJoinData struct {
 	IP        string `json:"ip,omitempty"`
 	IsBot     bool   `json:"is_bot"`
 	IsVR      bool   `json:"is_vr"`
-	// Skill is the bot's q3 skill level (1-5). Zero for humans.
-	// Carried so the hub's presence tracker can render the bot badge
-	// tier on the live dashboard.
+	// Skill is a bot's skill level, 1-5, for the live card's bot badge;
+	// zero for humans.
 	Skill    float64   `json:"skill,omitempty"`
 	JoinedAt time.Time `json:"joined_at"`
-	// ClientNum is the game server's slot for the player (0-31). The
-	// hub's presence tracker keys on (serverID, ClientNum) so UDP
-	// statusResponse rows — which carry only name, ping, score, and
-	// this slot number — can be enriched with identity.
+	// ClientNum is the player's slot (0-31). Presence keys on
+	// (serverID, ClientNum) so UDP status rows, which carry only name,
+	// ping, score and slot, can be matched to an identity.
 	ClientNum int `json:"client_num"`
 }
 
-// PresenceSnapshotData restores hub presence for a player the collector
-// already has in state.clients — used after a hub/collector restart
-// while a match is in progress. Distinct from PlayerJoinData because
-// no one is actually joining: no session creation, no "X joined"
-// broadcast, just a state refresh keyed on (ServerID, ClientNum).
+// PresenceSnapshotData restores hub presence for a player already in
+// the collector's state.clients, after a hub or collector restart
+// mid-match. It only refreshes state keyed on (ServerID, ClientNum);
+// no session starts and no join is announced.
 type PresenceSnapshotData struct {
 	GUID            string  `json:"guid"`
 	Name            string  `json:"name"`
@@ -163,10 +154,9 @@ type PresenceSnapshotData struct {
 	SkullsDelivered int     `json:"skulls_delivered,omitempty"`
 }
 
-// PlayerLeaveData is emitted on ClientDisconnect. DurationSeconds is
-// computed by the collector from its in-memory JoinedAt; the hub writer
-// uses it to synthesize JoinedAt if the matching open session was lost
-// (hub restart).
+// PlayerLeaveData is emitted on ClientDisconnect. The collector computes
+// DurationSeconds from its in-memory JoinedAt; the hub writer uses it to
+// rebuild JoinedAt when a hub restart lost the open session.
 type PlayerLeaveData struct {
 	GUID            string    `json:"guid"`
 	ClientNum       int       `json:"client_num"`
@@ -175,9 +165,9 @@ type PlayerLeaveData struct {
 	Reason          string    `json:"reason,omitempty"`
 }
 
-// TrinityHandshakeData carries the engine/version/platform portion of a
-// Trinity handshake onto the session row. The optional auth portion of
-// the same handshake flows separately through the greet RPC.
+// TrinityHandshakeData carries a Trinity handshake's engine, version
+// and platform onto the session row. The handshake's optional login
+// goes through the greet RPC.
 type TrinityHandshakeData struct {
 	GUID          string `json:"guid"`
 	ClientEngine  string `json:"client_engine"`
@@ -190,10 +180,9 @@ type PlayerVRData struct {
 	GUID string `json:"guid"`
 }
 
-// ServerStartupData is emitted when the collector observes its game
-// server initializing (log line indicating a fresh sv startup). The hub
-// writer closes any sessions still open on this server from before the
-// timestamp — a crash-recovery safety net.
+// ServerStartupData is emitted when the game server's log shows a fresh
+// startup. The hub writer closes any sessions on this server still open
+// from before it, which cleans up after a crash.
 type ServerStartupData struct {
 	StartedAt time.Time `json:"started_at"`
 }
@@ -205,14 +194,13 @@ type ServerShutdownData struct {
 	ShutdownAt time.Time `json:"shutdown_at"`
 }
 
-// RconExecData carries one in-game /rcon command for hub-side audit.
-// GUID is empty when the engine couldn't match the rcon source address
-// to a connected client (external rcon, NAT quirks, separate console
-// socket). The hub writer SKIPS the audit row when the GUID can't be
-// resolved to a known user — those calls are either the collector's
-// own service traffic (welcome / web-UI rcon hairpinning back through
-// the local UDP socket) or external operator rcon we can't attribute
-// anyway. Failed rcon attempts get their own FactRconDenied lane.
+// RconExecData carries one in-game /rcon command for the hub's audit
+// log. GUID is empty when the engine couldn't match the sender's
+// address to a connected client (external rcon, NAT, a separate
+// console socket). The hub writer writes a row only when the GUID
+// resolves to a known user; the rest is the collector's own traffic
+// (welcome messages, web RCON looping back through the local socket)
+// or rcon nobody can attribute.
 type RconExecData struct {
 	ClientAddr string `json:"client_addr"`
 	GUID       string `json:"guid,omitempty"`
@@ -220,20 +208,17 @@ type RconExecData struct {
 }
 
 // RconDeniedData is emitted when the engine rejects an rcon attempt
-// (wrong password or no password set). Carries source address only —
-// the attempted password is deliberately NOT propagated to avoid
-// leaking secret material into the audit log. Useful for spotting
-// brute-force attempts.
+// (wrong or unset password), for spotting brute-force attempts. It
+// carries only the sender's address, keeping passwords out of the
+// audit log.
 type RconDeniedData struct {
 	ClientAddr string `json:"client_addr"`
 }
 
-// DemoFinalizedData is emitted when trinity-engine logs a "DemoSaved:"
-// line for a match — i.e. the .tvd file has been finalized on disk
-// and is fetchable from the source's public_url. The hub writer flips
-// matches.demo_available so the UI renders a play button. Discard
-// events aren't emitted: absence of FactDemoFinalized for a match is
-// the same signal.
+// DemoFinalizedData is emitted when the engine logs "DemoSaved:" for a
+// match: the .tvd is complete on disk and served from the source's
+// public_url. The hub writer sets matches.demo_available, which shows
+// the play button. A discarded demo sends nothing.
 type DemoFinalizedData struct {
 	MatchUUID  string `json:"match_uuid"`
 	Frames     int    `json:"frames,omitempty"`

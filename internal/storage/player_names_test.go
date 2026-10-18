@@ -20,9 +20,6 @@ func akaNames(t *testing.T, s *Store, playerID int64) map[string]bool {
 	return got
 }
 
-// The alias history is the source for the "Also known as" list. A human only
-// lands on a bot name or the engine default UnnamedPlayer transiently (e.g. by
-// trying to use a reserved name), so those must never be recorded against them.
 func TestUpsertPlayerGUIDSkipsReservedNames(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
@@ -52,9 +49,6 @@ func TestUpsertPlayerGUIDSkipsReservedNames(t *testing.T) {
 	}
 }
 
-// A display name locked by one user must not be recorded as an alias for a
-// different player who briefly used it (the server forces them off it), but the
-// owner is free to keep recording it.
 func TestUpsertPlayerGUIDSkipsNamesOwnedByAnotherUser(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
@@ -85,7 +79,6 @@ func TestUpsertPlayerGUIDSkipsNamesOwnedByAnotherUser(t *testing.T) {
 		t.Errorf("name locked by another user should not be recorded for intruder, got %v", mapKeys(got))
 	}
 
-	// The owner re-using their own locked name is recorded normally.
 	if _, err := s.UpsertPlayerGUID(ctx, "OWNERGUID", "Locked", "Locked", base.Add(2*time.Minute), false); err != nil {
 		t.Fatalf("UpsertPlayerGUID(owner re-use): %v", err)
 	}

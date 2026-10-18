@@ -1,9 +1,6 @@
-// Health classification for a source's last_heartbeat_at timestamp.
-// Shared between Admin → Sources and the owner-side My Servers drawer
-// so the two surfaces agree on what "healthy" looks like.
-
-// Thresholds match the design spec: <90s healthy, 90s–10min stale,
-// >10min gone.
+// Shared by Admin → Sources and the My servers drawer so both agree on a
+// source's health: a heartbeat under 90s old is healthy, under 10 minutes is
+// stale, and anything older is gone.
 const STALE_THRESHOLD_MS = 90 * 1000;
 const GONE_THRESHOLD_MS = 10 * 60 * 1000;
 
@@ -32,9 +29,7 @@ export function healthLabel(h: Health): string {
   }
 }
 
-// timeAgo formats a heartbeat timestamp as e.g. "12s ago", "3m ago".
-// Used by drawers/tooltips that want a glanceable freshness display
-// rather than a raw ISO string.
+// timeAgo formats a heartbeat timestamp as "12s ago", "3m ago" or "2h ago".
 export function timeAgo(iso?: string): string {
   if (!iso) return "";
   const ms = Date.now() - Date.parse(iso);

@@ -53,7 +53,6 @@ func TestBufferedPublisherDrainsToJetStream(t *testing.T) {
 	buf.Start(ctx)
 	defer buf.Stop()
 
-	// Verify the inner publisher can reach JS by subscribing.
 	js, err := nc.JetStream()
 	if err != nil {
 		t.Fatalf("js: %v", err)
@@ -63,7 +62,6 @@ func TestBufferedPublisherDrainsToJetStream(t *testing.T) {
 		t.Fatalf("sub: %v", err)
 	}
 
-	// Send five events through the buffered path.
 	for i := 0; i < 5; i++ {
 		if err := buf.Publish(domain.FactEvent{
 			Type:      domain.FactServerStartup,
@@ -95,11 +93,6 @@ func TestBufferedPublisherDrainsToJetStream(t *testing.T) {
 }
 
 func TestBufferedPublisherOverflowDropsOldest(t *testing.T) {
-	// Use a nil-safe path: don't actually publish to NATS — just
-	// verify the counter advances under overflow. We construct a
-	// BufferedPublisher with inner set to a real Publisher against an
-	// unreachable server; Publish never blocks because it only
-	// enqueues.
 	port := bufFreePort(t)
 	trackerCfg := &config.TrackerConfig{
 		NATS: config.NATSConfig{URL: fmt.Sprintf("nats://127.0.0.1:%d", port)},
@@ -120,10 +113,9 @@ func TestBufferedPublisherOverflowDropsOldest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewPublisher: %v", err)
 	}
-	// Capacity 2; don't start the drain goroutine so events pile up.
+	// Capacity 2 with no drain goroutine, so events pile up.
 	buf := natsbus.NewBufferedPublisher(inner, 2, nil)
-	// Do not Start — we only exercise the overflow path.
-	// Defensive cleanup so teardown doesn't hang.
+	// Stop waits on the drain goroutine, so start it first.
 	defer func() {
 		buf.Start(context.Background())
 		buf.Stop()
@@ -139,11 +131,6 @@ func TestBufferedPublisherOverflowDropsOldest(t *testing.T) {
 	}
 }
 
-// TestBufferedPublisherSpillsAndDrains exercises the disk-spill path:
-// we start the drain goroutine, then flood the publisher faster than
-// it can drain so the ring saturates and events land on disk. Once
-// the drain catches up, the spill file empties and every event lands
-// on JetStream — no drops.
 func TestBufferedPublisherSpillsAndDrains(t *testing.T) {
 	port := bufFreePort(t)
 	trackerCfg := &config.TrackerConfig{

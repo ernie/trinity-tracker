@@ -5,23 +5,15 @@ import type { PlayerStatsResponse } from "../types";
 
 interface HonorsPanelProps {
   stats: PlayerStatsResponse["stats"];
-  /** Key of the currently-featured honor (rendered in PlayerHero, omitted
-   *  here). Defaults to 'victories' when the owning user hasn't picked one. */
+  /** The featured honor, which PlayerHero shows beside the portrait.
+   *  Defaults to 'victories' until the owner picks one. */
   featuredKey?: string;
-  /** When true, each non-featured cell shows a star button to promote it to
-   *  featured. Caller threads this in based on whether the viewer owns the
-   *  player (auth.playerId === player.id). */
+  /** Gives each cell a star button that features its honor. */
   isOwner?: boolean;
-  /** Called with the new key when the viewer clicks a star. Caller is
-   *  responsible for the PATCH + state update (typically via
-   *  usePlayerStats().setFeaturedHonor). */
+  /** The caller saves the new key. */
   onFeaturedChange?: (key: string) => void;
 }
 
-// "Honors" panel — 3x3 medal grid of the 9 non-featured honors. The honor
-// matching `featuredKey` is rendered alongside the portrait in PlayerHero,
-// so it's omitted here. When the viewer owns the player, each cell gains a
-// small star button that promotes that honor to featured.
 export function HonorsPanel({
   stats,
   featuredKey,

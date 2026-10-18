@@ -20,16 +20,13 @@ const SORTS = [
 ] as const;
 type SortKey = (typeof SORTS)[number]["key"];
 
-// Recency and playtime read best newest/biggest-first; name is the one
-// criterion humans expect A→Z. Mirrors the API's default-direction rule.
+// Matches the API's default direction for each sort.
 function defaultDir(sort: SortKey): "asc" | "desc" {
   return sort === "name" ? "asc" : "desc";
 }
 
-// Shared card between the search results and the browse grid. Same
-// structure as PlayersPage's cards — .player-card is a centered flex
-// column, so name/meta must be direct children (a wrapper div would
-// collapse them onto one inline line).
+// .player-card is a centered flex column, so name and meta must stay its
+// direct children, as in PlayersPage.
 function PlayerCardButton({
   player,
   onSelect,
@@ -72,17 +69,14 @@ function PlayerCardButton({
 }
 
 export function AdminPlayers() {
-  // Player search (target selection) — fires automatically as the admin types.
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<PlayerProfile[]>([]);
   const debouncedSearchQuery = useDebouncedValue(searchQuery, 200);
 
-  // Selected target player
   const [selected, setSelected] = useState<PlayerProfile | null>(null);
   const [guids, setGuids] = useState<PlayerGUID[]>([]);
   const [loadingGuids, setLoadingGuids] = useState(false);
 
-  // Merge state
   const [mergeQuery, setMergeQuery] = useState("");
   const [mergeResults, setMergeResults] = useState<PlayerProfile[]>([]);
   const debouncedMergeQuery = useDebouncedValue(mergeQuery, 200);
@@ -90,10 +84,8 @@ export function AdminPlayers() {
   const [splitting, setSplitting] = useState<number | null>(null);
   const [error, setError] = useState("");
 
-  // Browse list — shown when neither a search nor a selection is active,
-  // so the page is useful before the admin knows who they're looking for.
-  // Load-more (not paged): earlier results stay in the DOM so the admin
-  // can scan up and down and use find-in-page across everything loaded.
+  // The browse list grows with Load more so find-in-page covers
+  // everything loaded.
   const [sort, setSort] = useState<SortKey>("last_seen");
   const [dir, setDir] = useState<"asc" | "desc">("desc");
   const [includeBots, setIncludeBots] = useState(false);
@@ -137,9 +129,8 @@ export function AdminPlayers() {
       if (res.ok) {
         const data: { players: PlayerProfile[] | null; total: number } =
           await res.json();
-        // Offset pagination can re-serve a row if the sort order shifted
-        // between fetches (e.g. last_seen ticked); drop already-shown ids
-        // so React keys stay unique.
+        // A sort key that moves between fetches (last_seen) can re-serve
+        // a row at the next offset; dropping it keeps React keys unique.
         setList((prev) => {
           const seen = new Set((prev ?? []).map((p) => p.id));
           const fresh = (data.players ?? []).filter((p) => !seen.has(p.id));
@@ -174,8 +165,6 @@ export function AdminPlayers() {
     return () => ctrl.abort();
   }, [debouncedSearchQuery]);
 
-  // Hide stored results once the query is too short — store keeps the
-  // last fetch's data so a fresh ≥2-char query overwrites cleanly.
   const displaySearchResults =
     debouncedSearchQuery.trim().length >= 2 ? searchResults : [];
 
@@ -188,9 +177,6 @@ export function AdminPlayers() {
       .finally(() => setLoadingGuids(false));
   }, []);
 
-  // GUIDs load on the selection *event* rather than an effect synced to
-  // `selected` — there's no render-time state to reconcile, just a fetch
-  // that belongs to the click.
   const selectPlayer = (p: PlayerProfile) => {
     setSelected(p);
     setSearchResults([]);
@@ -227,8 +213,6 @@ export function AdminPlayers() {
     return () => ctrl.abort();
   }, [debouncedMergeQuery, selected]);
 
-  // Hide stored merge results when no player is selected or the merge
-  // query is too short — fresh fetches overwrite when both are valid.
   const displayMergeResults =
     selected && debouncedMergeQuery.trim().length >= 2 ? mergeResults : [];
 
@@ -236,7 +220,7 @@ export function AdminPlayers() {
     if (!selected) return;
     if (
       !confirm(
-        "Are you sure you want to merge this player? This will move all their GUIDs and stats to the selected player.",
+        "Merge this player into the selected one? Their GUIDs and stats move over, and their own player record is deleted.",
       )
     ) {
       return;
@@ -252,13 +236,15 @@ export function AdminPlayers() {
       });
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "Merge failed");
+        throw new Error(data.error || "Couldn't merge the players.");
       }
       setMergeQuery("");
       setMergeResults([]);
       fetchGuids(selected.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Merge failed");
+      setError(
+        err instanceof Error ? err.message : "Couldn't merge the players.",
+      );
     } finally {
       setMerging(false);
     }
@@ -275,20 +261,20 @@ export function AdminPlayers() {
       });
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "Split failed");
+        throw new Error(data.error || "Couldn't split this GUID.");
       }
       if (selected) fetchGuids(selected.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Split failed");
+      setError(
+        err instanceof Error ? err.message : "Couldn't split this GUID.",
+      );
     } finally {
       setSplitting(null);
     }
   };
 
-  // Right-pane priority mirrors PlayersPage: a fresh search hides the
-  // selected detail panel so admins can pivot to a different player
-  // without losing context. Gates on `displaySearchResults` so a stale
-  // in-flight fetch resolving after a short-query gap can't reappear.
+  // As in PlayersPage, a search covers the selected player's panel.
+  // Gated on the query so a late fetch can't bring old results back.
   const showResults = displaySearchResults.length > 0;
   const showBrowse = !showResults && !selected;
   const hasMore = list !== null && list.length < total;
@@ -344,8 +330,8 @@ export function AdminPlayers() {
                 onClick={() => setDir((d) => (d === "desc" ? "asc" : "desc"))}
                 title={
                   dir === "desc"
-                    ? "Descending — click for ascending"
-                    : "Ascending — click for descending"
+                    ? "Descending. Click for ascending."
+                    : "Ascending. Click for descending."
                 }
               >
                 {dir === "desc" ? "↓" : "↑"}
@@ -365,7 +351,7 @@ export function AdminPlayers() {
           {list === null ? (
             <div className="admin-loading">Loading players…</div>
           ) : list.length === 0 ? (
-            <div className="admin-empty">No players found</div>
+            <div className="admin-empty">No players found.</div>
           ) : (
             <>
               <div className="player-cards-grid">
@@ -488,7 +474,7 @@ export function AdminPlayers() {
                           text={p.is_vr ? stripVRPrefix(p.name) : p.name}
                         />
                         <span className="merge-player-date">
-                          Last seen: {formatDate(p.last_seen)}
+                          Last seen {formatDate(p.last_seen)}
                         </span>
                       </div>
                       <button

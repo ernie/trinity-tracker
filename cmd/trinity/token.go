@@ -8,8 +8,7 @@ import (
 	"path/filepath"
 )
 
-// cliToken is the stored CLI credential: a PAT minted by
-// `trinity login` plus the hub URL it was minted against.
+// cliToken is the PAT from `trinity login` and the hub it belongs to.
 type cliToken struct {
 	URL      string `json:"url"`
 	Username string `json:"username"`
@@ -25,8 +24,7 @@ func tokenPath() (string, error) {
 	return filepath.Join(dir, "trinity", "token.json"), nil
 }
 
-// loadCLIToken reads the stored credential. Returns (nil, nil) when no
-// token is stored — absent is not an error, it's a state.
+// loadCLIToken returns (nil, nil) when no token is stored.
 func loadCLIToken() (*cliToken, error) {
 	path, err := tokenPath()
 	if err != nil {
@@ -65,7 +63,6 @@ func saveCLIToken(tok *cliToken) error {
 	return os.WriteFile(path, data, 0o600)
 }
 
-// deleteCLIToken removes the stored credential; missing file is fine.
 func deleteCLIToken() error {
 	path, err := tokenPath()
 	if err != nil {
@@ -77,8 +74,8 @@ func deleteCLIToken() error {
 	return nil
 }
 
-// warnPlaintextURL nags when a credential would travel over cleartext
-// HTTP to somewhere that isn't this machine.
+// warnPlaintextURL warns when a credential would cross the network over
+// plain HTTP.
 func warnPlaintextURL(rawURL string) {
 	u, err := url.Parse(rawURL)
 	if err != nil || u.Scheme != "http" {

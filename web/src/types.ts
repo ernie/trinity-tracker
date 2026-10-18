@@ -326,8 +326,7 @@ export interface MatchSummary {
   mode?: string; // g_mode profile (0..3)
 }
 
-// Auth types. The credential itself lives in an HttpOnly session
-// cookie the server manages — JS never sees it.
+// The credential lives in an HttpOnly session cookie that JS never sees.
 export interface AuthState {
   isAuthenticated: boolean;
   username: string | null;
@@ -469,9 +468,9 @@ export interface PlayerProfile {
   model?: string;
   skill?: number;
   guids?: PlayerGUID[];
-  /** Owning user's chosen honor key (e.g. 'victories', 'captures'). Undefined
-   *  when there's no linked user, or the user hasn't picked one — callers
-   *  fall back to 'victories' for display. Mirrors users.featured_honor. */
+  /** The linked user's chosen honor key, such as 'victories' or 'captures'.
+   *  Unset with no linked user or no pick; callers then show 'victories'.
+   *  Mirrors users.featured_honor. */
   featured_honor?: string;
 }
 
@@ -531,8 +530,8 @@ export interface LeaderboardResponse {
   entries: LeaderboardEntry[];
 }
 
-// Trinity engine module — surface used by demo player and play page.
-// Built from emscripten + custom additions in trinity-engine's loader.js.
+// The engine module the demo player and play page use: emscripten's module
+// plus the additions in trinity-engine's loader.js.
 export interface EngineModule {
   abort: () => void;
   shutdown: () => void;
@@ -562,7 +561,7 @@ export interface EngineModule {
 // Self-service collector onboarding.
 
 // SourceStatus mirrors the sources.status enum on the server. Drives
-// the per-source-card UI in the My Servers drawer.
+// the per-source-card UI in the My servers drawer.
 export type SourceStatus =
   | "pending"
   | "active"
@@ -576,9 +575,8 @@ export interface MySourceServer {
   active: boolean;
 }
 
-// MySourceEntry is one source the caller owns. A user may own
-// multiple — the recommended pattern is one source per host so each
-// physical machine gets its own creds and per-collector controls.
+// MySourceEntry is one source the caller owns. A user can own several, one
+// per host, so each machine gets its own creds and controls.
 export interface MySourceEntry {
   source: string;
   status: SourceStatus;
@@ -592,16 +590,14 @@ export interface MySourceEntry {
 }
 
 // MySources is the JSON envelope returned by GET /api/sources/mine.
-// has_pending lets the header button decide its label without the
-// caller having to scan the array.
+// has_pending picks the header button's label.
 export interface MySources {
   sources: MySourceEntry[];
   has_pending: boolean;
 }
 
-// PendingRequest is one row of the admin pending list. The collector's
-// URL is intentionally absent — it arrives via heartbeat once the
-// collector connects, so asking for it up front would be redundant.
+// PendingRequest is one row of the admin pending list. The collector's URL
+// arrives later, in its heartbeat.
 export interface PendingRequest {
   source: string;
   owner_user_id: number;

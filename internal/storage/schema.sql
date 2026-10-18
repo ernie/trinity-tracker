@@ -1,23 +1,18 @@
--- Q3A Stats Database Schema
+-- Trinity tracker database schema
 
 -- Servers being monitored
 CREATE TABLE IF NOT EXISTS servers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    -- Stable, case-insensitive identifier. Same character set as
-    -- sources.source: alnum/underscore/hyphen, 1-64 chars. Address
-    -- can change without splitting history. Display in the UI is
-    -- "<source> / <key>" (case preserved).
+    -- Stable, case-insensitive identifier, so the address can change
+    -- without splitting history. The UI shows "<source> / <key>".
     key TEXT NOT NULL CHECK(key <> ''),
     address TEXT NOT NULL,
     last_match_uuid TEXT,
     last_match_ended_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    -- Distributed-tracking fields. source is the admin-chosen collector
-    -- identifier (FK-ish to sources.source). Whether the source is
-    -- remote lives on the sources row; readers JOIN sources for
-    -- sources.is_remote rather than duplicating it here. Identity is
-    -- (source, key): renaming or rerouting (address change) doesn't
-    -- fork history.
+    -- Distributed tracking. source names the collector (a logical
+    -- reference to sources.source, which also holds is_remote).
+    -- Identity is (source, key), so a new address doesn't fork history.
     source TEXT NOT NULL CHECK(source <> ''),
     local_id INTEGER,
     last_heartbeat_at TIMESTAMP,
@@ -28,12 +23,11 @@ CREATE TABLE IF NOT EXISTS servers (
     -- a server is removed from cfg.Q3Servers. UI dims inactive rows;
     -- the live cards section filters them out.
     active INTEGER NOT NULL DEFAULT 1,
-    -- 1 once we've observed a match_start with handshake_required=true
-    -- on this server. Until then the hub rejects player_join /
-    -- player_leave / live events for the server (so a collector that
-    -- somehow publishes despite the source-side gate still can't
-    -- pollute the hub). Updated by handleMatchStart on every observed
-    -- match_start, both accept and reject paths.
+    -- 1 once a match_start on this server reported
+    -- handshake_required=true. Until then the hub rejects player_join,
+    -- player_leave and live events for the server, even from a collector
+    -- that skips its own gate. handleMatchStart updates it on every
+    -- match_start, accepted or rejected.
     handshake_required INTEGER NOT NULL DEFAULT 0,
     -- Per-server opt-in by the source operator: when 1, a hub admin
     -- (is_admin=1) is allowed to RCON this server even if they don't
@@ -47,7 +41,7 @@ CREATE TABLE IF NOT EXISTS servers (
 
 CREATE INDEX IF NOT EXISTS idx_servers_source_local_id ON servers (source, local_id);
 
--- Logical players (the "person" - can have multiple GUIDs)
+-- Logical players: one person, who can have several GUIDs
 CREATE TABLE IF NOT EXISTS players (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,              -- display name (from most recent GUID activity)
@@ -93,7 +87,7 @@ CREATE TABLE IF NOT EXISTS player_names (
 
 CREATE INDEX IF NOT EXISTS idx_player_names_player_guid_id ON player_names(player_guid_id);
 
--- Player sessions (joins/leaves) - linked to specific GUID
+-- Player sessions (joins and leaves), per GUID
 CREATE TABLE IF NOT EXISTS sessions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     player_guid_id INTEGER NOT NULL REFERENCES player_guids(id) ON DELETE CASCADE,
@@ -129,8 +123,8 @@ CREATE TABLE IF NOT EXISTS matches (
     -- Flipped to 1 by FactDemoFinalized; the UI uses this to decide
     -- whether to render a "play demo" button for the match.
     demo_available INTEGER NOT NULL DEFAULT 0,
-    -- Admin-set flag exposing this match in the featured demos pool
-    -- (landing page "Watch a fight" door, etc.). Default unset.
+    -- Admin-set flag that puts this match in the featured demos pool
+    -- behind the landing page's Watch a fight door.
     is_featured INTEGER NOT NULL DEFAULT 0
 );
 
@@ -141,8 +135,8 @@ CREATE INDEX IF NOT EXISTS idx_matches_uuid ON matches(uuid);
 CREATE INDEX IF NOT EXISTS idx_matches_has_human_player ON matches(has_human_player);
 CREATE INDEX IF NOT EXISTS idx_matches_is_featured ON matches(is_featured) WHERE is_featured = 1;
 
--- Player stats per match - linked to specific GUID that earned them
--- client_id allows tracking duplicate bots (same name) in the same match
+-- Player stats per match, per GUID that earned them. client_id tells
+-- same-named bots in one match apart.
 CREATE TABLE IF NOT EXISTS match_player_stats (
     match_id INTEGER NOT NULL REFERENCES matches(id),
     player_guid_id INTEGER NOT NULL REFERENCES player_guids(id) ON DELETE CASCADE,
@@ -185,36 +179,26 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_login TIMESTAMP,
     game_token TEXT NOT NULL DEFAULT '',
-    -- Canonical in-game name pushed to the server on auth_ok. Populated
-    -- at account creation from StripVRTag(players.name) (with username
-    -- fallback). Empty = no override; QVM falls back to whatever the
-    -- client sends. May contain Q3 color codes (^0-^7) and spaces.
+    -- The in-game name pushed to the server on auth_ok, seeded from the
+    -- player's in-game name with the VR tag stripped. Empty means no
+    -- override, so the QVM uses whatever the client sends. May contain
+    -- color codes (^0-^7) and spaces.
     display_name TEXT NOT NULL DEFAULT '',
-    -- Normalized form of display_name used for per-account uniqueness:
-    -- VR tag stripped, color codes stripped, whitespace runs collapsed
-    -- to a single space, ends trimmed. Application code maintains this
-    -- alongside display_name (storage.canonicalizeDisplayName). The
-    -- partial unique index below means two accounts cannot lock names
-    -- that look identical in-game even if their raw display_name
-    -- strings differ (e.g. "^1Foo" and "^7Foo").
+    -- display_name in its unique form (storage.CanonicalizeDisplayName).
+    -- The partial unique index below keeps two accounts from locking
+    -- names that look the same in game, such as "^1Foo" and "^7Foo".
     display_name_canonical TEXT NOT NULL DEFAULT '',
     -- NULL = no explicit choice; frontend falls back to 'victories'.
-    -- See migrations/2026-05-13-users-featured-honor.sql.
     featured_honor TEXT,
     -- Account-chosen profile icon as "model/skin" (e.g. "sarge/krusade").
-    -- NULL = follow the most recent in-game model. Existing installs: see
-    -- migrations/2026-06-11-users-portrait.sql.
+    -- NULL = follow the most recent in-game model.
     portrait TEXT,
-    -- Soft-delete: non-NULL blocks every credential path (web login,
-    -- cli-login, game-login, in-game auth, PAT lookup). User rows are
-    -- never hard-deleted once referenced by source_audit — disable
-    -- instead. Existing installs: ALTER TABLE users ADD COLUMN
-    -- disabled_at TIMESTAMP; before deploying this schema.
+    -- Non-NULL disables the account on every credential path (web
+    -- login, cli-login, game-login, in-game auth, PAT lookup).
     disabled_at TIMESTAMP,
     -- Web-session revocation: JWTs carry this at mint and die when it
     -- no longer matches (bumped on any password-hash write and by
-    -- logout-all). PATs are unaffected. See
-    -- migrations/2026-06-05-users-token-version.sql for existing installs.
+    -- logout-all). PATs are unaffected.
     token_version INTEGER NOT NULL DEFAULT 1
 );
 
@@ -226,8 +210,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_users_display_name_canonical
 
 -- Personal access tokens: the CLI credential (web sessions use JWTs).
 -- Only the SHA-256 of the token is stored; the plaintext is returned
--- once at mint. Revocation is the lifetime control: expires_at stays
--- NULL by default. See docs: trinity-console design.
+-- once at mint. Revocation ends a token's life; expires_at stays NULL
+-- by default.
 CREATE TABLE IF NOT EXISTS pat (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -259,14 +243,10 @@ CREATE INDEX IF NOT EXISTS idx_link_codes_expires_at ON link_codes(expires_at);
 
 -- Distributed tracking: hub bookkeeping for sources/collectors.
 
--- Per-source event watermark. Tuple of (last_consumed_ts, consumed_seq)
--- defines forward progress: a re-published event is identified by a
--- timestamp older than last_consumed_ts (history; drop), the same
--- timestamp with seq <= consumed_seq (JetStream redelivery; drop), or
--- something newer (accept and advance both fields). Time-anchored
--- because seq alone resets to 1 on a fresh-install collector and would
--- otherwise mass-drop the new collector's events against a stale
--- consumed_seq from the prior instance.
+-- Per-source event watermark. An envelope whose seq is at or below
+-- consumed_seq is a redelivery and is dropped. last_consumed_ts is the
+-- timestamp seen at that seq, for monitoring. A collector whose own
+-- watermark was wiped takes its starting seq from here.
 CREATE TABLE IF NOT EXISTS source_progress (
     source           TEXT PRIMARY KEY,
     consumed_seq     INTEGER NOT NULL DEFAULT 0,
@@ -274,51 +254,41 @@ CREATE TABLE IF NOT EXISTS source_progress (
     updated_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Sources known to the hub. Admin pre-provisions every collector here
--- (hub mints NATS creds at the same moment); a collector publishing
--- anything for a source not in this table is refused at ingest. Local
--- hub+collector installs insert a row for themselves at startup.
--- servers.source references this table logically; enforcement is
--- application-level (SQLite FK enforcement is opt-in per connection).
+-- Sources known to the hub, one per collector. Ingest refuses anything
+-- published for a source without a row here. A combined hub and
+-- collector inserts its own row at startup. servers.source references
+-- this table by name, enforced in application code.
 CREATE TABLE IF NOT EXISTS sources (
     source            TEXT PRIMARY KEY,
     demo_base_url     TEXT NOT NULL DEFAULT '',
     version           TEXT NOT NULL DEFAULT '',
     last_heartbeat_at TIMESTAMP,
     is_remote         INTEGER NOT NULL DEFAULT 1,
-    -- NATS user NKey public key for this source's authenticated
-    -- collector connection. Written by AuthStore.MintUserCreds, read
-    -- by the directory gate and the hub poller (joined into their
-    -- pollable-server queries) to identify which live NATS connection
-    -- belongs to this source. Empty until the operator approves and
-    -- creds are minted. The user pubkey is what nats-server reports
-    -- as AuthorizedUser for JWT-authenticated clients, so it's the
-    -- right key for ConnzOptions.User filtering.
+    -- NATS user public key of this source's collector, written by
+    -- AuthStore.MintUserCreds and empty until creds are minted.
+    -- nats-server reports it as AuthorizedUser, so the directory gate
+    -- and the hub poller use it (ConnzOptions.User) to find the
+    -- source's live connection.
     user_pubkey       TEXT NOT NULL DEFAULT '',
     -- 1 while the source's collector is allowed to publish. Mirrors
     -- status='active'; the ingest gate (SourceRegistry) keys off this.
     active            INTEGER NOT NULL DEFAULT 1,
-    -- Self-service ownership and lifecycle. owner_user_id NULL means
-    -- admin-minted (legacy or hub-internal); status drives the
-    -- user-facing flow:
-    --   pending  -- awaiting admin approval, no creds yet
-    --   active   -- approved + creds minted (active=1)
-    --   rejected -- admin declined; rejection_reason explains why
-    --   left     -- owner self-departed; row preserved, can self-rejoin
-    --   revoked  -- admin punitive disable; only admin can re-enable
+    -- Ownership and lifecycle. owner_user_id is NULL only for the hub's
+    -- own local source. status:
+    --   pending:  awaiting admin approval, no creds yet
+    --   active:   approved, creds minted (active=1)
+    --   rejected: admin declined; rejection_reason says why
+    --   left:     the owner left; the row stays and the owner can rejoin
+    --   revoked:  admin disabled it; only an admin can reactivate it
     --
-    -- One owner can hold multiple active sources at once — the
-    -- recommended deployment is one source per physical host or
-    -- location, so geographic distribution gets per-collector creds
-    -- and per-collector rotate/leave controls. Only one *pending*
-    -- request per owner at a time, to keep the admin queue tidy.
+    -- An owner can hold several active sources, one per host, each with
+    -- its own creds and rotate and leave controls, but only one pending
+    -- request at a time.
     owner_user_id     INTEGER REFERENCES users(id),
     status            TEXT NOT NULL DEFAULT 'active'
                           CHECK(status IN ('pending', 'active', 'rejected', 'left', 'revoked')),
-    -- requested_purpose is the free-text "what is this for?" that
-    -- helps admins triage. The collector's reachable URL arrives via
-    -- registration heartbeats (demo_base_url above); no need to ask
-    -- the operator for it up front.
+    -- requested_purpose is the requester's "What is this for?" text,
+    -- shown to the admin who reviews the request.
     requested_purpose TEXT,
     rejection_reason  TEXT,
     status_changed_at TIMESTAMP,
@@ -328,9 +298,8 @@ CREATE TABLE IF NOT EXISTS sources (
 CREATE INDEX IF NOT EXISTS idx_sources_owner_user_id ON sources(owner_user_id);
 CREATE INDEX IF NOT EXISTS idx_sources_status ON sources(status) WHERE status != 'active';
 
--- Audit trail for source lifecycle actions (request/approve/reject/
--- rotate/leave/rejoin/revoke). Sized for eventual RCON-via-hub use:
--- the same table will record rcon.kick / rcon.exec calls.
+-- Audit trail for source lifecycle actions and RCON use (see
+-- WriteSourceAudit).
 CREATE TABLE IF NOT EXISTS source_audit (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     source          TEXT NOT NULL REFERENCES sources(source),
@@ -342,11 +311,10 @@ CREATE TABLE IF NOT EXISTS source_audit (
 
 CREATE INDEX IF NOT EXISTS idx_source_audit_source ON source_audit(source, created_at);
 
--- Persisted snapshot of the Q3 directory's in-memory validated registry.
--- Written once at graceful shutdown and restored at startup if the
--- snapshot is recent enough to be a routine restart (see
--- tracker.hub.directory.persisted_freshness). server_id is advisory —
--- the gate is the authority on membership, so no FK to servers(id).
+-- Snapshot of the Q3 directory's validated registry, written at
+-- graceful shutdown and restored at startup when it's recent enough
+-- to be a routine restart (tracker.hub.directory.persisted_freshness).
+-- server_id is advisory; the gate decides membership.
 CREATE TABLE IF NOT EXISTS directory_registrations (
     addr          TEXT PRIMARY KEY,
     server_id     INTEGER NOT NULL,

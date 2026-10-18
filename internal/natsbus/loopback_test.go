@@ -28,14 +28,9 @@ func freePort(t *testing.T) int {
 	return port
 }
 
-// TestLoopbackEventRoundTrip publishes a fact event through JetStream
-// and verifies it reaches the writer, lands in the DB, and advances
-// the per-source consumed_seq. This is the phase-4 loopback test
-// called out in the execution plan.
 func TestLoopbackEventRoundTrip(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// Embedded NATS with the two streams.
 	port := freePort(t)
 	trackerCfg := &config.TrackerConfig{
 		NATS: config.NATSConfig{URL: fmt.Sprintf("nats://127.0.0.1:%d", port)},
@@ -49,7 +44,6 @@ func TestLoopbackEventRoundTrip(t *testing.T) {
 		t.Fatalf("natsbus.Start: %v", err)
 	}
 
-	// Storage with a seeded server (id=1).
 	store, err := storage.New(filepath.Join(t.TempDir(), "trinity.db"))
 	if err != nil {
 		t.Fatalf("storage.New: %v", err)
@@ -62,8 +56,7 @@ func TestLoopbackEventRoundTrip(t *testing.T) {
 		t.Fatalf("expected seeded server id=1, got %d", srv.ID)
 	}
 
-	// Writer + subscriber (hub side). Pre-approve the test source so
-	// events dispatch immediately.
+	// The source is approved up front so events dispatch at once.
 	writer := hub.NewWriter(store)
 	writer.Start(ctx)
 	const source = "local-1"
@@ -79,16 +72,14 @@ func TestLoopbackEventRoundTrip(t *testing.T) {
 	}
 	sub.Start(ctx)
 
-	// Publisher (collector side).
 	pubNC, err := ns.ConnectInternal(nats.Name("test-pub"))
 	if err != nil {
 		t.Fatalf("pub connect: %v", err)
 	}
 
-	// Teardown in strict order: stop the subscriber (no more inbound),
-	// cancel the writer's background loops, wait for the writer to
-	// drain, close connections and the embedded server. Registering in
-	// reverse so LIFO runs them in the order written.
+	// Cleanups run LIFO, so teardown goes bottom to top: stop the
+	// subscriber, cancel the writer's loops, drain the writer, then
+	// close the connections and the embedded server.
 	t.Cleanup(func() { ns.Stop() })
 	t.Cleanup(func() { _ = store.Close() })
 	t.Cleanup(func() { pubNC.Close() })
@@ -101,7 +92,6 @@ func TestLoopbackEventRoundTrip(t *testing.T) {
 		t.Fatalf("NewPublisher: %v", err)
 	}
 
-	// Publish a match_start.
 	matchUUID := "match-loopback-1"
 	ts := time.Date(2026, 4, 19, 12, 0, 0, 0, time.UTC)
 	if err := pub.Publish(domain.FactEvent{
@@ -135,7 +125,6 @@ func TestLoopbackEventRoundTrip(t *testing.T) {
 		t.Fatalf("consumed_seq = %d, want 1 (subscriber did not process)", prog.ConsumedSeq)
 	}
 
-	// Verify the match landed in the DB.
 	match, err := store.GetMatchByUUID(ctx, matchUUID)
 	if err != nil {
 		t.Fatalf("GetMatchByUUID: %v", err)
@@ -150,8 +139,8 @@ func TestLoopbackEventRoundTrip(t *testing.T) {
 		t.Errorf("ServerID = %d, want %d", match.ServerID, srv.ID)
 	}
 
-	// Republish the same envelope (same seq) and assert dedup: still
-	// consumed_seq==1 and only one match row.
+	// A second publish gets seq 2 and is processed, so the pipeline
+	// keeps moving.
 	if err := pub.Publish(domain.FactEvent{
 		Type:      domain.FactMatchStart,
 		ServerID:  srv.ID,
@@ -164,11 +153,6 @@ func TestLoopbackEventRoundTrip(t *testing.T) {
 			HandshakeRequired: true,
 		},
 	}); err != nil {
-		// Seq advanced; dedup this time will happen at the JetStream
-		// Msg-Id level if we had replayed the same seq, but since the
-		// publisher increments we send with seq=2 — which WILL be
-		// processed. This second publish is here purely to assert the
-		// pipeline keeps moving; we verify via the final seq.
 		t.Fatalf("second publish: %v", err)
 	}
 	time.Sleep(200 * time.Millisecond)

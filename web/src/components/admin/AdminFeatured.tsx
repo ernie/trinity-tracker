@@ -25,9 +25,8 @@ function insertByEndedAt(
 export function AdminFeatured() {
   const { showPlayer } = useLiveData();
 
-  // Currently featured — fetched without the demo requirement so flagged
-  // matches whose demo went missing stay visible (the landing door hides
-  // them, which is exactly why an admin needs to see them here).
+  // Fetched without has_demo so featured matches whose demo went missing,
+  // which the landing door skips, still show here.
   const [featured, setFeatured] = useState<MatchSummary[] | null>(null);
   const [featuredError, setFeaturedError] = useState(false);
 
@@ -48,7 +47,6 @@ export function AdminFeatured() {
     return () => ctrl.abort();
   }, []);
 
-  // Browse — recent matches with demos, candidates for featuring.
   const [gameType, setGameType] = useState<GameTypeFilter>("all");
   const [source, setSource] = useState("");
   const [includeBotOnly, setIncludeBotOnly] = useState(false);
@@ -57,8 +55,8 @@ export function AdminFeatured() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
 
-  // Inlined in both the effect and loadMore (mirrors MatchesPage) — a
-  // shared closure would have to join the effect's dependency list.
+  // The effect builds its own copy so this closure stays out of its
+  // dependency list, as in MatchesPage.
   const browseQuery = (before?: number) => {
     const params = new URLSearchParams();
     params.set("limit", String(BROWSE_PAGE_SIZE));
@@ -178,18 +176,19 @@ export function AdminFeatured() {
         </h2>
       </div>
       <p className="admin-featured__hint">
-        Featured matches surface at random behind the landing page's
-        Watch-a-fight door. Visitors are only served matches with a playable
-        demo.
+        The landing page&rsquo;s Watch a fight door plays a featured match at
+        random. Visitors only get matches with a playable demo.
       </p>
 
       {featuredError ? (
-        <div className="error-message">Failed to load featured matches</div>
+        <div className="error-message">
+          Couldn&rsquo;t load the featured matches.
+        </div>
       ) : featured === null ? (
         <div className="admin-loading">Loading featured matches…</div>
       ) : featured.length === 0 ? (
         <div className="admin-empty">
-          Nothing featured yet — star a match below to put it on the landing
+          Nothing featured yet. Star a match below to put it on the landing
           page.
         </div>
       ) : (
@@ -203,7 +202,9 @@ export function AdminFeatured() {
               />
               {!m.demo_url && (
                 <div className="admin-featured__warning">
-                  <span>Demo unavailable — hidden from the landing door.</span>
+                  <span>
+                    This match has no demo, so the landing door skips it.
+                  </span>
                   <button
                     className="admin-btn-danger"
                     onClick={() => unfeature(m.id)}
@@ -222,7 +223,7 @@ export function AdminFeatured() {
         <h2>Add matches</h2>
       </div>
       <p className="admin-featured__hint">
-        Recent matches with demos — use the star on a card to feature it.
+        Recent matches with demos. Star a card to feature it.
       </p>
 
       <div className="admin-featured__filters">
@@ -265,7 +266,7 @@ export function AdminFeatured() {
       {browseLoading ? (
         <div className="admin-loading">Loading matches…</div>
       ) : browse.length === 0 ? (
-        <div className="admin-empty">No matches found</div>
+        <div className="admin-empty">No matches found.</div>
       ) : (
         <>
           <div className="matches-list matches-browser-list">
@@ -285,7 +286,7 @@ export function AdminFeatured() {
                 onClick={loadMore}
                 disabled={loadingMore}
               >
-                {loadingMore ? "Loading..." : "Load More"}
+                {loadingMore ? "Loading…" : "Load more"}
               </button>
             </div>
           )}

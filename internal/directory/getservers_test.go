@@ -209,8 +209,6 @@ func TestBuildResponsesMixedFamily(t *testing.T) {
 	}
 }
 
-// Ensure entries are reasonably randomized for chunking tests so we
-// don't accidentally pass with all-zeros padding.
 func TestBuildResponsesV4Roundtrip(t *testing.T) {
 	now := time.Unix(1_000_000, 0)
 	clock := func() time.Time { return now }

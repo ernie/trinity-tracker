@@ -1,15 +1,11 @@
 import type { ReactNode } from "react";
 
-// Compound chip used as the top-left identifier on Server / Match cards:
-//   [extras · source · server · mode]
-// `children` (e.g. mode-icon thumbnails) leads so the icon glyphs anchor
-// the chip visually. Source is dimmed; server is accent; mode is ember
-// default.
+// The card's identity chip: [extras · source · server · mode].
 
 interface RichChipProps {
   source?: string;
   server: string;
-  mode?: string; // e.g. "CPM · 1V1" or "VQ3 · TDM"
+  mode?: string;
   className?: string;
   children?: ReactNode;
 }
@@ -25,10 +21,10 @@ export function RichChip({
     <span
       className={`rich-chip ${className ?? ""}`}
       data-help={`Server identity:
-• Mode icon — Quake 3, CPMA, Quake Live, or Quake Live Turbo
-• Source — the host running this Q3 server. One host can serve multiple game servers.
-• Server key — short identifier
-• Game type — match format`}
+• Mode icon: the server's ruleset (Quake III Arena, CPMA, Quake Live or Quake Live Turbo)
+• Source: the host running this server. One host can run several game servers.
+• Server key: the server's short name
+• Game type: the match format`}
     >
       {children && (
         <>

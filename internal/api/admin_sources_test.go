@@ -18,7 +18,6 @@ func TestHandleListPendingSources_OnlyPending(t *testing.T) {
 
 	mustOK(t, tr.requestSource(t, aliceTok, "alice-q3", "for fun"))
 	mustOK(t, tr.requestSource(t, bobTok, "bob-q3", ""))
-	// Approve alice → only bob should appear in pending list.
 	if w := tr.do("POST", "/api/admin/sources/alice-q3/approve", "", adminTok); w.Code != http.StatusNoContent {
 		t.Fatalf("approve alice: %d %s", w.Code, w.Body)
 	}
@@ -105,7 +104,6 @@ func TestHandleRejectSource_StoresReason(t *testing.T) {
 		t.Errorf("after reject: %+v", rows)
 	}
 
-	// Caller can re-fetch /api/sources/mine and see the reason for the modal.
 	resp := tr.do("GET", "/api/sources/mine", "", aliceTok)
 	var env mySourcesEnvelope
 	_ = json.Unmarshal(resp.Body.Bytes(), &env)
@@ -307,7 +305,6 @@ func TestHandleTransferSourceOwner_Reassigns(t *testing.T) {
 		t.Fatalf("transfer: %d %s", w.Code, w.Body)
 	}
 
-	// Confirm the owner stuck.
 	listed := tr.do("GET", "/api/admin/sources", "", adminTok)
 	if !strings.Contains(listed.Body.String(), `"owner_username":"alice"`) {
 		t.Errorf("expected alice as new owner; body = %s", listed.Body)
@@ -447,7 +444,6 @@ func TestHandleListAudit_GlobalAndFiltered(t *testing.T) {
 	mustOK(t, tr.requestSource(t, bobTok, "bob-q3", ""))
 	mustOK(t, tr.do("POST", "/api/admin/sources/bob-q3/reject", `{"reason":"no"}`, adminTok))
 
-	// Unfiltered: all four events present (2 requested + approved + rejected).
 	w := tr.do("GET", "/api/admin/audit", "", adminTok)
 	if w.Code != http.StatusOK {
 		t.Fatalf("audit: %d %s", w.Code, w.Body)
@@ -460,7 +456,6 @@ func TestHandleListAudit_GlobalAndFiltered(t *testing.T) {
 		t.Errorf("expected at least 4 audit rows, got %d: %+v", len(rows), rows)
 	}
 
-	// Filter by source.
 	w = tr.do("GET", "/api/admin/audit?source=alice-q3", "", adminTok)
 	_ = json.Unmarshal(w.Body.Bytes(), &rows)
 	for _, r := range rows {
@@ -469,14 +464,12 @@ func TestHandleListAudit_GlobalAndFiltered(t *testing.T) {
 		}
 	}
 
-	// Filter by action.
 	w = tr.do("GET", "/api/admin/audit?action=rejected", "", adminTok)
 	_ = json.Unmarshal(w.Body.Bytes(), &rows)
 	if len(rows) != 1 || rows[0].Action != "rejected" || rows[0].Source != "bob-q3" {
 		t.Errorf("action filter: %+v", rows)
 	}
 
-	// Filter by actor.
 	w = tr.do("GET", "/api/admin/audit?actor=admin", "", adminTok)
 	_ = json.Unmarshal(w.Body.Bytes(), &rows)
 	for _, r := range rows {
@@ -485,7 +478,6 @@ func TestHandleListAudit_GlobalAndFiltered(t *testing.T) {
 		}
 	}
 
-	// Bad since.
 	w = tr.do("GET", "/api/admin/audit?since=yesterday", "", adminTok)
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("bad since = %d, want 400", w.Code)

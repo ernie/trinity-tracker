@@ -26,26 +26,26 @@ export interface UseTvEngineOptions {
   /** Exactly one of demoUrl / liveUrl drives the source. */
   demoUrl?: string;
   liveUrl?: string;
-  /** Live only — TVL1 carries no configstrings, so fs_game is explicit. */
+  /** Live only: a TVL1 stream carries no configstrings, so fs_game is passed. */
   fsGame?: string;
-  /** Caller-specific engine args, e.g. "+set cl_demoPlayer 1". */
+  /** Extra engine args, such as "+set cl_demoPlayer 1". */
   extraArgs?: string;
-  /** Deep-link initial view, applied once after the first snapshot arrives — the
-   *  tv_view target table is empty until then. initialFollow = client slot to
-   *  POV (live: the leader at click time; VOD: the shared ?f=). initialSeek =
-   *  VOD seek seconds; ignored for live (no seek in a live stream). */
+  /** The deep-linked first view, applied once after the first snapshot, when
+   *  tv_view's target table fills. initialFollow is the client slot to follow
+   *  (live: the leader at click time; VOD: the shared ?f=). initialSeek is the
+   *  VOD seek in seconds; live streams ignore it. */
   initialFollow?: number | null;
   initialSeek?: number | null;
   /** Bump to tear down the current module and re-boot onto the same canvas. */
   reloadKey?: number;
   onReady?: () => void;
-  /** Live only: fired once per ready-session when live playback has drained to
-   *  the end (cl_tvLiveEnded). Re-armed across a reconnect reboot, so tolerate a
-   *  repeat (e.g. a resize after end re-observes the cvar). */
+  /** Live only: fires once per ready session when playback has drained to the
+   *  end (cl_tvLiveEnded). It can repeat, since a reboot or a resize after the
+   *  end re-arms it. */
   onStreamClosed?: () => void;
-  /** Fired on a canvas touchstart — the page uses it to dismiss open overlays
-   *  (e.g. the follow flyout), which the capture-phase handler would otherwise
-   *  swallow before the document outside-tap handler could. */
+  /** Fires on a canvas touchstart so the page can close overlays such as the
+   *  follow flyout; the capture-phase touch handler hides the tap from the
+   *  document. */
   onCanvasTouchStart?: () => void;
 }
 
@@ -59,15 +59,15 @@ export interface UseTvEngine {
   error: string | null;
   playerList: TvPlayer[];
   viewpoint: number;
-  /** Engine-reported current/target live map (cl_tvMapName). Drives the levelshot
-   *  backdrop, and crosses an in-place map change without the /api/servers lag. */
+  /** The live map the engine reports (cl_tvMapName), for the levelshot backdrop.
+   *  It follows an in-place map change sooner than /api/servers. */
   liveMapName: string;
-  /** True from the start of an in-place live map change (cl_tvMapName changed)
-   *  until it completes (cl_tvMapSerial bumped) — gates the transition overlay. */
+  /** True from the start of an in-place live map change (cl_tvMapName changes)
+   *  until it completes (cl_tvMapSerial bumps); shows the transition overlay. */
   transitioning: boolean;
-  /** False until the initialFollow/initialSeek deep-link has been applied (true
-   *  immediately when there is none). Pages keep the levelshot up while false so
-   *  the engine's default viewpoint never flashes before the requested POV. */
+  /** False until the initialFollow/initialSeek deep link is applied (true at
+   *  once with none). Pages keep the levelshot up meanwhile, so the engine's
+   *  default view never flashes before the requested one. */
   initialViewApplied: boolean;
   refreshPlayerList: () => void;
   follow: (clientNum: number) => void;
@@ -77,37 +77,30 @@ export interface UseTvEngine {
   sendMouse: (button: number, type: "mousedown" | "mouseup") => void;
   preventFocus: (e: React.MouseEvent) => void;
   holdHandlers: HoldHandlers;
-  /** Scrub mode = a held ShiftLeft modifier the touch handler must finalize, so
-   *  the hook owns it; the page renders the toggle off scrubActive. */
+  /** Scrub mode is a held ShiftLeft that the touch handler releases, so the
+   *  hook owns it; the page draws its toggle from scrubActive. */
   scrubActive: boolean;
   setScrub: (next: boolean) => void;
 }
 
-// The console font is sized in device pixels (8px * con_scale), so on a large
-// or hi-DPI framebuffer it renders tiny. Scale it to the classic 640x480 grid,
-// picking the SMALLER of the width/height ratios so an extreme aspect (ultrawide
-// monitor, tall phone) doesn't oversize the font by its larger dimension. The
-// engine clamps con_scale to [0.5, 8]; clamp here too for a tidy value.
+// The console font is 8px * con_scale in device pixels, tiny on a large
+// framebuffer. Scale to the 640x480 grid by the smaller ratio, so an ultrawide
+// or tall screen keeps a sensible size. The engine clamps con_scale to [0.5, 8].
 function consoleScale(fbWidth: number, fbHeight: number): number {
   const s = Math.min(fbWidth / 640, fbHeight / 480);
   return Math.round(Math.max(0.5, Math.min(8, s)) * 100) / 100;
 }
 
-// Supported framebuffer aspect ratios (ascending). Resizes within a ratio are
-// pure CSS (object-fit: contain letter/pillarboxes the fixed-aspect buffer); a
-// vid_restart only fires when the resize crosses to a different ratio or outgrows
-// the framebuffer resolution. The game view is landscape, so there's no portrait
-// ratio — a portrait container gets 4:3, letterboxed.
+// Framebuffer aspect ratios, ascending. The game view is landscape, so a
+// portrait container gets 4:3, letterboxed.
 const RATIOS = [4 / 3, 16 / 9, 21 / 9, 32 / 9];
-const HYST = 0.08; // narrower-switch deadband, so we don't flap at a boundary
-const TIER_FACTOR = 1.4; // resolution-reinit deadband (implicit crispness tiers)
+const HYST = 0.08; // deadband before switching to a narrower ratio
+const TIER_FACTOR = 1.4; // deadband before a resolution change restarts video
 const MAX_FB = { w: 3840, h: 2160 };
 
-// Pick the widest ratio R with R <= C (else the narrowest) — prefers pillarbox
-// over letterbox, filling width while keeping full height. `current` enables
-// anti-flap hysteresis: widening adopts the base pick immediately (the
-// widest-R<=C rule already gates it on C reaching that ratio), but narrowing only
-// switches once C drops a clear margin below the held ratio.
+// The widest ratio R <= C, else the narrowest, so the view fills the width and
+// keeps its full height. With `current`, a wider pick applies at once, while a
+// narrower one waits until C falls a clear margin below the held ratio.
 function selectAspect(
   containerAspect: number,
   current?: number | null,
@@ -120,9 +113,9 @@ function selectAspect(
   return current;
 }
 
-// Framebuffer dims for the displayed content (not the whole box, so no pixels go
-// to the bars): height-limited when pillarboxed, width-limited when letterboxed.
-// Scaled by DPR and capped to MAX_FB while preserving aspect.
+// Sized to the displayed content so no pixels go to the bars: height-limited
+// when pillarboxed, width-limited when letterboxed. Scaled by DPR and capped to
+// MAX_FB at the same aspect.
 function targetFramebuffer(
   ratio: number,
   boxW: number,
@@ -142,8 +135,8 @@ function targetFramebuffer(
   return { w: fbW, h: fbH };
 }
 
-// True when a new target stays close enough to the current framebuffer to just
-// rescale via CSS — both dimensions within the tier deadband [1/F, F].
+// True when both dimensions stay within [1/F, F] of the current framebuffer,
+// so CSS can rescale it.
 function withinTier(
   target: { w: number; h: number },
   cur: { w: number; h: number },
@@ -178,19 +171,16 @@ export function useTvEngine(opts: UseTvEngineOptions): UseTvEngine {
   const [viewpoint, setViewpoint] = useState(-1);
   const [liveMapName, setLiveMapName] = useState("");
   const [transitioning, setTransitioning] = useState(false);
-  // Init true when there's no deep-link to apply, so pages reveal immediately.
   const [initialViewApplied, setInitialViewApplied] = useState(
     () => initialFollow == null && initialSeek == null,
   );
   const [scrubActive, setScrubActive] = useState(false);
   const scrubRef = useRef(false);
-  // Current aspect bucket + framebuffer, tracked in refs (not state) so resize
-  // ticks don't churn renders. Seeded at boot, updated only on an actual reinit.
+  // Refs so resize ticks don't re-render; set at boot and on each restart.
   const currentRatioRef = useRef<number | null>(null);
   const currentFBRef = useRef<{ w: number; h: number } | null>(null);
 
-  // Latest callbacks via refs so they don't retrigger the boot effect; assigned
-  // in an effect, not during render.
+  // Refs so new callbacks don't rerun the boot effect.
   const onReadyRef = useRef(onReady);
   const onStreamClosedRef = useRef(onStreamClosed);
   const onCanvasTouchStartRef = useRef(onCanvasTouchStart);
@@ -286,17 +276,14 @@ export function useTvEngine(opts: UseTvEngineOptions): UseTvEngine {
     );
   }, []);
 
-  // Boot / re-boot the engine; reloadKey in deps lets live reconnect by tearing
-  // down and re-opening onto the same canvas.
+  // reloadKey lets a live reconnect tear down and reboot onto the same canvas.
   useEffect(() => {
     if (!demoUrl && !liveUrl) return;
     let aborted = false;
 
     async function init() {
-      // Reset here (not in the effect body) to avoid a synchronous setState
-      // mid-effect. Roster resets too: on a live reboot (map swap) the follow
-      // flyout would otherwise show the previous match's players until the next
-      // hover refresh.
+      // Reset inside init to keep setState out of the effect body. The roster
+      // resets too, so a reboot's follow flyout starts empty.
       setLoading(true);
       setError(null);
       setEngineReady(false);
@@ -307,8 +294,7 @@ export function useTvEngine(opts: UseTvEngineOptions): UseTvEngine {
         if (aborted || !canvasRef.current || !statusRef.current) return;
         const rect = canvasRef.current.getBoundingClientRect();
         const dpr = window.devicePixelRatio || 1;
-        // Seed the framebuffer through the aspect selector so first paint already
-        // uses a supported ratio (not the raw box), matching the resize path.
+        // First paint goes through the aspect selector, as resizes do.
         const ratio = selectAspect(rect.width / rect.height);
         const fb = targetFramebuffer(ratio, rect.width, rect.height, dpr);
         currentRatioRef.current = ratio;
@@ -342,7 +328,9 @@ export function useTvEngine(opts: UseTvEngineOptions): UseTvEngine {
         setLoading(false);
       } catch (e) {
         if (!aborted)
-          setError(e instanceof Error ? e.message : "Failed to load");
+          setError(
+            e instanceof Error ? e.message : "Couldn't load the viewer.",
+          );
       }
     }
     init();
@@ -371,8 +359,8 @@ export function useTvEngine(opts: UseTvEngineOptions): UseTvEngine {
     };
   }, [demoUrl, liveUrl, fsGame, extraArgs, reloadKey]);
 
-  // Live: poll cl_tvLiveEnded (playback drained), not cl_tvStreamClosed (fetch
-  // closed ~delay-buffer earlier), so reconnect waits for the last seconds.
+  // Live: cl_tvLiveEnded means playback has drained, so the reconnect waits
+  // out the last seconds of the delay buffer.
   useEffect(() => {
     if (!liveUrl || !engineReady) return;
     let fired = false;
@@ -386,11 +374,10 @@ export function useTvEngine(opts: UseTvEngineOptions): UseTvEngine {
     return () => clearInterval(iv);
   }, [liveUrl, engineReady, readCvarNumber]);
 
-  // Live: cross an in-place map change without a reload. The engine sets
-  // cl_tvMapName at the START of a change (raise the levelshot overlay covering the
-  // pk3 download) and bumps cl_tvMapSerial at the END (refresh the roster). See
-  // cl_tv.c CL_TV_LiveMapChange. The initial map (first read) seeds the name
-  // without flagging a transition — the boot loading state already covers it.
+  // Live: in-place map changes (cl_tv.c CL_TV_LiveMapChange). The engine sets
+  // cl_tvMapName when a change starts, which raises the levelshot over the pk3
+  // download, and bumps cl_tvMapSerial when it ends, which refreshes the roster.
+  // The first read only seeds the name; the boot loading state covers it.
   useEffect(() => {
     if (!liveUrl || !engineReady) return;
     let prevName: string | null = null;
@@ -412,12 +399,10 @@ export function useTvEngine(opts: UseTvEngineOptions): UseTvEngine {
     return () => clearInterval(iv);
   }, [liveUrl, engineReady, readCvarNumber, readCvarString, refreshPlayerList]);
 
-  // Apply the initialFollow/initialSeek deep-link once the engine is live AND a
-  // snapshot has arrived — tv_view/tv_seek need the player table populated to
-  // validate the target, and there's no JS-side "first snap" hook, so we poll
-  // CL_TV_GetPlayerList (empty until the first snapshot) until it lists a player.
-  // Once-ever per mount (the ref guard survives the engineReady cycling a resize
-  // causes); a live reconnect is a full document reload, so it re-arms there.
+  // tv_view and tv_seek need the player table, which fills with the first
+  // snapshot, so poll CL_TV_GetPlayerList until it lists a player. Applied once
+  // per mount: the ref outlasts the engineReady cycle a resize causes, and a
+  // live reconnect reloads the page.
   const initialViewAppliedRef = useRef(false);
   useEffect(() => {
     if (!engineReady || initialViewAppliedRef.current) return;
@@ -436,24 +421,21 @@ export function useTvEngine(opts: UseTvEngineOptions): UseTvEngine {
         return;
       }
       if (!raw) return;
-      // header line + at least one player ⇒ the target table is valid.
+      // A header line plus at least one player.
       if (raw.split("\n").filter(Boolean).length < 2) return;
       initialViewAppliedRef.current = true;
       clearInterval(iv);
       if (initialFollow != null) follow(initialFollow);
-      if (initialSeek != null) runCmd(`tv_seek ${initialSeek}`); // VOD-only
-      // One engine frame so the cbuf runs tv_view/tv_seek before the page drops
-      // the levelshot and reveals the canvas at the requested POV.
+      if (initialSeek != null) runCmd(`tv_seek ${initialSeek}`);
+      // Wait one engine frame so the commands run before the canvas shows.
       mod.onNextFrame?.(() => setInitialViewApplied(true));
     }, 100);
     return () => clearInterval(iv);
   }, [engineReady, initialFollow, initialSeek, follow, runCmd]);
 
-  // Tab foreground re-sync (live only). A backgrounded tab has its rAF/timers
-  // throttled, so the engine stops pumping while the relay keeps feeding the
-  // byte-feed ring — on return there's a backlog. tv_resync re-arms the engine's
-  // one-shot catch-up so it snaps back to ~the live cushion instead of grinding
-  // through the backlog. Inert on VOD and when nothing is buffered (engine-side).
+  // A background tab's timers are throttled, so the engine stalls while the
+  // relay keeps filling its buffer. On return, tv_resync jumps back to the live
+  // cushion. The engine ignores it for VOD and when nothing is buffered.
   useEffect(() => {
     if (!engineReady) return;
     let hiddenAt = 0;
@@ -462,7 +444,7 @@ export function useTvEngine(opts: UseTvEngineOptions): UseTvEngine {
         hiddenAt = performance.now();
         return;
       }
-      // Only after a real throttling gap; quick tab flips don't starve the ring.
+      // Quick tab flips leave too little backlog to matter.
       if (hiddenAt && performance.now() - hiddenAt > 1000) runCmd("tv_resync");
       hiddenAt = 0;
     };
@@ -470,21 +452,17 @@ export function useTvEngine(opts: UseTvEngineOptions): UseTvEngine {
     return () => document.removeEventListener("visibilitychange", onVisibility);
   }, [engineReady, runCmd]);
 
-  // On resize, quantize the framebuffer to a supported aspect bucket and let CSS
-  // (object-fit: contain) scale within it — so dragging, the mobile URL bar, and
-  // minor reflow are pure CSS, no engine call. A vid_restart fires only when the
-  // resize crosses to a different aspect bucket or outgrows/undergrows the
-  // framebuffer resolution past the tier deadband.
+  // CSS (object-fit: contain) handles resizes within an aspect bucket and tier,
+  // such as a drag or the mobile URL bar. Crossing to another bucket or past the
+  // tier deadband restarts video at the new size.
   useEffect(() => {
     const canvas = canvasRef.current;
     const mod = moduleRef.current;
     if (!canvas || !mod) return;
     let timer: ReturnType<typeof setTimeout> | null = null;
-    // iOS Safari's touch mapping ends up offset from the paint after a
-    // rotation + restart (taps land ~a toolbar-height below the finger) until
-    // a drag makes WebKit reconcile its viewports — do that drag's work here.
-    // Needed IN ADDITION to the settle delay below: each alone tested broken
-    // on device, the pair fixes it.
+    // After a rotation and restart, iOS Safari's taps land about a toolbar
+    // height below the finger until a drag reconciles its viewports; this does
+    // the drag's work. It takes both this and the settle delay below.
     const reconcileViewport = () => {
       window.scrollTo(0, 0);
       const page = canvas.closest(".demo-player-page");
@@ -498,22 +476,22 @@ export function useTvEngine(opts: UseTvEngineOptions): UseTvEngine {
       reconcileViewport();
       const rect = canvas.getBoundingClientRect();
       if (rect.width === 0 || rect.height === 0) return;
-      const dpr = window.devicePixelRatio || 1; // re-read: monitor moves change it
+      const dpr = window.devicePixelRatio || 1; // changes when moved to another monitor
       const prevRatio = currentRatioRef.current;
       const ratio = selectAspect(rect.width / rect.height, prevRatio);
       const target = targetFramebuffer(ratio, rect.width, rect.height, dpr);
       const cur = currentFBRef.current;
       const bucketChanged = ratio !== prevRatio;
-      if (!bucketChanged && cur && withinTier(target, cur)) return; // CSS handles it
+      if (!bucketChanged && cur && withinTier(target, cur)) return;
       currentRatioRef.current = ratio;
       currentFBRef.current = target;
       flushSync(() => setEngineReady(false));
       canvas.style.visibility = "hidden";
       if (statusRef.current) {
         statusRef.current.style.display = "";
-        statusRef.current.textContent = "Restarting video...";
+        statusRef.current.textContent = "Restarting video…";
       }
-      // Defer vid_restart so browser paints the overlay first
+      // Deferred so the overlay paints first.
       requestAnimationFrame(() => {
         mod.ccall(
           "Cbuf_AddText",
@@ -523,9 +501,8 @@ export function useTvEngine(opts: UseTvEngineOptions): UseTvEngine {
             `r_mode -1\nr_customwidth ${target.w}\nr_customheight ${target.h}\ncon_scale ${consoleScale(target.w, target.h)}\nvid_restart\n`,
           ],
         );
-        // Schedule after Cbuf_AddText so the reveal fires on the engine frame
-        // AFTER vid_restart (our rAF runs after the engine's, so the next
-        // postMainLoop is post-restart).
+        // This rAF runs after the engine's, so the next engine frame is the
+        // first one after vid_restart.
         mod.onNextFrame?.(() => {
           canvas.style.visibility = "";
           setEngineReady(true);
@@ -534,20 +511,15 @@ export function useTvEngine(opts: UseTvEngineOptions): UseTvEngine {
         });
       });
     };
-    // Wait well past the rotation animation: a vid_restart is one multi-second
-    // synchronous main-thread block, and firing it while iOS Safari is still
-    // settling a rotation leaves Safari's touch mapping offset from the paint
-    // (taps land ~a toolbar-height below the finger) until the user drags.
-    // Within-bucket resizes early-return in settle, so the delay only affects
-    // real restarts.
+    // Waits well past the rotation animation: a vid_restart blocks the main
+    // thread, and one during iOS Safari's rotation settle offsets its taps.
     const debounced = () => {
       if (timer) clearTimeout(timer);
       timer = setTimeout(settle, 1000);
     };
     const observer = new ResizeObserver(debounced);
     observer.observe(canvas);
-    // Phone rotate: object-fit handles the box reflow, but the bucket changes
-    // (portrait 4:3 → landscape 16:9), so route it through the same settle path.
+    // A rotation changes the aspect bucket.
     window.addEventListener("orientationchange", debounced);
     return () => {
       observer.disconnect();
@@ -556,15 +528,15 @@ export function useTvEngine(opts: UseTvEngineOptions): UseTvEngine {
     };
   }, [loading]);
 
-  // Intercept touch before SDL2 (capture phase) so touches rotate the camera
-  // but don't click (follow next).
+  // Capture phase, ahead of SDL2, so a touch turns the camera; an SDL click
+  // would follow the next player.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     let lastX = 0,
       lastY = 0;
-    // SDL computes deltas from absolute coords, so track a virtual cursor moved
-    // only by touch deltas — avoids a camera jump on first touch.
+    // SDL derives deltas from absolute positions, so a virtual cursor moved only
+    // by touch deltas keeps the first touch from jumping the camera.
     const rect = canvas.getBoundingClientRect();
     let synthX = rect.left + rect.width / 2;
     let synthY = rect.top + rect.height / 2;
@@ -578,8 +550,6 @@ export function useTvEngine(opts: UseTvEngineOptions): UseTvEngine {
     const onStart = (e: TouchEvent) => {
       e.stopImmediatePropagation();
       e.preventDefault();
-      // stopImmediatePropagation above blocks the document outside-tap handler,
-      // so dismiss overlays explicitly.
       onCanvasTouchStartRef.current?.();
       const ct = e.targetTouches;
       if (ct.length >= 2) {
@@ -651,8 +621,8 @@ export function useTvEngine(opts: UseTvEngineOptions): UseTvEngine {
         const dy = t.clientY - lastY;
         synthX += dx;
         synthY += dy;
-        // Clamp to canvas bounds — SDL clamps internally, so if we don't
-        // match, our position diverges and all deltas become zero.
+        // SDL clamps to the canvas too; past the edge the two would disagree and
+        // every delta would come out zero.
         const b = canvas.getBoundingClientRect();
         synthX = Math.max(b.left, Math.min(b.right, synthX));
         synthY = Math.max(b.top, Math.min(b.bottom, synthY));
@@ -736,7 +706,7 @@ export function useTvEngine(opts: UseTvEngineOptions): UseTvEngine {
     return () => document.removeEventListener("pointerlockchange", handler);
   }, []);
 
-  // Prevent Tab key from leaving the canvas
+  // Tab would move focus off the canvas.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Tab") e.preventDefault();
@@ -745,7 +715,7 @@ export function useTvEngine(opts: UseTvEngineOptions): UseTvEngine {
     return () => window.removeEventListener("keydown", handler, true);
   }, []);
 
-  // SDL2/Emscripten registers keyboard events on document, not canvas.
+  // SDL2 listens for keys on the document.
   const sendKey = useCallback<SendKey>((code, type) => {
     document.dispatchEvent(
       new KeyboardEvent(type, { code, key: code, bubbles: true }),
@@ -765,7 +735,7 @@ export function useTvEngine(opts: UseTvEngineOptions): UseTvEngine {
     e.preventDefault();
   }, []);
 
-  // Hold-button helpers — preventDefault keeps focus on the canvas.
+  // preventDefault keeps focus on the canvas.
   const holdHandlers = useCallback<HoldHandlers>(
     (downFn, upFn) => ({
       onMouseDown: (e) => {

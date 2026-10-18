@@ -1,7 +1,7 @@
-// Package q3color translates Quake 3 caret color codes (^0..^7) into
+// Package q3color translates Quake III caret color codes (^0..^7) into
 // ANSI escapes (terminal and Discord palettes), strips them, and
-// measures ANSI-aware visible width. Shared by the CLI, Discord
-// digests, and notify embeds.
+// measures ANSI-aware visible width for the CLI, the Discord digest
+// and the notify embeds.
 package q3color
 
 import "strings"
@@ -10,58 +10,48 @@ import "strings"
 // rendering bleeds across newlines without it.
 const ansiReset = "\x1b[0m"
 
-// Q3's canonical 8-color palette is fully saturated RGB (e.g. yellow
-// is #FFFF00). Two ANSI flavors render that intent differently:
+// Quake III's eight colors are fully saturated RGB (yellow is
+// #FFFF00). The two ANSI flavors render them differently:
 //
-//   - Bright variants (90-97): most modern terminals render these as
-//     the saturated, named-color RGB values (xterm: 33m=#cdcd00 dim,
-//     93m=#FFFF00 true yellow). Faithful to Q3.
-//   - Standard variants (30-37): historically dimmer/themed; many
-//     palettes (Solarized, macOS Terminal Pro) render 33m as amber.
+//   - Bright variants (90-97): most terminals render these as the
+//     saturated named colors (xterm: 33m=#cdcd00, 93m=#FFFF00).
+//   - Standard variants (30-37): dimmer or themed; many palettes
+//     (Solarized, macOS Terminal Pro) render 33m as amber.
 //
-// Discord's ```ansi``` parser only honors 30-37 — passing 90-97
-// strips color entirely. So we keep two tables and pick at the call
-// site: terminals use ToANSI (bright); the Discord embed renderer
-// uses ToANSIDiscord (standard, with the known yellow=amber quirk).
+// Discord's ```ansi``` parser honors only 30-37 and drops color for
+// 90-97, so terminals use ToANSI (bright) and the Discord embeds use
+// ToANSIDiscord (standard, where yellow shows as amber).
 //
-// The canonical Q3 set has exactly 8 colors — see
-// ../trinity-engine/code/qcommon/q_shared.h lines 466-474
-// (`#define ColorIndex(c) ( ( (c) - '0' ) & 7 )`). Codes like ^8 and
-// ^9 don't exist; we leave them literal rather than reproducing the
-// engine's wrap-around (which would render ^9 as red).
+// The engine has exactly eight colors (ColorIndex in
+// trinity-engine/code/qcommon/q_shared.h masks with & 7); ^8 and ^9
+// stay literal here.
 
-// q3ColorANSITerm: bright variants for terminal output. Faithful to
-// Q3's saturated palette on any modern terminal.
 var q3ColorANSITerm = map[byte]string{
-	'0': ansiReset,  // black: rendered as default fg (literal black is invisible on dark themes)
-	'1': "\x1b[91m", // red
-	'2': "\x1b[92m", // green
-	'3': "\x1b[93m", // yellow (true bright yellow, not amber)
-	'4': "\x1b[94m", // blue
-	'5': "\x1b[96m", // cyan
-	'6': "\x1b[95m", // magenta / pink
-	'7': "\x1b[97m", // white
+	'0': ansiReset, // black text vanishes on dark themes, so ^0 uses the default color
+	'1': "\x1b[91m",
+	'2': "\x1b[92m",
+	'3': "\x1b[93m",
+	'4': "\x1b[94m",
+	'5': "\x1b[96m",
+	'6': "\x1b[95m",
+	'7': "\x1b[97m",
 }
 
-// q3ColorANSIDiscord: standard codes only — the bright variants
-// don't render in Discord's ansi block.
 var q3ColorANSIDiscord = map[byte]string{
 	'0': ansiReset,
 	'1': "\x1b[31m",
 	'2': "\x1b[32m",
-	'3': "\x1b[33m", // Discord theme renders this as amber/olive — palette quirk
+	'3': "\x1b[33m",
 	'4': "\x1b[34m",
 	'5': "\x1b[36m",
 	'6': "\x1b[35m",
 	'7': "\x1b[37m",
 }
 
-// ToANSI translates Q3 color codes (^0..^7) inside name into ANSI
-// escape sequences appropriate for a modern terminal. Any other caret
-// sequence (^^, ^a, ^9, trailing ^) passes through literally — that
-// diverges from the engine's permissive parser but avoids surprising
-// viewers with implicit colors on non-canonical codes. Output ends
-// with a reset whenever any color was emitted.
+// ToANSI translates color codes (^0..^7) inside name into ANSI escape
+// sequences for a terminal. Any other caret sequence (^^, ^a, ^9, a
+// trailing ^) passes through literally. Output ends with a reset
+// whenever a color was emitted.
 func ToANSI(name string) string {
 	return q3Translate(name, q3ColorANSITerm)
 }
@@ -72,9 +62,9 @@ func ToANSIDiscord(name string) string {
 	return q3Translate(name, q3ColorANSIDiscord)
 }
 
-// Strip removes all ^N caret-color sequences from name,
-// returning the bare text. Useful for Discord embed fields that don't
-// render ANSI (titles, descriptions, author names).
+// Strip removes all ^N caret-color sequences from name, for Discord
+// embed fields that don't render ANSI (titles, descriptions, author
+// names).
 func Strip(name string) string {
 	var b strings.Builder
 	for i := 0; i < len(name); i++ {

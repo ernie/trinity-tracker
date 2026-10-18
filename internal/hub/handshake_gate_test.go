@@ -77,10 +77,8 @@ func TestHandleMatchStartAcceptsWhenHandshakeRequired(t *testing.T) {
 	}
 }
 
-// TestIsHandshakeEnforcedLatch covers the column behind Router.Broadcast's
-// gate: it must report false until match_start latches it true, and must
-// flip back to false on a subsequent match_start with handshake_required=false
-// (operator downgrade detected on the next match observed by the hub).
+// The gate reads false until a match_start sets it, and false again
+// after a later match_start without the handshake.
 func TestIsHandshakeEnforcedLatch(t *testing.T) {
 	w, store := newTestWriter(t)
 	ctx := context.Background()

@@ -6,16 +6,12 @@ import (
 	"testing"
 )
 
-// The whole reason this package exists: a row mixing colored and
-// plain cells must align identically to a fully-plain layout. We
-// strip the escapes from the rendered output and check column
-// positions are stable.
 func TestRenderTable_AlignsThroughANSI(t *testing.T) {
 	withColor(t, true)
 	cols := []column{
 		{header: "RANK", align: alignRight, cells: []string{"1", "2"}},
 		{header: "PLAYER", cells: []string{
-			"\x1b[31mernie\x1b[0m",
+			"\x1b[31malice\x1b[0m",
 			"rocketeer",
 		}},
 		{header: "FRAGS", align: alignRight, cells: []string{"412", "318"}},
@@ -24,15 +20,12 @@ func TestRenderTable_AlignsThroughANSI(t *testing.T) {
 	renderTable(&buf, cols)
 	got := stripANSI(buf.String())
 
-	// PLAYER column width is 9 (max of header=6, ernie=5, rocketeer=9).
-	// Header "PLAYER" gets 3 chars of left-align padding inside its
-	// 9-wide cell; rocketeer fills the cell exactly. The separator
-	// row is 9 dashes wide — that's the alignment proof: the colored
-	// "ernie" cell didn't fool the width math.
+	// PLAYER is 9 wide, from "rocketeer"; the colored "alice" mustn't
+	// widen it.
 	wantLines := []string{
 		"RANK  PLAYER     FRAGS",
 		"----  ---------  -----",
-		"   1  ernie        412",
+		"   1  alice        412",
 		"   2  rocketeer    318",
 	}
 	gotLines := strings.Split(strings.TrimRight(got, "\n"), "\n")
@@ -59,9 +52,6 @@ func TestRenderTable_EmitsEscapesWhenEnabled(t *testing.T) {
 	}
 }
 
-// When color is off, the renderer must produce no escape sequences —
-// otherwise piped output (NO_COLOR=1, --color=never) would still
-// carry junk for grep/awk to deal with.
 func TestRenderTable_NoEscapesWhenDisabled(t *testing.T) {
 	withColor(t, false)
 	var buf bytes.Buffer
@@ -79,8 +69,6 @@ func TestRenderTable_EmptyHandled(t *testing.T) {
 	}
 }
 
-// stripANSI removes CSI escape sequences from s so tests can assert
-// on visible layout regardless of color state.
 func stripANSI(s string) string {
 	var b strings.Builder
 	i := 0

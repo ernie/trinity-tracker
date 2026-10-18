@@ -16,9 +16,6 @@ export function MatchDetailPage() {
   const [match, setMatch] = useState<MatchSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [featurePending, setFeaturePending] = useState(false);
-  // Bumped to force a refetch (e.g. after toggling featured). Cleaner
-  // than a useCallback wrapper because the fetch lives entirely inside
-  // the effect and the dependencies are explicit.
   const [refetchToken, setRefetchToken] = useState(0);
 
   useEffect(() => {
@@ -31,7 +28,7 @@ export function MatchDetailPage() {
           return null;
         }
         if (!res.ok) {
-          setError("Failed to load match");
+          setError("Couldn't load this match.");
           return null;
         }
         return res.json() as Promise<MatchSummary>;
@@ -39,20 +36,18 @@ export function MatchDetailPage() {
       .then((data) => {
         if (!data) return;
         setMatch(data);
-        setError(null); // success clears any prior error
+        setError(null);
       })
       .catch((e) => {
         if (ctrl.signal.aborted) return;
         console.error("Failed to fetch match:", e);
-        setError("Failed to load match");
+        setError("Couldn't load this match.");
       });
     return () => ctrl.abort();
   }, [id, refetchToken]);
 
-  // Loading is derived: nothing yet AND no error to show. During
-  // refetches (e.g. after toggling featured) `match` retains the
-  // optimistic value, so we don't flash a spinner over user-visible
-  // content — the eventual server confirmation just refreshes in place.
+  // A refetch keeps the optimistic match on screen until the server
+  // answers.
   const loading = !match && !error;
 
   const toggleFeatured = async () => {
@@ -67,7 +62,6 @@ export function MatchDetailPage() {
         console.error("Feature toggle failed:", res.status);
         return;
       }
-      // Optimistic update + refetch to confirm server state.
       setMatch({ ...match, is_featured: next });
       setRefetchToken((t) => t + 1);
     } finally {
@@ -96,7 +90,7 @@ export function MatchDetailPage() {
 
       <div className="match-detail-content">
         {loading ? (
-          <div className="stats-loading">Loading match...</div>
+          <div className="stats-loading">Loading match…</div>
         ) : error ? (
           <div className="stats-error">{error}</div>
         ) : match ? (
@@ -116,7 +110,7 @@ export function MatchDetailPage() {
                     className={`match-feature-toggle${match.is_featured ? " is-featured" : ""}`}
                     onClick={toggleFeatured}
                     disabled={featurePending}
-                    title="Featured matches surface on the landing page's Watch-a-fight door"
+                    title="The landing page's Watch a fight door can play any featured match"
                   >
                     <StarIcon filled={match.is_featured} />
                     {match.is_featured ? "Featured" : "Feature"}

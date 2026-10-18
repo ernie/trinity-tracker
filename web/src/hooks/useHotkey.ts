@@ -7,9 +7,8 @@ export interface HotkeySpec {
   meta?: boolean;
 }
 
-// Document-level keyboard shortcut. The handler fires only when the
-// user isn't typing in an editable element — except for keys that
-// must work everywhere (Escape always fires).
+// Document-level shortcut. It skips keys typed into an editable element,
+// except Escape, which always fires.
 export function useHotkey(
   spec: HotkeySpec,
   handler: (e: KeyboardEvent) => void,
@@ -21,11 +20,9 @@ export function useHotkey(
       const key = e.key?.toLowerCase();
       if (!key || key !== spec.key) return;
       if (spec.meta) {
-        // Cmd on Mac, Ctrl elsewhere.
         const meta = e.metaKey || e.ctrlKey;
         if (!meta) return;
       }
-      // Escape always fires; other shortcuts skip when typing.
       if (key !== "escape") {
         const target = e.target as HTMLElement | null;
         if (

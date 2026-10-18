@@ -42,12 +42,10 @@ func TestPATLifecycle(t *testing.T) {
 		t.Errorf("identity mismatch: %+v", id)
 	}
 
-	// Unknown hash is not found.
 	if _, err := store.LookupPATByHash(ctx, "no-such"); !errors.Is(err, ErrPATNotFound) {
 		t.Errorf("unknown hash: want ErrPATNotFound, got %v", err)
 	}
 
-	// Revoke kills the lookup; second revoke reports not-found.
 	if err := store.RevokePATByHash(ctx, "hash-1"); err != nil {
 		t.Fatalf("RevokePATByHash: %v", err)
 	}
@@ -92,12 +90,10 @@ func TestPATLookupReflectsLiveUserRow(t *testing.T) {
 		t.Errorf("re-enabled user: lookup failed: %v", err)
 	}
 
-	// Unknown user errors.
 	if err := store.SetUserDisabled(ctx, "nobody", true); err == nil {
 		t.Error("SetUserDisabled(unknown): want error")
 	}
 
-	// Deleting the user takes the token with it (FK cascade + join).
 	if err := store.DeleteUser(ctx, "pat-user"); err != nil {
 		t.Fatalf("DeleteUser: %v", err)
 	}

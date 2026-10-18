@@ -135,7 +135,7 @@ func TestGetFeaturedMatches_EmptyByDefault(t *testing.T) {
 		t.Fatal(err)
 	}
 	if resp.Matches == nil {
-		t.Fatalf("matches should be empty array, not nil — got null in JSON?")
+		t.Fatalf("matches should be an empty array; got null in the JSON")
 	}
 	if len(resp.Matches) != 0 {
 		t.Fatalf("expected empty list; got %v", resp.Matches)

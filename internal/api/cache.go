@@ -33,8 +33,7 @@ func newResponseCache() *responseCache {
 	return &responseCache{entries: make(map[string]*cachedResponse)}
 }
 
-// responseRecorder captures a handler's response for replay. Plain
-// ResponseWriter only — the cached handlers never need Flusher/Hijacker.
+// responseRecorder captures a handler's response for replay.
 type responseRecorder struct {
 	header http.Header
 	status int
@@ -56,10 +55,9 @@ func (r *responseRecorder) Write(b []byte) (int, error) {
 	return r.body.Write(b)
 }
 
-// cached wraps a GET handler with the response cache. Credentialed
-// requests bypass in both directions — never read, never populate — so
-// a viewer-specific response can't leak. Credential presence suffices:
-// a garbage one just means an uncached (correct) response.
+// cached wraps a GET handler with the response cache. A request that
+// carries any credential skips the cache entirely, so a viewer-specific
+// response can't leak to anyone else.
 func (r *Router) cached(ttl time.Duration, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		if req.Header.Get("Authorization") != "" {
@@ -71,8 +69,7 @@ func (r *Router) cached(ttl time.Duration, next http.HandlerFunc) http.HandlerFu
 			return
 		}
 
-		// RawQuery uncanonicalized: a reordered-param duplicate just
-		// costs an extra entry.
+		// Reordered parameters just cost an extra entry.
 		key := req.URL.Path + "?" + req.URL.RawQuery
 
 		if resp := r.respCache.get(key); resp != nil {
@@ -87,8 +84,8 @@ func (r *Router) cached(ttl time.Duration, next http.HandlerFunc) http.HandlerFu
 				return resp, nil
 			}
 			rec := &responseRecorder{header: make(http.Header)}
-			// Detached so a leader disconnect mid-query can't poison
-			// the shared result for every waiter.
+			// Detached so the first caller disconnecting can't cancel the
+			// result every waiter shares.
 			detached := req.WithContext(context.WithoutCancel(req.Context()))
 			next(rec, detached)
 			resp := &cachedResponse{
@@ -127,7 +124,7 @@ func (c *responseCache) put(key string, resp *cachedResponse) {
 }
 
 // evictLocked drops expired entries, then arbitrary ones until under
-// the cap — entries are short-lived, fancier isn't worth the bookkeeping.
+// the cap; entries live only seconds anyway.
 func (c *responseCache) evictLocked() {
 	now := time.Now()
 	for k, v := range c.entries {

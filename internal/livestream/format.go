@@ -1,11 +1,11 @@
-// Package livestream defines the live-match-spectating wire format and a
-// collector-side relay that fans an in-progress match stream out to many
+// Package livestream defines the wire format for watching a match live
+// and the collector's relay, which fans a match in progress out to many
 // browser viewers on a configurable delay.
 //
-// Wire format (little-endian): a StreamHeader followed by Segments. Each
-// Segment begins with a clear-text marker + keyframe time + payload length,
-// so the relay can navigate segment boundaries without ever decompressing
-// the opaque (zstd) payload. See docs for the full spec.
+// The format is little-endian: a StreamHeader, then Segments. Each
+// Segment starts with a clear-text marker, keyframe time and payload
+// length, so the relay can find segment boundaries without
+// decompressing the zstd payload.
 package livestream
 
 import (
@@ -26,7 +26,7 @@ type StreamHeader struct {
 	MaxClients uint32
 	MapName    string
 	Timestamp  string
-	// GameName is fs_game (the mod dir, e.g. "missionpack"; empty for baseq3).
+	// GameName is fs_game, such as "missionpack"; empty for baseq3.
 	GameName string
 }
 

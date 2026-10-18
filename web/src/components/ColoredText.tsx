@@ -1,8 +1,7 @@
 import { useMemo } from "react";
 
-// Q3 chat color codes ^0–^7 (stock palette). Engine forks may extend
-// the table (e.g., ^8/^9 = orange/gray in some builds); we render those
-// as literal text since stock Q3 doesn't support them.
+// Quake III's color codes ^0 to ^7. Codes some other builds add, such as ^8
+// and ^9, show as literal text.
 const Q3_COLORS: Record<string, string> = {
   "0": "var(--q3-color-0)",
   "1": "var(--q3-color-1)",
@@ -31,7 +30,6 @@ function parseQ3ColorCodes(name: string): ColoredSegment[] {
     if (name[i] === "^" && i + 1 < name.length) {
       const colorCode = name[i + 1];
       if (Q3_COLORS[colorCode]) {
-        // Save current segment if it has text
         if (currentText) {
           segments.push({ text: currentText, color: currentColor });
           currentText = "";
@@ -45,7 +43,6 @@ function parseQ3ColorCodes(name: string): ColoredSegment[] {
     i++;
   }
 
-  // Add remaining text
   if (currentText) {
     segments.push({ text: currentText, color: currentColor });
   }

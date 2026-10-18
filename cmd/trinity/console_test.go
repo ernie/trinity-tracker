@@ -11,13 +11,12 @@ import (
 func TestCLITokenRoundTrip(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	// Absent is a state, not an error.
 	tok, err := loadCLIToken()
 	if err != nil || tok != nil {
 		t.Fatalf("absent token: got (%v, %v), want (nil, nil)", tok, err)
 	}
 
-	want := &cliToken{URL: "https://hub.example", Username: "ernie", Token: "trin_abc"}
+	want := &cliToken{URL: "https://hub.example", Username: "alice", Token: "trin_abc"}
 	if err := saveCLIToken(want); err != nil {
 		t.Fatalf("saveCLIToken: %v", err)
 	}
@@ -76,7 +75,6 @@ func TestRevokeToken(t *testing.T) {
 		t.Errorf("auth header: %q", sawAuth)
 	}
 
-	// 401 = already dead = success for logout purposes.
 	status = http.StatusUnauthorized
 	if err := revokeToken(tok); err != nil {
 		t.Errorf("401 revoke: %v", err)
@@ -95,23 +93,20 @@ func TestMatchTarget(t *testing.T) {
 		{Source: "alice-q3", Key: "ctf"},
 	}
 
-	// Qualified target passes through without consulting the list.
-	if s, k, _ := matchTarget(servers, "eu/duel"); s != "eu" || k != "duel" {
+	if s, k, _ := matchTarget(servers, "eu/1v1"); s != "eu" || k != "1v1" {
 		t.Errorf("qualified: got %s/%s", s, k)
 	}
 
-	// Unique bare key resolves (case-insensitive, like server keys).
+	// Bare keys match case-insensitively, like server keys.
 	if s, k, _ := matchTarget(servers, "FFA"); s != "hub-q3" || k != "ffa" {
 		t.Errorf("unique: got %s/%s", s, k)
 	}
 
-	// Ambiguous bare key: no resolution, candidates returned.
 	s, _, matches := matchTarget(servers, "ctf")
 	if s != "" || len(matches) != 2 {
 		t.Errorf("ambiguous: got source %q, %d matches", s, len(matches))
 	}
 
-	// Unknown key: no resolution, no candidates.
 	s, _, matches = matchTarget(servers, "nope")
 	if s != "" || len(matches) != 0 {
 		t.Errorf("unknown: got source %q, %d matches", s, len(matches))

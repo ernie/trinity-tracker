@@ -9,9 +9,7 @@ interface PlatformPickerProps {
   onPick: (p: Platform) => void;
 }
 
-// First-visit blocking picker. Mounted by PlatformProvider when
-// localStorage has no stored platform. No "skip" or "decide later"
-// affordance — picking is required to enter the docs.
+// Shown until the reader picks a platform; the docs need one.
 export function PlatformPicker({ onPick }: PlatformPickerProps) {
   return (
     <div

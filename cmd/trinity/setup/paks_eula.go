@@ -7,10 +7,8 @@ import _ "embed"
 // redistribution of the 1.32 point-release pk3 patch data the wizard
 // downloads from the hub.
 //
-// The text lives in quake3-eula.txt so it can be a single source of
-// truth: the Go binary embeds it for the wizard's `more`-pager step,
-// and a symlink at web/public/quake3-eula.txt lets the web build copy
-// the same bytes into the hub web UI's EULA page.
+// web/public/quake3-eula.txt is a symlink to the same file, so the
+// site's EULA page shows the same text the wizard pages through.
 //
 //go:embed quake3-eula.txt
 var quake3EULA string

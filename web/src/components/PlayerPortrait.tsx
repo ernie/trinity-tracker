@@ -4,7 +4,7 @@ import { parseModel } from "../utils/model";
 
 interface PlayerPortraitProps {
   model?: string; // e.g., "sarge/default", "sarge", or "*james"
-  /** Q3 team number: 1 = red, 2 = blue. Other values get no team coloring. */
+  /** Team number: 1 is red, 2 is blue. Other values get no team color. */
   team?: number;
   size?: "sm" | "md" | "lg" | "xl";
   className?: string;
@@ -17,11 +17,10 @@ const SIZE_CLASSES: Record<NonNullable<PlayerPortraitProps["size"]>, string> = {
   xl: "portrait-xl",
 };
 
-const PORTRAIT_HELP = `Player model — what they look like in-game.`;
+const PORTRAIT_HELP = `Player model: what they look like in game.`;
 
 /**
- * Parse a Q3A model string to get the portrait path.
- * Examples:
+ * Portrait path for a model string, for example:
  * - "sarge" -> /assets/portraits/sarge/icon_default.png
  * - "sarge/krusade" -> /assets/portraits/sarge/icon_krusade.png
  * - "*james" -> /assets/portraits/james/icon_default.png (Team Arena head)
@@ -45,9 +44,7 @@ function getPortraitCandidates(model: string, team?: number): string[] {
   return teamPath === base ? [base] : [teamPath, base];
 }
 
-// Head-and-shoulders silhouette shown when no model is provided or the
-// portrait PNG fails to load. Inline SVG (rather than a data URI) so it
-// can pick up theme tokens via var() and react to dark-mode changes.
+// Inline so it follows the theme's colors in light and dark mode.
 function DefaultPortraitSvg() {
   return (
     <svg
@@ -102,9 +99,7 @@ export function PlayerPortrait({
 
   const handleMouseEnter = () => {
     if (!showHoverPreview || !ref.current) return;
-    // Inside a HelpModeRoot the help-popover *is* the preview-and-
-    // explanation surface; suppress the magnified-portrait popup so
-    // the two don't fight for the same screen space.
+    // In help mode the help popover takes this space.
     if (ref.current.closest(".help-mode-root")) return;
     const rect = ref.current.getBoundingClientRect();
     setPreviewPos({

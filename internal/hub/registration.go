@@ -9,12 +9,9 @@ import (
 	"github.com/ernie/trinity-tracker/internal/domain"
 )
 
-// HandleRegistration processes a heartbeat. Unknown sources are
-// refused (NATS auth should have blocked them already; this is
-// defense-in-depth plus the one-line operator signal when auth is
-// misconfigured). Known sources touch their heartbeat and upsert the
-// server roster so admins see operator-side roster edits without
-// manual intervention.
+// HandleRegistration processes a collector heartbeat. A source with no
+// approved row is refused and logged, as a backstop to NATS auth.
+// Known sources touch their heartbeat and upsert their server roster.
 func (w *Writer) HandleRegistration(ctx context.Context, reg domain.Registration) error {
 	if reg.Source == "" {
 		return fmt.Errorf("hub.registration: missing source")
@@ -24,7 +21,7 @@ func (w *Writer) HandleRegistration(ctx context.Context, reg domain.Registration
 		return err
 	}
 	if !approved {
-		log.Printf("hub: registration from unprovisioned source=%q — refusing; admin must create the source first", reg.Source)
+		log.Printf("hub: registration from unprovisioned source=%q refused; an admin must create the source first", reg.Source)
 		return nil
 	}
 	if err := w.store.TouchSourceHeartbeat(ctx, reg.Source, time.Now().UTC(), reg.Version, reg.DemoBaseURL); err != nil {

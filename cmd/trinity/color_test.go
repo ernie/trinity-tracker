@@ -6,9 +6,8 @@ import (
 	flag "github.com/spf13/pflag"
 )
 
-// withColor temporarily forces colorEnabled to v and restores it on
-// cleanup. Tests that exercise rendering paths use it instead of
-// touching env vars (which would race with parallel tests).
+// withColor sets colorEnabled for one test; env vars would race with
+// parallel tests.
 func withColor(t *testing.T, v bool) {
 	t.Helper()
 	prev := colorEnabled
@@ -16,10 +15,6 @@ func withColor(t *testing.T, v bool) {
 	t.Cleanup(func() { colorEnabled = prev })
 }
 
-// addColorFlag wires three distinguishable states onto pflag, mirroring
-// GNU coreutils. Regressing the NoOptDefVal silently would turn
-// `trinity status --color` into a flag-parse error, so we lock all
-// three forms in.
 func TestAddColorFlag_ThreeStates(t *testing.T) {
 	cases := []struct {
 		name string
@@ -57,18 +52,13 @@ func TestApplyColorMode(t *testing.T) {
 	if colorEnabled {
 		t.Error("--color=never should disable")
 	}
-	// Unknown values fall back to auto. We can't assert the exact
-	// value (depends on TTY of the test runner) — just that it
-	// matches autoDetect.
+	// The auto result depends on the runner's TTY.
 	applyColorMode("garbage")
 	if colorEnabled != autoDetectColor() {
 		t.Error("unknown --color value should fall back to auto")
 	}
 }
 
-// Helpers must be no-ops when color is disabled — that's the whole
-// point of the wrapper. Without this the `tabwriter` alternative
-// would be measuring zero-width escapes everywhere.
 func TestColorHelpers_NoOpWhenDisabled(t *testing.T) {
 	withColor(t, false)
 	cases := map[string]func(string) string{
@@ -99,18 +89,13 @@ func TestColorHelpers_EmitWhenEnabled(t *testing.T) {
 	}
 }
 
-// displayName is the bridge from API rows (which carry both colored
-// and clean variants) to terminal output. Honors colorEnabled so the
-// same call site produces sensible output in both modes.
 func TestDisplayName_FollowsColorEnabled(t *testing.T) {
 	withColor(t, false)
-	if got := displayName("^1ernie", "ernie"); got != "ernie" {
+	if got := displayName("^1alice", "alice"); got != "alice" {
 		t.Errorf("disabled: got %q, want plain clean_name", got)
 	}
 	withColor(t, true)
-	// displayName uses q3ToANSI (bright variant 91m) so terminals
-	// render true bright red rather than dark/amber red.
-	if got := displayName("^1ernie", "ernie"); got != "\x1b[91mernie\x1b[0m" {
+	if got := displayName("^1alice", "alice"); got != "\x1b[91malice\x1b[0m" {
 		t.Errorf("enabled: got %q, want q3ToANSI output", got)
 	}
 }

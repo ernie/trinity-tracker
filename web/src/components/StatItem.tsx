@@ -7,11 +7,9 @@ export interface StatItemProps {
   className?: string;
   subscript?: number;
   title?: string;
-  /** Background "whisper" icon at the lower-right of the cell. Pass a
-   *  URL string for the common single-image case, or any ReactNode
-   *  (e.g. a <FlagPair />) for composed emblems. Falls back to a faint
-   *  "#" glyph when omitted. The wrapper carries the rotate/opacity
-   *  treatment, so the inner content inherits it automatically. */
+  /** Faint icon at the cell's lower right: an image URL, or any node
+   *  such as a <FlagPair />. Defaults to a "#" glyph. The wrapper applies
+   *  the rotation and opacity. */
   backgroundIcon?: string | ReactNode;
 }
 

@@ -31,9 +31,8 @@ export function ModelHead({
 
     let released = false;
     let handle: { release: () => void } | null = null;
-    // `live` is already false here (initial state, or reset by this effect's
-    // own cleanup on a deps change) — don't set state synchronously in an
-    // effect body or react-hooks/set-state-in-effect fires.
+    // `live` is already false here: the initial state, or reset by this
+    // effect's cleanup.
 
     (async () => {
       const { getSharedHeadRenderer } =

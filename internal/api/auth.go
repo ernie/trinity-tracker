@@ -14,14 +14,14 @@ import (
 	"github.com/ernie/trinity-tracker/internal/storage"
 )
 
-// LoginRequest is the request body for login
+// LoginRequest is the login request body.
 type LoginRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
 }
 
-// LoginResponse is the response body for successful login. The JWT
-// itself travels in the HttpOnly session cookie, never the body.
+// LoginResponse is the body of a successful login. The JWT travels only
+// in the HttpOnly session cookie.
 type LoginResponse struct {
 	Username               string `json:"username"`
 	IsAdmin                bool   `json:"is_admin"`
@@ -29,39 +29,36 @@ type LoginResponse struct {
 	PasswordChangeRequired bool   `json:"password_change_required"`
 }
 
-// handleLogin authenticates a user and sets the session cookie
 func (r *Router) handleLogin(w http.ResponseWriter, req *http.Request) {
 	var login LoginRequest
 	if err := json.NewDecoder(req.Body).Decode(&login); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		writeError(w, http.StatusBadRequest, "The request couldn't be read.")
 		return
 	}
 
 	if login.Username == "" || login.Password == "" {
-		writeError(w, http.StatusBadRequest, "username and password are required")
+		writeError(w, http.StatusBadRequest, "Enter a username and password.")
 		return
 	}
 
 	user, err := r.store.GetUserByUsername(req.Context(), login.Username)
 	if err != nil || !auth.CheckPassword(login.Password, user.PasswordHash) {
-		writeError(w, http.StatusUnauthorized, "invalid credentials")
+		writeError(w, http.StatusUnauthorized, "Wrong username or password.")
 		return
 	}
 	if user.DisabledAt != nil {
-		writeError(w, http.StatusForbidden, "account disabled")
+		writeError(w, http.StatusForbidden, "This account is disabled.")
 		return
 	}
 
 	token, err := r.auth.GenerateToken(user.ID, user.Username, user.IsAdmin, user.PlayerID, user.PasswordChangeRequired, user.TokenVersion)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to generate token")
+		writeError(w, http.StatusInternalServerError, "Couldn't log you in.")
 		return
 	}
 
-	// Successful login — reset rate limiter for this IP
 	r.loginLimiter.Reset(getClientIP(req))
 
-	// Update last login timestamp
 	r.store.UpdateUserLastLogin(req.Context(), user.ID)
 
 	setSessionCookie(w, req, token)
@@ -73,32 +70,29 @@ func (r *Router) handleLogin(w http.ResponseWriter, req *http.Request) {
 	})
 }
 
-// handleLogout ends this device's session by expiring its cookie.
-// Per-device on purpose: other sessions stay valid (logout-all is the
-// deliberate version). Unauthenticated — clearing a cookie needs no
-// proof of identity.
+// handleLogout expires this device's session cookie; other sessions
+// stay valid. Clearing a cookie needs no authentication.
 func (r *Router) handleLogout(w http.ResponseWriter, req *http.Request) {
 	clearSessionCookie(w, req)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
-// handleLogoutAll bumps the user's token_version, killing every JWT
-// they ever held; PATs are unaffected.
+// handleLogoutAll bumps the user's token_version, which invalidates
+// every JWT they hold. Personal access tokens keep working.
 func (r *Router) handleLogoutAll(w http.ResponseWriter, req *http.Request) {
 	claims := r.getAuthClaims(req)
 	if claims == nil {
-		writeError(w, http.StatusUnauthorized, "authentication required")
+		writeError(w, http.StatusUnauthorized, "Log in first.")
 		return
 	}
 	if err := r.store.BumpUserTokenVersion(req.Context(), claims.UserID); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to log out everywhere")
+		writeError(w, http.StatusInternalServerError, "Couldn't log you out everywhere.")
 		return
 	}
 	clearSessionCookie(w, req)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
-// handleAuthCheck checks if the current token is valid
 func (r *Router) handleAuthCheck(w http.ResponseWriter, req *http.Request) {
 	claims := r.getAuthClaims(req)
 	if claims == nil {
@@ -117,40 +111,36 @@ func (r *Router) handleAuthCheck(w http.ResponseWriter, req *http.Request) {
 	})
 }
 
-// requireAuth is middleware that validates JWT before calling the handler
 func (r *Router) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		claims := r.getAuthClaims(req)
 		if claims == nil {
-			writeError(w, http.StatusUnauthorized, "authentication required")
+			writeError(w, http.StatusUnauthorized, "Log in first.")
 			return
 		}
 		next(w, req)
 	}
 }
 
-// requireAdmin is middleware that validates JWT and checks admin status
 func (r *Router) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		claims := r.getAuthClaims(req)
 		if claims == nil {
-			writeError(w, http.StatusUnauthorized, "authentication required")
+			writeError(w, http.StatusUnauthorized, "Log in first.")
 			return
 		}
 		if !claims.IsAdmin {
-			writeError(w, http.StatusForbidden, "admin access required")
+			writeError(w, http.StatusForbidden, "Only admins can do that.")
 			return
 		}
 		next(w, req)
 	}
 }
 
-// getAuthClaims extracts and validates the request credential. The
-// Authorization header wins (PATs and API scripting); otherwise the
-// session cookie (browsers). Two credential types share the header:
-// PATs (CLI, "trin_" prefix) and JWTs (web sessions). Both resolve
-// against the live user row, so revocation, disable, and privilege
-// flips all take effect on the next request.
+// getAuthClaims validates the request's credential: a bearer PAT or JWT
+// in the Authorization header if present, else the session cookie.
+// Claims come from the live user row, so revocation, disabling and
+// admin changes take effect on the next request.
 func (r *Router) getAuthClaims(req *http.Request) *auth.Claims {
 	if authHeader := req.Header.Get("Authorization"); strings.HasPrefix(authHeader, "Bearer ") {
 		token := strings.TrimPrefix(authHeader, "Bearer ")
@@ -164,19 +154,16 @@ func (r *Router) getAuthClaims(req *http.Request) *auth.Claims {
 	if err != nil || cookie.Value == "" {
 		return nil
 	}
-	// Cookies are attached by the browser, not the page — gate
-	// cross-site writes before honoring one.
+	// The browser attaches cookies to cross-site requests too.
 	if !cookieOriginAllowed(req) {
 		return nil
 	}
 	return r.getJWTClaims(req, cookie.Value)
 }
 
-// getJWTClaims validates a web-session JWT: signature/expiry first,
-// then the live user row — token_version mismatch (revoked by bump)
-// and disabled accounts are rejected. Claims are rebuilt from the row,
-// mirroring getPATClaims: the JWT is pure identity, privileges are
-// always live.
+// getJWTClaims validates a session JWT, then rejects it if the account
+// is disabled or its token_version has moved on. The JWT only names the
+// user; the claims come from the user row.
 func (r *Router) getJWTClaims(req *http.Request, token string) *auth.Claims {
 	claims, err := r.auth.ValidateToken(token)
 	if err != nil || r.store == nil {
@@ -196,9 +183,8 @@ func (r *Router) getJWTClaims(req *http.Request, token string) *auth.Claims {
 	}
 }
 
-// getPATClaims resolves a personal access token to claims built from
-// the user's current DB state: revocation, user deletion, and admin
-// flips all take effect on the next request, no re-login involved.
+// getPATClaims resolves a personal access token to claims from the
+// user's current row.
 func (r *Router) getPATClaims(req *http.Request, token string) *auth.Claims {
 	if r.store == nil {
 		return nil
@@ -217,8 +203,6 @@ func (r *Router) getPATClaims(req *http.Request, token string) *auth.Claims {
 	}
 }
 
-// touchPAT records token activity, throttled to one write per token
-// per minute.
 func (r *Router) touchPAT(ctx context.Context, patID int64) {
 	r.patTouchMu.Lock()
 	last, seen := r.patTouchSeen[patID]
@@ -235,77 +219,72 @@ func (r *Router) touchPAT(ctx context.Context, patID int64) {
 	}
 }
 
-// ChangePasswordRequest is the request body for password change
+// ChangePasswordRequest is the change-password request body.
 type ChangePasswordRequest struct {
 	CurrentPassword string `json:"current_password"`
 	NewPassword     string `json:"new_password"`
 }
 
-// handleChangePassword allows users to change their own password
 func (r *Router) handleChangePassword(w http.ResponseWriter, req *http.Request) {
 	claims := r.getAuthClaims(req)
 	if claims == nil {
-		writeError(w, http.StatusUnauthorized, "authentication required")
+		writeError(w, http.StatusUnauthorized, "Log in first.")
 		return
 	}
 
 	var body ChangePasswordRequest
 	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		writeError(w, http.StatusBadRequest, "The request couldn't be read.")
 		return
 	}
 
 	if len(body.NewPassword) < 8 {
-		writeError(w, http.StatusBadRequest, "password must be at least 8 characters")
+		writeError(w, http.StatusBadRequest, "Password must be at least 8 characters.")
 		return
 	}
 
-	// Verify current password
 	user, err := r.store.GetUserByID(req.Context(), claims.UserID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to get user")
+		writeError(w, http.StatusInternalServerError, "Couldn't load your account.")
 		return
 	}
 
 	if !auth.CheckPassword(body.CurrentPassword, user.PasswordHash) {
-		writeError(w, http.StatusUnauthorized, "current password is incorrect")
+		writeError(w, http.StatusUnauthorized, "Your current password is wrong.")
 		return
 	}
 
-	// Hash and update new password
 	hash, err := auth.HashPassword(body.NewPassword)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to hash password")
+		writeError(w, http.StatusInternalServerError, "Couldn't save the password.")
 		return
 	}
 
 	if err := r.store.UpdateUserPassword(req.Context(), claims.UserID, hash); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to update password")
+		writeError(w, http.StatusInternalServerError, "Couldn't change your password.")
 		return
 	}
 
-	// The password write bumped token_version, killing every JWT the
-	// user held — including the one authenticating this request.
-	// Re-fetch for the new version and re-cookie this device so the
-	// changer stays logged in; all other devices die.
+	// The write bumped token_version, logging out every device. Issue
+	// this one a new cookie so it stays logged in.
 	user, err = r.store.GetUserByID(req.Context(), claims.UserID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to get user")
+		writeError(w, http.StatusInternalServerError, "Couldn't load your account.")
 		return
 	}
 	newToken, err := r.auth.GenerateToken(user.ID, user.Username, user.IsAdmin, user.PlayerID, false, user.TokenVersion)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to generate new token")
+		writeError(w, http.StatusInternalServerError, "Your password changed, but this device was logged out. Log in again.")
 		return
 	}
 
 	setSessionCookie(w, req, newToken)
 	writeJSON(w, http.StatusOK, map[string]interface{}{
-		"message": "password changed successfully",
+		"message": "Password changed.",
 	})
 }
 
-// CreateUserRequest is the request body for creating a user (admin only)
+// CreateUserRequest is the admin create-user request body.
 type CreateUserRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
@@ -313,56 +292,54 @@ type CreateUserRequest struct {
 	PlayerID *int64 `json:"player_id,omitempty"`
 }
 
-// handleCreateUser creates a new user (admin only)
 func (r *Router) handleCreateUser(w http.ResponseWriter, req *http.Request) {
 	var body CreateUserRequest
 	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		writeError(w, http.StatusBadRequest, "The request couldn't be read.")
 		return
 	}
 
 	if body.Username == "" || body.Password == "" {
-		writeError(w, http.StatusBadRequest, "username and password are required")
+		writeError(w, http.StatusBadRequest, "Enter a username and password.")
 		return
 	}
 
 	if len(body.Password) < 8 {
-		writeError(w, http.StatusBadRequest, "password must be at least 8 characters")
+		writeError(w, http.StatusBadRequest, "Password must be at least 8 characters.")
 		return
 	}
 
-	// Check if player is already claimed
 	if body.PlayerID != nil {
 		claimed, err := r.store.IsPlayerClaimed(req.Context(), *body.PlayerID)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to check player status")
+			writeError(w, http.StatusInternalServerError, "Couldn't check that player.")
 			return
 		}
 		if claimed {
-			writeError(w, http.StatusConflict, "player is already linked to another user")
+			writeError(w, http.StatusConflict, "That player is already linked to another account.")
 			return
 		}
 	}
 
 	hash, err := auth.HashPassword(body.Password)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to hash password")
+		writeError(w, http.StatusInternalServerError, "Couldn't save the password.")
 		return
 	}
 
 	if err := r.store.CreateUser(req.Context(), body.Username, hash, body.IsAdmin, body.PlayerID); err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint") {
-			writeError(w, http.StatusConflict, "username already exists")
+			writeError(w, http.StatusConflict, "That username is taken.")
 			return
 		}
-		writeError(w, http.StatusInternalServerError, "failed to create user")
+		writeError(w, http.StatusInternalServerError, "Couldn't create the user.")
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, map[string]string{"message": "user created"})
+	writeJSON(w, http.StatusCreated, map[string]string{"message": "User created."})
 }
 
-// UserResponse is a user without the password hash
+// UserResponse is a user without the password hash.
 type UserResponse struct {
 	ID                     int64      `json:"id"`
 	Username               string     `json:"username"`
@@ -376,9 +353,8 @@ type UserResponse struct {
 	Portrait               *string    `json:"portrait,omitempty"`
 }
 
-// handleListUsers returns users (admin only). Without query params it returns
-// the full list; with ?search=q[&limit=n] it returns up to limit matches by
-// username or linked player name.
+// handleListUsers returns every user, or with ?search=q[&limit=n] up to
+// limit users matching by username or linked player name.
 func (r *Router) handleListUsers(w http.ResponseWriter, req *http.Request) {
 	var (
 		users []storage.UserWithPlayer
@@ -395,7 +371,6 @@ func (r *Router) handleListUsers(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// Convert to response format (don't expose password hashes)
 	response := make([]UserResponse, len(users))
 	for i, u := range users {
 		response[i] = UserResponse{
@@ -414,18 +389,16 @@ func (r *Router) handleListUsers(w http.ResponseWriter, req *http.Request) {
 	writeJSON(w, http.StatusOK, response)
 }
 
-// handleDeleteUser deletes a user (admin only)
 func (r *Router) handleDeleteUser(w http.ResponseWriter, req *http.Request) {
 	username := req.PathValue("username")
 	if username == "" {
-		writeError(w, http.StatusBadRequest, "username required")
+		writeError(w, http.StatusBadRequest, "Enter a username.")
 		return
 	}
 
-	// Prevent self-deletion
 	claims := r.getAuthClaims(req)
 	if claims != nil && claims.Username == username {
-		writeError(w, http.StatusForbidden, "cannot delete yourself")
+		writeError(w, http.StatusForbidden, "You can't delete your own account.")
 		return
 	}
 
@@ -434,92 +407,90 @@ func (r *Router) handleDeleteUser(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{"message": "user deleted"})
+	writeJSON(w, http.StatusOK, map[string]string{"message": "User deleted."})
 }
 
-// ResetPasswordRequest is the request body for admin password reset
+// ResetPasswordRequest is the admin password-reset request body.
 type ResetPasswordRequest struct {
 	NewPassword string `json:"new_password"`
 }
 
-// handleResetUserPassword resets a user's password (admin only)
+// handleResetUserPassword sets a temporary password that the user must
+// change at their next login.
 func (r *Router) handleResetUserPassword(w http.ResponseWriter, req *http.Request) {
 	userID, err := parseID(req, "id")
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid user id")
+		writeError(w, http.StatusBadRequest, "Invalid user ID.")
 		return
 	}
 
 	var body ResetPasswordRequest
 	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		writeError(w, http.StatusBadRequest, "The request couldn't be read.")
 		return
 	}
 
 	if len(body.NewPassword) < 8 {
-		writeError(w, http.StatusBadRequest, "password must be at least 8 characters")
+		writeError(w, http.StatusBadRequest, "Password must be at least 8 characters.")
 		return
 	}
 
 	hash, err := auth.HashPassword(body.NewPassword)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to hash password")
+		writeError(w, http.StatusInternalServerError, "Couldn't save the password.")
 		return
 	}
 
 	if err := r.store.ResetUserPassword(req.Context(), userID, hash); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to reset password")
+		writeError(w, http.StatusInternalServerError, "Couldn't reset the password.")
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{"message": "password reset"})
+	writeJSON(w, http.StatusOK, map[string]string{"message": "Password reset. The user picks a new one at their next login."})
 }
 
-// UpdateUserRequest is the request body for updating user properties
+// UpdateUserRequest is the admin update-user request body.
 type UpdateUserRequest struct {
 	IsAdmin     *bool   `json:"is_admin,omitempty"`
 	PlayerID    *int64  `json:"player_id,omitempty"`
 	DisplayName *string `json:"display_name,omitempty"`
 }
 
-// handleUpdateUser updates user properties (admin only)
 func (r *Router) handleUpdateUser(w http.ResponseWriter, req *http.Request) {
 	userID, err := parseID(req, "id")
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid user id")
+		writeError(w, http.StatusBadRequest, "Invalid user ID.")
 		return
 	}
 
 	var body UpdateUserRequest
 	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		writeError(w, http.StatusBadRequest, "The request couldn't be read.")
 		return
 	}
 
 	if body.IsAdmin != nil {
 		if err := r.store.UpdateUserAdmin(req.Context(), userID, *body.IsAdmin); err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to update admin status")
+			writeError(w, http.StatusInternalServerError, "Couldn't change admin status.")
 			return
 		}
 	}
 
 	if body.PlayerID != nil {
-		// Check if player is already claimed by another user
 		claimed, err := r.store.IsPlayerClaimed(req.Context(), *body.PlayerID)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to check player status")
+			writeError(w, http.StatusInternalServerError, "Couldn't check that player.")
 			return
 		}
 		if claimed {
-			// Check if it's claimed by this same user (which is fine)
 			user, _ := r.store.GetUserByID(req.Context(), userID)
 			if user == nil || user.PlayerID == nil || *user.PlayerID != *body.PlayerID {
-				writeError(w, http.StatusConflict, "player is already linked to another user")
+				writeError(w, http.StatusConflict, "That player is already linked to another account.")
 				return
 			}
 		}
 		if err := r.store.UpdateUserPlayerLink(req.Context(), userID, body.PlayerID); err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to update player link")
+			writeError(w, http.StatusInternalServerError, "Couldn't change the player link.")
 			return
 		}
 	}
@@ -527,56 +498,56 @@ func (r *Router) handleUpdateUser(w http.ResponseWriter, req *http.Request) {
 	if body.DisplayName != nil {
 		cleaned := domain.CleanQ3DisplayName(*body.DisplayName)
 		if cleaned == "" {
-			writeError(w, http.StatusBadRequest, "display name is empty after cleaning")
+			writeError(w, http.StatusBadRequest, "Enter a display name.")
 			return
 		}
 		canonical := storage.CanonicalizeDisplayName(cleaned)
 		if canonical == "" {
-			writeError(w, http.StatusBadRequest, "display name is empty after canonicalization")
+			writeError(w, http.StatusBadRequest, "Display names need some visible text, not just color codes.")
 			return
 		}
 		err := r.store.AdminSetUserDisplayName(req.Context(), userID, cleaned, canonical)
 		switch {
 		case err == nil:
 		case errors.Is(err, storage.ErrDisplayNameReserved):
-			writeError(w, http.StatusConflict, "display name is reserved")
+			writeError(w, http.StatusConflict, "That display name is reserved.")
 			return
 		case errors.Is(err, storage.ErrDisplayNameTaken):
-			writeError(w, http.StatusConflict, "display name is already taken")
+			writeError(w, http.StatusConflict, "That display name is taken.")
 			return
 		default:
-			writeError(w, http.StatusInternalServerError, "failed to update display name")
+			writeError(w, http.StatusInternalServerError, "Couldn't update the display name.")
 			return
 		}
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{"message": "user updated"})
+	writeJSON(w, http.StatusOK, map[string]string{"message": "User updated."})
 }
 
-// LinkCodeResponse is the response for creating a link code
+// LinkCodeResponse is a new link code and its expiry.
 type LinkCodeResponse struct {
 	Code      string    `json:"code"`
 	ExpiresAt time.Time `json:"expires_at"`
 }
 
-// AccountProfileResponse is the response for the current user's account profile
+// AccountProfileResponse is the signed-in user's account, with their
+// linked player and GUIDs when they have one.
 type AccountProfileResponse struct {
 	User   UserResponse        `json:"user"`
 	Player *domain.Player      `json:"player,omitempty"`
 	GUIDs  []domain.PlayerGUID `json:"guids,omitempty"`
 }
 
-// handleGetAccountProfile returns the current user's profile with linked player info
 func (r *Router) handleGetAccountProfile(w http.ResponseWriter, req *http.Request) {
 	claims := r.getAuthClaims(req)
 	if claims == nil {
-		writeError(w, http.StatusUnauthorized, "authentication required")
+		writeError(w, http.StatusUnauthorized, "Log in first.")
 		return
 	}
 
 	user, err := r.store.GetUserByID(req.Context(), claims.UserID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to get user")
+		writeError(w, http.StatusInternalServerError, "Couldn't load your account.")
 		return
 	}
 
@@ -596,7 +567,6 @@ func (r *Router) handleGetAccountProfile(w http.ResponseWriter, req *http.Reques
 		response.User.Portrait = &user.Portrait
 	}
 
-	// If user has linked player, fetch player profile and GUIDs
 	if user.PlayerID != nil {
 		player, err := r.store.GetPlayerByID(req.Context(), *user.PlayerID)
 		if err == nil {
@@ -612,31 +582,29 @@ func (r *Router) handleGetAccountProfile(w http.ResponseWriter, req *http.Reques
 	writeJSON(w, http.StatusOK, response)
 }
 
-// handleCreateLinkCode generates a link code for the authenticated user
+// handleCreateLinkCode replaces the user's pending link code with a new
+// one valid for 10 minutes.
 func (r *Router) handleCreateLinkCode(w http.ResponseWriter, req *http.Request) {
 	claims := r.getAuthClaims(req)
 	if claims == nil {
-		writeError(w, http.StatusUnauthorized, "authentication required")
+		writeError(w, http.StatusUnauthorized, "Log in first.")
 		return
 	}
 
-	// Require user to have a player_id already linked
 	if claims.PlayerID == nil {
-		writeError(w, http.StatusBadRequest, "you must have a linked player to generate a link code")
+		writeError(w, http.StatusBadRequest, "Claim a player first, then generate a link code.")
 		return
 	}
 
-	// Invalidate any existing pending codes for this user
 	if err := r.store.InvalidateUserLinkCodes(req.Context(), claims.UserID); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to invalidate existing codes")
+		writeError(w, http.StatusInternalServerError, "Couldn't replace your old link code.")
 		return
 	}
 
-	// Create new code with 10-minute expiry
 	expiresAt := time.Now().Add(10 * time.Minute)
 	linkCode, err := r.store.CreateLinkCode(req.Context(), claims.UserID, *claims.PlayerID, expiresAt)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to create link code")
+		writeError(w, http.StatusInternalServerError, "Couldn't generate a link code.")
 		return
 	}
 

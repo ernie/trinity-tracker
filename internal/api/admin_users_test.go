@@ -52,7 +52,7 @@ func TestUpdateUserDisplayName(t *testing.T) {
 		t.Fatal("target user missing from list")
 	}
 
-	// Same canonical as target's name.
+	// Looks the same as the target's name.
 	if w := patchDisplayName(tr, adminTok, otherID, "^4Neo"); w.Code != http.StatusConflict {
 		t.Fatalf("taken: code = %d, want 409", w.Code)
 	}
@@ -65,7 +65,7 @@ func TestUpdateUserDisplayName(t *testing.T) {
 		t.Fatalf("empty: code = %d, want 400", w.Code)
 	}
 
-	// Cleans non-empty, canonicalizes to empty.
+	// Nothing is left once the VR tag is stripped.
 	if w := patchDisplayName(tr, adminTok, otherID, "[VR]"); w.Code != http.StatusBadRequest {
 		t.Fatalf("canonical-empty: code = %d, want 400", w.Code)
 	}

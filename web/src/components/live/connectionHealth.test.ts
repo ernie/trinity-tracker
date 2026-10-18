@@ -10,10 +10,10 @@ describe("connection-health pruning", () => {
   test("keeps timestamps inside the window, drops older ones", () => {
     const now = 100_000;
     const times = [
-      now - (UNSTABLE_WINDOW_MS + 1), // just outside → dropped
-      now - UNSTABLE_WINDOW_MS, // exactly window-old → dropped (strict <)
-      now - 1, // inside → kept
-      now, // now → kept
+      now - (UNSTABLE_WINDOW_MS + 1),
+      now - UNSTABLE_WINDOW_MS,
+      now - 1,
+      now,
     ];
     expect(pruneDrops(times, now)).toEqual([now - 1, now]);
   });
@@ -45,7 +45,6 @@ describe("connection-health verdict", () => {
 
   test("enough drops but spread beyond the window stays stable", () => {
     const now = 100_000;
-    // THRESHOLD drops, but each a full window apart → only one ever co-resident.
     const times = Array.from(
       { length: UNSTABLE_THRESHOLD },
       (_, i) => now - i * UNSTABLE_WINDOW_MS,

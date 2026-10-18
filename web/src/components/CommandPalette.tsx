@@ -4,9 +4,7 @@ import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import { useAuth } from "../hooks/useAuth";
 import type { PlayerProfile } from "../types";
 
-// On Mac the canonical key glyph is ⌘ (the actual key cap symbol);
-// elsewhere we write "Ctrl" so Linux/Windows users see the right
-// modifier name. SSR-safe via the typeof guard.
+// Apple keyboards label the modifier ⌘; everywhere else it's Ctrl.
 const CMD_LABEL =
   typeof navigator !== "undefined" &&
   /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent)
@@ -26,11 +24,13 @@ interface CommandItem {
   action: () => void;
 }
 
-// Static items always available — fast keyboard-only navigation around
-// the app and into specific docs sections.
 const ROUTE_ITEMS = [
   { path: "/", label: "Servers", hint: "Live server browser" },
-  { path: "/players", label: "Players", hint: "Search players & view stats" },
+  {
+    path: "/players",
+    label: "Players",
+    hint: "Search players and see their stats",
+  },
   { path: "/matches", label: "Matches", hint: "Browse match history" },
   {
     path: "/leaderboard",
@@ -52,25 +52,25 @@ const DOCS_ITEMS = [
     label: "Play",
     hint: "Player's guide · what Trinity adds",
   },
-  { path: "/docs/play#q3-basics", label: "Quake 3 basics" },
+  { path: "/docs/play#q3-basics", label: "Quake III basics" },
   { path: "/docs/play#accounts", label: "Trinity accounts" },
   { path: "/docs/play#voice-chat", label: "Voice chat" },
-  { path: "/docs/play#vr-tracking", label: "1:1 head & weapon tracking" },
-  { path: "/docs/play#vr", label: "VR features" },
+  { path: "/docs/play#vr-tracking", label: "1:1 head and weapon tracking" },
+  { path: "/docs/play#vr", label: "VR-specific features" },
   { path: "/docs/play#hud", label: "HUD" },
   { path: "/docs/play#scoreboard", label: "Scoreboard" },
   { path: "/docs/play#modes", label: "Game modes" },
   { path: "/docs/play#grapple", label: "Grapple" },
-  { path: "/docs/play#spectating-demos", label: "Spectating & demos" },
+  { path: "/docs/play#spectating-demos", label: "Spectating and demos" },
   { path: "/docs/play#feedback", label: "Visual & audio feedback" },
   { path: "/docs/play#forced-models", label: "Forced enemy / team models" },
-  { path: "/docs/account", label: "Account", hint: "!claim · authentication" },
-  { path: "/docs/account#your-account", label: "Your account" },
-  { path: "/docs/account#authentication", label: "Authentication" },
+  { path: "/docs/account", label: "Account", hint: "!claim · log in" },
+  { path: "/docs/account#claim", label: "Create your account" },
+  { path: "/docs/account#authentication", label: "Log in" },
   { path: "/docs/customize", label: "Customize", hint: "autoexec · modes" },
-  { path: "/docs/customize#configuration", label: "Configuration" },
+  { path: "/docs/customize#where-settings-live", label: "Where settings live" },
   { path: "/docs/customize#modes-note", label: "Game modes" },
-  { path: "/docs/admin", label: "Server admin", hint: "Hub setup" },
+  { path: "/docs/admin", label: "Server admin", hint: "Collector setup" },
   { path: "/docs/admin#set-up-a-collector", label: "Set up a collector" },
   { path: "/docs/admin#required-server-cvars", label: "Required server cvars" },
   { path: "/docs/reference", label: "Reference", hint: "cvars · glossary" },
@@ -92,7 +92,6 @@ function score(query: string, target: string): number {
   const t = target.toLowerCase();
   if (t === q) return 1000;
   if (t.startsWith(q)) return 500;
-  // Token prefix: any whitespace-separated word starts with the query.
   for (const tok of t.split(/\s+/)) if (tok.startsWith(q)) return 250;
   if (t.includes(q)) return 100;
   return 0;
@@ -108,8 +107,6 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const listRef = useRef<HTMLDivElement>(null);
   const debounced = useDebouncedValue(query, 180);
 
-  // Reset palette state on the open transition. Adjusting state during
-  // render so there's no extra commit cycle.
   const [prevOpen, setPrevOpen] = useState(open);
   if (open !== prevOpen) {
     setPrevOpen(open);
@@ -120,17 +117,13 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     }
   }
 
-  // Focus the input on the open transition (side-effect, must stay in
-  // an effect — rAF schedules after the input mounts).
+  // rAF waits for the input to mount.
   useEffect(() => {
     if (open) requestAnimationFrame(() => inputRef.current?.focus());
   }, [open]);
 
-  // Live player search — only fires when palette is open and query is
-  // long enough to be meaningful. The display gate at the consumer
-  // (items useMemo below also reads `players`) means stale state from
-  // a too-short query is overwritten by the next fetch when the query
-  // grows back; no clear needed in the early-return.
+  // Short queries skip the fetch; `items` ignores `players` until the
+  // query is long enough again.
   useEffect(() => {
     if (!open || debounced.trim().length < 2) return;
     const ctrl = new AbortController();
@@ -145,12 +138,9 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     return () => ctrl.abort();
   }, [debounced, open, auth.isAuthenticated]);
 
-  // Build the result list: static items filtered by query, plus live
-  // player results. Each item belongs to a group for visual sectioning.
   const items = useMemo<CommandItem[]>(() => {
     const out: CommandItem[] = [];
 
-    // Routes
     for (const r of ROUTE_ITEMS) {
       if (score(query, r.label) === 0 && score(query, r.hint ?? "") === 0)
         continue;
@@ -166,7 +156,6 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
       });
     }
 
-    // Docs sections
     for (const d of DOCS_ITEMS) {
       if (score(query, d.label) === 0 && score(query, d.hint ?? "") === 0)
         continue;
@@ -182,9 +171,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
       });
     }
 
-    // Players — gate on the live query, not the (potentially stale)
-    // `players` array. When the query is too short, skip the section
-    // entirely; the next ≥2-char query overwrites `players`.
+    // Gated on the live query because `players` can be stale.
     if (query.trim().length >= 2) {
       for (const p of players) {
         out.push({
@@ -207,15 +194,10 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, players]);
 
-  // Clamp the highlight to the live items range so it never points
-  // past the end after the list shrinks (e.g. user types a more
-  // restrictive query). Derived rather than stored — keyboard handlers
-  // below pivot off this so the raw `highlightIdx` state never goes
-  // out of bounds in practice.
+  // The list can shrink under the stored highlight as the query narrows.
   const maxIdx = Math.max(0, items.length - 1);
   const safeHighlight = Math.min(highlightIdx, maxIdx);
 
-  // Scroll the highlighted item into view as the user keys around.
   useEffect(() => {
     const el = listRef.current?.querySelector<HTMLElement>(
       `[data-idx="${safeHighlight}"]`,
@@ -223,7 +205,6 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     if (el) el.scrollIntoView({ block: "nearest" });
   }, [safeHighlight]);
 
-  // Group items by their group label, preserving insertion order.
   const groups = useMemo(() => {
     const map = new Map<string, { idx: number; item: CommandItem }[]>();
     items.forEach((item, idx) => {

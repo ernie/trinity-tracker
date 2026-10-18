@@ -1,6 +1,3 @@
-// Player table for team / FFA cards. Live shows ping; finished shows
-// F+D+Score. Awards collapse into one icon per type with a count
-// badge. CTF/1FCTF carrier renders to the right of the name.
 import { ColoredText } from "../ColoredText";
 import { PlayerPortrait } from "../PlayerPortrait";
 import { PlayerBadge } from "../PlayerBadge";
@@ -15,31 +12,28 @@ import { stripVRPrefix } from "../../utils";
 export interface PlayerRowData {
   name: string;
   cleanName?: string;
-  /** Q3 model id used by PlayerPortrait. */
   model?: string;
-  team?: 1 | 2 | 3 | undefined; // 1=red, 2=blue, 3=spec, undef=free
+  /** 1 red, 2 blue, 3 spectator; undefined in FFA. */
+  team?: 1 | 2 | 3 | undefined;
   isBot?: boolean;
-  /** Bot skill 1–5; drives BotBadge color. Ignored for humans. */
+  /** Bot skill, 1–5. */
   skill?: number;
   isVR?: boolean;
   isVerified?: boolean;
   isAdmin?: boolean;
-  /** "score" for live; undefined for finished (use frags instead) */
   score?: number;
   frags?: number;
   deaths?: number;
   ping?: number;
   awards?: AwardEntry[];
-  /** DB player ID — opens PlayerStatsModal on click. */
+  /** Opens PlayerStatsModal on click. */
   playerId?: number;
-  /** Active CTF / 1FCTF flag this player is carrying, if any. */
   flagCarrier?: "red" | "blue" | "neutral";
-  /** Harvester live: enemy skulls this player is currently carrying. */
+  /** Harvester, live. */
   skullsCarrying?: number;
-  /** Overload live: true while actively damaging the enemy obelisk. */
+  /** Overload, live: damaging the enemy obelisk right now. */
   attackingObelisk?: boolean;
-  /** Finished matches: false ⇒ dropped before the match ended,
-   *  rendered with a gray team-dot regardless of team. */
+  /** Finished matches: false if the player left before the end. */
   completed?: boolean;
 }
 
@@ -55,17 +49,14 @@ interface PlayerRowsProps {
   ) => void;
 }
 
-// HelpMode descriptions for the inline cells. The team-dot text
-// describes ALL color variants (red, blue, green, gray) so the same
-// string works across modes — a reader on an FFA card learns about
-// red/blue too, and vice versa.
-const TEAM_DOT_HELP = `Team marker.
-• Red / Blue — team in TDM, CTF, Overload, Harvester
-• Green — no team (FFA, Tournament)
-• Gray — player dropped before the match ended (completed matches only)`;
+// The team-dot help lists every color, so it reads the same on any card.
+const TEAM_DOT_HELP = `Team:
+• Red or blue: the player's team in TDM, CTF, One Flag CTF, Overload and Harvester
+• Green: no team, in FFA and Tournament
+• Gray: left before the match ended (finished matches only)`;
 export const SCORE_HELP = `Score for this match.
-FFA / 1v1 / TDM use frags; objective modes (CTF, 1FCTF, Overload, Harvester) use the engine's composite score (caps, defends, returns, frags, plus mode-specific events).`;
-export const PING_HELP = `Round-trip latency to the server, in milliseconds. Bots are always 0.`;
+FFA, Tournament and TDM count frags. CTF, One Flag CTF, Overload and Harvester add points for captures, defends, returns and other objectives on top of frags.`;
+export const PING_HELP = `Round-trip time to the server, in milliseconds. Bots always show 0.`;
 
 export function PlayerRows({ players, mode, onPlayerClick }: PlayerRowsProps) {
   return (
@@ -135,42 +126,36 @@ export function PlayerRows({ players, mode, onPlayerClick }: PlayerRowsProps) {
                   aria-hidden
                   data-help={
                     p.flagCarrier === "neutral"
-                      ? `Carrying the neutral flag toward the enemy base for a capture.`
-                      : `Carrying the ${p.flagCarrier} team's flag toward their own base for a capture.`
+                      ? `Carrying the neutral flag. Taking it to the enemy base scores a capture.`
+                      : `Carrying the ${p.flagCarrier} flag. Taking it home scores a capture.`
                   }
                 >
-                  {/* Static flag silhouette next to the name — the
-                      runner icon (status="taken") is reserved for
-                      score-cell indicators. */}
+                  {/* The runner icon (status="taken") belongs to the score indicators. */}
                   <FlagIcon team={p.flagCarrier} status="base" size="sm" />
                 </span>
               )}
-              {/* Harvester live carry — opposing-team skull (CTF flag-carrier convention). */}
               {p.skullsCarrying ? (
                 <span
                   className="row-carrier row-carrier--skulls"
                   aria-hidden
-                  data-help={`Currently carrying enemy skulls (up to 5). On death, the skulls are removed from play. Deliver to the enemy receptacle to score.`}
+                  data-help={`Carrying enemy skulls. They're lost if this player dies. Taking them to the enemy obelisk scores.`}
                 >
                   <SkullIcon team={p.team === 2 ? "red" : "blue"} size="sm" />
                   <span className="row-carrier__count">{p.skullsCarrying}</span>
                 </span>
               ) : null}
-              {/* Overload live attack — reticle in the targeted obelisk's color. */}
               {p.attackingObelisk ? (
                 <span
                   className="row-carrier row-carrier--obelisk-attacker"
-                  data-help={`Currently attacking the enemy obelisk.`}
+                  data-help={`Attacking the enemy obelisk.`}
                 >
                   <TargetReticleIcon
                     team={p.team === 2 ? "red" : "blue"}
                     size="sm"
-                    title="Attacking obelisk"
+                    title="Attacking the obelisk"
                   />
                 </span>
               ) : null}
-              {/* Cumulative awards (captures, skulls/obelisks delivered,
-                  impressives, etc.) — never row-carrier, always medal-strip. */}
               {p.awards && p.awards.length > 0 && (
                 <span className="row-awards">
                   {p.awards.map((a) => (
@@ -210,7 +195,5 @@ function teamClass(t?: number) {
   if (t === 1) return "red";
   if (t === 2) return "blue";
   if (t === 3) return "spec";
-  // Free / undefined team — covers FFA, where the player has no team
-  // affiliation but was actively in the match. Distinct from .dropped.
   return "free";
 }

@@ -13,8 +13,6 @@ func newDryPlan() (*Plan, *bytes.Buffer) {
 	return &Plan{DryRun: true, UseSystemd: true, Out: buf}, buf
 }
 
-// assertDoesntExist fails the test if path was created on disk —
-// the whole point of dry-run is that no host state changes.
 func assertDoesntExist(t *testing.T, path string) {
 	t.Helper()
 	if _, err := os.Lstat(path); err == nil {
@@ -100,7 +98,6 @@ func TestPlan_DryRun_EnsureUser_NewUser(t *testing.T) {
 
 func TestPlan_DryRun_RemoveAll(t *testing.T) {
 	plan, buf := newDryPlan()
-	// Make a real file to verify it isn't removed.
 	dir := t.TempDir()
 	canary := filepath.Join(dir, "canary")
 	if err := os.WriteFile(canary, []byte("x"), 0644); err != nil {
@@ -117,9 +114,6 @@ func TestPlan_DryRun_RemoveAll(t *testing.T) {
 	}
 }
 
-// Regression: os.WriteFile silently ignores its perm arg when the
-// file already exists. The rconpassword-bearing *.cfg files must be
-// re-tightened to 0640 on every trinity init re-run.
 func TestPlan_WriteFile_EnforcesModeOnExistingFile(t *testing.T) {
 	buf := &bytes.Buffer{}
 	plan := &Plan{DryRun: false, UseSystemd: false, Out: buf}
@@ -149,16 +143,12 @@ func TestPlan_RealMode_NoPrefix(t *testing.T) {
 	if _, err := os.Stat(dir); err != nil {
 		t.Errorf("real-mode mkdir didn't create %s: %v", dir, err)
 	}
-	// In real mode helpers don't chatter — only operations Apply
-	// explicitly logs (via plan.say) do.
+	// Real mode prints only what Apply logs through plan.say.
 	if buf.Len() != 0 {
 		t.Errorf("expected silent real-mode mkdir; got %q", buf.String())
 	}
 }
 
-// TestApply_DryRun_HubOnly covers the wider plumbing: a hub-only
-// Apply in dry-run touches no filesystem state and emits a [DRY]
-// line for each step.
 func TestApply_DryRun_HubOnly(t *testing.T) {
 	tmp := t.TempDir()
 	staticDir := filepath.Join(tmp, "web")
@@ -213,7 +203,6 @@ func TestApply_DryRun_HubOnly(t *testing.T) {
 			t.Errorf("missing %q in dry-run output\n--- output ---\n%s", want, out)
 		}
 	}
-	// Hub-only must NOT install quake3 unit or logrotate.
 	for _, unwanted := range []string{
 		"quake3-server@.service",
 		"quake3-servers.target",
@@ -223,24 +212,17 @@ func TestApply_DryRun_HubOnly(t *testing.T) {
 			t.Errorf("hub-only dry-run referenced %q\n--- output ---\n%s", unwanted, out)
 		}
 	}
-	// Hub-only with PublicURL+AdminEmail set must announce nginx install.
 	if !strings.Contains(out, "would render hub nginx config for hub.example.com") {
 		t.Errorf("expected hub nginx render announcement\n--- output ---\n%s", out)
 	}
 	if !strings.Contains(out, "4222/tcp") {
 		t.Errorf("hub nginx firewall plan missing 4222/tcp\n--- output ---\n%s", out)
 	}
-	// RemoteCollectorsExpected was false → no TLS symlinks should be planned.
 	if strings.Contains(out, "/etc/trinity/tls/fullchain.pem") {
 		t.Errorf("dry-run mentioned TLS symlinks despite RemoteCollectorsExpected=false\n%s", out)
 	}
 }
 
-// TestApply_DryRun_Combined_RemoteCollectors asserts that combined mode
-// with RemoteCollectorsExpected creates the /etc/trinity/tls/ symlinks
-// that the embedded NATS broker reads cert/key from. These are stamped
-// as symlinks (not files) so cert renewals propagate without any extra
-// orchestration.
 func TestApply_DryRun_Combined_RemoteCollectors(t *testing.T) {
 	tmp := t.TempDir()
 	a := &Answers{
@@ -279,9 +261,6 @@ func TestApply_DryRun_Combined_RemoteCollectors(t *testing.T) {
 		"/etc/trinity/tls/privkey.pem",
 		"/etc/letsencrypt/live/hub.example.com/fullchain.pem",
 		"/etc/letsencrypt/live/hub.example.com/privkey.pem",
-		// ACLs grant the service user traversal of /etc/letsencrypt
-		// and read on the archived cert files (incl. a default ACL
-		// on archive/<host>/ for future renewals).
 		"would setfacl -m u:quake:rx /etc/letsencrypt/archive /etc/letsencrypt/live",
 		"would setfacl -d -m u:quake:r /etc/letsencrypt/archive/hub.example.com",
 		"would setfacl -m u:quake:r /etc/letsencrypt/archive/hub.example.com/*.pem",
@@ -292,8 +271,6 @@ func TestApply_DryRun_Combined_RemoteCollectors(t *testing.T) {
 	}
 }
 
-// TestApply_DryRun_Combined_SkipCert asserts the --skip-cert path is
-// announced in dry-run when SkipCert=true.
 func TestApply_DryRun_Combined_SkipCert(t *testing.T) {
 	tmp := t.TempDir()
 	a := &Answers{

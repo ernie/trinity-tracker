@@ -43,7 +43,7 @@ const CATEGORY_MEDAL: Partial<Record<LeaderboardCategory, MedalType>> = {
 
 const CATEGORY_LABELS: Record<LeaderboardCategory, string> = {
   matches: "Matches",
-  kd_ratio: "K/D Ratio",
+  kd_ratio: "K/D ratio",
   frags: "Frags",
   deaths: "Deaths",
   victories: "Victories",
@@ -58,10 +58,6 @@ const CATEGORY_LABELS: Record<LeaderboardCategory, string> = {
   obelisks_destroyed: "Obelisks",
 };
 
-// Headline-scale titles for the dramatic standard. Uppercase ceremonial
-// register; mostly mirrors CATEGORY_LABELS but a few entries (e.g. SKULLS
-// DELIVERED, OBELISKS DESTROYED) spell out the full action so the banner
-// reads as a sentence-fragment rather than a single noun.
 const CATEGORY_TITLE: Record<LeaderboardCategory, string> = {
   matches: "MATCHES",
   kd_ratio: "K/D RATIO",
@@ -79,10 +75,7 @@ const CATEGORY_TITLE: Record<LeaderboardCategory, string> = {
   obelisks_destroyed: "OBELISKS DESTROYED",
 };
 
-// Per-category eyebrow descriptors — what other regulars whisper about
-// the warrior who leads this stat. Drives the small-caps line above the
-// title in the standard. Tone: lyrical, ceremonial, slightly elliptical;
-// matches the landing-page voice ("the railgun waits, still humming").
+// Written in the voice of the landing page's hero subheads.
 const CATEGORY_EYEBROW: Record<LeaderboardCategory, string> = {
   matches: "THE ARENA IS THEIR HOME",
   kd_ratio: "MORE GIVEN THAN TAKEN",
@@ -100,9 +93,8 @@ const CATEGORY_EYEBROW: Record<LeaderboardCategory, string> = {
   obelisks_destroyed: "PROLIFIC DEMOLITIONISTS",
 };
 
-// Banner tagline labels. Spell out the rolling window so visitors aren't
-// left guessing whether "Today" means "since midnight" (it doesn't —
-// the backend computes asOf - 24h; see storage/sqlite.go getTimePeriodBounds).
+// The periods are rolling windows ending at as_of (getTimePeriodBounds),
+// so the labels name the window.
 const PERIOD_DISPLAY: Record<TimePeriod, string> = {
   all: "ALL-TIME",
   year: "PAST YEAR",
@@ -111,11 +103,6 @@ const PERIOD_DISPLAY: Record<TimePeriod, string> = {
   day: "PAST 24 HOURS",
 };
 
-// Renders the big emblem for the dramatic standard. Three variants:
-//   - medal categories → the corresponding medal PNG
-//   - flag_returns    → crossed red+blue base flags (heraldic banners)
-//   - matches/K/D/frags/deaths → the Q3 brand mark (skill4.png), since
-//     those are the quintessential Quake stats, not gametype-specific
 function StandardEmblem({ category }: { category: LeaderboardCategory }) {
   const medalType = CATEGORY_MEDAL[category];
   if (medalType) {
@@ -123,14 +110,8 @@ function StandardEmblem({ category }: { category: LeaderboardCategory }) {
     return <img className="leaderboard-standard__medal-img" src={src} alt="" />;
   }
   if (category === "flag_returns") {
-    // Crossed banners: red + blue overlapped at angles. The R+B duality
-    // mirrors the obelisk medal's red+blue rings — both TA-mode emblems
-    // share the "two teams' colors clashing" motif. Same emblem also
-    // marks the flag_returns honor in the honors panel + featured slot.
     return <FlagPair />;
   }
-  // matches, kd_ratio, frags, deaths — the Quake-fundamentals, no medal.
-  // Uses the flat Q3 brand silhouette as a heraldic emblem.
   return (
     <img
       className="leaderboard-standard__medal-img"
@@ -140,7 +121,6 @@ function StandardEmblem({ category }: { category: LeaderboardCategory }) {
   );
 }
 
-// Base categories available for all game types
 const BASE_CATEGORIES: LeaderboardCategory[] = [
   "matches",
   "kd_ratio",
@@ -152,7 +132,6 @@ const BASE_CATEGORIES: LeaderboardCategory[] = [
   "humiliations",
 ];
 
-// CTF-specific categories
 const CTF_CATEGORIES: LeaderboardCategory[] = [
   "captures",
   "flag_returns",
@@ -160,7 +139,6 @@ const CTF_CATEGORIES: LeaderboardCategory[] = [
   "defends",
 ];
 
-// 1FCTF categories (no returns)
 const ONE_FLAG_CTF_CATEGORIES: LeaderboardCategory[] = [
   "captures",
   "assists",
@@ -190,7 +168,6 @@ function getCategoriesForGameType(
     case "harvester":
       return [...BASE_CATEGORIES, ...HARVESTER_CATEGORIES];
     default:
-      // 'all' aggregates every objective-mode category.
       return gameType === "all"
         ? [
             ...BASE_CATEGORIES,
@@ -202,9 +179,6 @@ function getCategoriesForGameType(
   }
 }
 
-// formatSnapshotTime renders an as_of timestamp for the snapshot
-// banner. Falls back to the raw string if it doesn't parse — the API
-// already 400s on garbage so this is just defensive.
 function formatSnapshotTime(asOf: string): string {
   const d = new Date(asOf);
   if (isNaN(d.getTime())) return asOf;
@@ -222,18 +196,14 @@ export function LeaderboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // ?as_of=<RFC3339> pins the leaderboard's upper bound for snapshot
-  // links (e.g. the Discord digest's footer URL). When present we pass
-  // it through to the API and show a banner so visitors know they're
-  // looking at history. The period and category selectors stay
-  // functional — flipping them keeps the same anchor.
+  // ?as_of=<RFC3339> pins the upper bound for snapshot links such as the
+  // Discord digest's footer URL.
   const [searchParams, setSearchParams] = useSearchParams();
   const asOf = searchParams.get("as_of") ?? "";
 
   const availableCategories = getCategoriesForGameType(gameType);
 
-  // Effective category — when a game type doesn't support the persisted
-  // category, fall back to "frags" without ever storing the bad value.
+  // Derived so the chosen category comes back with a game type that has it.
   const effectiveCategory = availableCategories.includes(category)
     ? category
     : "frags";
@@ -249,7 +219,7 @@ export function LeaderboardPage() {
       `/api/stats/leaderboard?category=${effectiveCategory}&period=${period}&limit=10${gameTypeParam}${asOfParam}`,
     )
       .then((res) => {
-        if (!res.ok) throw new Error("Failed to load leaderboard");
+        if (!res.ok) throw new Error("Couldn't load the leaderboard.");
         return res.json();
       })
       .then((data) => setData(data))
@@ -346,7 +316,7 @@ export function LeaderboardPage() {
 
           <div className="leaderboard-content">
             {loading ? (
-              <div className="stats-loading">Loading leaderboard...</div>
+              <div className="stats-loading">Loading leaderboard…</div>
             ) : error ? (
               <div className="stats-error">{error}</div>
             ) : data && data.entries && data.entries.length > 0 ? (
@@ -356,7 +326,7 @@ export function LeaderboardPage() {
               />
             ) : (
               <div className="leaderboard-empty">
-                No data available for this selection
+                No one to rank for these filters yet.
               </div>
             )}
           </div>
@@ -378,9 +348,6 @@ const CORE_STATS_CATEGORIES = [
   "deaths",
 ] as const;
 
-// Renders the sorted-by stat as the card's headline number. For
-// kd_ratio shows two decimals, everything else passes through
-// formatNumber.
 function getPrimary(
   entry: LeaderboardEntry,
   category: LeaderboardCategory,
@@ -462,9 +429,6 @@ function LeaderboardGrid({ entries, category }: LeaderboardGridProps) {
               {getPrimary(entry, category)}
             </span>
             {isCoreStats && (
-              // Show the other three core stats as a compact secondary row
-              // so each card carries the full stat picture, not just the
-              // sorted column.
               <div className="leaderboard-card__secondary">
                 {category !== "matches" && (
                   <span

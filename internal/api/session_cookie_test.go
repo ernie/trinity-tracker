@@ -84,10 +84,10 @@ func (tr *testRouter) authCheckWeb(t *testing.T, cookie *http.Cookie) map[string
 
 func TestLoginSetsSessionCookie(t *testing.T) {
 	tr := newTestRouter(t)
-	tr.webUser(t, "ernie", false)
+	tr.webUser(t, "alice", false)
 
 	w := tr.do("POST", "/api/auth/login",
-		`{"username":"ernie","password":"password123"}`, "")
+		`{"username":"alice","password":"password123"}`, "")
 	if w.Code != http.StatusOK {
 		t.Fatalf("login: status %d", w.Code)
 	}
@@ -129,10 +129,10 @@ func TestLoginSetsSessionCookie(t *testing.T) {
 
 func TestSecureFlagFollowsForwardedProto(t *testing.T) {
 	tr := newTestRouter(t)
-	tr.webUser(t, "ernie", false)
+	tr.webUser(t, "alice", false)
 
 	req := httptest.NewRequest("POST", "/api/auth/login",
-		strings.NewReader(`{"username":"ernie","password":"password123"}`))
+		strings.NewReader(`{"username":"alice","password":"password123"}`))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Forwarded-Proto", "https")
 	w := httptest.NewRecorder()
@@ -148,8 +148,8 @@ func TestSecureFlagFollowsForwardedProto(t *testing.T) {
 
 func TestLogoutExpiresCookie(t *testing.T) {
 	tr := newTestRouter(t)
-	tr.webUser(t, "ernie", false)
-	c := tr.loginWeb(t, "ernie")
+	tr.webUser(t, "alice", false)
+	c := tr.loginWeb(t, "alice")
 
 	w := tr.doWeb("POST", "/api/auth/logout", "", c, "")
 	if w.Code != http.StatusOK {
@@ -168,7 +168,7 @@ func TestBearerWinsOverCookie(t *testing.T) {
 	tr.cliUser(t, "clive", true)
 	pat := tr.cliLogin(t, "clive")
 
-	// Valid PAT in the header + another user's cookie → the PAT user.
+	// A valid PAT in the header beats another user's cookie.
 	req := httptest.NewRequest("GET", "/api/auth/check", nil)
 	req.Header.Set("Authorization", "Bearer "+pat)
 	req.AddCookie(cookie)
@@ -182,7 +182,7 @@ func TestBearerWinsOverCookie(t *testing.T) {
 		t.Errorf("header must win over cookie: %v", out)
 	}
 
-	// Garbage Bearer + valid cookie: the header short-circuits.
+	// A garbage bearer token wins over a valid cookie, and fails.
 	req = httptest.NewRequest("GET", "/api/auth/check", nil)
 	req.Header.Set("Authorization", "Bearer garbage")
 	req.AddCookie(cookie)
@@ -199,8 +199,8 @@ func TestBearerWinsOverCookie(t *testing.T) {
 
 func TestCookieOriginCSRF(t *testing.T) {
 	tr := newTestRouter(t)
-	tr.webUser(t, "ernie", false)
-	c := tr.loginWeb(t, "ernie")
+	tr.webUser(t, "alice", false)
+	c := tr.loginWeb(t, "alice")
 
 	// Side-effect-free authenticated POST probe.
 	tr.r.mux.HandleFunc("POST /probe-auth", tr.r.requireAuth(func(w http.ResponseWriter, _ *http.Request) {
@@ -247,7 +247,7 @@ func TestLegacyUnversionedJWTRejected(t *testing.T) {
 	tr := newTestRouter(t)
 	_, userID := tr.loginAs(t, "oldtimer", false)
 
-	// A pre-versioning token carries token_ver 0; live rows start at 1.
+	// A token with token_ver 0 never matches; rows start at 1.
 	user, err := tr.store.GetUserByID(context.Background(), userID)
 	if err != nil {
 		t.Fatalf("GetUserByID: %v", err)

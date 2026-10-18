@@ -5,10 +5,9 @@ import type { MySources } from "../types";
 
 const EMPTY: MySources = { sources: [], has_pending: false };
 
-// useMySources polls /api/sources/mine for the logged-in user. Returns
-// an empty list when not logged in or before the first fetch resolves.
-// 30s poll keeps the button label honest after admin approval/rejection
-// without spamming.
+// useMySources polls /api/sources/mine every 30s so the button label follows
+// admin approvals and rejections. The list is empty when logged out or before
+// the first fetch.
 export function useMySources(): {
   data: MySources;
   loading: boolean;

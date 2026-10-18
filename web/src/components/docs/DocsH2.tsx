@@ -6,15 +6,12 @@ import type { Platform } from "./platformStorage";
 interface DocsH2Props {
   id: string;
   children: ReactNode;
-  // Optional platform marker — renders a PlatformChip immediately
-  // after the heading text so a section's audience reads at a glance.
-  // Use for whole-section "this is X-only" framing; for per-paragraph
-  // platform asides, prefer PlatformNote.
+  // Marks a whole section as platform-specific; PlatformNote suits a
+  // single aside.
   platforms?: Platform | Platform[];
 }
 
-// h2 with an id and a hover-revealed copy-anchor link. Clicking the
-// anchor copies a deep link to this section to the clipboard.
+// The anchor next to the heading copies a link to this section.
 export function DocsH2({ id, children, platforms }: DocsH2Props) {
   const [copied, setCopied] = useState(false);
 
@@ -26,7 +23,7 @@ export function DocsH2({ id, children, platforms }: DocsH2Props) {
         setTimeout(() => setCopied(false), 1500);
       },
       () => {
-        /* ignore — older browsers without clipboard API */
+        /* clipboard unavailable */
       },
     );
   };

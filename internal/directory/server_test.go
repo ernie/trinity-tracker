@@ -65,7 +65,7 @@ func freeUDPPort(t *testing.T) int {
 }
 
 func TestServerHeartbeatGateAcceptsAndChallenges(t *testing.T) {
-	// Spin up a fake "Q3 server" socket, then point the gate at it.
+	// A socket standing in for a game server, which the gate admits.
 	q3conn, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 0})
 	if err != nil {
 		t.Fatalf("q3 socket: %v", err)
@@ -202,7 +202,7 @@ func TestServerInfoResponseRejectsNonTrinityEngine(t *testing.T) {
 		time.Sleep(20 * time.Millisecond)
 	}
 
-	// Heartbeat — gate accepts, directory probes us.
+	// The gate admits the heartbeat and the directory sends a probe.
 	if _, err := q3conn.WriteToUDP([]byte(OOBHeader+"heartbeat QuakeArena-1\n"),
 		net.UDPAddrFromAddrPort(dirAddr)); err != nil {
 		t.Fatalf("send heartbeat: %v", err)
@@ -216,8 +216,7 @@ func TestServerInfoResponseRejectsNonTrinityEngine(t *testing.T) {
 	got := string(buf[:n])
 	challenge := strings.TrimSpace(strings.TrimPrefix(got, OOBHeader+"getinfo "))
 
-	// Reply with an infoResponse that has no `engine` field — i.e.,
-	// a stock ioquake3 server.
+	// A stock ioquake3 infoResponse, with no engine field.
 	info := fmt.Sprintf("%sinfoResponse\n\\challenge\\%s\\protocol\\68\\hostname\\Stock\\sv_maxclients\\16\\clients\\1\\gamename\\baseq3",
 		OOBHeader, challenge)
 	if _, err := q3conn.WriteToUDP([]byte(info), net.UDPAddrFromAddrPort(dirAddr)); err != nil {
@@ -235,8 +234,6 @@ func TestServerInfoResponseRejectsNonTrinityEngine(t *testing.T) {
 }
 
 func TestServerInfoResponseAcceptsTrinityEngine(t *testing.T) {
-	// Wire-level positive case for the engine check, in isolation
-	// from the broader getservers flow tested elsewhere.
 	q3conn, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 0})
 	if err != nil {
 		t.Fatalf("q3 socket: %v", err)
@@ -281,9 +278,8 @@ func TestServerInfoResponseAcceptsTrinityEngine(t *testing.T) {
 	}
 }
 
-// fakeRegistryStore is an in-memory stand-in for storage.Store's
-// directory_registrations methods. Captures Replace/Clear calls so
-// tests can assert on what the server persisted at shutdown.
+// fakeRegistryStore stands in for the directory_registrations store and
+// counts Replace and Clear calls.
 type fakeRegistryStore struct {
 	rows     []storage.DirectoryRegistration
 	cleared  int
@@ -309,8 +305,8 @@ func (f *fakeRegistryStore) ClearDirectoryRegistrations(ctx context.Context) err
 	return nil
 }
 
-// startTestServerWithRegistry is startTestServer plus a registry
-// store and a freshness window — the persistence-aware variant.
+// startTestServerWithRegistry is startTestServer plus a registry store
+// and a freshness window.
 func startTestServerWithRegistry(t *testing.T, store gateStore, regStore registryStore, freshness time.Duration) (*Server, netip.AddrPort) {
 	t.Helper()
 	port := freeUDPPort(t)
@@ -372,9 +368,8 @@ func TestServerRestoresFreshSnapshot(t *testing.T) {
 }
 
 func TestServerCrashRecoveryIgnoresStaleSnapshot(t *testing.T) {
-	// Persisted snapshot is older than the freshness window — the
-	// "previous graceful shutdown was hours ago, must be a crash"
-	// scenario. Registry should come up empty and the table cleared.
+	// The snapshot is older than the freshness window, as after a
+	// crash, so the registry starts empty and the table is cleared.
 	q3Addr := netip.MustParseAddrPort("127.0.0.1:27960")
 	gateStore := &fakeGateStore{rows: []storage.RemoteServer{
 		{ID: 99, Source: "local", Key: "x", Address: q3Addr.String()},

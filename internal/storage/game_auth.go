@@ -43,11 +43,9 @@ func (s *Store) EnsureGameToken(ctx context.Context, userID int64) (string, erro
 	return s.RotateGameToken(ctx, userID)
 }
 
-// GetUserIDByGUID resolves a GUID to its owning user. Returns ok=false
-// cleanly when the GUID has no matching user (unlinked player, or a
-// GUID we've never seen). Sibling of GetGameTokenByGUID; same JOIN
-// shape, different selected column. Used by the in-game rcon audit
-// path to attribute /rcon commands by user rather than by IP.
+// GetUserIDByGUID resolves a GUID to its owning user, with ok=false
+// when no user owns it (an unlinked player or an unknown GUID). The
+// in-game rcon audit uses it to attribute /rcon commands to a user.
 func (s *Store) GetUserIDByGUID(ctx context.Context, guid string) (int64, bool, error) {
 	var userID int64
 	err := s.db.QueryRowContext(ctx, `
@@ -92,7 +90,6 @@ func (s *Store) GetGameTokenByUsername(ctx context.Context, username string) (in
 // unless the GUID is already on the target player or belongs to another user's player.
 // Returns true if a merge was performed (i.e. the GUID was previously unlinked).
 func (s *Store) AssociateGUIDWithPlayer(ctx context.Context, guid string, targetPlayerID int64) (bool, error) {
-	// Look up GUID's current player
 	var currentPlayerID int64
 	err := s.db.QueryRowContext(ctx, `
 		SELECT player_id FROM player_guids WHERE guid = ?
@@ -105,7 +102,6 @@ func (s *Store) AssociateGUIDWithPlayer(ctx context.Context, guid string, target
 		return false, nil // already associated
 	}
 
-	// Check if the GUID's current player is linked to a different user account
 	var ownerCount int
 	err = s.db.QueryRowContext(ctx, `
 		SELECT COUNT(*) FROM users WHERE player_id = ?

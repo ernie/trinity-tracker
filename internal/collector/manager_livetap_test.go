@@ -15,8 +15,8 @@ import (
 )
 
 // serveCountingTap accepts any number of connections, counts them, and streams
-// a header + one segment on each, holding the connection open. The count lets a
-// test assert how many times the collector dialed.
+// a header and one segment on each, holding the connection open. The count lets
+// a test assert how many times the collector dialed.
 func serveCountingTap(t *testing.T) (addr string, dials *int32) {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
@@ -43,11 +43,9 @@ func serveCountingTap(t *testing.T) (addr string, dials *int32) {
 	return ln.Addr().String(), dials
 }
 
-// TestStartupDoubleInitGameOpensOneStableTap pins the in-flight guard: two
-// InitGames in quick succession call openLiveTap twice before the first dial
-// stores its handle. The collector must dial exactly once and leave the buffer
-// stably registered — not spawn a second dial whose discard path evicts the
-// first dial's buffer, emptying the registry so the relay 503s for the whole match.
+// Two InitGames in quick succession call openLiveTap twice before the first
+// dial stores its handle. The collector dials once, and the buffer stays
+// registered for the match.
 func TestStartupDoubleInitGameOpensOneStableTap(t *testing.T) {
 	addr, dials := serveCountingTap(t)
 	reg := livestream.NewRegistry()
@@ -69,8 +67,7 @@ func TestStartupDoubleInitGameOpensOneStableTap(t *testing.T) {
 
 	waitRegistered(t, reg, "ffa", true)
 
-	// The buffer must STAY registered — a second dial's teardown must not evict
-	// it. Poll well past the dial/store window.
+	// Poll well past the dial-and-store window.
 	for i := 0; i < 40; i++ {
 		if _, ok := reg.Get("ffa"); !ok {
 			t.Fatalf("registry emptied after duplicate openLiveTap (the 503 race)")
@@ -82,13 +79,8 @@ func TestStartupDoubleInitGameOpensOneStableTap(t *testing.T) {
 	}
 }
 
-// TestStopWithDialInFlightDoesNotRegister is the regression test for the
-// dial-goroutine leak: openLiveTap's dial runs in a goroutine that was NOT
-// tracked by m.wg, and Stop() never deletes the server, so a dial that
-// completes after Stop() found the server still present, stored its handle, and
-// registered a Buffer + consume goroutine AFTER "shutdown complete." Stop() must
-// instead await the dial (m.wg) and the dial must bail without registering once
-// m.done is closed.
+// Stop() waits for an in-flight dial (m.wg), and a dial that finishes after
+// m.done closes registers nothing.
 func TestStopWithDialInFlightDoesNotRegister(t *testing.T) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -121,9 +113,9 @@ func TestStopWithDialInFlightDoesNotRegister(t *testing.T) {
 	m.openLiveTap(state)
 	m.mu.Unlock()
 
-	// Shut down while the dial is in flight. After the fix Stop() waits on the
-	// dial goroutine (m.wg); run it concurrently and release the header so the
-	// parked parse completes and the goroutine can observe m.done closed.
+	// Stop() waits on the dial goroutine, so run it concurrently and release
+	// the header; the parked parse completes and the goroutine sees m.done
+	// closed.
 	stopped := make(chan struct{})
 	go func() { m.Stop(); close(stopped) }()
 	time.Sleep(50 * time.Millisecond) // let Stop() close m.done
@@ -132,11 +124,10 @@ func TestStopWithDialInFlightDoesNotRegister(t *testing.T) {
 	select {
 	case <-stopped:
 	case <-time.After(2 * time.Second):
-		t.Fatal("Stop() did not return — dial goroutine not awaited or never unblocked")
+		t.Fatal("Stop() did not return: the dial goroutine was not awaited or never unblocked")
 	}
 
-	// A dial that finishes after Stop() must NOT register a buffer or spawn a
-	// consumer. Poll past the window the late dial would otherwise need.
+	// Poll past the window a late dial would need to register a buffer.
 	deadline := time.Now().Add(500 * time.Millisecond)
 	for time.Now().Before(deadline) {
 		if _, ok := reg.Get("ffa"); ok {
@@ -146,12 +137,10 @@ func TestStopWithDialInFlightDoesNotRegister(t *testing.T) {
 	}
 }
 
-// TestLiveTapRedialsAfterMidMatchDrop pins the persistent-tap goal across a
-// transient loopback drop: if the tap's connection drops mid-match (e.g. the
-// engine dropped a slow consumer) while the match is still live, the collector
-// must redial rather than leave live black (relay 503) for the rest of the
-// match. openLiveTap only fires from InitGame, so without a redial in
-// onLiveTapClosed a mid-match drop is unrecoverable.
+// When the tap's connection drops mid-match (the engine dropping a slow
+// consumer, say) while the match is live, the collector redials. openLiveTap
+// fires only at InitGame, so onLiveTapClosed is the only way back to a live
+// stream.
 func TestLiveTapRedialsAfterMidMatchDrop(t *testing.T) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -193,8 +182,8 @@ func TestLiveTapRedialsAfterMidMatchDrop(t *testing.T) {
 	m.mu.Unlock()
 	waitRegistered(t, reg, "ffa", true) // initial tap
 
-	// The first connection drops; with the match still active the tap must
-	// redial — observed as a second dial.
+	// The first connection drops while the match is active, so a second dial
+	// shows the redial.
 	deadline := time.Now().Add(3 * time.Second)
 	for time.Now().Before(deadline) && atomic.LoadInt32(&conns) < 2 {
 		time.Sleep(5 * time.Millisecond)
@@ -209,10 +198,8 @@ func TestLiveTapRedialsAfterMidMatchDrop(t *testing.T) {
 	m.mu.Unlock()
 }
 
-// TestStopClosesParkedDialPromptly pins that Stop() closes an in-flight dial's
-// conn so a goroutine parked in the header parse unblocks immediately, rather
-// than waiting out the (long) read deadline. The deadline stays as a fail-safe;
-// shutdown shouldn't depend on it.
+// Stop() closes an in-flight dial's conn so a goroutine parked in the header
+// parse unblocks right away; the read deadline is only a fail-safe.
 func TestStopClosesParkedDialPromptly(t *testing.T) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -258,17 +245,14 @@ func TestStopClosesParkedDialPromptly(t *testing.T) {
 	start := time.Now()
 	m.Stop()
 	if elapsed := time.Since(start); elapsed > 2*time.Second {
-		t.Fatalf("Stop() took %v with a parked dial — in-flight conn not closed (waited out the deadline)", elapsed)
+		t.Fatalf("Stop() took %v with a parked dial: the in-flight conn was not closed (waited out the deadline)", elapsed)
 	}
 }
 
-// TestLiveTapRedialPersistsBeyondFourAttempts pins that a mid-match redial keeps
-// retrying for the life of the match instead of giving up after a fixed count,
-// so a same-match outage longer than a few seconds (a loopback hiccup, an
-// overloaded box, a maintenance pause that doesn't restart the engine) still
-// recovers. The server accepts then immediately drops each conn (header parse
-// fails), forcing repeated redials; we assert it tries well past the old
-// 4-attempt limit.
+// A mid-match redial keeps retrying for the life of the match, so a longer
+// outage (a loopback hiccup, an overloaded box, a maintenance pause that leaves
+// the engine running) still recovers. The server accepts and immediately drops
+// each conn, forcing repeated redials, and the test expects well over four.
 func TestLiveTapRedialPersistsBeyondFourAttempts(t *testing.T) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -323,15 +307,14 @@ func TestLiveTapRedialPersistsBeyondFourAttempts(t *testing.T) {
 	}
 }
 
-// TestStartupTapsInProgressMatch pins that when the collector starts (or
-// restarts) and the replayed log shows a match already in progress, it taps that
-// match immediately rather than waiting for the next InitGame. This is what lets
-// a `trinity` restart re-tap a live game server mid-match.
+// When the collector starts and the replayed log shows a match in progress, it
+// taps that match right away, so a `trinity` restart re-taps a live game server
+// mid-match.
 func TestStartupTapsInProgressMatch(t *testing.T) {
 	addr := serveFakeTap(t) // the still-running game server's TV listener
 
-	// A log whose last match-relevant line is an InitGame with no following
-	// Shutdown — i.e. a match in progress when the collector (re)starts.
+	// The log's last match line is an InitGame with no Shutdown after it: a
+	// match in progress when the collector starts.
 	dir := t.TempDir()
 	logPath := filepath.Join(dir, "ffa.log")
 	line := "2026-06-02T12:00:00 InitGame: \\mapname\\q3dm1\\g_gametype\\0\\g_matchUUID\\inprogress-uuid\n"
@@ -441,8 +424,8 @@ func TestLiveTapDialDiscardedWhenServerRemoved(t *testing.T) {
 		defer conn.Close()
 		<-release // block in-flight: startLiveTap is parked in ParseStreamHeader
 		conn.Write(livestream.StreamHeader{SvFps: 20, MaxClients: 8, MapName: "q3dm6", Timestamp: "t"}.Marshal())
-		// Block until the client (the tap) closes the connection, which is what
-		// tap.stop() does — this is our signal the goroutine reached stop().
+		// The tap closing the connection signals that the goroutine reached
+		// tap.stop().
 		_, _ = conn.Read(make([]byte, 1))
 		close(done)
 	}()
@@ -474,7 +457,7 @@ func TestLiveTapDialDiscardedWhenServerRemoved(t *testing.T) {
 	case <-done:
 		// tap.stop() closed the conn.
 	case <-time.After(2 * time.Second):
-		t.Fatal("dial goroutine never stopped the late tap (conn stayed open) — leaked tap")
+		t.Fatal("dial goroutine never stopped the late tap (conn stayed open), so the tap leaked")
 	}
 
 	// The discarded tap was never started, so it never registered a buffer.

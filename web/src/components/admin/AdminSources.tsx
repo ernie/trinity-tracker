@@ -33,13 +33,10 @@ export function AdminSources() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [newSource, setNewSource] = useState("");
-  // Default the owner to the admin themselves — self-service is the
-  // common case. Pre-populated from /api/account/profile on mount.
   const [selectedOwner, setSelectedOwner] = useState<UserOption | null>(null);
   const [creating, setCreating] = useState(false);
-  // transferTarget tracks which row's transfer-owner inline form is
-  // open. null = closed. The picked user is kept here too so closing
-  // the form discards an unsubmitted choice.
+  // The source whose transfer form is open. The picked user lives beside
+  // it so closing the form drops an unsubmitted choice.
   const [transferTarget, setTransferTarget] = useState<string | null>(null);
   const [transferTo, setTransferTo] = useState<UserOption | null>(null);
 
@@ -55,7 +52,7 @@ export function AdminSources() {
       setApproved((await res.json()) ?? []);
       setError("");
     } catch (e) {
-      setError(`Failed to load sources: ${(e as Error).message}`);
+      setError(`Couldn't load sources: ${(e as Error).message}`);
     } finally {
       setLoading(false);
     }
@@ -67,8 +64,7 @@ export function AdminSources() {
       if (!res.ok) throw new Error(`pending: ${res.status}`);
       setPending((await res.json()) ?? []);
     } catch (e) {
-      // Non-fatal: leave existing pending list, surface in error banner.
-      setError(`Failed to load pending requests: ${(e as Error).message}`);
+      setError(`Couldn't load pending requests: ${(e as Error).message}`);
     }
   }, []);
 
@@ -97,7 +93,7 @@ export function AdminSources() {
       setNotice(`Approved ${req.source}.`);
       await Promise.all([fetchPending(), fetchAll()]);
     } catch (err) {
-      setError(`Approve failed: ${(err as Error).message}`);
+      setError(`Couldn't approve ${req.source}: ${(err as Error).message}`);
     }
   };
 
@@ -120,7 +116,7 @@ export function AdminSources() {
       setNotice(`Rejected ${req.source}.`);
       await fetchPending();
     } catch (err) {
-      setError(`Reject failed: ${(err as Error).message}`);
+      setError(`Couldn't reject ${req.source}: ${(err as Error).message}`);
     }
   };
 
@@ -168,15 +164,11 @@ export function AdminSources() {
     setError("");
     setNotice("");
     if (!newSourceValid) {
-      setError(
-        "Source name must contain only letters, digits, hyphen, or underscore.",
-      );
+      setError("Source names can use only letters, digits, - and _.");
       return;
     }
     if (!selectedOwner) {
-      setError(
-        "Pick an owner — every remote source must be assigned to a user.",
-      );
+      setError("Pick an owner. Every remote source needs one.");
       return;
     }
     setCreating(true);
@@ -196,7 +188,9 @@ export function AdminSources() {
       setNewSource("");
       await fetchAll();
     } catch (err) {
-      setError(`Create failed: ${(err as Error).message}`);
+      setError(
+        `Couldn't create ${newSourceTrimmed}: ${(err as Error).message}`,
+      );
     } finally {
       setCreating(false);
     }
@@ -205,7 +199,7 @@ export function AdminSources() {
   const deactivateSource = async (source: ApprovedSource) => {
     if (
       !confirm(
-        `Deactivate source ${source.source}? Creds are revoked immediately and the collector will be dropped from NATS. Historical matches keep their server reference but will display as inactive.`,
+        `Deactivate ${source.source}? Its credentials are revoked right away and its collector is cut off. Past matches stay, with its servers shown as inactive, and the owner can't rejoin under this name.`,
       )
     ) {
       return;
@@ -225,7 +219,9 @@ export function AdminSources() {
       setNotice(`Deactivated ${source.source}.`);
       await fetchAll();
     } catch (err) {
-      setError(`Deactivate failed: ${(err as Error).message}`);
+      setError(
+        `Couldn't deactivate ${source.source}: ${(err as Error).message}`,
+      );
     }
   };
 
@@ -253,14 +249,14 @@ export function AdminSources() {
       setTransferTo(null);
       await fetchAll();
     } catch (err) {
-      setError(`Transfer failed: ${(err as Error).message}`);
+      setError(`Couldn't transfer ${source.source}: ${(err as Error).message}`);
     }
   };
 
   const reactivateSource = async (source: ApprovedSource) => {
     if (
       !confirm(
-        `Reactivate source ${source.source}? Its servers come back online; you'll need to redownload creds and ship them to the collector.`,
+        `Reactivate ${source.source}? Its servers come back on the network. Then rotate its credentials and give the collector the new .creds file.`,
       )
     ) {
       return;
@@ -278,18 +274,20 @@ export function AdminSources() {
         throw new Error(`${res.status} ${res.statusText}`);
       }
       setNotice(
-        `Reactivated ${source.source}. Rotate creds to get a fresh .creds file.`,
+        `Reactivated ${source.source}. Rotate its credentials to get a working .creds file.`,
       );
       await fetchAll();
     } catch (err) {
-      setError(`Reactivate failed: ${(err as Error).message}`);
+      setError(
+        `Couldn't reactivate ${source.source}: ${(err as Error).message}`,
+      );
     }
   };
 
   const rotateCreds = async (source: ApprovedSource) => {
     if (
       !confirm(
-        `Rotate credentials for ${source.source}? The collector will need the new .creds file to reconnect.`,
+        `Rotate the credentials for ${source.source}? Its collector needs the new .creds file to reconnect.`,
       )
     ) {
       return;
@@ -308,10 +306,12 @@ export function AdminSources() {
       }
       await downloadCredsBlob(res, source.source);
       setNotice(
-        `Rotated credentials for ${source.source}. New creds downloaded.`,
+        `Rotated the credentials for ${source.source} and downloaded the new .creds file.`,
       );
     } catch (err) {
-      setError(`Rotate failed: ${(err as Error).message}`);
+      setError(
+        `Couldn't rotate the credentials for ${source.source}: ${(err as Error).message}`,
+      );
     }
   };
 
@@ -327,7 +327,9 @@ export function AdminSources() {
       }
       await downloadCredsBlob(res, source.source);
     } catch (err) {
-      setError(`Download failed: ${(err as Error).message}`);
+      setError(
+        `Couldn't download the credentials for ${source.source}: ${(err as Error).message}`,
+      );
     }
   };
 
@@ -344,9 +346,9 @@ export function AdminSources() {
         <section className="admin-pending-requests">
           <h2>Pending requests ({pending.length})</h2>
           <p className="admin-help">
-            Users requesting a self-service collector source. Approve mints
-            credentials and flips the row to active; reject stores the reason
-            for the requester to see in their next request modal.
+            Requests for a collector source. Approving creates its credentials
+            and activates it. When you reject one, the requester sees your
+            reason in My servers.
           </p>
           <table className="admin-data-table admin-table">
             <thead>
@@ -376,10 +378,9 @@ export function AdminSources() {
       <section className="admin-sources-create admin-form-card">
         <h2>Provision a new collector</h2>
         <p className="admin-help">
-          Pick a short name — it becomes the NATS subject scope, and the remote
-          operator configures it as <code>tracker.collector.source_id</code>.
-          Every remote source has an owner; the default is you, but you can mint
-          on another user's behalf and they'll see it under their My Servers.
+          Pick a short name. It scopes the source&rsquo;s NATS subjects, and the
+          remote operator sets it as <code>tracker.collector.source_id</code>.
+          Every remote source has an owner, who sees it under My servers.
         </p>
         <form className="admin-sources-form" onSubmit={createSource}>
           <div className="form-group">
@@ -407,8 +408,8 @@ export function AdminSources() {
               required
             />
             <p className="form-hint">
-              The owner can rotate creds, leave the source, and RCON its servers
-              without admin delegation.
+              The owner can download and rotate its credentials, take it off the
+              network, and use RCON on its servers.
             </p>
           </div>
           <div className="admin-sources-form-actions">
@@ -463,7 +464,7 @@ export function AdminSources() {
                       {s.demo_base_url ? (
                         <div
                           className="admin-sources-demo-url"
-                          title="demo_base_url reported by the collector"
+                          title="The demo URL this collector reports"
                         >
                           <code>{s.demo_base_url}</code>
                         </div>
@@ -604,12 +605,8 @@ export function AdminSources() {
   );
 }
 
-// PendingRow is a small inline component holding the per-row state
-// for an admin's approve/reject/rename flow. Approve is a single
-// click; reject opens an inline reason input; rename opens an
-// inline name input — both have to be non-empty to submit. Returns
-// an error string from rename; reject errors surface via parent's
-// notice/error banners.
+// Rename errors show in the row; approve and reject errors use the
+// page banner.
 interface PendingRowProps {
   req: PendingRequest;
   onApprove: () => void;
@@ -642,7 +639,7 @@ function PendingRow({ req, onApprove, onReject, onRename }: PendingRowProps) {
   const submitRename = async () => {
     setRenameError(null);
     if (!NAME_PATTERN.test(text)) {
-      setRenameError("Name must be 3-16 characters: letters, numbers, _ or -.");
+      setRenameError("Name must be 3–16 characters: letters, numbers, _ or -.");
       return;
     }
     setSubmitting(true);
@@ -672,7 +669,7 @@ function PendingRow({ req, onApprove, onReject, onRename }: PendingRowProps) {
               type="text"
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder="Reason (shown to requester)"
+              placeholder="Reason (the requester sees this)"
               autoFocus
             />
             <button
@@ -693,7 +690,7 @@ function PendingRow({ req, onApprove, onReject, onRename }: PendingRowProps) {
               type="text"
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder="New name (e.g. mygame-jfk)"
+              placeholder="New name, such as mygame-jfk"
               autoFocus
             />
             <button

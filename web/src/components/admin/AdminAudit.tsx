@@ -31,11 +31,9 @@ export function AdminAudit() {
     loadAdminAuditFilters,
   );
 
-  // Source/Action use the hidden-set model and filter client-side;
-  // Actor is single-select and pushes to the backend so we get accurate
-  // results across all rows (not just the most recent fetched page).
-  // The system sentinel can't go to the backend (no NULL representation
-  // in the ?actor= param), so it falls back to client-side filtering.
+  // Actor filters on the server so it covers every row past the fetched
+  // page. ?actor= has no way to say "no actor", so the system sentinel
+  // filters here with Source and Action.
   const url = useMemo(() => {
     const params = new URLSearchParams();
     params.set("limit", String(DEFAULT_LIMIT));
@@ -54,12 +52,16 @@ export function AdminAudit() {
       const res = await apiFetch(url);
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || `Failed to load audit (${res.status})`);
+        throw new Error(
+          data.error || `Couldn't load the audit log (${res.status}).`,
+        );
       }
       const data: AuditEntry[] = (await res.json()) || [];
       setRows(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load audit");
+      setError(
+        err instanceof Error ? err.message : "Couldn't load the audit log.",
+      );
       setRows([]);
     } finally {
       setLoading(false);
@@ -76,8 +78,6 @@ export function AdminAudit() {
     [rows],
   );
   const knownActors = useMemo(() => {
-    // Treat null/undefined actor as the 'system' sentinel so it can be
-    // toggled like any other actor switch.
     const set = new Set<string>();
     for (const r of rows) set.add(r.actor_username || SYSTEM_ACTOR_SENTINEL);
     return Array.from(set).sort();
@@ -93,8 +93,7 @@ export function AdminAudit() {
       if (filters.actor === SYSTEM_ACTOR_SENTINEL && r.actor_username)
         return false;
       if (filters.hiddenActions.includes(r.action)) return false;
-      // Custom-range upper bound is enforced client-side; the backend
-      // only takes `since`.
+      // The API takes only `since`, so a custom range's end applies here.
       if (filters.datePreset === "custom" && filters.customUntil) {
         const until = new Date(filters.customUntil);
         if (!isNaN(until.getTime()) && new Date(r.created_at) > until)
@@ -161,7 +160,7 @@ export function AdminAudit() {
           {visibleRows.length === 0 && !loading && (
             <tr>
               <td colSpan={5} className="admin-audit-empty">
-                No audit rows match.
+                No audit entries found.
               </td>
             </tr>
           )}

@@ -75,7 +75,7 @@ func TestAdvanceSourceProgressMonotonicOnSeq(t *testing.T) {
 		t.Errorf("after regression attempt prog = (%d, %v), want (100, %v)", prog.ConsumedSeq, prog.LastConsumedTS, tNow)
 	}
 
-	// Higher seq advances even with an older TS — q3 log timestamps
+	// A higher seq advances even with an older TS: game log timestamps
 	// aren't strictly monotonic at second resolution.
 	if err := s.AdvanceSourceProgress(ctx, source, 101, tOlder); err != nil {
 		t.Fatalf("advance to (101, tOlder): %v", err)

@@ -22,12 +22,10 @@ import (
 )
 
 // liveKeyPattern bounds a server key to the charset the collector relay
-// accepts. handleLive concatenates the key raw into a redirect Location, so
-// rejecting anything else (e.g. a decoded %2F, or other URL metacharacters) is
-// defense-in-depth against a malformed 302.
+// accepts; handleLive puts the key raw into a redirect Location.
 var liveKeyPattern = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
 
-// Router holds the HTTP routes and dependencies
+// Router holds the HTTP routes and their dependencies.
 type Router struct {
 	mux           *http.ServeMux
 	store         *storage.Store
@@ -41,49 +39,38 @@ type Router struct {
 	staticDir     string
 	quake3Dir     string
 	userProv      hub.UserProvisioner
-	// rconClient and localSource together drive RCON dispatch:
-	// requests for a remote source go via rconClient (NATS request/
-	// reply), requests for localSource short-circuit through the
-	// in-process ServerManager. See SetRconClient / SetLocalSource.
+	// RCON for a remote source goes over NATS through rconClient; RCON
+	// for localSource goes straight to the in-process ServerManager.
 	rconClient  *natsbus.RconClient
 	localSource string
-	// Console following: registry for the in-process collector's rings,
-	// relay for remote sources. See console_stream.go.
+	// The registry holds the in-process collector's console rings; the
+	// relay reaches remote sources.
 	consoleReg   *console.Registry
 	consoleRelay *consoleRelay
-	// testRconDispatch, when non-nil, replaces dispatchRcon's transport
-	// step. Test seam only: the real transports are concrete types
-	// (ServerManager, NATS RconClient) that need live infrastructure.
+	// Test seam: replaces dispatchRcon's transport, since the real ones
+	// need a live ServerManager or NATS.
 	testRconDispatch func(server *domain.Server, command string, role natsbus.RconRole) (string, error)
-	// patTouch throttles pat.last_used_at writes (~1/min per token) so
-	// a chatty CLI session doesn't write-amplify SQLite.
+	// Throttles pat.last_used_at writes to about one a minute per token,
+	// so a chatty CLI session doesn't hammer SQLite.
 	patTouchMu   sync.Mutex
 	patTouchSeen map[int64]time.Time
-	// respCache backs the cached() middleware on hot anonymous reads.
-	respCache *responseCache
-	// Version string surfaced to the frontend via /api/version. Set by
-	// main.go after NewRouter so binary builds report their git-describe
-	// tag; unset = "dev".
-	version string
+	respCache    *responseCache
+	version      string
 }
 
 // SetVersion records the running binary's version for /api/version.
-// Called once at startup from cmd/trinity/main.go.
 func (r *Router) SetVersion(v string) {
 	r.version = v
 }
 
-// SetPoller plugs in the hub's UDP poller. Always set in hub mode —
-// the /api/servers/{id}/status and /players endpoints consult it for
-// live state. Unset in collector-only mode (where no HTTP is served)
-// and in rare hub-less test harnesses.
+// SetPoller plugs in the hub's UDP poller, which the server status and
+// players endpoints read for live state.
 func (r *Router) SetPoller(p *hub.RemotePoller) {
 	r.poller = p
 }
 
-// lookupServerStatus returns the most recent status the poller has
-// for id, or nil. Wrapper so handlers are insulated from whether the
-// poller is wired.
+// lookupServerStatus returns the poller's latest status for id, or nil
+// when there is none or no poller is set.
 func (r *Router) lookupServerStatus(id int64) *domain.ServerStatus {
 	if r.poller == nil {
 		return nil
@@ -91,14 +78,13 @@ func (r *Router) lookupServerStatus(id int64) *domain.ServerStatus {
 	return r.poller.GetServerStatus(id)
 }
 
-// SetUserProvisioner plugs in a NATS cred-mint/revoke/download backend.
-// main.go calls this with the embedded AuthStore in hub mode; when
-// unset the /api/admin/sources/*/creds endpoints return 501.
+// SetUserProvisioner plugs in the NATS credentials backend. Without one,
+// the credential endpoints return 501.
 func (r *Router) SetUserProvisioner(p hub.UserProvisioner) {
 	r.userProv = p
 }
 
-// NewRouter creates a new HTTP router
+// NewRouter creates the HTTP router and registers its routes.
 func NewRouter(store *storage.Store, manager *collector.ServerManager, writer *hub.Writer, authService *auth.Service, staticDir, quake3Dir string) *Router {
 	r := &Router{
 		mux:           http.NewServeMux(),
@@ -122,8 +108,8 @@ func NewRouter(store *storage.Store, manager *collector.ServerManager, writer *h
 	r.mux.HandleFunc("GET /api/servers/{id}/status", r.handleGetServerStatus)
 	r.mux.HandleFunc("GET /api/servers/{id}/players", r.handleGetServerPlayers)
 
-	// cached(): hot anonymous reads — real-time data flows over the
-	// websocket, so TTL staleness is invisible.
+	// Hot anonymous reads; live data arrives over the websocket, so the
+	// short cache is invisible.
 	r.mux.HandleFunc("GET /api/players", r.cached(15*time.Second, r.handleGetPlayers))
 	r.mux.HandleFunc("GET /api/players/{id}", r.cached(15*time.Second, r.handleGetPlayer))
 	r.mux.HandleFunc("GET /api/players/{id}/stats", r.cached(15*time.Second, r.handleGetPlayerStatsByID))
@@ -135,74 +121,66 @@ func NewRouter(store *storage.Store, manager *collector.ServerManager, writer *h
 
 	r.mux.HandleFunc("GET /api/stats/leaderboard", r.cached(30*time.Second, r.handleGetLeaderboard))
 
-	// Public list of source names; powers the source-filter dropdown
-	// in the activity log and matches list.
 	r.mux.HandleFunc("GET /api/sources", r.handleGetSourceNames)
 
-	// Auth routes
+	// Auth
 	r.mux.HandleFunc("POST /api/auth/login", r.rateLimit(r.loginLimiter, r.handleLogin))
 	r.mux.HandleFunc("POST /api/auth/logout", r.handleLogout)
 	r.mux.HandleFunc("POST /api/auth/logout-all", r.requireAuth(r.handleLogoutAll))
 	r.mux.HandleFunc("GET /api/auth/check", r.handleAuthCheck)
 	r.mux.HandleFunc("POST /api/auth/change-password", r.requireAuth(r.handleChangePassword))
 
-	// CLI auth: PAT mint (password-verified, same limiter as login)
-	// and self-revoke. See cli_login.go.
+	// CLI personal access tokens
 	r.mux.HandleFunc("POST /api/auth/cli-login", r.rateLimit(r.loginLimiter, r.handleCLILogin))
 	r.mux.HandleFunc("DELETE /api/auth/cli-login", r.handleCLILogout)
 
-	// Console: (source, key)-addressed control surface for the CLI.
-	// See console.go and console_stream.go.
+	// CLI console, addressed by (source, key)
 	r.mux.HandleFunc("GET /api/console/servers", r.requireAuth(r.handleConsoleServers))
 	r.mux.HandleFunc("POST /api/console/rcon", r.requireAuth(r.handleConsoleRcon))
 	r.mux.HandleFunc("GET /api/console/stream", r.requireAuth(r.handleConsoleStream))
 
-	// Game auth (public - no JWT required)
+	// Game client login and game tokens
 	r.mux.HandleFunc("POST /api/auth/game-login", r.rateLimit(r.loginLimiter, r.handleGameLogin))
-
-	// Game token management (requires JWT auth)
 	r.mux.HandleFunc("GET /api/auth/game-token", r.requireAuth(r.handleGetGameToken))
 	r.mux.HandleFunc("POST /api/auth/game-token", r.requireAuth(r.handleRotateGameToken))
 
-	// Account routes (authenticated users only)
+	// Account
 	r.mux.HandleFunc("GET /api/account/profile", r.requireAuth(r.handleGetAccountProfile))
 	r.mux.HandleFunc("POST /api/account/link-code", r.requireAuth(r.handleCreateLinkCode))
 	r.mux.HandleFunc("PATCH /api/account/featured-honor", r.requireAuth(r.handleSetFeaturedHonor))
 	r.mux.HandleFunc("PATCH /api/account/portrait", r.requireAuth(r.handleSetPortrait))
 	r.mux.HandleFunc("PATCH /api/account/display-name", r.requireAuth(r.handleUpdateDisplayName))
 
-	// Claim routes (player-initiated account creation)
+	// Claim: account creation from an in-game claim code
 	r.mux.HandleFunc("POST /api/claim/validate", r.handleClaimValidate)
 	r.mux.HandleFunc("POST /api/claim/register", r.handleClaimRegister)
 	r.mux.HandleFunc("POST /api/claim/link", r.requireAuth(r.handleClaimLink))
 
-	// User management routes (admin only)
+	// User management
 	r.mux.HandleFunc("GET /api/users", r.requireAdmin(r.handleListUsers))
 	r.mux.HandleFunc("POST /api/users", r.requireAdmin(r.handleCreateUser))
 	r.mux.HandleFunc("DELETE /api/users/{username}", r.requireAdmin(r.handleDeleteUser))
 	r.mux.HandleFunc("PATCH /api/users/{id}", r.requireAdmin(r.handleUpdateUser))
 	r.mux.HandleFunc("POST /api/users/{id}/reset-password", r.requireAdmin(r.handleResetUserPassword))
 
-	// RCON routes. Auth-only (not admin-only); the handler
-	// authorizes by source ownership + per-server admin delegation.
+	// RCON; the handler authorizes by source ownership and per-server
+	// admin delegation.
 	r.mux.HandleFunc("POST /api/servers/{id}/rcon", r.requireAuth(r.handleRconCommand))
 	r.mux.HandleFunc("GET /api/servers/{id}/rcon-status", r.handleRconStatus)
 
-	// WebSocket endpoints
 	r.mux.HandleFunc("GET /ws", r.handleWebSocket)
 
-	// Asset fallbacks. nginx serves these paths as static when the file
-	// is on disk; on a miss it forwards the request here via try_files
-	// → @trinity_fallback. The handler then either 404s or 302s to the
-	// source that owns the asset.
+	// Asset fallbacks: nginx serves these paths from disk and sends
+	// misses here through try_files, and the handler 404s or redirects
+	// to the source that owns the asset.
 	r.mux.HandleFunc("GET /demos/{filename}", r.handleDemo)
-	// 3-segment so the bare /tv/{source}/{key} stays the SPA player (a full nav
-	// to it must serve the app, not download the relay stream).
+	// The bare /tv/{source}/{key} is the SPA player page, so the stream
+	// needs its own suffix.
 	r.mux.HandleFunc("GET /tv/{source}/{key}/stream", r.handleLive)
 	r.mux.HandleFunc("GET /assets/levelshots/{filename}", r.handleLevelshot)
 	r.mux.HandleFunc("GET /demopk3s/maps/{filename}", r.handleMapPk3)
 
-	// Player management routes (admin only)
+	// Player management
 	r.mux.HandleFunc("GET /api/players/{id}/guids", r.handleGetPlayerGUIDs)
 	r.mux.HandleFunc("GET /api/players/{id}/sessions", r.requireAdmin(r.handleGetPlayerSessions))
 	r.mux.HandleFunc("POST /api/admin/players/{id}/merge", r.requireAdmin(r.handleMergePlayers))
@@ -210,10 +188,8 @@ func NewRouter(store *storage.Store, manager *collector.ServerManager, writer *h
 	r.mux.HandleFunc("POST /api/admin/matches/{id}/feature", r.requireAdmin(r.handleFeatureMatch))
 	r.mux.HandleFunc("DELETE /api/admin/matches/{id}/feature", r.requireAdmin(r.handleFeatureMatch))
 
-	// Distributed-tracking source management. Sources are pre-provisioned:
-	// POST /api/admin/sources creates a new source + mints initial creds
-	// in one call. Collectors cannot publish anything (events, live
-	// status, registration) until a row exists here.
+	// Admin source management. A collector can publish nothing until
+	// its source has a row.
 	r.mux.HandleFunc("GET /api/admin/sources", r.requireAdmin(r.handleListApprovedSources))
 	r.mux.HandleFunc("POST /api/admin/sources", r.requireAdmin(r.handleCreateSource))
 	r.mux.HandleFunc("GET /api/admin/sources/pending", r.requireAdmin(r.handleListPendingSources))
@@ -229,25 +205,21 @@ func NewRouter(store *storage.Store, manager *collector.ServerManager, writer *h
 	r.mux.HandleFunc("GET /api/admin/platform-stats", r.requireAdmin(r.handlePlatformStats))
 	r.mux.HandleFunc("GET /api/admin/audit", r.requireAdmin(r.handleListAudit))
 
-	// Owner-scoped self-service. GET /api/sources/mine returns the
-	// caller's full source list (one card per source in My Servers);
-	// the per-source action paths gate on owner_user_id == caller AND
-	// the named source belonging to them.
+	// Owner self-service; per-source actions require the caller to own
+	// the source.
 	r.mux.HandleFunc("GET /api/sources/mine", r.requireAuth(r.handleGetMySources))
 	r.mux.HandleFunc("POST /api/sources/request", r.requireAuth(r.handleRequestSource))
 	r.mux.HandleFunc("GET /api/sources/mine/{source}/creds", r.requireAuth(r.handleDownloadMyCreds))
 	r.mux.HandleFunc("POST /api/sources/mine/{source}/rotate-creds", r.requireAuth(r.handleRotateMyCreds))
 	r.mux.HandleFunc("POST /api/sources/mine/{source}/leave", r.requireAuth(r.handleLeaveMySource))
 
-	// Quake 3 file serving (admin only, for web game client)
+	// Game files for the web client
 	if quake3Dir != "" {
 		r.mux.HandleFunc("GET /api/q3/{path...}", r.requireAdmin(r.handleQuake3File))
 	}
 
-	// Health check
 	r.mux.HandleFunc("GET /health", r.handleHealth)
 
-	// Static files - only serve if staticDir is configured
 	if staticDir != "" {
 		r.mux.HandleFunc("GET /", r.handleStatic)
 	}
@@ -255,12 +227,11 @@ func NewRouter(store *storage.Store, manager *collector.ServerManager, writer *h
 	return r
 }
 
-// ServeHTTP implements http.Handler
+// ServeHTTP implements http.Handler.
 func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	// CORS headers for API. The wildcard is safe alongside cookie
-	// auth: browsers never send credentials to a wildcard origin, so
-	// cookie-authed responses can't leak cross-site — and tightening
-	// it would break PAT scripting from other origins.
+	// The wildcard origin is safe with cookie auth: browsers never send
+	// credentials to a wildcard origin. It keeps PAT scripting working
+	// from other origins.
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
@@ -273,9 +244,8 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	r.mux.ServeHTTP(w, req)
 }
 
-// StartWebSocketHub starts broadcasting events to WebSocket clients.
-// Events flow: collector emits with GUIDs → writer enriches to fill
-// player IDs → WebSocket hub broadcasts to browser clients.
+// StartWebSocketHub starts broadcasting the in-process collector's
+// events to WebSocket clients, with player IDs filled in by the writer.
 func (r *Router) StartWebSocketHub() {
 	go r.wsHub.Run()
 
@@ -290,22 +260,13 @@ func (r *Router) StartWebSocketHub() {
 	}()
 }
 
-// Broadcast forwards a pre-enriched event to all connected WebSocket
-// clients, after dropping events for servers that haven't been
-// observed enforcing g_trinityHandshake. Used by the in-process
-// collector loop and by the hub-side live-event NATS subscriber so
-// remote-collector activity appears on the unified dashboard in real
-// time. *Router satisfies hub.LiveEventSink.
+// Broadcast sends an enriched event to every WebSocket client. It
+// implements hub.LiveEventSink.
 //
-// The handshake gate is the single chokepoint: events for servers
-// whose handshake_required column is 0 (or unknown) are dropped, as
-// are events with a missing/unresolved ServerID — every legitimate
-// emit site sets a non-zero ID, so a zero here means a misrouted or
-// malformed envelope (e.g. natsbus.LiveSubscriber falling back to an
-// unresolved RemoteServerID). The writer's in-memory cache makes this
-// a hot-path read, falling back to a single SELECT on first
-// observation per serverID. Production wiring always sets r.writer;
-// the nil bypass exists for tests and early bring-up.
+// This is the one handshake gate for live events: an event is dropped
+// unless its server has been seen enforcing g_trinityHandshake. A zero
+// ServerID means a misrouted envelope, since every emit site sets one.
+// A nil writer, in tests, broadcasts everything.
 func (r *Router) Broadcast(event domain.Event) {
 	if r.writer == nil {
 		r.wsHub.Broadcast(event)
@@ -320,19 +281,16 @@ func (r *Router) Broadcast(event domain.Event) {
 	r.wsHub.Broadcast(event)
 }
 
-// handleStatic serves static files from the configured directory
-// For SPA support, serves index.html for any path that doesn't match a file
+// handleStatic serves the web bundle, with index.html for any path that
+// isn't a file so the SPA can route it.
 func (r *Router) handleStatic(w http.ResponseWriter, req *http.Request) {
-	// Clean the path
 	path := filepath.Clean(req.URL.Path)
 	if path == "/" {
 		path = "/index.html"
 	}
 
-	// Construct full file path
 	fullPath := filepath.Join(r.staticDir, path)
 
-	// Security: ensure the path is within staticDir
 	absStaticDir, _ := filepath.Abs(r.staticDir)
 	absPath, _ := filepath.Abs(fullPath)
 	if !strings.HasPrefix(absPath, absStaticDir) {
@@ -340,10 +298,8 @@ func (r *Router) handleStatic(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// Check if file exists
 	info, err := os.Stat(fullPath)
 	if err != nil || info.IsDir() {
-		// SPA fallback: serve index.html for unknown paths
 		fullPath = filepath.Join(r.staticDir, "index.html")
 		info, err = os.Stat(fullPath)
 		if err != nil {
@@ -352,17 +308,15 @@ func (r *Router) handleStatic(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	// Set content type based on extension
 	contentType := getContentType(fullPath)
 	if contentType != "" {
 		w.Header().Set("Content-Type", contentType)
 	}
 
-	// Serve the file
 	http.ServeFile(w, req, fullPath)
 }
 
-// handleQuake3File serves Quake 3 game files to authenticated admin users
+// handleQuake3File serves Quake III game files to admins.
 func (r *Router) handleQuake3File(w http.ResponseWriter, req *http.Request) {
 	filePath := req.PathValue("path")
 	if filePath == "" {
@@ -370,11 +324,9 @@ func (r *Router) handleQuake3File(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// Clean and construct full path
 	cleaned := filepath.Clean("/" + filePath)
 	fullPath := filepath.Join(r.quake3Dir, cleaned)
 
-	// Security: ensure the path is within quake3Dir
 	absQuake3Dir, _ := filepath.Abs(r.quake3Dir)
 	absPath, _ := filepath.Abs(fullPath)
 	if !strings.HasPrefix(absPath, absQuake3Dir+string(filepath.Separator)) && absPath != absQuake3Dir {
@@ -382,14 +334,12 @@ func (r *Router) handleQuake3File(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// Check if file exists and is not a directory
 	info, err := os.Stat(fullPath)
 	if err != nil || info.IsDir() {
 		http.NotFound(w, req)
 		return
 	}
 
-	// Set content type for pk3 files
 	if strings.HasSuffix(strings.ToLower(fullPath), ".pk3") {
 		w.Header().Set("Content-Type", "application/octet-stream")
 	}
@@ -397,7 +347,6 @@ func (r *Router) handleQuake3File(w http.ResponseWriter, req *http.Request) {
 	http.ServeFile(w, req, fullPath)
 }
 
-// getContentType returns the content type for a file based on extension
 func getContentType(path string) string {
 	ext := strings.ToLower(filepath.Ext(path))
 	switch ext {
@@ -424,11 +373,8 @@ func getContentType(path string) string {
 	}
 }
 
-// populateDemoURLs sets DemoURL to a relative /demos/<uuid>.tvd for
-// every match flagged demo_available. nginx + handleDemo handle the
-// local-vs-remote dispatch on click. Empty DemoURL = no play button,
-// so users don't see dead links for matches whose recording was
-// discarded or never finalized.
+// populateDemoURLs sets DemoURL only for matches with a recording, so
+// the UI never shows a play button that leads nowhere.
 func (r *Router) populateDemoURLs(matches []domain.MatchSummary) {
 	for i := range matches {
 		if matches[i].UUID != "" && matches[i].DemoAvailable {
@@ -437,9 +383,8 @@ func (r *Router) populateDemoURLs(matches []domain.MatchSummary) {
 	}
 }
 
-// handleDemo serves a recorded demo. Local file wins; otherwise 302 to
-// the source that owns the match's recording. Only invoked from the
-// nginx try_files fallback on misses.
+// handleDemo serves a recorded demo from disk, or redirects to the
+// source that owns the recording.
 func (r *Router) handleDemo(w http.ResponseWriter, req *http.Request) {
 	uuid := stripSuffix(req.PathValue("filename"), ".tvd")
 	if uuid == "" {
@@ -458,7 +403,7 @@ func (r *Router) handleDemo(w http.ResponseWriter, req *http.Request) {
 	base, err := r.store.FindSourcePublicURLForDemo(req.Context(), uuid)
 	if err != nil {
 		log.Printf("handleDemo: %v", err)
-		http.Error(w, "lookup error", http.StatusInternalServerError)
+		http.Error(w, "Lookup error.", http.StatusInternalServerError)
 		return
 	}
 	if base == "" {
@@ -470,13 +415,8 @@ func (r *Router) handleDemo(w http.ResponseWriter, req *http.Request) {
 		http.StatusFound)
 }
 
-// handleLive 302-redirects a TrinityVision live request to the collector that
-// owns the server. Unlike /demos there is never a local file and no extension —
-// live is a stream (TVL1), not a .tvd recording; the bytes always come from the
-// owning collector's relay listener (behind its nginx /tv/<key> location), so
-// this is a pure router. The collector's relay serves the single-segment
-// /tv/<key>; this /tv/<source>/<key>/stream route is the hub's stream entry
-// point (the bare /tv/<source>/<key> renders the SPA player).
+// handleLive redirects a TrinityVision live stream request to the relay
+// on the collector that owns the server, which serves it at /tv/<key>.
 func (r *Router) handleLive(w http.ResponseWriter, req *http.Request) {
 	source := req.PathValue("source")
 	key := req.PathValue("key")
@@ -487,7 +427,7 @@ func (r *Router) handleLive(w http.ResponseWriter, req *http.Request) {
 	base, err := r.store.FindSourcePublicURL(req.Context(), source)
 	if err != nil {
 		log.Printf("handleLive: %v", err)
-		http.Error(w, "lookup error", http.StatusInternalServerError)
+		http.Error(w, "Lookup error.", http.StatusInternalServerError)
 		return
 	}
 	if base == "" {
@@ -499,10 +439,9 @@ func (r *Router) handleLive(w http.ResponseWriter, req *http.Request) {
 		http.StatusFound)
 }
 
-// stripSuffix returns name without the given extension if it ends in
-// it, otherwise the empty string. Helper for the asset handlers,
-// which match {filename} and extract a name + validate the extension
-// inline (Go ServeMux doesn't allow literal suffixes on wildcards).
+// stripSuffix returns name without ext, or "" when name lacks ext or
+// holds a path separator. ServeMux wildcards can't carry a literal
+// suffix, so the asset handlers check it here.
 func stripSuffix(name, ext string) string {
 	if !strings.HasSuffix(name, ext) || strings.ContainsAny(name, "/\\") {
 		return ""
@@ -510,9 +449,9 @@ func stripSuffix(name, ext string) string {
 	return strings.TrimSuffix(name, ext)
 }
 
-// handleMapPk3 serves a demobaked map pk3. Local file wins; otherwise
-// 302 to a source that's served the map. Wired under /demopk3s/maps/
-// so the engine loader's relative URL keeps working.
+// handleMapPk3 serves a demobaked map pk3 from disk, or redirects to a
+// source that has the map. The path matches the engine loader's
+// relative URL.
 func (r *Router) handleMapPk3(w http.ResponseWriter, req *http.Request) {
 	mapName := stripSuffix(req.PathValue("filename"), ".pk3")
 	if mapName == "" {
@@ -529,7 +468,7 @@ func (r *Router) handleMapPk3(w http.ResponseWriter, req *http.Request) {
 	base, err := r.store.FindSourcePublicURLForMap(req.Context(), mapName)
 	if err != nil {
 		log.Printf("handleMapPk3: %v", err)
-		http.Error(w, "lookup error", http.StatusInternalServerError)
+		http.Error(w, "Lookup error.", http.StatusInternalServerError)
 		return
 	}
 	if base == "" {
@@ -541,8 +480,8 @@ func (r *Router) handleMapPk3(w http.ResponseWriter, req *http.Request) {
 		http.StatusFound)
 }
 
-// handleLevelshot serves a map levelshot. Local file wins; otherwise
-// 302 to a source that's served the map.
+// handleLevelshot serves a map levelshot from disk, or redirects to a
+// source that has the map.
 func (r *Router) handleLevelshot(w http.ResponseWriter, req *http.Request) {
 	mapName := stripSuffix(req.PathValue("filename"), ".jpg")
 	if mapName == "" {
@@ -552,7 +491,7 @@ func (r *Router) handleLevelshot(w http.ResponseWriter, req *http.Request) {
 	if r.staticDir != "" {
 		local := filepath.Join(r.staticDir, "assets", "levelshots", mapName+".jpg")
 		if info, err := os.Stat(local); err == nil && !info.IsDir() {
-			// Re-baked under stable names; bounded lifetime, not immutable.
+			// Rebuilt under the same names, so the cache lifetime is bounded.
 			w.Header().Set("Cache-Control", "public, max-age=2592000")
 			http.ServeFile(w, req, local)
 			return
@@ -561,7 +500,7 @@ func (r *Router) handleLevelshot(w http.ResponseWriter, req *http.Request) {
 	base, err := r.store.FindSourcePublicURLForMap(req.Context(), mapName)
 	if err != nil {
 		log.Printf("handleLevelshot: %v", err)
-		http.Error(w, "lookup error", http.StatusInternalServerError)
+		http.Error(w, "Lookup error.", http.StatusInternalServerError)
 		return
 	}
 	if base == "" {
@@ -573,5 +512,4 @@ func (r *Router) handleLevelshot(w http.ResponseWriter, req *http.Request) {
 		http.StatusFound)
 }
 
-// Ensure fs.FS is imported for potential future use
 var _ fs.FS

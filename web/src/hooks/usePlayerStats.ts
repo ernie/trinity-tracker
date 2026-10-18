@@ -7,9 +7,8 @@ interface UsePlayerStatsResult {
   loading: boolean;
   error: string | null;
   refetch: () => void;
-  /** Optimistically update the featured honor and PATCH the server.
-   *  Reverts the local state if the request fails. Auth is the session
-   *  cookie; callers must be logged in. */
+  /** Shows the new featured honor at once and PATCHes the server, reverting
+   *  if the request fails. Needs a logged-in session. */
   setFeaturedHonor: (key: string) => Promise<void>;
 }
 
@@ -25,11 +24,9 @@ export function usePlayerStats(
     setRefetchKey((k) => k + 1);
   }, []);
 
-  // Reset stats whenever the *player* changes — we shouldn't briefly
-  // flash the previous player's data. Period changes keep `stats` in
-  // place so swapping pills doesn't unmount the hero/panel structure
-  // (the visible flicker users complained about). Adjusting state
-  // during render so there's no extra commit cycle.
+  // Cleared on a player change so the last player's stats never flash. A
+  // period change keeps `stats`, so the hero and panel stay mounted. Set
+  // during render to skip an extra commit.
   const [prevPlayerId, setPrevPlayerId] = useState(playerId);
   if (playerId !== prevPlayerId) {
     setPrevPlayerId(playerId);
@@ -45,12 +42,12 @@ export function usePlayerStats(
       signal: ctrl.signal,
     })
       .then((res) => {
-        if (!res.ok) throw new Error("Player not found");
+        if (!res.ok) throw new Error("Couldn't load this player's stats.");
         return res.json();
       })
       .then((data) => {
         setStats(data);
-        setError(null); // success clears any prior error
+        setError(null);
       })
       .catch((err) => {
         if (ctrl.signal.aborted) return;
@@ -60,9 +57,8 @@ export function usePlayerStats(
   }, [playerId, period, refetchKey]);
 
   const setFeaturedHonor = useCallback(async (key: string) => {
-    // Optimistic local update — capture the prior value so we can revert
-    // cleanly if the PATCH fails. Read from the closure-current stats so
-    // a rapid second click can still see the just-applied value.
+    // priorKey is read inside the updater so a quick second click sees the
+    // value the first one applied.
     let priorKey: string | undefined;
     setStats((prev) => {
       if (!prev) return prev;
@@ -77,9 +73,6 @@ export function usePlayerStats(
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
     } catch {
-      // Revert. If the user toggled again between optimistic update and
-      // failure, this puts them back to whatever was on the server — a
-      // refetch would be safer but the flash is worse than the rare race.
       setStats((prev) =>
         prev
           ? { ...prev, player: { ...prev.player, featured_honor: priorKey } }
@@ -88,8 +81,5 @@ export function usePlayerStats(
     }
   }, []);
 
-  // Loading is derived: nothing yet AND no error to show. During a
-  // period swap, `stats` retains the previous values so the panel
-  // stays mounted; the new values just slot in when the fetch lands.
   return { stats, loading: !stats && !error, error, refetch, setFeaturedHonor };
 }

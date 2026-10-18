@@ -27,57 +27,47 @@ interface ServerCardProps {
     playerId?: number,
   ) => void;
   liveness?: "live" | "stale" | "offline";
-  /** Landing Active Now shelf: capture the whole card as one click target
-   *  (mirrors the match cards' click-anywhere) — the live viewer when the
-   *  server is broadcasting, the servers page otherwise. No inner
-   *  interactivity (player profiles etc.) on the landing page. */
+  /** Landing page Active Now shelf: the whole card is one link, to the live
+   *  viewer when the server is broadcasting and the servers page otherwise. */
   landingCard?: boolean;
 }
 
-// HelpMode descriptions for the inline elements rendered directly by
-// this file (not their own components). State badge enumerates the
-// full taxonomy (not the current variant only) so a reader on any
-// state learns about the others — same pattern as the team-dot
-// tooltip in PlayerRows.tsx.
-const STATE_HELP = `Match state.
-• Active — playing
-• Warmup — pre-match countdown
-• Waiting — not enough players
-• Overtime — tied at time limit, sudden death
-• Intermission — match just ended, next map loading
+// Help text lists every state, so a reader on one learns the others.
+const STATE_HELP = `Match state:
+• Active: in play
+• Warmup: countdown before the match
+• Waiting: not enough players
+• Overtime: tied at the time limit, sudden death
+• Intermission: the match just ended and the next map is loading
 
-Or, when the server's data feed is unhealthy:
-• Stale — collector hasn't checked in recently
-• Offline — server unreachable`;
-const LIVE_HELP = `Live spectating is available — click to open the browser viewer and watch this match as it happens.
-• The small number is the current viewer count (hidden when nobody's watching)
-• The feed runs slightly behind the game; hover shows the current delay`;
-const MAP_HELP = `Map shortname (how you'd load it with /map) above the long-form name.`;
-const LIMITS_HELP = `Score limit (when set) · time / time limit.`;
+When the server's data feed has a problem:
+• Stale: the collector hasn't checked in lately
+• Offline: the server can't be reached`;
+const LIVE_HELP = `Click to watch this match live in your browser.
+• The small number is how many people are watching (hidden when nobody is)
+• The feed runs a little behind the game; hover to see the delay`;
+const MAP_HELP = `The map's short name (what you'd type after /map) above its full name.`;
+const LIMITS_HELP = `Score limit, if set, then match time and time limit.`;
 
-// Flag indicators in the Scoreboard slots (CTF / 1FCTF). Each
-// describes its full status taxonomy so a reader sees the variants
-// they can't currently observe in the snapshot.
-const RED_FLAG_HELP = `Red flag status:
-• At base — safe at red's spawn
-• Taken — an enemy is carrying it
-• Dropped — carrier died; lies on the ground for ~30s before returning`;
-const BLUE_FLAG_HELP = `Blue flag status:
-• At base — safe at blue's spawn
-• Taken — an enemy is carrying it
-• Dropped — carrier died; lies on the ground for ~30s before returning`;
-const NEUTRAL_FLAG_HELP = `Neutral flag — the single flag in One-Flag CTF.
-• At base — sitting at center
-• Carried — drifts toward whichever team has it
-• Dropped — carrier died; lies for ~30s`;
-const OBELISK_HP_HELP = `Enemy obelisk HP.
-• Drains as enemies damage it
+const RED_FLAG_HELP = `Red flag:
+• At base: safe at red's base
+• Taken: an enemy is carrying it
+• Dropped: on the ground where its carrier died; returns to base after 30 seconds`;
+const BLUE_FLAG_HELP = `Blue flag:
+• At base: safe at blue's base
+• Taken: an enemy is carrying it
+• Dropped: on the ground where its carrier died; returns to base after 30 seconds`;
+const NEUTRAL_FLAG_HELP = `Neutral flag: the one flag in One Flag CTF.
+• At base: in the center
+• Carried: shifts toward the team that has it
+• Dropped: on the ground where its carrier died; returns after 30 seconds`;
+const OBELISK_HP_HELP = `Obelisk health for each team.
+• Drains as the other team damages it
 • Pulses while under attack
-• Destroyed at 0 HP — respawns shortly; the attacking team scores`;
-const HARVESTER_SKULLS_HELP = `Enemy skulls this team is currently holding (sum across all team carriers).
-Frags spawn skulls at the central skull generator. Deliver enemy skulls to the enemy receptacle to score. Picking up your own team's skulls denies them to the enemy. Each player can carry up to 5 enemy skulls at once.`;
+• At 0 the attackers score, and the obelisk comes back after a short delay`;
+const HARVESTER_SKULLS_HELP = `Enemy skulls this team's players are carrying, added up.
+Each frag makes a skull appear at the skull generator in the middle of the map. Take enemy skulls to the enemy obelisk to score. Picking up your own team's skulls keeps the enemy from getting them.`;
 
-// Check if this is a team-based game mode
 function isTeamGame(gameType: string): boolean {
   const teamModes = [
     "team deathmatch",
@@ -92,19 +82,17 @@ function isTeamGame(gameType: string): boolean {
   return teamModes.includes(gameType.toLowerCase());
 }
 
-// Free-for-all = neither team mode nor 1v1 tournament.
 function isFreeForAll(gameType: string): boolean {
   const gt = gameType?.toLowerCase();
   return gt === "free for all" || gt === "ffa";
 }
 
-// Check if this is CTF mode
 function isCTF(gameType: string): boolean {
   const ctfModes = ["capture the flag", "ctf", "one flag ctf", "1fctf"];
   return ctfModes.includes(gameType.toLowerCase());
 }
 
-// Get flag status indicator: 0=at base, 1=taken, 2=dropped
+// Flag status: 0 at base, 1 taken, 2 dropped.
 function getFlagIndicator(status: number): {
   className: string;
   title: string;
@@ -122,9 +110,8 @@ function getFlagIndicator(status: number): {
   }
 }
 
-// 1FCTF status values: 0=at base, 2=carried by red, 3=carried by blue,
-// 4=dropped. The single neutral flag drifts toward whichever side
-// currently carries it.
+// One Flag CTF status: 0 at base, 2 carried by red, 3 carried by blue,
+// 4 dropped.
 function getNeutralFlagIndicator(status: number): {
   drift: string;
   title: string;
@@ -160,17 +147,14 @@ function getNeutralFlagIndicator(status: number): {
   }
 }
 
-// usesCaptureLimit returns true for the gametypes that score on
-// captures/objectives rather than frags. Mirrors the engine's
-// `g_gametype >= GT_CTF` check (g_main.c) — CTF, 1FCTF, Overload,
-// and Harvester all read g_capturelimit, not g_fraglimit.
+// The game reads g_capturelimit for every game type from CTF up
+// (`g_gametype >= GT_CTF`).
 function usesCaptureLimit(gameType: string): boolean {
   if (isCTF(gameType)) return true;
   const gt = gameType.toLowerCase();
   return gt === "overload" || gt === "harvester";
 }
 
-// Get the relevant score limit for the game type
 function getScoreLimit(
   gameType: string,
   serverVars?: Record<string, string>,
@@ -187,14 +171,12 @@ function getScoreLimit(
   return null;
 }
 
-// Get time limit if set
 function getTimeLimit(serverVars?: Record<string, string>): number | null {
   if (!serverVars) return null;
   const limit = parseInt(serverVars.timelimit || "0", 10);
   return limit > 0 ? limit : null;
 }
 
-// Format game time from milliseconds to M:SS (supports negative for warmup)
 function formatGameTime(ms: number, isWarmup: boolean = false): string {
   const absMs = Math.abs(ms);
   const totalSeconds = Math.floor(absMs / 1000);
@@ -204,7 +186,6 @@ function formatGameTime(ms: number, isWarmup: boolean = false): string {
   return isWarmup ? `-${timeStr}` : timeStr;
 }
 
-// Get effective game time, using warmup_remaining for negative countdown
 function getDisplayTime(
   server: ServerStatus,
   timeLimitMinutes: number | null,
@@ -237,20 +218,16 @@ function getDisplayTime(
   };
 }
 
-// Hook to interpolate game time between server updates
-// timeLimitMinutes is used to clamp interpolated time so we don't falsely flag overtime
-// `live` gates the local 1-second tick: when the server is offline or its
-// collector is stale the poller keeps re-broadcasting the same snapshot
-// every poll cycle, so ticking would just produce a saw-tooth (count up
-// 1s per second, snap back when the next stale broadcast lands).
+// `live` stops the tick on an offline or stale server: the poller keeps
+// rebroadcasting its last snapshot, so a ticking clock would jump back on
+// every poll.
 function useInterpolatedTime(
   server: ServerStatus,
   timeLimitMinutes: number | null,
   live: boolean,
 ): { gameTimeMs: number; warmupRemaining: number | undefined } {
-  // Track the snapshot we're interpolating from alongside the offset, so when
-  // a new snapshot arrives we can reset offset during render — see
-  // https://react.dev/reference/react/useState#storing-information-from-previous-renders.
+  // Keeping the snapshot with the offset lets a new snapshot reset it during
+  // render: https://react.dev/reference/react/useState#storing-information-from-previous-renders.
   const [state, setState] = useState({
     lastUpdated: server.last_updated,
     offset: 0,
@@ -260,10 +237,8 @@ function useInterpolatedTime(
     setState({ lastUpdated: server.last_updated, offset: 0 });
   }
 
-  // Increment/decrement timer every second based on match state
   useEffect(() => {
     if (!live) return;
-    // Only tick for active, overtime, or warmup states
     if (
       server.match_state !== "active" &&
       server.match_state !== "overtime" &&
@@ -279,15 +254,11 @@ function useInterpolatedTime(
     return () => clearInterval(interval);
   }, [server.match_state, server.last_updated, live]);
 
-  // Use a stable offset only after the reset has landed — for the one render
-  // where we still hold the previous snapshot's offset, treat it as zero.
+  // Until the reset lands, the old snapshot's offset counts as zero.
   const offset = state.lastUpdated === server.last_updated ? state.offset : 0;
 
-  // Calculate interpolated values. During warmup the engine's
-  // game_time_ms is time-since-map-load (it includes warmup), so falling
-  // through to it once the countdown hits 0 would briefly flash ~warmup
-  // duration as "active" time. Synthesize the active clock locally
-  // (offset past warmup_remaining) for a smooth handoff.
+  // During warmup game_time_ms counts from map load, so once the countdown
+  // ends the active clock comes from the local offset.
   let gameTimeMs: number;
   if (server.match_state === "active" || server.match_state === "overtime") {
     gameTimeMs = server.game_time_ms + offset;
@@ -300,8 +271,7 @@ function useInterpolatedTime(
     gameTimeMs = server.game_time_ms;
   }
 
-  // Clamp interpolated time at the time limit so we don't falsely flag overtime.
-  // Overtime should only be shown when the actual server status reports it.
+  // Only the server reports overtime, so the local clock stops at the limit.
   if (
     timeLimitMinutes &&
     timeLimitMinutes > 0 &&
@@ -321,20 +291,18 @@ function useInterpolatedTime(
   return { gameTimeMs, warmupRemaining };
 }
 
-// Sort players by team (Red first, Blue second, then Spec, then Free/Unknown)
-// Within each team, sort by score descending
 function sortPlayersByTeam(players: Player[]): Player[] {
   return [...players].sort((a, b) => {
     const teamOrder = (team?: number) => {
       switch (team) {
         case 1:
-          return 0; // Red first
+          return 0;
         case 2:
-          return 1; // Blue second
+          return 1;
         case 3:
-          return 2; // Spec third
+          return 2;
         default:
-          return 3; // Free/unknown last
+          return 3;
       }
     };
     const teamDiff = teamOrder(a.team) - teamOrder(b.team);
@@ -343,15 +311,13 @@ function sortPlayersByTeam(players: Player[]): Player[] {
   });
 }
 
-// g_mode profile lookup (0..3).
 export const MODE_PROFILES: Record<string, { icon: string; label: string }> = {
-  "0": { icon: "/assets/modes/vq3.png", label: "Quake 3" },
+  "0": { icon: "/assets/modes/vq3.png", label: "Quake III Arena" },
   "1": { icon: "/assets/modes/cpm.png", label: "CPMA" },
   "2": { icon: "/assets/modes/ql.png", label: "Quake Live" },
   "3": { icon: "/assets/modes/qlt.png", label: "Quake Live Turbo" },
 };
 
-// g_mode profile icon with a hover label; unknown/missing falls back to VQ3.
 export function ModeIcon({ mode }: { mode?: string }) {
   const profile = MODE_PROFILES[mode ?? "0"];
   if (!profile) return null;
@@ -368,11 +334,8 @@ export function ModeIcon({ mode }: { mode?: string }) {
   );
 }
 
-// Public ServerCard — subscribes to LiveDataContext for obelisk
-// attackers (Overload row reticles + under-attack pulse), then hands
-// off to the memoized ServerCardImpl. The split lets Impl skip
-// re-renders when a context tick doesn't actually change THIS card's
-// attacker set.
+// Reading obelisk attackers out here lets the memoized ServerCardImpl skip
+// context ticks that leave this card's attacker set alone.
 export function ServerCard(props: ServerCardProps) {
   const { obeliskAttackersByServer } = useLiveData();
   return (
@@ -402,20 +365,13 @@ const ServerCardImpl = memo(function ServerCardImpl({
   const scoreLimit = getScoreLimit(server.game_type, server.server_vars);
   const timeLimit = getTimeLimit(server.server_vars);
 
-  // A card is "degraded" when its data is no longer trustworthy: the
-  // UDP poll has been failing (offline) or the collector heartbeat has
-  // aged out (stale). We freeze the local clock and dim the card so
-  // the timer doesn't saw-tooth and the staleness reads visually.
-  // `liveness` is undefined on first render (before /api/servers
-  // returns) — treat that as live so we don't briefly dim healthy cards.
+  // Offline means the UDP poll is failing; stale means the collector
+  // heartbeat aged out. `liveness` is undefined until /api/servers answers
+  // and counts as live, so healthy cards never flash dim.
   const isDegraded =
     liveness === "offline" || liveness === "stale" || server.online === false;
 
-  // Determine state class and label for top-right badge.
-  // Liveness from /api/servers wins over match_state when degraded — a
-  // stale collector or UDP-unreachable server should signal that
-  // first, since match-state values like "active" become misleading
-  // when the data behind them is no longer fresh.
+  // Liveness outranks match_state: "Active" means nothing once the data is old.
   const getStateBadge = (): { className: string; label: string } => {
     if (liveness === "offline" || !server.online) {
       return { className: "state-offline", label: "Offline" };
@@ -450,17 +406,14 @@ const ServerCardImpl = memo(function ServerCardImpl({
     [levelshotUrl],
   );
 
-  // Players excluding spectators (team 3), sorted for display
   const activePlayers = sortPlayersByTeam(
     (server.players ?? []).filter((p) => p.team !== 3),
   );
   const spectators = (server.players ?? []).filter((p) => p.team === 3);
 
-  // FFA hero strip: king-of-the-hill featured player. Computed for
-  // every render (hook must be unconditional) but only rendered when
-  // the gametype is actually FFA — non-FFA cards just discard the
-  // result. Key on client_num (stable for the duration of a server
-  // session — names aren't unique in Q3).
+  // The hook runs on every card, since hooks can't be conditional, and
+  // only FFA cards show the hero. Keyed on client_num because names
+  // aren't unique.
   const ffaPlayerData: FfaHeroPlayer[] = activePlayers.map((p) => ({
     key: p.client_num,
     name: p.name,
@@ -480,13 +433,10 @@ const ServerCardImpl = memo(function ServerCardImpl({
   const isFfa = isFreeForAll(server.game_type);
   const heroKey = isFfa && ffaHero ? ffaHero.key : null;
 
-  // Live "Watch" deep-link target: open the viewer already following the current
-  // leader (?f=<client slot>). FFA reuses the king-of-the-hill incumbent (holds
-  // through ties until strictly surpassed); other modes take the top score
-  // outright. client_num is the engine slot tv_view takes and is only valid
-  // "now", so this is live-only — match cards never carry it (a late-joining
-  // winner's slot maps to someone else at t=0). null ⇒ no clear leader yet
-  // (warmup / pre-first-frag), so open at the engine's default viewpoint.
+  // The watch link follows the leader (?f=<client slot>): the FFA hero, who
+  // holds through ties, or else the top score. A client slot means something
+  // only while the match runs. With no leader yet, as in warmup, the viewer
+  // opens at its default view.
   const liveLeader = isFfa
     ? ffaHero
       ? Number(ffaHero.key)
@@ -498,7 +448,6 @@ const ServerCardImpl = memo(function ServerCardImpl({
   const liveTo =
     `/tv/${server.source}/${server.key}` +
     (liveLeader != null ? `?f=${liveLeader}` : "");
-  // Hover/AT copy for the LIVE pill: viewer count and honest feed lag, when known.
   const liveViewers = server.live_viewers ?? 0;
   const watchDetails = [
     ...(liveViewers > 0 ? [`${liveViewers} watching`] : []),
@@ -511,13 +460,9 @@ const ServerCardImpl = memo(function ServerCardImpl({
       ? `Watch live (${watchDetails.join(", ")})`
       : "Watch live";
 
-  // Intermission: the match is over, the engine is showing the
-  // final scoreboard, and the next map hasn't loaded yet. Drop the
-  // "live" suppression from Scoreboard/Duelists so they apply their
-  // post-match winner/loser styling (and their TIE / NO CONTEST
-  // banners for ambiguous outcomes). For FFA we compute ffaGild the
-  // same way MatchCard does: gild iff exactly one player holds the
-  // top score, so frag-count ties stay un-gilded.
+  // At intermission the scoreboard shows the final result, so the cards
+  // leave live mode and mark the winner. FFA gilds the leader only when
+  // nobody ties the top score, as MatchCard does.
   const isIntermission = server.match_state === "intermission";
   const ffaTopCount = ffaHero
     ? ffaPlayerData.filter((p) => p.score === ffaHero.score).length
@@ -541,8 +486,6 @@ const ServerCardImpl = memo(function ServerCardImpl({
           <ModeIcon mode={server.server_vars?.g_mode ?? "0"} />
         </RichChip>
         <div className="card__status-row">
-          {/* Live-spectate pill, just left of the status badge; the pulsing
-              dot + LIVE mirror the in-viewer badge and link to the player. */}
           {server.is_live && (
             <Link
               to={liveTo}
@@ -573,11 +516,7 @@ const ServerCardImpl = memo(function ServerCardImpl({
 
       <div className="card__header">
         <div className="card__map" data-help={MAP_HELP}>
-          {/* Both rows always render; the small tracked-uppercase code
-              label and the Cinzel headline are visually distinct, so
-              keeping the slot present makes cards line up across the
-              grid regardless of whether maps.json has a longname. Same
-              fallback chain on both so empty-map states stay symmetric. */}
+          {/* Both rows always render so cards line up across the grid. */}
           <span className="card__map-short">
             {meta.shortName || server.map || "Unknown"}
           </span>
@@ -596,7 +535,6 @@ const ServerCardImpl = memo(function ServerCardImpl({
       {showTeamScores &&
         server.team_scores &&
         (() => {
-          // CTF/1FCTF feed flag icons into Scoreboard slots; other team modes leave them empty.
           const obj = server.obj_status;
           const redInd =
             obj?.mode === "ctf"
@@ -655,9 +593,6 @@ const ServerCardImpl = memo(function ServerCardImpl({
                   );
                 })()
               : undefined;
-          // Overload HP bars in the indicator slots. An obelisk is "under
-          // attack" when any player on the OPPOSING team is currently
-          // damaging it (mirrors the attacker reticle on player rows).
           const maxHP =
             server.obelisk_health_max && server.obelisk_health_max > 0
               ? server.obelisk_health_max
@@ -666,7 +601,6 @@ const ServerCardImpl = memo(function ServerCardImpl({
           if (attackingSlots && attackingSlots.size > 0) {
             for (const p of server.players ?? []) {
               if (!attackingSlots.has(p.client_num)) continue;
-              // Player on team N attacks the OPPOSING obelisk.
               if (p.team === 1) obeliskUnderAttack.blue = true;
               else if (p.team === 2) obeliskUnderAttack.red = true;
             }
@@ -679,8 +613,8 @@ const ServerCardImpl = memo(function ServerCardImpl({
               underAttack={obeliskUnderAttack[team]}
             />
           );
-          // Gate on `!== undefined` so a still-empty cvar (pre-spawn) skips
-          // render, while a real HP=0 (destroyed) renders the empty bar.
+          // Undefined before the obelisk spawns; 0 means destroyed and
+          // still draws the empty bar.
           const overloadRed =
             obj?.mode === "overload" && obj.red_obelisk_hp !== undefined
               ? overloadInd("red", obj.red_obelisk_hp)
@@ -689,9 +623,8 @@ const ServerCardImpl = memo(function ServerCardImpl({
             obj?.mode === "overload" && obj.blue_obelisk_hp !== undefined
               ? overloadInd("blue", obj.blue_obelisk_hp)
               : undefined;
-          // Harvester live carry tally. Icon is OPPOSING team's color
-          // (red carrier holds blue skulls), matching the CTF flag-carrier
-          // convention. MedalIcon is reserved for cumulative awards.
+          // The icon takes the enemy's color, since a red carrier holds blue
+          // skulls, as with a CTF flag carrier.
           const harvestInd = (team: "red" | "blue", skulls: number) => (
             <span
               className={`harvester-skulls harvester-skulls--${team}`}
@@ -728,9 +661,6 @@ const ServerCardImpl = memo(function ServerCardImpl({
           );
         })()}
 
-      {/* 1v1 duel: portraits + score side-by-side. FFA: hero strip
-          above the table for the king-of-the-hill leader. Other modes
-          use the player table directly. */}
       {server.game_type === "1v1" && activePlayers.length >= 2 ? (
         <Duelists
           left={duelistFromLivePlayer(activePlayers[0])}
@@ -788,10 +718,8 @@ const ServerCardImpl = memo(function ServerCardImpl({
     </div>
   );
 
-  // Whole-card link, same recipe as the landing match cards: inner
-  // interactive elements (LIVE pill, player rows) are neutered via the
-  // .landing-watch-link pointer-events CSS so every pixel resolves to one
-  // action — the live viewer when broadcasting, the servers page otherwise.
+  // .landing-watch-link turns off pointer events inside the card, so the
+  // whole card is one link.
   if (landingCard) {
     return server.is_live ? (
       <Link
@@ -815,8 +743,7 @@ const ServerCardImpl = memo(function ServerCardImpl({
   return card;
 });
 
-// Isolates the 1-second interpolation tick so it only re-renders this
-// small subtree, not the full card.
+// Holds the one-second tick so only this subtree re-renders.
 const CardLimits = memo(function CardLimits({
   server,
   timeLimit,
@@ -865,7 +792,6 @@ const CardLimits = memo(function CardLimits({
   );
 });
 
-// DuelistData from a live-server Player. Sub-text is ping (live analog of F/D).
 function duelistFromLivePlayer(p: Player | undefined): DuelistData {
   if (!p) {
     return { name: "—", score: 0 };
@@ -886,10 +812,7 @@ function duelistFromLivePlayer(p: Player | undefined): DuelistData {
   };
 }
 
-// ObeliskHPIndicator renders an Overload obelisk's HP bar. At HP=0 the
-// bar stays present (empty + pulsing) to signal "respawning". When
-// `underAttack` is true (and not destroyed), an ember ring pulses
-// around the bar.
+// At 0 HP the bar stays, empty and pulsing, while the obelisk respawns.
 function ObeliskHPIndicator({
   team,
   hp,
@@ -905,7 +828,7 @@ function ObeliskHPIndicator({
   const destroyed = hp <= 0;
   const attacked = !!underAttack && !destroyed;
   const label = destroyed
-    ? `${team} obelisk destroyed — respawning…`
+    ? `${team} obelisk destroyed, respawning…`
     : attacked
       ? `${team} obelisk under attack: ${hp} / ${maxHP} HP`
       : `${team} obelisk: ${hp} / ${maxHP} HP`;
@@ -927,9 +850,6 @@ function ObeliskHPIndicator({
   );
 }
 
-// Maps client_num → carried flag (if any). Only meaningful for CTF / 1FCTF;
-// returns undefined for other gametypes (their objective state is not
-// flag-carrier shaped — see SkullsCarrying / ObelisksDestroyed on Player).
 function flagCarrierForClient(
   obj: import("../types").ObjStatus | undefined,
   clientNum: number,

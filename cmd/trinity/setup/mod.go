@@ -9,11 +9,10 @@ import (
 
 const modRepo = "ernie/trinity"
 
-// Mod paks and their install subdirs. The naming is historical and
-// non-obvious: pak3t.pk3 is the missionpack mod (config-missionpack.mk
-// sets PK3 = pak3t.pk3) and pak8t.pk3 is the baseq3 mod
-// (config-baseq3.mk sets PK3 = pak8t.pk3). Don't try to "fix" the
-// pairing — q3's vfs uses these as load-order slots, not mod identifiers.
+// Mod paks and their install subdirs. pak3t.pk3 is the missionpack mod
+// and pak8t.pk3 the baseq3 mod (PK3 in the mod's config-missionpack.mk
+// and config-baseq3.mk); the names are load-order slots in the game's
+// file system.
 var modPaks = []struct {
 	Asset, Subdir string
 }{
@@ -23,15 +22,11 @@ var modPaks = []struct {
 }
 
 // InstallMod overlays the latest mod pk3s on top of whatever the
-// engine bundled. Each pak is downloaded to a staging file owned by
-// uid/gid in the same directory it'll land in (so the rename-into-
-// place is atomic on the same filesystem), verified against the
-// release's sha256sums.txt, and then renamed onto the live pk3.
+// engine bundled. Each pak is staged beside its destination, verified
+// against the release's sha256sums.txt, and renamed onto the live pk3.
 //
-// Caller is responsible for stopping any running trinity.ded
-// instances first — q3 holds pk3s open via mmap, and a rename swaps
-// the inode while the running process keeps the old one (so it won't
-// crash, but it won't see the new mod until restart either).
+// The caller stops running trinity.ded instances first: a running
+// server keeps the old pk3 open and sees the new mod only after a restart.
 //
 // Returns the resolved tag (whatever "latest" mapped to, or the
 // explicit tag passed in).
@@ -58,10 +53,8 @@ func InstallMod(plan *Plan, tag, quake3Dir string, uid, gid int) (string, error)
 		if err := plan.MkdirChown(destDir, 0755, uid, gid); err != nil {
 			return "", err
 		}
-		// Stage adjacent to the destination so rename(2) is atomic.
-		// Download runs as the service user via curl so the file lands
-		// service-owned; we lose DownloadReleaseAsset's gh fallback,
-		// which doesn't matter for the mod (public releases, no auth).
+		// Staged beside the destination so rename(2) is atomic, and
+		// downloaded as the service user so the file is service-owned.
 		stagePath := filepath.Join(destDir, "."+m.Asset+".new")
 		url := ReleaseAssetURL(modRepo, resolvedTag, m.Asset)
 		if err := plan.DownloadAs(uid, gid, url, stagePath); err != nil {

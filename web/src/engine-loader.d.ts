@@ -1,7 +1,5 @@
-// Ambient typing for the runtime-imported WASM engine loader
-// (web/public/engine/loader.js, from ../trinity-engine). It's a dynamic import
-// of an absolute URL with no TS source entry, so this declaration gives it a
-// real type instead of a suppression comment.
+// Types for the WASM engine loader, web/public/engine/loader.js from
+// trinity-engine, which is imported at runtime from an absolute URL.
 import type { EngineModule } from "./types";
 
 export interface LoadEngineOptions {

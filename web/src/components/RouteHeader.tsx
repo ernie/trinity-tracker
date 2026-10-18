@@ -1,11 +1,8 @@
 import { useLocation } from "react-router-dom";
 import { Header } from "./Header";
 
-// Route-aware Header. Mounted once at the shell so its DOM persists
-// across navigations — the right-side community / auth cluster no
-// longer flashes through a remount when nav tabs change. Title is
-// derived from pathname; routes with their own header (landing,
-// demo player, play canvas) render nothing.
+// Mounted once at the shell so the header survives navigation. Routes
+// that draw their own header get null.
 function deriveTitle(
   pathname: string,
 ): { title: string; wordmark?: string } | null {
@@ -14,15 +11,16 @@ function deriveTitle(
   if (/^\/matches\/\d+\/demo$/.test(pathname)) return null;
   if (pathname.startsWith("/tv/")) return null;
 
-  if (/^\/matches\/\d+/.test(pathname)) return { title: "Match Details" };
+  if (/^\/matches\/\d+/.test(pathname)) return { title: "Match details" };
   if (pathname.startsWith("/matches")) return { title: "Matches" };
   if (pathname.startsWith("/players")) return { title: "Players" };
   if (pathname.startsWith("/leaderboard")) return { title: "Leaderboard" };
   if (pathname.startsWith("/docs")) return { title: "Docs" };
-  if (pathname.startsWith("/account")) return { title: "My Account" };
+  if (pathname.startsWith("/account")) return { title: "My account" };
   if (pathname.startsWith("/admin")) return { title: "Admin" };
-  if (pathname.startsWith("/claim")) return { title: "Claim Identity" };
-  if (pathname.startsWith("/quake3-eula")) return { title: "Quake 3 EULA" };
+  if (pathname.startsWith("/claim")) return { title: "Claim identity" };
+  if (pathname.startsWith("/quake3-eula"))
+    return { title: "Quake III Arena EULA" };
   return { title: "Trinity", wordmark: "tracker" };
 }
 

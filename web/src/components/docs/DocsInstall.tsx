@@ -5,9 +5,6 @@ import { DISCORD_INVITE_URL } from "../../constants/discord";
 import { DocsH2 } from "./DocsH2";
 import { PlatformNote } from "./PlatformNote";
 
-// /docs/install — get Quake 3 and run the Trinity Installer; then
-// Automatic Updates and Troubleshooting. Flat and VR share
-// one install; VR-only details (headsets) sit in PlatformNotes.
 export function DocsInstall() {
   const { releases } = useGitHubReleases();
   const installer = useInstallerDownload();
@@ -16,7 +13,7 @@ export function DocsInstall() {
   return (
     <>
       <div className="about-section">
-        <DocsH2 id="get-quake3">Step 1 — Get Quake III Arena</DocsH2>
+        <DocsH2 id="get-quake3">Step 1: Get Quake III Arena</DocsH2>
         <p>
           Trinity needs a retail Quake III Arena with Team Arena; it uses their{" "}
           <code>pak0.pk3</code> files.
@@ -28,7 +25,7 @@ export function DocsInstall() {
             target="_blank"
             rel="noopener noreferrer"
           >
-            Quake 3 Arena on Steam
+            Quake III Arena on Steam
           </a>{" "}
           (or use a retail CD install) and install it on a PC or Mac. Steam's
           release ships both the base game and Team Arena. The Trinity Installer
@@ -37,11 +34,11 @@ export function DocsInstall() {
       </div>
 
       <div className="about-section">
-        <DocsH2 id="install-trinity">Step 2 — Run the Trinity Installer</DocsH2>
+        <DocsH2 id="install-trinity">Step 2: Run the Trinity Installer</DocsH2>
         <p>
           The <strong>Trinity Installer</strong> downloads the latest Trinity
-          for the device you pick, copies your Quake 3 game files (fetching the
-          1.32 patch files if your install lacks them, after you accept id
+          for the device you pick, copies your Quake III game files (fetching
+          the 1.32 patch files if your install lacks them, after you accept id
           Software's license), and adds Steam shortcuts and SteamVR settings
           where Steam is present.
         </p>
@@ -68,48 +65,48 @@ export function DocsInstall() {
           </a>
         </p>
         <p>
-          Run it on the computer with Quake 3 installed and choose where Trinity
-          goes:
+          Run it on the computer with Quake III installed and choose where
+          Trinity goes:
         </p>
         <ul>
           <li>
-            <strong>This PC or Mac</strong> — nothing else to prepare. On
-            Windows it installs to <code>C:\Games\Trinity</code> by default; on
-            Windows and Linux you pick whether shortcuts start in VR or flat,
-            and "Add to Steam" adds Trinity to your Steam library (the VR
-            shortcut also shows up in SteamVR).
+            <strong>This PC or Mac:</strong> nothing else to prepare. On Windows
+            it installs to <code>C:\Games\Trinity</code> by default. On Windows
+            and Linux you pick whether shortcuts start in VR or flatscreen, and
+            "Add to Steam" adds Trinity to your Steam library, where the VR
+            shortcut also shows up in SteamVR.
           </li>
           <li>
-            <strong>Steam Frame</strong> — turn on Developer Mode on the
-            headset, then pair it from{" "}
+            <strong>Steam Frame:</strong> turn on Developer Mode on the headset,
+            then pair it from{" "}
             <strong>Settings → Developer → Pair new host</strong> when the
             installer asks.
           </li>
           <li>
-            <strong>Meta Quest or PICO</strong> — turn on Developer Mode and USB
+            <strong>Meta Quest or PICO:</strong> turn on Developer Mode and USB
             debugging, connect the headset over USB, and accept the debugging
             prompt in the headset.
           </li>
         </ul>
         <PlatformNote platform="vr">
           <p>
-            On a PC, one Trinity install plays both flat and in VR, through
+            On a PC, one Trinity install plays both flatscreen and VR, through
             SteamVR or any OpenXR runtime; pick one at{" "}
             <strong>Setup → Display → Display Mode</strong>. On a Steam Frame,
-            Quest, or PICO, Trinity runs on the headset itself — the computer is
-            only needed to install it — and plays VR only, with the Vulkan
-            renderer and no Display Mode setting.
+            Quest, or PICO, Trinity runs on the headset itself and plays VR
+            only, with the Vulkan renderer and no Display Mode setting. You need
+            the computer only to install it.
           </p>
         </PlatformNote>
       </div>
 
       <div className="about-section">
-        <DocsH2 id="automatic-updates">Automatic Updates</DocsH2>
+        <DocsH2 id="automatic-updates">Automatic updates</DocsH2>
         <p>
           Trinity checks for new releases on startup. When an update is
-          available, an indicator appears on the main menu — download and apply
-          it from there. On a PC, Mac, or Steam Frame the engine relaunches
-          itself.
+          available, an indicator appears on the main menu, where you can
+          download and apply it. On a PC, Mac, or Steam Frame, Trinity then
+          relaunches itself.
         </p>
         <PlatformNote platform="vr">
           <p>
@@ -150,16 +147,14 @@ export function DocsInstall() {
             <summary>My stats aren't showing up on this site</summary>
             <div className="install-trouble__body">
               <p>
-                Stats only flow from servers that run the Trinity collector.
-                Trinity is backwards-compatible with vanilla servers, but
-                vanilla servers don't report matches anywhere. Check the server
-                cards on the <Link to="/servers">Servers page</Link> —
-                collector-enabled servers are labeled.
+                Only servers running the Trinity collector report stats. Trinity
+                can play on standard Quake III servers, but those don&rsquo;t
+                report matches anywhere. Servers that report to this site are
+                labeled on the <Link to="/servers">Servers</Link> page.
               </p>
               <p>
-                You don't need a Trinity account for the hub to track you —
-                accounts come into play if your stats end up split across
-                multiple installs (next item).
+                The hub tracks you with or without a Trinity account. An account
+                helps when your stats end up split across installs.
               </p>
             </div>
           </details>
@@ -172,17 +167,15 @@ export function DocsInstall() {
               <p>
                 Trinity identifies you by a per-install file (your{" "}
                 <code>qkey</code>), so each Trinity install starts out as a
-                separate identity from the hub's perspective. If you've
-                installed on more than one machine — or reinstalled — your stats
-                can end up split across two or three "yous," even if the in-game
-                name is the same.
+                separate player to the hub. If you&rsquo;ve installed on more
+                than one machine, or reinstalled, your stats can end up split
+                across two or three &ldquo;yous,&rdquo; even under the same
+                in-game name.
               </p>
               <p>
-                Sign into a Trinity account on every platform you play on, and
-                the hub merges your installs automatically — no manual{" "}
-                <code>!link</code> commands needed. See the{" "}
-                <Link to="/docs/account">Account docs</Link> for the sign-in
-                flow.
+                Sign in to a Trinity account on every device you play on, and
+                the hub merges your installs automatically. The{" "}
+                <Link to="/docs/account">Account</Link> page covers signing in.
               </p>
             </div>
           </details>
@@ -192,25 +185,22 @@ export function DocsInstall() {
             <div className="install-trouble__body">
               <ul>
                 <li>
-                  <strong>Are you receiving voice at all?</strong> When someone
-                  speaks, a speaker icon shows up over their head and in the
-                  talker stack at the upper right of the HUD. If those never
-                  appear, you're not getting voice from the server.
+                  When someone speaks, a speaker icon shows up over their head
+                  and in the talker stack at the upper right of the HUD. If
+                  those never appear, you&rsquo;re not getting voice from the
+                  server.
                 </li>
                 <li>
-                  <strong>Voice volume.</strong> Voice has its own volume (
-                  <code>cl_voipVolume</code>), separate from main and music.
+                  Check <strong>Setup → System → Sound</strong>: <em>VOIP</em>{" "}
+                  must be on (the default), and voice has its own{" "}
+                  <em>VOIP Volume</em>, separate from the main and music
+                  volumes.
                 </li>
                 <li>
-                  <strong>Client setting.</strong> <code>cl_voip 1</code>{" "}
-                  (default).
-                </li>
-                <li>
-                  <strong>Server setting.</strong> If the indicators never
-                  appear no matter who's playing, the server probably doesn't
-                  have voice chat turned on. Try a different server, or ask in
-                  the <a href={DISCORD_INVITE_URL}>Trinity Discord</a> for
-                  server-specific help.
+                  If the indicators never appear no matter who&rsquo;s playing,
+                  the server probably has voice chat turned off. Try a different
+                  server, or ask in the{" "}
+                  <a href={DISCORD_INVITE_URL}>Trinity Discord</a>.
                 </li>
               </ul>
             </div>
@@ -220,8 +210,8 @@ export function DocsInstall() {
             <summary>People can't hear me on voice chat</summary>
             <div className="install-trouble__body">
               <p>
-                Look at the speaker icon on your own player portrait in the HUD
-                — that's the fastest way to read your transmit state:
+                The speaker icon on your own player portrait in the HUD shows
+                whether you&rsquo;re transmitting:
               </p>
               <ul>
                 <li>
@@ -229,16 +219,17 @@ export function DocsInstall() {
                   press <strong>VoIP PTT / Toggle</strong> to unmute.
                 </li>
                 <li>
-                  <strong>Speaker with no sound waves.</strong> In push-to-talk,
-                  hold your <strong>VoIP PTT / Toggle</strong> binding; with
-                  voice activity, speak above <code>cl_voipVADThreshold</code>.
+                  <strong>Speaker with no sound waves.</strong> With{" "}
+                  <em>Push to talk</em>, hold your{" "}
+                  <strong>VoIP PTT / Toggle</strong> binding; with{" "}
+                  <em>When speaking</em>, speak above the <em>Threshold</em> in{" "}
+                  <strong>Setup → System → Sound</strong>.
                 </li>
                 <li>
                   <strong>Speaker with sound waves.</strong> You're
-                  transmitting. If people still can't hear you, the issue is
-                  downstream — server config or their end. Hop into the{" "}
-                  <a href={DISCORD_INVITE_URL}>Trinity Discord</a> for help
-                  digging in.
+                  transmitting. If people still can&rsquo;t hear you, the
+                  problem is the server&rsquo;s config or their end. Ask in the{" "}
+                  <a href={DISCORD_INVITE_URL}>Trinity Discord</a> for help.
                 </li>
               </ul>
             </div>

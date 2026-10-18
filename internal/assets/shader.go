@@ -26,7 +26,6 @@ func ParseShaderTextures(r io.Reader) ([]ShaderTextureDef, error) {
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		// Handle block comments
 		if inBlockComment {
 			if idx := strings.Index(line, "*/"); idx >= 0 {
 				line = line[idx+2:]
@@ -36,13 +35,12 @@ func ParseShaderTextures(r io.Reader) ([]ShaderTextureDef, error) {
 			}
 		}
 
-		// Process comments: find whichever comment marker comes first
+		// Strip comments, taking whichever marker comes first.
 		for {
 			slashSlash := strings.Index(line, "//")
 			slashStar := strings.Index(line, "/*")
 
 			if slashStar >= 0 && (slashSlash < 0 || slashStar < slashSlash) {
-				// /* comes first — handle block comment
 				endIdx := strings.Index(line[slashStar+2:], "*/")
 				if endIdx >= 0 {
 					line = line[:slashStar] + line[slashStar+2+endIdx+2:]
@@ -53,7 +51,6 @@ func ParseShaderTextures(r io.Reader) ([]ShaderTextureDef, error) {
 					break
 				}
 			} else if slashSlash >= 0 {
-				// // comes first — strip rest of line
 				line = line[:slashSlash]
 				break
 			} else {

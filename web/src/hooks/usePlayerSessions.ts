@@ -38,18 +38,15 @@ export function usePlayerSessions(
 
         if (!res.ok) {
           if (res.status === 401) {
-            throw new Error("Unauthorized");
+            throw new Error("Log in to see sessions.");
           }
           if (res.status === 403) {
-            throw new Error("Admin access required");
+            throw new Error("Only admins can see sessions.");
           }
-          throw new Error("Failed to load sessions");
+          throw new Error("Couldn't load sessions.");
         }
 
-        // Go's json.Marshal serializes a nil slice as `null`, not `[]`,
-        // so the API can hand us null when a player has no sessions.
-        // Coerce to an empty array so downstream `.length` access can't
-        // throw and the caller sees the standard empty-state path.
+        // Go's json.Marshal sends a nil slice as null.
         const raw = await res.json();
         const data: PlayerSession[] = Array.isArray(raw) ? raw : [];
 
@@ -62,7 +59,7 @@ export function usePlayerSessions(
         setHasMore(data.length === 10);
       } catch (err) {
         setError(
-          err instanceof Error ? err.message : "Failed to load sessions",
+          err instanceof Error ? err.message : "Couldn't load sessions.",
         );
       } finally {
         setLoading(false);
@@ -72,8 +69,7 @@ export function usePlayerSessions(
   );
 
   useEffect(() => {
-    // Reset on player change so a new caller doesn't briefly see
-    // the previous player's sessions while the next page is in flight.
+    // Reset so a new player never shows the last one's sessions while loading.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSessions([]);
     setHasMore(true);

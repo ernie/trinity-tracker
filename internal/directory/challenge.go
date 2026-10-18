@@ -8,17 +8,15 @@ import (
 )
 
 const (
-	challengeBytes = 12 // 12 chars from a 64-char alphabet ≈ 72 bits — well below the engine's 128-byte cap
+	challengeBytes = 12 // about 72 bits, well under the engine's 128-byte cap
 )
 
-// challengeAlphabet is the printable ASCII subset that survives the
-// engine's infostring sanitizer. The engine strips `\` (separator) and
-// `;` (cvar terminator); we additionally avoid `"` and whitespace.
+// challengeAlphabet survives the engine's infostring sanitizer, which
+// strips \ and ;, and leaves out " and whitespace too.
 var challengeAlphabet = []byte("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_")
 
-// challengeTracker holds outstanding challenges issued in response to
-// heartbeats. Each entry expires after challengeTimeout. The cap on
-// total entries (max) bounds memory under a heartbeat-spoof flood.
+// challengeTracker holds the challenges issued to heartbeats until they
+// expire. max bounds memory under a flood of spoofed heartbeats.
 type challengeTracker struct {
 	mu      sync.Mutex
 	now     func() time.Time
@@ -44,10 +42,9 @@ func newChallengeTracker(timeout time.Duration, max int, now func() time.Time) *
 	}
 }
 
-// Issue generates a new challenge for srcAddr, evicting any previous
-// outstanding challenge from the same source. Returns the challenge
-// string. If the cap is reached, Issue returns "" — caller should drop
-// the heartbeat.
+// Issue returns a new challenge for srcAddr, replacing any earlier one.
+// It returns "" when the tracker is full, and the caller drops the
+// heartbeat.
 func (t *challengeTracker) Issue(srcAddr netip.AddrPort) string {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -67,9 +64,8 @@ func (t *challengeTracker) Issue(srcAddr netip.AddrPort) string {
 	return c
 }
 
-// Take consumes the challenge for srcAddr if value matches and the
-// entry has not expired. Returns true on success. The entry is removed
-// either way (a single-use token).
+// Take reports whether value matches srcAddr's unexpired challenge. The
+// challenge is single use, so it's removed either way.
 func (t *challengeTracker) Take(srcAddr netip.AddrPort, value string) bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -84,7 +80,7 @@ func (t *challengeTracker) Take(srcAddr netip.AddrPort, value string) bool {
 	return entry.value == value
 }
 
-// gcLocked drops expired entries. Caller must hold mu.
+// gcLocked drops expired entries. The caller holds mu.
 func (t *challengeTracker) gcLocked() {
 	now := t.now()
 	for k, v := range t.pending {
@@ -94,13 +90,11 @@ func (t *challengeTracker) gcLocked() {
 	}
 }
 
-// randomChallenge returns a fresh challenge string. Uses crypto/rand so
-// an attacker who can't observe the wire can't forge one.
+// randomChallenge uses crypto/rand so an attacker who can't see the
+// traffic can't forge a challenge.
 func randomChallenge() string {
 	buf := make([]byte, challengeBytes)
 	if _, err := rand.Read(buf); err != nil {
-		// crypto/rand failures are unrecoverable in Go; panicking matches
-		// the rest of the stdlib's behavior on this code path.
 		panic("directory: crypto/rand failed: " + err.Error())
 	}
 	out := make([]byte, challengeBytes)

@@ -36,7 +36,6 @@ export function AccountPage() {
     setFeaturedHonor,
   } = usePlayerStats(profile?.player?.id, period);
 
-  // Link code state
   const [linkCode, setLinkCode] = useState<string | null>(null);
   const [expiresAt, setExpiresAt] = useState<Date | null>(null);
   const [timeRemaining, setTimeRemaining] = useState(0);
@@ -44,13 +43,11 @@ export function AccountPage() {
   const [linkError, setLinkError] = useState("");
   const timerRef = useRef<number | null>(null);
 
-  // Claim code state (for linking a claim code on this page)
   const [claimCode, setClaimCode] = useState("");
   const [claimLoading, setClaimLoading] = useState(false);
   const [claimError, setClaimError] = useState("");
   const [claimSuccess, setClaimSuccess] = useState(false);
 
-  // Game token state
   const [gameToken, setGameToken] = useState<string | null>(null);
   const [gameTokenLoading, setGameTokenLoading] = useState(false);
   const [gameTokenError, setGameTokenError] = useState("");
@@ -58,16 +55,13 @@ export function AccountPage() {
   const [gameTokenVisible, setGameTokenVisible] = useState(false);
   const [showRotateConfirm, setShowRotateConfirm] = useState(false);
 
-  // Display name state
   const [editingDisplayName, setEditingDisplayName] = useState(false);
   const [displayNameValue, setDisplayNameValue] = useState("");
   const [displayNameError, setDisplayNameError] = useState("");
   const [savingDisplayName, setSavingDisplayName] = useState(false);
 
-  // Portrait picker state
   const [showPortraitPicker, setShowPortraitPicker] = useState(false);
 
-  // Password change state
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -99,7 +93,7 @@ export function AccountPage() {
       });
       if (!res.ok) {
         const data = await res.json();
-        setDisplayNameError(data.error || "Failed to update display name");
+        setDisplayNameError(data.error || "Couldn't update your display name.");
         return;
       }
       setEditingDisplayName(false);
@@ -109,7 +103,7 @@ export function AccountPage() {
       }
       refetchStats();
     } catch {
-      setDisplayNameError("Network error");
+      setDisplayNameError("Couldn't reach the server.");
     } finally {
       setSavingDisplayName(false);
     }
@@ -126,14 +120,12 @@ export function AccountPage() {
     refetchStats();
   };
 
-  // Redirect if not authenticated (after auth check completes)
   useEffect(() => {
     if (!authLoading && !auth.isAuthenticated) {
       navigate("/");
     }
   }, [authLoading, auth.isAuthenticated, navigate]);
 
-  // Fetch profile on mount
   useEffect(() => {
     if (!auth.isAuthenticated) return;
 
@@ -141,7 +133,7 @@ export function AccountPage() {
     setLoading(true);
     apiFetch("/api/account/profile")
       .then((res) => {
-        if (!res.ok) throw new Error("Failed to load profile");
+        if (!res.ok) throw new Error("Couldn't load your profile.");
         return res.json();
       })
       .then((data) => setProfile(data))
@@ -149,7 +141,6 @@ export function AccountPage() {
       .finally(() => setLoading(false));
   }, [auth.isAuthenticated]);
 
-  // Link code countdown timer
   useEffect(() => {
     if (!expiresAt) return;
 
@@ -177,7 +168,6 @@ export function AccountPage() {
     };
   }, [expiresAt]);
 
-  // Fetch game token on mount
   useEffect(() => {
     if (!auth.isAuthenticated) return;
 
@@ -185,7 +175,7 @@ export function AccountPage() {
     setGameTokenLoading(true);
     apiFetch("/api/auth/game-token")
       .then((res) => {
-        if (!res.ok) throw new Error("Failed to load game token");
+        if (!res.ok) throw new Error("Couldn't load your game token.");
         return res.json();
       })
       .then((data) => setGameToken(data.token))
@@ -200,7 +190,7 @@ export function AccountPage() {
       setGameTokenCopied(true);
       setTimeout(() => setGameTokenCopied(false), 2000);
     } catch {
-      setGameTokenError("Failed to copy to clipboard");
+      setGameTokenError("Couldn't copy to the clipboard.");
     }
   };
 
@@ -216,14 +206,14 @@ export function AccountPage() {
 
       if (!res.ok) {
         const data = await res.json();
-        setGameTokenError(data.error || "Failed to rotate token");
+        setGameTokenError(data.error || "Couldn't rotate your token.");
         return;
       }
 
       const data = await res.json();
       setGameToken(data.token);
     } catch {
-      setGameTokenError("Network error");
+      setGameTokenError("Couldn't reach the server.");
     } finally {
       setGameTokenLoading(false);
     }
@@ -236,7 +226,6 @@ export function AccountPage() {
     setClaimSuccess(false);
 
     try {
-      // First validate the code
       const validateRes = await fetch("/api/claim/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -244,11 +233,10 @@ export function AccountPage() {
       });
       if (!validateRes.ok) {
         const data = await validateRes.json();
-        setClaimError(data.error || "Invalid or expired claim code");
+        setClaimError(data.error || "That code is wrong or has expired.");
         return;
       }
 
-      // Then link it
       const res = await apiFetch("/api/claim/link", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -256,13 +244,13 @@ export function AccountPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setClaimError(data.error || "Failed to link player");
+        setClaimError(data.error || "Couldn't link this player.");
         return;
       }
       setClaimSuccess(true);
       setClaimCode("");
     } catch {
-      setClaimError("Network error");
+      setClaimError("Couldn't reach the server.");
     } finally {
       setClaimLoading(false);
     }
@@ -279,7 +267,7 @@ export function AccountPage() {
 
       if (!res.ok) {
         const data = await res.json();
-        setLinkError(data.error || "Failed to generate code");
+        setLinkError(data.error || "Couldn't generate a code.");
         return;
       }
 
@@ -287,7 +275,7 @@ export function AccountPage() {
       setLinkCode(data.code);
       setExpiresAt(new Date(data.expires_at));
     } catch {
-      setLinkError("Network error");
+      setLinkError("Couldn't reach the server.");
     } finally {
       setGeneratingCode(false);
     }
@@ -305,12 +293,12 @@ export function AccountPage() {
     setPasswordSuccess(false);
 
     if (newPassword.length < 8) {
-      setPasswordError("Password must be at least 8 characters");
+      setPasswordError("Password must be at least 8 characters.");
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setPasswordError("Passwords do not match");
+      setPasswordError("The passwords don't match.");
       return;
     }
 
@@ -319,7 +307,7 @@ export function AccountPage() {
     setChangingPassword(false);
 
     if (!result.success) {
-      setPasswordError(result.error || "Failed to change password");
+      setPasswordError(result.error || "Couldn't change your password.");
     } else {
       setPasswordSuccess(true);
       setCurrentPassword("");
@@ -332,28 +320,25 @@ export function AccountPage() {
   if (authLoading || !auth.isAuthenticated) {
     return (
       <div className="account-page">
-        <div className="loading">Loading...</div>
+        <div className="loading">Loading…</div>
       </div>
     );
   }
 
   return (
     <div className="account-page">
-      {loading && <div className="loading">Loading...</div>}
+      {loading && <div className="loading">Loading…</div>}
       {error && <div className="error-message">{error}</div>}
 
       {profile && (
         <div className="account-columns">
-          {/* Left Column: Player Profile & GUIDs */}
           <div className="account-left">
-            {/* Player Profile with Stats */}
             <section className="account-section account-profile">
-              <h2>Player Profile</h2>
+              <h2>Player profile</h2>
               {profile.player ? (
                 <>
-                  {/* Use the same triad (PlayerHero → PeriodSelector →
-                      HonorsPanel) as PlayersPage and PlayerStatsModal so
-                      this view stays in lockstep with the others. */}
+                  {/* Same stack as PlayersPage and PlayerStatsModal; keep
+                      the three in step. */}
                   {stats ? (
                     <>
                       <PlayerHero
@@ -392,21 +377,20 @@ export function AccountPage() {
               )}
             </section>
 
-            {/* GUIDs Section */}
             {profile.guids && profile.guids.length > 0 && (
               <section className="account-section account-guids">
-                <h2>Your Game Identities ({profile.guids.length})</h2>
+                <h2>Your game identities ({profile.guids.length})</h2>
                 <div className="guids-list">
                   {profile.guids.map((guid) => (
                     <div key={guid.id} className="guid-item">
                       <div className="guid-main">
                         <ColoredText text={guid.name} />
                         <span className="guid-hash" title={guid.guid}>
-                          {guid.guid.slice(0, 8)}...
+                          {guid.guid.slice(0, 8)}…
                         </span>
                       </div>
                       <div className="guid-dates">
-                        {formatDate(guid.first_seen)} -{" "}
+                        {formatDate(guid.first_seen)} –{" "}
                         {formatDate(guid.last_seen)}
                       </div>
                     </div>
@@ -415,7 +399,6 @@ export function AccountPage() {
               </section>
             )}
 
-            {/* Recent Matches Section */}
             {profile.player && (
               <section className="account-section account-matches">
                 <PlayerRecentMatches playerId={profile.player.id} />
@@ -423,15 +406,13 @@ export function AccountPage() {
             )}
           </div>
 
-          {/* Right Column: Account Info, Password, Link */}
           <div className="account-right">
-            {/* Account Information */}
             <section className="account-section account-info">
-              <h2>Account Information</h2>
+              <h2>Account information</h2>
               <dl className="info-list">
                 <dt>Username</dt>
                 <dd>{profile.user.username}</dd>
-                <dt>Display Name</dt>
+                <dt>Display name</dt>
                 <dd>
                   {editingDisplayName ? (
                     <div className="display-name-edit-inline">
@@ -466,7 +447,7 @@ export function AccountPage() {
                           }
                           onClick={handleSaveDisplayName}
                         >
-                          {savingDisplayName ? "Saving..." : "Save"}
+                          {savingDisplayName ? "Saving…" : "Save"}
                         </button>
                         <button
                           className="claim-secondary-btn"
@@ -504,9 +485,9 @@ export function AccountPage() {
                 </dd>
                 <dt>Role</dt>
                 <dd>{profile.user.is_admin ? "Administrator" : "User"}</dd>
-                <dt>Account Created</dt>
+                <dt>Account created</dt>
                 <dd>{formatDateTime(profile.user.created_at)}</dd>
-                <dt>Last Login</dt>
+                <dt>Last login</dt>
                 <dd>
                   {profile.user.last_login
                     ? formatDateTime(profile.user.last_login)
@@ -515,18 +496,15 @@ export function AccountPage() {
               </dl>
             </section>
 
-            {/* Security: password change + session revocation */}
             <section className="account-section account-password">
               <h2>Security</h2>
               {passwordSuccess && (
-                <div className="success-message">
-                  Password changed successfully!
-                </div>
+                <div className="success-message">Password changed.</div>
               )}
               {showPasswordForm ? (
                 <form onSubmit={handlePasswordSubmit} className="password-form">
                   <div className="form-group">
-                    <label>Current Password</label>
+                    <label>Current password</label>
                     <input
                       type="password"
                       value={currentPassword}
@@ -536,7 +514,7 @@ export function AccountPage() {
                     />
                   </div>
                   <div className="form-group">
-                    <label>New Password</label>
+                    <label>New password</label>
                     <input
                       type="password"
                       value={newPassword}
@@ -546,7 +524,7 @@ export function AccountPage() {
                     />
                   </div>
                   <div className="form-group">
-                    <label>Confirm New Password</label>
+                    <label>Confirm new password</label>
                     <input
                       type="password"
                       value={confirmPassword}
@@ -568,7 +546,7 @@ export function AccountPage() {
                         !confirmPassword
                       }
                     >
-                      {changingPassword ? "Changing..." : "Change Password"}
+                      {changingPassword ? "Changing…" : "Change password"}
                     </button>
                     <button
                       type="button"
@@ -590,7 +568,7 @@ export function AccountPage() {
                   onClick={() => setShowPasswordForm(true)}
                   className="change-password-btn"
                 >
-                  Change Password
+                  Change password
                 </button>
               )}
               <div className="logout-everywhere">
@@ -608,12 +586,13 @@ export function AccountPage() {
               </div>
             </section>
 
-            {/* Game Token */}
             <section className="account-section account-game-token">
-              <h2>Game Token</h2>
+              <h2>Game token</h2>
               <p className="link-explanation-text">
-                Use this token with <code>cl_trinityToken</code> in your engine
-                config, or log in from the game menu.
+                Set <code>cl_trinityUser</code> to your username and{" "}
+                <code>cl_trinityToken</code> to this token in your{" "}
+                <code>autoexec.cfg</code>, or log in from{" "}
+                <strong>Account</strong> on the game&rsquo;s main menu.
               </p>
 
               {gameTokenError && (
@@ -621,7 +600,7 @@ export function AccountPage() {
               )}
 
               {gameTokenLoading && !gameToken ? (
-                <div className="loading">Loading...</div>
+                <div className="loading">Loading…</div>
               ) : gameToken ? (
                 <div className="game-token-display">
                   <div
@@ -645,7 +624,8 @@ export function AccountPage() {
                     {showRotateConfirm ? (
                       <div className="rotate-confirm">
                         <span className="rotate-confirm-text">
-                          Invalidate current token?
+                          Replace this token? Installs using it will need the
+                          new one.
                         </span>
                         <div className="rotate-confirm-actions">
                           <button
@@ -653,7 +633,7 @@ export function AccountPage() {
                             onClick={handleRotateToken}
                             disabled={gameTokenLoading}
                           >
-                            {gameTokenLoading ? "Rotating..." : "Confirm"}
+                            {gameTokenLoading ? "Rotating…" : "Confirm"}
                           </button>
                           <button
                             className="cancel-btn"
@@ -676,15 +656,14 @@ export function AccountPage() {
               ) : null}
             </section>
 
-            {/* Link Game Identity */}
             <section className="account-section account-link">
-              <h2>Link Game Identity</h2>
+              <h2>Link a game identity</h2>
 
               <div className="link-method">
-                <h3>From in-game</h3>
+                <h3>From the game</h3>
                 <p className="link-explanation-text">
-                  Type <code>!claim</code> in-game to get a code, then enter it
-                  here.
+                  Type <code>!claim</code> in chat on a Trinity server to get a
+                  code, then enter it here.
                 </p>
                 <div className="claim-code-inline">
                   <input
@@ -705,7 +684,7 @@ export function AccountPage() {
                     disabled={claimCode.length !== 6 || claimLoading}
                     className="generate-btn"
                   >
-                    {claimLoading ? "Linking..." : "Link"}
+                    {claimLoading ? "Linking…" : "Link"}
                   </button>
                 </div>
                 {claimError && (
@@ -713,7 +692,7 @@ export function AccountPage() {
                 )}
                 {claimSuccess && (
                   <div className="success-message">
-                    Identity linked! Refresh to see changes.
+                    Identity linked. Refresh the page to see it.
                   </div>
                 )}
               </div>
@@ -723,7 +702,8 @@ export function AccountPage() {
                   <h3>From the web</h3>
                   <p className="link-explanation-text">
                     Generate a code here, then type{" "}
-                    <code>!link &lt;code&gt;</code> in-game.
+                    <code>!link &lt;code&gt;</code> in chat on the install you
+                    want to link.
                   </p>
 
                   {linkError && (
@@ -732,20 +712,20 @@ export function AccountPage() {
 
                   {linkCode ? (
                     <div className="code-display">
-                      <div className="code-label">Your Link Code:</div>
+                      <div className="code-label">Your link code</div>
                       <div className="code-value">{linkCode}</div>
                       <div className="code-timer">
-                        Expires in: <strong>{formatTime(timeRemaining)}</strong>
+                        Expires in <strong>{formatTime(timeRemaining)}</strong>
                       </div>
                       <div className="code-instruction">
-                        In game, type: <code>!link {linkCode}</code>
+                        Type in chat: <code>!link {linkCode}</code>
                       </div>
                       <button
                         onClick={generateCode}
                         disabled={generatingCode}
                         className="generate-btn"
                       >
-                        {generatingCode ? "Generating..." : "Generate New Code"}
+                        {generatingCode ? "Generating…" : "Generate new code"}
                       </button>
                     </div>
                   ) : (
@@ -754,7 +734,7 @@ export function AccountPage() {
                       onClick={generateCode}
                       disabled={generatingCode}
                     >
-                      {generatingCode ? "Generating..." : "Generate Link Code"}
+                      {generatingCode ? "Generating…" : "Generate link code"}
                     </button>
                   )}
                 </div>

@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { type DatePreset } from "./AdminSessionsFilters";
 
-// Source/Action use the hidden-set model (small bounded enums); Actor
-// scales unbounded as the user base grows, so it's a single-select
-// typeahead instead — null = no filter, sentinel = system rows only,
-// any other string = exact actor_username (pushed to backend).
+// Actor grows with the user base, so it's a single-select typeahead:
+// null is no filter, SYSTEM_ACTOR_SENTINEL is system rows only, and any
+// other string is an exact actor_username.
 export interface AdminAuditFilterState {
   hiddenSources: string[];
   actor: string | null;
@@ -58,10 +57,6 @@ export function loadAdminAuditFilters(): AdminAuditFilterState {
   }
 }
 
-// Resolve the active filter window to the RFC3339 string the backend
-// audit endpoint accepts. Mirrors the date-range logic in
-// AdminSessionsFilters; the audit endpoint only takes `since` (no
-// `until`) so we surface that limitation by ignoring customUntil here.
 export function resolveAuditSince(
   state: AdminAuditFilterState,
 ): string | undefined {
@@ -86,10 +81,6 @@ export function resolveAuditSince(
 interface Props {
   state: AdminAuditFilterState;
   onChange: (next: AdminAuditFilterState) => void;
-  // Categorical universes derived from the rendered rows. Pruning is
-  // best-effort: we don't try to keep a long-tail history of every
-  // actor that ever existed, so dropping a stale hidden value once it
-  // hasn't been seen across a full fetch keeps the panel honest.
   knownSources: string[];
   knownActors: string[];
   knownActions: string[];
@@ -106,7 +97,8 @@ export function AdminAuditFilters({
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
 
-  // Stale-prune hidden categorical values once data has populated.
+  // The known lists come from the loaded rows, so hidden values missing
+  // from the first load are pruned once.
   const sourcesValidated = useRef(false);
   const actionsValidated = useRef(false);
   useEffect(() => {
@@ -165,10 +157,6 @@ export function AdminAuditFilters({
 }
 
 // ── Actor typeahead ──────────────────────────────────────────────────
-// Single-select. Real actor names get pushed to the backend via
-// ?actor=<name> for accurate filtering across all rows; the system
-// pseudo-actor is filtered client-side because the backend's exact
-// match against actor_username can't represent NULL.
 
 interface ActorSectionProps {
   knownActors: string[];
@@ -179,8 +167,6 @@ interface ActorSectionProps {
 function ActorSection({ knownActors, actor, onChange }: ActorSectionProps) {
   const [query, setQuery] = useState("");
 
-  // Only suggest matches once the user has started typing — an unfocused,
-  // empty input shouldn't render a name list.
   const matches =
     query.length === 0
       ? []
@@ -271,10 +257,8 @@ function CategoricalSection({
       onAll={() => onChange([])}
       onNone={() => onChange([...values])}
     >
-      {/* Two-column .filter-subgroup__body — Action labels render as
-          .admin-audit-action chips that exceed the 80px-min --flat
-          variant; sources/actors are usually short but inconsistency
-          would hurt more than the wider columns. */}
+      {/* Action chips overflow the --flat variant's 80px columns, so
+          every section uses the two-column body to match. */}
       <div className="filter-subgroup__body">
         {values.map((v) => (
           <Switch
@@ -333,11 +317,11 @@ function DateRangeSection({
             onClick={() => onChange({ datePreset: preset === p ? "" : p })}
           >
             {p === "24h"
-              ? "Last 24h"
+              ? "Last 24 hours"
               : p === "7d"
-                ? "Last 7d"
+                ? "Last 7 days"
                 : p === "30d"
-                  ? "Last 30d"
+                  ? "Last 30 days"
                   : "Custom"}
           </button>
         ))}

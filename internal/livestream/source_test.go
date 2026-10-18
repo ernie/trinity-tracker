@@ -1,4 +1,3 @@
-// internal/livestream/source_test.go
 package livestream
 
 import (
@@ -39,7 +38,7 @@ func TestConsumeSegments(t *testing.T) {
 func TestConsumeSegmentsAbruptEOFStillEnds(t *testing.T) {
 	var buf bytes.Buffer
 	buf.Write(Segment{KeyframeServerTime: 1, Payload: []byte("a")}.Marshal())
-	// no end marker — connection just drops
+	// No end marker: the connection just drops.
 
 	sink := &fakeSink{}
 	if err := ConsumeSegments(&buf, sink); err != nil {
@@ -51,8 +50,7 @@ func TestConsumeSegmentsAbruptEOFStillEnds(t *testing.T) {
 }
 
 func TestReadSegmentPayloadTooLarge(t *testing.T) {
-	// Build a segment header with a payload length exceeding maxSegmentBytes.
-	// We do NOT supply the payload bytes — the guard must reject on the length alone.
+	// The payload bytes are omitted, so the length alone must trip the guard.
 	var buf bytes.Buffer
 	buf.WriteString(segmentMagic) // "TVLs"
 	var kf [4]byte
@@ -60,7 +58,6 @@ func TestReadSegmentPayloadTooLarge(t *testing.T) {
 	var lenBytes [4]byte
 	binary.LittleEndian.PutUint32(lenBytes[:], uint32(maxSegmentBytes+1))
 	buf.Write(lenBytes[:])
-	// No payload bytes follow.
 
 	_, err := ReadSegment(&buf)
 	if err == nil {
@@ -69,18 +66,16 @@ func TestReadSegmentPayloadTooLarge(t *testing.T) {
 }
 
 func TestConsumeSegmentsMidSegmentDropIsClean(t *testing.T) {
-	// One complete segment followed by a truncated second segment
-	// (marker present but payload is cut short — mid-segment drop).
 	var buf bytes.Buffer
 	buf.Write(Segment{KeyframeServerTime: 7, Payload: []byte("hello")}.Marshal())
-	// Start a second segment marker + keyframe time, then only 2 of a promised 5 bytes.
+	// A second segment that promises 5 payload bytes and delivers 2.
 	buf.WriteString(segmentMagic)
 	var kf [4]byte
 	buf.Write(kf[:])
 	var lenBytes [4]byte
 	binary.LittleEndian.PutUint32(lenBytes[:], 5)
 	buf.Write(lenBytes[:])
-	buf.Write([]byte("ab")) // only 2 of 5 payload bytes — truncated
+	buf.Write([]byte("ab"))
 
 	sink := &fakeSink{}
 	if err := ConsumeSegments(&buf, sink); err != nil {

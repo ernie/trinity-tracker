@@ -1,6 +1,5 @@
-// "Actively attacking an objective" row indicator. Shape matches
-// baseq3's menu/art/3_cursor2 cursor (ring + 4 ticks + center dot);
-// drawn inline so the team tint is just an attribute, no asset to ship.
+// Drawn after baseq3's menu/art/3_cursor2 so the team tint is just a
+// stroke color.
 interface TargetReticleIconProps {
   team: "red" | "blue";
   size?: "sm" | "md" | "lg";

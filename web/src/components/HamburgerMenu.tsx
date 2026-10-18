@@ -3,24 +3,17 @@ import { useLocation } from "react-router-dom";
 
 interface HamburgerMenuProps {
   children: ReactNode;
-  /** Extra modifier classes for the root element. Lets consumers
-   *  encode visual states like login status via CSS modifiers
-   *  (e.g. 'hamburger--authed') without coupling this component to
-   *  auth concerns. */
+  /** Modifier classes for the root, such as 'hamburger--authed'. */
   className?: string;
 }
 
-// Wraps content that lives inline on desktop and collapses behind a
-// hamburger button on mobile. The wrapper uses `display: contents` on
-// desktop so its children participate directly in the parent's flex
-// layout (no visual change). On mobile the wrapper becomes a sticky
-// right-edge button + popup.
+// On desktop the wrapper is `display: contents`, so its children sit in
+// the parent's flex layout; on mobile it becomes a button and popup.
 export function HamburgerMenu({ children, className }: HamburgerMenuProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const location = useLocation();
 
-  // Close on outside click.
   useEffect(() => {
     if (!open) return;
     const onClick = (e: MouseEvent) => {
@@ -31,18 +24,14 @@ export function HamburgerMenu({ children, className }: HamburgerMenuProps) {
     return () => document.removeEventListener("mousedown", onClick);
   }, [open]);
 
-  // Close on route change (so a nav-link tap inside the popup actually
-  // dismisses the menu after navigating). Done during render via the
-  // previous-value pattern rather than an effect, so it doesn't trip
-  // react-hooks/set-state-in-effect (and avoids a one-frame flash of the
-  // still-open menu after navigation commits).
+  // Closing during render keeps the menu from showing open for a frame
+  // after a nav tap commits.
   const [navPath, setNavPath] = useState(location.pathname);
   if (location.pathname !== navPath) {
     setNavPath(location.pathname);
     setOpen(false);
   }
 
-  // Close on Esc.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {

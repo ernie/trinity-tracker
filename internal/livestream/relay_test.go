@@ -1,4 +1,3 @@
-// internal/livestream/relay_test.go
 package livestream
 
 import (
@@ -36,8 +35,6 @@ func TestRelayServerRejects404(t *testing.T) {
 }
 
 func TestRelayServerNotLiveYet(t *testing.T) {
-	// A well-formed request for a server key with no current buffer
-	// (inter-match gap) must signal "retry", not a hard 404.
 	srv := NewRelayServer(NewRegistry())
 	req := httptest.NewRequest("GET", "/tv/ffa", nil)
 	w := httptest.NewRecorder()
@@ -154,11 +151,6 @@ func TestRegistrySetGetRemove(t *testing.T) {
 	}
 }
 
-// TestRegistryRemoveIfIsIdentitySafe pins that RemoveIf only deletes the key
-// when it still holds the exact buffer passed in. This guards the live-tap
-// teardown: a discarded/stale tap calling RemoveIf(key, itsOwnBuf) must never
-// evict a newer buffer another tap has since registered under the same key
-// (the registry-emptying double-dial race).
 func TestRegistryRemoveIfIsIdentitySafe(t *testing.T) {
 	reg := NewRegistry()
 	older := NewBuffer([]byte("OLD"), time.Second)
@@ -178,10 +170,6 @@ func TestRegistryRemoveIfIsIdentitySafe(t *testing.T) {
 	}
 }
 
-// TestRegistryWaitNextAcrossSessions pins the per-key successive-buffer
-// subscription the relay uses to span an inter-match gap: a waiter holding the
-// prior session's buffer must keep waiting through the gap (cur=nil) and unblock
-// when the next session registers, and Close must release it.
 func TestRegistryWaitNextAcrossSessions(t *testing.T) {
 	reg := NewRegistry()
 	a := NewBuffer([]byte("A"), time.Second)
@@ -210,7 +198,7 @@ func TestRegistryWaitNextAcrossSessions(t *testing.T) {
 		t.Fatal("WaitNext did not return after the next session registered")
 	}
 
-	// Close releases a waiter with (nil,false) — the relay ends the response.
+	// Close releases a waiter with (nil, false).
 	closed := make(chan bool, 1)
 	go func() {
 		_, ok := reg.WaitNext(context.Background(), "ffa", b)
@@ -228,10 +216,6 @@ func TestRegistryWaitNextAcrossSessions(t *testing.T) {
 	}
 }
 
-// TestRelayViewerCount pins the viewer accounting the collector reports on the
-// registration heartbeat (live_viewers): a streaming response counts as one
-// viewer — including while parked in WaitNext across the inter-match gap — and
-// the count drops when the response ends.
 func TestRelayViewerCount(t *testing.T) {
 	reg := NewRegistry()
 	a := NewBuffer(StreamHeader{MapName: "mapA"}.Marshal(), 0)
@@ -259,8 +243,7 @@ func TestRelayViewerCount(t *testing.T) {
 		_, _ = io.ReadAll(resp.Body)
 	}()
 
-	// Session A ends immediately; the viewer parks in WaitNext across the gap
-	// and must still count — it holds a connection and will resume.
+	// Session A ends at once; the viewer waiting in WaitNext still counts.
 	waitViewers(t, reg, "m1", 1)
 	reg.RemoveIf("m1", a) // inter-match gap
 	if n := reg.Viewers("m1"); n != 1 {
@@ -272,8 +255,8 @@ func TestRelayViewerCount(t *testing.T) {
 	waitViewers(t, reg, "m1", 0)
 }
 
-// waitViewers polls until key's count reaches want — the inc/dec happens on the
-// relay's response goroutine, not the test's.
+// waitViewers polls until key's count reaches want, since the relay's
+// response goroutine changes the count.
 func waitViewers(t *testing.T, reg *Registry, key string, want int) {
 	t.Helper()
 	deadline := time.Now().Add(2 * time.Second)
@@ -286,9 +269,8 @@ func waitViewers(t *testing.T, reg *Registry, key string, want int) {
 	t.Fatalf("viewers(%q) = %d, want %d", key, reg.Viewers(key), want)
 }
 
-// TestRelayHoldsOpenAcrossSessions is the Phase 3 contract: one HTTP response
-// spans two sessions, splicing the TVLe boundary + the next session's TVL1
-// header inline (what the browser engine reads as an in-place map change).
+// One HTTP response spans two sessions, with TVLe and the next session's
+// TVL1 header inline, which the browser engine reads as a map change.
 func TestRelayHoldsOpenAcrossSessions(t *testing.T) {
 	reg := NewRegistry()
 	// delay 0 -> every appended segment is immediately releasable.

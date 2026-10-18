@@ -66,7 +66,7 @@ func TestLiveStateViewers(t *testing.T) {
 	if ls.GetViewers("hub", "1v1") != 0 || ls.GetViewers("other", "ffa") != 0 {
 		t.Fatal("viewers key collision across source/key")
 	}
-	// Independent of liveness: gap-parked viewers keep counting while not live.
+	// Viewers keep counting through the gap between matches.
 	ls.Set("hub", "ffa", false)
 	if ls.GetViewers("hub", "ffa") != 3 {
 		t.Fatal("viewers should survive a liveness clear")

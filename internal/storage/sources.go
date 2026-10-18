@@ -12,15 +12,14 @@ import (
 	"github.com/ernie/trinity-tracker/internal/domain"
 )
 
-// sourceIDPattern validates admin-chosen source identifiers. The rule
-// is conservative: alphanumerics, underscore, hyphen — enough to be
-// human-readable while staying safe as a NATS subject token, as a URL
-// path segment, and as a filename (.creds lives on the hub's disk).
+// sourceIDPattern keeps source names safe as a NATS subject token, a
+// URL path segment and a filename (the .creds file lives on the hub's
+// disk).
 var sourceIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
 
-// ValidateSource returns an error if s is not a syntactically valid
-// source identifier. Used at provisioning time so a typo can't wedge
-// creds files, NATS permissions, or URL routing after the fact.
+// ValidateSource returns an error if s is not a valid source name. It
+// runs before provisioning so a bad name never reaches creds files,
+// NATS permissions or URL routing.
 func ValidateSource(s string) error {
 	if s == "" {
 		return fmt.Errorf("source must be non-empty")
@@ -34,9 +33,9 @@ func ValidateSource(s string) error {
 	return nil
 }
 
-// Source is one row of the sources table — the hub's record of a
-// pre-provisioned collector. A collector may only publish anything
-// the hub accepts if a row here names its source.
+// Source is one row of the sources table, the hub's record of a
+// collector. The hub accepts a collector's messages only when a row
+// here names its source.
 type Source struct {
 	Source           string
 	DemoBaseURL      string
@@ -52,16 +51,15 @@ type Source struct {
 	CreatedAt        time.Time
 }
 
-// CreateSource inserts a new sources row. Called by the admin flow
-// (remote collectors) and by main.go at startup for the hub's own
-// local collector. Errors on duplicate source. demo_base_url is
-// left empty — the operator populates it via registration heartbeat
-// so they can change it without admin intervention.
+// CreateSource inserts a new sources row for a remote collector (admin
+// flow) or the hub's own local collector (startup). It errors on a
+// duplicate source. demo_base_url starts empty; the collector's
+// registration heartbeat fills it in, so the operator can change it
+// without an admin.
 //
-// ownerUserID is required for remote sources so RCON delegation,
-// rotate, and leave actions all have a real human to authorize
-// against. Pass nil for local sources (the hub's own collector
-// belongs to the admin who runs the box, not to a user row).
+// ownerUserID is required for remote sources, so RCON delegation,
+// rotate and leave have a user to authorize. Pass nil for the hub's
+// local collector, which belongs to whoever runs the box.
 func (s *Store) CreateSource(ctx context.Context, source string, isRemote bool, ownerUserID *int64) error {
 	if err := ValidateSource(source); err != nil {
 		return fmt.Errorf("storage.CreateSource: %w", err)
@@ -105,10 +103,10 @@ func (s *Store) UpsertLocalSource(ctx context.Context, source string) error {
 	return nil
 }
 
-// DeactivateSource marks a source inactive and cascades to all of its
-// servers. Rows are kept so historical matches/sessions retain their
-// (source, key) reference; the UI dims inactive content rather than
-// dropping it. The admin endpoint pairs this with creds revocation.
+// DeactivateSource marks a source and all of its servers inactive. The
+// rows stay so past matches and sessions keep their (source, key)
+// reference, and the UI dims them. The admin endpoint pairs this with
+// creds revocation.
 func (s *Store) DeactivateSource(ctx context.Context, source string) error {
 	if source == "" {
 		return fmt.Errorf("storage.DeactivateSource: source is required")
@@ -127,12 +125,9 @@ func (s *Store) DeactivateSource(ctx context.Context, source string) error {
 	return tx.Commit()
 }
 
-// ReactivateSource is the inverse: flip the source row back on and
-// cascade to its servers. Individual per-server activation state is
-// not preserved across a deactivate/reactivate cycle — operators who
-// want a server to stay decommissioned after reactivating its source
-// should leave it out of cfg.Q3Servers (which the collector startup
-// loop will then mark inactive again).
+// ReactivateSource sets the source active again and reactivates all of
+// its servers. A server the operator removed from
+// cfg.Q3Servers goes inactive again when the collector next starts.
 func (s *Store) ReactivateSource(ctx context.Context, source string) error {
 	if source == "" {
 		return fmt.Errorf("storage.ReactivateSource: source is required")
@@ -151,10 +146,10 @@ func (s *Store) ReactivateSource(ctx context.Context, source string) error {
 	return tx.Commit()
 }
 
-// IsSourceApproved returns true if the source has a row in the sources
-// table AND is active. Event ingest and RPC handlers use this as a
-// defense-in-depth check; NATS auth should already have blocked
-// unknown or deactivated sources at the broker.
+// IsSourceApproved reports whether the source has an active row in the
+// sources table. Event ingest and RPC handlers check it as a second
+// line behind NATS auth, which blocks unknown or deactivated sources at
+// the broker.
 func (s *Store) IsSourceApproved(ctx context.Context, source string) (bool, error) {
 	var dummy int
 	err := s.db.QueryRowContext(ctx,
@@ -183,11 +178,11 @@ func (s *Store) GetServerLastHeartbeat(ctx context.Context, serverID int64) (tim
 	return t.Time, nil
 }
 
-// TouchSourceHeartbeat updates last_heartbeat_at, version, and the
-// operator-owned demo_base_url on the sources row + every servers row
-// for the source. Version is only overwritten when non-empty;
-// demoBaseURL is authoritative (operator config is the source of
-// truth), so an empty value clears whatever was there.
+// TouchSourceHeartbeat updates last_heartbeat_at, version and the
+// operator-owned demo_base_url on the sources row and every servers row
+// for the source. An empty version leaves the stored one; demoBaseURL
+// always wins, since the operator's config owns it, so an empty value
+// clears it.
 func (s *Store) TouchSourceHeartbeat(ctx context.Context, source string, at time.Time, version, demoBaseURL string) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -211,8 +206,8 @@ func (s *Store) TouchSourceHeartbeat(ctx context.Context, source string, at time
 }
 
 // TagLocalServerSource attaches a source and local_id to an existing
-// servers row. Used by main.go to wire up a local collector's source
-// to the pre-existing local servers (hub+collector deployment).
+// servers row, wiring a combined hub and collector's local servers to
+// its source.
 func (s *Store) TagLocalServerSource(ctx context.Context, serverID int64, source string, localID int64) error {
 	_, err := s.db.ExecContext(ctx, `
 		UPDATE servers SET source = ?, local_id = ? WHERE id = ?
@@ -225,10 +220,9 @@ func (s *Store) TagLocalServerSource(ctx context.Context, serverID int64, source
 
 // FindSourcePublicURLForMap returns the demo_base_url of any source
 // whose servers have hosted a match on the named map, preferring the
-// most recent. Empty string + nil error if none found. Used by the
-// asset-fallback handlers (/demopk3s/maps, /assets/levelshots) when
-// the hub doesn't have the file locally. Map name match is
-// case-insensitive: incoming URLs are downcased by the UI, but
+// most recent, or "" when none has. The asset-fallback handlers
+// (/demopk3s/maps, /assets/levelshots) use it for files the hub lacks.
+// The map match ignores case: the UI lowercases URLs, but
 // matches.map_name is stored as the engine reports it.
 func (s *Store) FindSourcePublicURLForMap(ctx context.Context, mapName string) (string, error) {
 	var url string
@@ -251,8 +245,8 @@ func (s *Store) FindSourcePublicURLForMap(ctx context.Context, mapName string) (
 }
 
 // FindSourcePublicURLForDemo returns the demo_base_url of the source
-// whose server hosted the match identified by uuid. Empty string +
-// nil error if none found.
+// whose server hosted the match identified by uuid, or "" when there's
+// no such match.
 func (s *Store) FindSourcePublicURLForDemo(ctx context.Context, uuid string) (string, error) {
 	var url string
 	err := s.db.QueryRowContext(ctx, `
@@ -272,10 +266,9 @@ func (s *Store) FindSourcePublicURLForDemo(ctx context.Context, uuid string) (st
 }
 
 // FindSourcePublicURL returns the demo_base_url of the named source, or
-// empty string + nil error if the source is unknown or has none set. The
-// live relay's hub-side router uses it to 302 a viewer to the collector
-// that owns the server (mirrors FindSourcePublicURLForDemo, but keyed by
-// source directly since the live URL carries the source).
+// "" if the source is unknown or has none set. The hub's live relay
+// router uses it to redirect a viewer to the collector that owns the
+// server.
 func (s *Store) FindSourcePublicURL(ctx context.Context, source string) (string, error) {
 	var url string
 	err := s.db.QueryRowContext(ctx, `
@@ -311,11 +304,10 @@ func (s *Store) ResolveServerIDForSource(ctx context.Context, source string, loc
 	return id, nil
 }
 
-// RemoteServer is a lightweight view of a servers row, used by the
-// hub's poller to iterate pollable targets. UserPubKey is the
-// authenticated NATS user pubkey for this server's source, joined
-// from sources.user_pubkey at query time — empty until the source's
-// creds have been minted.
+// RemoteServer is a lightweight view of a servers row for the hub's
+// poller and directory gate. IsRemote and UserPubKey come from the
+// source's row; UserPubKey identifies the source's live NATS
+// connection and stays empty until its creds have been minted.
 type RemoteServer struct {
 	ID         int64
 	Source     string
@@ -325,18 +317,11 @@ type RemoteServer struct {
 	UserPubKey string
 }
 
-// ListPollableServers returns every servers row the hub poller should
-// UDP-poll: active rows with a non-empty address that have been
-// observed enforcing g_trinityHandshake. Covers both is_remote=0 rows
-// (the hub's local collector) and is_remote=1 rows (remote
-// collectors). Inactive rows and rows that haven't proved they enforce
-// the handshake are skipped — neither should show up in live status.
-// Ordered by id.
+// ListPollableServers returns the servers rows the hub poller UDP-polls,
+// ordered by id: active rows, local or remote, with an address, that
+// have been seen enforcing g_trinityHandshake. Only those show in live
+// status.
 func (s *Store) ListPollableServers(ctx context.Context) ([]RemoteServer, error) {
-	// is_remote and user_pubkey are joined from sources. Sources is
-	// the single source of truth for both — the directory gate and
-	// the poller use user_pubkey to identify which live NATS
-	// connection belongs to this source (no DNS, no filesystem).
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT s.id, s.source, s.key, s.address, src.is_remote, src.user_pubkey
 		FROM servers s
@@ -359,13 +344,11 @@ func (s *Store) ListPollableServers(ctx context.Context) ([]RemoteServer, error)
 	return out, rows.Err()
 }
 
-// ListDirectoryGateEntries returns active=1 servers rows with a non-empty
-// address — the membership gate for the Q3 directory server. A server
-// can register with the directory before it has played its first match,
-// so handshake_required (which is what ListPollableServers gates on) is
-// intentionally not part of the filter here.
+// ListDirectoryGateEntries returns active servers rows with an address,
+// the membership gate for the Q3 directory server. A server registers
+// with the directory before its first match, so this gate ignores
+// handshake_required.
 func (s *Store) ListDirectoryGateEntries(ctx context.Context) ([]RemoteServer, error) {
-	// is_remote and user_pubkey come from sources (see ListPollableServers note).
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT s.id, s.source, s.key, s.address, src.is_remote, src.user_pubkey
 		FROM servers s
@@ -414,10 +397,9 @@ func (s *Store) ListRemoteServers(ctx context.Context) ([]RemoteServer, error) {
 	return out, rows.Err()
 }
 
-// GetSourceUserPubKey returns the NATS user pubkey persisted for source,
-// or "" when none has been minted yet (or when the source row doesn't
-// exist). Backs natsbus.AuthStore's mint/revoke flow without exposing
-// any DB internals.
+// GetSourceUserPubKey returns the NATS user pubkey stored for source,
+// or "" when none has been minted or the source row doesn't exist.
+// natsbus.AuthStore's mint and revoke use it.
 func (s *Store) GetSourceUserPubKey(ctx context.Context, source string) (string, error) {
 	var pub string
 	err := s.db.QueryRowContext(ctx,
@@ -432,10 +414,8 @@ func (s *Store) GetSourceUserPubKey(ctx context.Context, source string) (string,
 	return pub, nil
 }
 
-// SetSourceUserPubKey writes the NATS user pubkey for source. Used by
-// AuthStore.MintUserCreds to persist the freshly-minted user identity.
-// Errors if source has no row in sources (mint should only happen for
-// pre-registered sources).
+// SetSourceUserPubKey writes the NATS user pubkey for source, for
+// AuthStore.MintUserCreds. It errors if source has no row in sources.
 func (s *Store) SetSourceUserPubKey(ctx context.Context, source, pubkey string) error {
 	res, err := s.db.ExecContext(ctx,
 		`UPDATE sources SET user_pubkey = ? WHERE source = ?`,
@@ -451,12 +431,10 @@ func (s *Store) SetSourceUserPubKey(ctx context.Context, source, pubkey string) 
 	return nil
 }
 
-// ApprovedSource groups the per-source metadata the admin UI needs:
-// the source identifier + version pulled from the latest heartbeat,
-// the timestamp of that heartbeat (so the UI can color-code health),
-// and the rollup of servers owned by this source. IsRemote=false
-// means the hub's own local collector — no per-source .creds file
-// is ever minted for it.
+// ApprovedSource is the per-source data the admin UI shows: the source
+// name, the version and time of its latest heartbeat (for the health
+// color) and its servers. IsRemote=false means the hub's own local
+// collector, which has no .creds file.
 type ApprovedSource struct {
 	Source          string
 	Version         string
@@ -469,8 +447,7 @@ type ApprovedSource struct {
 	Servers         []ApprovedSourceServer
 }
 
-// ApprovedSourceServer is one servers row attached to an approved
-// source — id, key, and the address the hub poller uses.
+// ApprovedSourceServer is one of an approved source's servers rows.
 type ApprovedSourceServer struct {
 	ID      int64
 	LocalID int64
@@ -479,10 +456,9 @@ type ApprovedSourceServer struct {
 	Active  bool
 }
 
-// ListApprovedSources returns every row from the sources table with
-// its attached servers (if any). A newly created source with no
-// registration yet shows up with an empty Servers slice. Ordered by
-// source for stable UI rendering.
+// ListApprovedSources returns every sources row with its servers,
+// ordered by source. A source that hasn't registered yet has an empty
+// Servers slice.
 func (s *Store) ListApprovedSources(ctx context.Context) ([]ApprovedSource, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT
@@ -568,10 +544,10 @@ func (s *Store) ListApprovedSources(ctx context.Context) ([]ApprovedSource, erro
 	return out, nil
 }
 
-// TransferSourceOwner reassigns owner_user_id for a remote source.
-// Refuses on local sources (owner is meaningless there) and on a
-// source that doesn't exist. The caller is responsible for verifying
-// the new owner exists; the FK enforces it again at write time.
+// TransferSourceOwner reassigns owner_user_id for a remote source. It
+// errors for a local source, which has no owner, and for a missing
+// source. The caller checks that the new owner exists; the foreign key
+// checks again at write time.
 func (s *Store) TransferSourceOwner(ctx context.Context, source string, newOwnerUserID int64) error {
 	if source == "" {
 		return fmt.Errorf("storage.TransferSourceOwner: source is required")
@@ -597,15 +573,11 @@ func (s *Store) TransferSourceOwner(ctx context.Context, source string, newOwner
 	return nil
 }
 
-// UpsertRemoteServers creates or refreshes servers rows for every
-// entry in the registration roster, attaching source/local_id. Called
-// from the registration handler on each heartbeat — rosters are the
-// collector's source of truth for the server list. The "is the source
-// remote" bit lives on the sources row (set by CreateSource); readers
-// JOIN sources rather than duplicating it here. demo_base_url comes
-// straight from the heartbeat payload; TouchSourceHeartbeat already
-// wrote it to sources earlier in the same handler, so this keeps the
-// two rows in lockstep.
+// UpsertRemoteServers creates or refreshes a servers row, with source
+// and local_id, for every entry in the registration roster. The
+// registration handler calls it on each heartbeat, since the roster is
+// the collector's server list. demo_base_url comes from the heartbeat,
+// matching what TouchSourceHeartbeat wrote to the sources row.
 func (s *Store) UpsertRemoteServers(ctx context.Context, reg domain.Registration) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -644,17 +616,15 @@ func (s *Store) UpsertRemoteServers(ctx context.Context, reg domain.Registration
 			}
 		}
 	}
-	// Anything tied to this source that wasn't in the heartbeat roster
-	// — operator dropped it from cfg.Q3Servers — is now inactive.
+	// A server missing from the roster was removed from cfg.Q3Servers.
 	if err := deactivateMissing(ctx, tx, reg.Source, keptKeys); err != nil {
 		return err
 	}
 	return tx.Commit()
 }
 
-// deactivateMissing flips active=0 on every active server tied to
-// `source` whose key isn't in `keep` (case-insensitive). Used inside
-// the UpsertRemoteServers transaction.
+// deactivateMissing sets active=0 on every active server of source
+// whose key isn't in keep, ignoring case.
 func deactivateMissing(ctx context.Context, tx *sql.Tx, source string, keep []string) error {
 	if len(keep) == 0 {
 		_, err := tx.ExecContext(ctx,

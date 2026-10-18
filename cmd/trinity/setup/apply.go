@@ -21,13 +21,11 @@ type ApplyOptions struct {
 	Out        io.Writer
 }
 
-// Apply runs every install-time side effect implied by the answers.
-// Order matters: user → dirs → config → engine → systemd → logrotate
-// → trinity.cfg/per-server cfgs → enable services. Each step prints
-// what it did so the operator can follow along.
-//
-// In DryRun mode no host state is touched; every action is printed
-// with a `[DRY]` prefix instead.
+// Apply runs every install-time side effect implied by the answers, in
+// this order: user, dirs, config, engine, systemd, logrotate,
+// trinity.cfg and per-server cfgs, then enabling services. Each step
+// prints what it did; in DryRun mode each prints with a `[DRY]` prefix
+// and touches nothing.
 func Apply(a *Answers, opts ApplyOptions) error {
 	if opts.Out == nil {
 		opts.Out = os.Stderr
@@ -70,30 +68,27 @@ func Apply(a *Answers, opts ApplyOptions) error {
 	}
 
 	if a.RunsLocalServers() && a.InstallEngine {
-		plan.Say("Downloading latest trinity-engine release for %s ...", runtimeArch())
+		plan.Say("Downloading the latest Trinity engine release for %s…", runtimeArch())
 		engineTag, err := InstallEngine(plan, "", a.Quake3Dir, "/var/log/quake3", a.StaticDir, uid, gid)
 		if err != nil {
 			return err
 		}
-		// Belt-and-suspenders: extraction ran as the service user, but
-		// the wrapper dirs and symlinks created in this process are
-		// still root-owned. chownRecursive is idempotent on the bulk
-		// files and fixes those.
+		// Extraction ran as the service user, but the directories and
+		// symlinks this process created are root-owned.
 		if err := chownRecursive(plan, a.Quake3Dir, uid, gid); err != nil {
 			return fmt.Errorf("chown %s: %w", a.Quake3Dir, err)
 		}
 		plan.Say("Engine installed at %s (%s)", a.Quake3Dir, engineTag)
 
-		// If a newer mod release exists than what the engine bundles,
-		// overlay it. q3 isn't running yet on a fresh init so the
-		// rename-into-place is uncontested.
+		// The game servers aren't running yet on a fresh init, so a
+		// newer mod can be renamed into place.
 		modTag, err := ResolveLatestTag(modRepo)
 		if err != nil {
 			plan.Say("Warning: could not check for newer mod release: %v", err)
 		} else {
 			bundled, _ := DetectModVersion(a.Quake3Dir, "baseq3")
 			if CompareVersions(bundled, modTag) == StateBehind {
-				plan.Say("Mod %s is newer than engine-bundled %q; overlaying ...", modTag, bundled)
+				plan.Say("Mod %s is newer than the engine's bundled %q; installing it over that…", modTag, bundled)
 				if _, err := InstallMod(plan, modTag, a.Quake3Dir, uid, gid); err != nil {
 					return err
 				}
@@ -119,9 +114,8 @@ func Apply(a *Answers, opts ApplyOptions) error {
 			plan.Say("Enabled: quake3-servers.target")
 		}
 		if a.DiscordEnabled {
-			// Enable the timer (not the service) — the service is the
-			// one-shot the timer pulls in. `--now` lets the next-fire
-			// schedule recompute immediately rather than after reboot.
+			// The timer pulls in the one-shot service; `--now` schedules
+			// the next run right away.
 			if err := plan.Systemctl("enable", "--now", "trinity-digest.timer"); err != nil {
 				return err
 			}
@@ -154,10 +148,8 @@ func Apply(a *Answers, opts ApplyOptions) error {
 			return err
 		}
 	}
-	// NATS TLS symlinks land regardless of who's running nginx — the
-	// embedded broker reads cert/key from /etc/trinity/tls/ when remote
-	// collectors are expected, and the symlink target is just LE's
-	// standard layout.
+	// The symlinks point at Let's Encrypt's standard layout, whoever
+	// runs nginx.
 	if a.RemoteCollectorsExpected {
 		if err := installNATSTLSSymlinks(plan, a.PublicURL, a.ServiceUser); err != nil {
 			return err
@@ -177,15 +169,12 @@ func runtimeArch() string {
 
 // installNATSTLSSymlinks creates /etc/trinity/tls/{fullchain,privkey}.pem
 // as symlinks into /etc/letsencrypt/live/<publicHost>/. The embedded NATS
-// broker reads from these paths when remote collectors are expected; the
-// symlinks let cert renewals propagate without rewriting any config.
+// broker reads from these paths when remote collectors are expected, and
+// renewals reach it through the symlinks.
 //
-// Certbot's default layout (archive/ + live/ at 0700 root:root,
-// privkey.pem at 0600 root:root) blocks the service user from reading
-// the key. We grant access via POSIX ACLs rather than chmod/chgrp,
-// which avoids touching certbot-managed ownership and survives
-// renewals: a default ACL on archive/<host>/ propagates to each new
-// privkeyN.pem certbot writes.
+// Certbot's layout (archive/ and live/ at 0700 root:root, privkey.pem at
+// 0600) keeps the service user from reading the key. POSIX ACLs grant
+// access and leave certbot's ownership alone.
 func installNATSTLSSymlinks(plan *Plan, publicURL, serviceUser string) error {
 	host := HostFromURL(publicURL)
 	if host == "" {
@@ -221,14 +210,12 @@ func grantNATSTLSACLs(plan *Plan, host, serviceUser string) error {
 	}
 	archiveDir := "/etc/letsencrypt/archive/" + host
 	read := "u:" + serviceUser + ":r"
-	// Default ACL on archive/<host>/ → applied to every future
-	// privkeyN.pem / fullchainN.pem certbot writes on renewal, so the
-	// service user keeps read access without a deploy hook.
+	// The default ACL carries to every privkeyN.pem and fullchainN.pem
+	// a renewal writes.
 	if err := plan.Setfacl("-d", "-m", read, archiveDir); err != nil {
 		return err
 	}
-	// Apply to the existing files. In dry-run we can't glob (the dir
-	// may not exist), so emit a single intent line and skip the glob.
+	// In a dry run the directory may not exist yet to glob.
 	if plan.DryRun {
 		plan.Say("would setfacl -m %s %s/*.pem", read, archiveDir)
 		return nil
@@ -238,14 +225,13 @@ func grantNATSTLSACLs(plan *Plan, host, serviceUser string) error {
 		return fmt.Errorf("globbing %s: %w", archiveDir, err)
 	}
 	if len(matches) == 0 {
-		return fmt.Errorf("no *.pem files under %s — was certbot run yet?", archiveDir)
+		return fmt.Errorf("no *.pem files under %s; has certbot run yet?", archiveDir)
 	}
 	args := append([]string{"-m", read}, matches...)
 	return plan.Setfacl(args...)
 }
 
 func ensureDirs(plan *Plan, a *Answers, uid, gid int) error {
-	// /etc/trinity is root-owned, group-readable by service user.
 	if err := plan.MkdirAll("/etc/trinity", 0750); err != nil {
 		return err
 	}
@@ -254,7 +240,7 @@ func ensureDirs(plan *Plan, a *Answers, uid, gid int) error {
 	}
 	plan.Say("Directory: /etc/trinity")
 
-	// /var/lib/trinity always (collector watermark + spillover, hub DB).
+	// Holds the collector watermark and spillover, and the hub DB.
 	if err := plan.MkdirChown("/var/lib/trinity", 0755, uid, gid); err != nil {
 		return err
 	}
@@ -265,11 +251,6 @@ func ensureDirs(plan *Plan, a *Answers, uid, gid int) error {
 			return err
 		}
 		plan.Say("Directory: %s", a.StaticDir)
-		// install.sh stages the prebuilt web frontend at a /tmp dir
-		// before exec'ing the wizard. If it's there, populate the live
-		// dir from it so a fresh hub install renders something on first
-		// start. Operators who built from source can still copy
-		// `web/dist/.` in manually.
 		if err := stageWebAssets(plan, a.StaticDir, uid, gid); err != nil {
 			return err
 		}
@@ -289,12 +270,10 @@ func ensureDirs(plan *Plan, a *Answers, uid, gid int) error {
 }
 
 // stagedWebDir returns the path to the staged web frontend, or ""
-// if install.sh didn't hand one off. install.sh writes to a tempdir
-// under /tmp/ and exposes it via the TRINITY_INIT_STAGE env var; the
-// `web/` subdir there holds the prebuilt frontend.
-//
-// Defensive: only honors paths under /tmp/, so a stray env var can't
-// point us at arbitrary parts of the filesystem.
+// if install.sh didn't hand one off. install.sh stages under /tmp/ and
+// names the directory in TRINITY_INIT_STAGE; its `web/` subdir holds the
+// prebuilt frontend. Only paths under /tmp/ count, so a stray variable
+// can't point elsewhere.
 func stagedWebDir() string {
 	root := os.Getenv("TRINITY_INIT_STAGE")
 	if root == "" {
@@ -314,9 +293,8 @@ func stagedWebDir() string {
 	return web
 }
 
-// CleanupStage removes the install.sh-staged tempdir. Called by
-// `trinity init` once Apply has consumed the staged web assets,
-// success or failure. Same /tmp/ guard as stagedWebDir.
+// CleanupStage removes the install.sh-staged tempdir, with
+// stagedWebDir's /tmp/ guard.
 func CleanupStage() {
 	root := os.Getenv("TRINITY_INIT_STAGE")
 	if root == "" {
@@ -330,19 +308,15 @@ func CleanupStage() {
 }
 
 // stageWebAssets copies the staged web frontend into the operator's
-// configured StaticDir. No-op (with a hint) if nothing was staged —
-// from-source installs that didn't go through install.sh need to
-// copy `web/dist/.` themselves. The copy runs as the service user so
-// every file lands service-owned without a follow-up chown — same
-// pattern as `trinity update`'s web overlay.
+// StaticDir as the service user. With nothing staged (a from-source
+// install) it prints a hint to copy `web/dist/.` by hand.
 func stageWebAssets(plan *Plan, dest string, uid, gid int) error {
 	src := stagedWebDir()
 	if src == "" {
 		fmt.Fprintf(plan.Out, "  NOTE: no staged web assets; copy your `web/dist/.` to %s manually.\n", dest)
 		return nil
 	}
-	// install.sh's stage dir is /tmp/...XXX (mode 0755 — install.sh
-	// chmods it explicitly). Quake can traverse and read.
+	// install.sh makes its stage dir 0755 so the service user can read it.
 	if err := plan.CopyTreeAs(uid, gid, src, dest); err != nil {
 		return fmt.Errorf("staging web assets from %s: %w", src, err)
 	}
@@ -359,18 +333,13 @@ func chownRecursive(plan *Plan, root string, uid, gid int) error {
 		if err != nil {
 			return err
 		}
-		// Walk follows symlinks for stat, but Lchown applies to the
-		// link itself when path is a link — which is what we want
-		// (the engine install creates baseq3/logs and missionpack/logs
-		// symlinks; chowning them keeps ls -l predictable).
+		// Lchown changes the engine install's logs symlinks themselves.
 		return os.Lchown(path, uid, gid)
 	})
 }
 
 func writeConfig(plan *Plan, cfg *config.Config, path string, gid int) error {
-	// Marshal the config ourselves so dry-run can show what it would
-	// write without touching the filesystem. config.Save's serialization
-	// is just yaml.Marshal — see internal/config/config.go.
+	// Encoded here, matching config.Save, so a dry run goes through Plan.
 	var buf bytes.Buffer
 	enc := yaml.NewEncoder(&buf)
 	enc.SetIndent(2)
@@ -410,9 +379,6 @@ func installSystemdUnits(plan *Plan, a *Answers) error {
 		units = append(units, "quake3-server@.service", "quake3-servers.target")
 	}
 	if a.DiscordEnabled {
-		// Service is static; timer is templated with the operator's
-		// schedule. Both go through installOneSystemdUnit so the
-		// permission/path logic stays identical.
 		units = append(units, "trinity-digest.service", "trinity-digest.timer")
 	}
 	for _, name := range units {
@@ -439,10 +405,8 @@ func installSystemdUnits(plan *Plan, a *Answers) error {
 	return nil
 }
 
-// logrotateTemplate is the same content as scripts/logrotate.quake3.
-// Kept inline (rather than embedded) because it's nine lines and the
-// `su` line bakes in the service user — easier to template than to
-// post-process an embedded blob.
+// logrotateTemplate matches scripts/logrotate.quake3, with the `su`
+// line's user and group filled in.
 const logrotateTemplate = `/var/log/quake3/*.log {
     daily
     rotate 7
@@ -460,8 +424,7 @@ func installLogrotate(plan *Plan) error {
 	if err := plan.MkdirAll(filepath.Dir(dest), 0755); err != nil {
 		return err
 	}
-	// "quake quake" su line: a non-root logrotate can't truncate files
-	// the systemd unit (running as quake) holds open.
+	// Logrotate must run as the user that holds the logs open.
 	content := fmt.Sprintf(logrotateTemplate, "quake", "quake")
 	if err := plan.WriteFile(dest, []byte(content), 0644); err != nil {
 		return err
@@ -470,26 +433,21 @@ func installLogrotate(plan *Plan) error {
 	return nil
 }
 
-// installPerServerFiles writes the trinity.cfg (shared cvars, derived
-// from the first server's RCON password — which is the per-host one),
-// one shared <stem>.cfg per gametype/mod tuple, each server's .env
-// file with the bind port + +exec, and enables the systemd template
-// instance.
+// installPerServerFiles writes trinity.cfg (the shared cvars), one
+// <stem>.cfg per game type and mod, and each server's .env file with
+// its port and +exec, then enables each systemd template instance.
 //
-// rconpassword is per-stem: it lives in <stem>.cfg (mode 0640
-// root:<service-user>) so it's neither exposed to `ps` nor
-// world-readable on disk. Servers sharing a stem (rare; e.g. two
-// FFA instances) share the rcon — q3 itself supports per-process
-// rcons, but the per-stem cfg is shared, so co-stem servers
-// inherit the first one's value.
+// The rconpassword lives in <stem>.cfg, mode 0640 root:<service-user>,
+// so it shows in neither `ps` nor a world-readable file. Servers that
+// share a stem, such as two FFA servers, share the first one's
+// password.
 func installPerServerFiles(plan *Plan, a *Answers, uid, gid int) error {
 	publicURL := a.PublicURL
 
 	if len(a.Servers) > 0 {
-		// trinity.cfg lands in baseq3 only — q3's vfs falls back from
-		// fs_game (missionpack) to baseq3 for cfg lookup, so a single
-		// copy covers every server. Same rationale as autoexec.cfg
-		// below.
+		// The game looks up cfg files in fs_game first and then baseq3,
+		// so one baseq3 copy of trinity.cfg and autoexec.cfg covers
+		// missionpack servers too.
 		trinityCfg, err := RenderTrinityCfg(publicURL)
 		if err != nil {
 			return err
@@ -503,11 +461,8 @@ func installPerServerFiles(plan *Plan, a *Answers, uid, gid int) error {
 		}
 		plan.Say("Installed: %s", path)
 
-		// autoexec.cfg only needs to live in baseq3 — q3's vfs looks
-		// up cfg files in the active mod first and falls back to
-		// baseq3, so a baseq3/autoexec.cfg that does `exec trinity.cfg`
-		// covers missionpack too. Writing one in missionpack would
-		// shadow operator customizations they put in baseq3.
+		// A missionpack autoexec.cfg would shadow the operator's
+		// baseq3 one.
 		autoexec := filepath.Join(a.Quake3Dir, "baseq3", "autoexec.cfg")
 		if _, err := os.Stat(autoexec); os.IsNotExist(err) {
 			body := "// Generated by trinity init.\nexec trinity.cfg\n"
@@ -520,10 +475,8 @@ func installPerServerFiles(plan *Plan, a *Answers, uid, gid int) error {
 		}
 	}
 
-	// Shared <stem>.cfg + rotation.<stem> per (gametype, useMissionpack)
-	// tuple — multiple servers of the same mode share one cfg.
-	// Operators wanting per-server overrides edit the .env file to
-	// point +exec at a custom cfg.
+	// Servers of the same game type and mod share one cfg and rotation;
+	// a per-server override points the .env's +exec at another cfg.
 	type modeKey struct {
 		g     Gametype
 		useMP bool
@@ -545,8 +498,6 @@ func installPerServerFiles(plan *Plan, a *Answers, uid, gid int) error {
 		if err != nil {
 			return err
 		}
-		// 0640 root:<service-user> — rconpassword lives here. World
-		// read access would let any local user grab it.
 		if err := plan.WriteFile(cfgPath, []byte(body), 0640); err != nil {
 			return err
 		}
@@ -566,8 +517,6 @@ func installPerServerFiles(plan *Plan, a *Answers, uid, gid int) error {
 		plan.Say("Wrote: %s", rotPath)
 	}
 
-	// Per-instance .env file (port, fs_game, +exec the shared cfg) and
-	// systemd enable.
 	for _, s := range a.Servers {
 		stem := Stem(s.Gametype, s.UseMissionpack)
 		envPath := filepath.Join("/etc/trinity", s.Key+".env")

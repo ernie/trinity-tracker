@@ -23,9 +23,6 @@ const QuestionIcon = () => (
   </svg>
 );
 
-// Variant-aware help text. The six distinct branches mirror the
-// visual states below; each is its own line in the editorial pass
-// (admin vs user have separate icons, so they're separate strings).
 const HELP_UNVERIFIED = `Unverified player. Stats attach to this install's qkey, not a Trinity account.`;
 const HELP_UNVERIFIED_VR = `Unverified VR player. No Trinity account yet.`;
 const HELP_USER = `Verified Trinity account.`;
@@ -41,7 +38,6 @@ export function PlayerBadge({
 }: PlayerBadgeProps) {
   const sizeClass = `player-badge-${size}`;
 
-  // Unverified player: show placeholder badge
   if (!isVerified && !isVR) {
     return (
       <span
@@ -54,7 +50,6 @@ export function PlayerBadge({
     );
   }
 
-  // VR only (not verified): VR icon with dotted outline
   if (isVR && !isVerified) {
     return (
       <span
@@ -67,12 +62,11 @@ export function PlayerBadge({
     );
   }
 
-  // Verified only (no VR)
   if (!isVR) {
     return (
       <span
         className={`player-badge ${sizeClass} ${isAdmin ? "admin" : "user"}`}
-        title={isAdmin ? "Verified Admin" : "Verified User"}
+        title={isAdmin ? "Verified admin" : "Verified user"}
         data-help={isAdmin ? HELP_ADMIN : HELP_USER}
       >
         {isAdmin ? <StarIcon /> : <CheckIcon />}
@@ -80,11 +74,10 @@ export function PlayerBadge({
     );
   }
 
-  // Both VR + verified: symbol on top of VR icon background
   return (
     <span
       className={`player-badge ${sizeClass} ${isAdmin ? "admin" : "user"} vr`}
-      title={isAdmin ? "Verified Admin (VR)" : "Verified User (VR)"}
+      title={isAdmin ? "Verified admin (VR)" : "Verified user (VR)"}
       data-help={isAdmin ? HELP_ADMIN_VR : HELP_USER_VR}
     >
       {isAdmin ? <StarIcon /> : <CheckIcon />}

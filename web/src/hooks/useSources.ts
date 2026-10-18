@@ -10,16 +10,13 @@ let cachedAt = 0;
 const CACHE_MS = 60_000;
 
 // useSources fetches /api/sources and caches the result for a minute.
-// Used by the SourceFilter dropdown (inactive sources rendered with
-// an "(inactive)" suffix so historical matches can still be filtered)
-// and by serverDisplay's auto-suppress on single-source installs.
 export function useSources(): { sources: SourceInfo[]; hasMultiple: boolean } {
   const [sources, setSources] = useState<SourceInfo[]>(() =>
     cached && Date.now() - cachedAt < CACHE_MS ? cached : [],
   );
 
   useEffect(() => {
-    // Fresh cache was applied during state init — nothing to fetch.
+    // A fresh cache is already in the initial state.
     if (cached && Date.now() - cachedAt < CACHE_MS) return;
     let cancelled = false;
     fetch("/api/sources")
@@ -31,7 +28,7 @@ export function useSources(): { sources: SourceInfo[]; hasMultiple: boolean } {
         setSources(cached);
       })
       .catch(() => {
-        // silent — empty list just means no tags get rendered
+        // An empty list just shows no source tags.
       });
     return () => {
       cancelled = true;

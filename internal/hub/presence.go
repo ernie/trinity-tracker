@@ -3,9 +3,9 @@ package hub
 import "sync"
 
 // PresenceEntry is per-slot state the hub uses to enrich UDP
-// statusResponse rows. Counters hold per-match awards incremented by
-// Writer.EnrichEvent and reset by Presence.ResetCounters on match
-// start.
+// statusResponse rows. The counters are this match's awards:
+// Writer.EnrichEvent increments them and Presence.ResetCounters zeroes
+// them at match start.
 type PresenceEntry struct {
 	GUID  string
 	Model string
@@ -19,7 +19,7 @@ type PresenceEntry struct {
 	Defends         int
 	Captures        int
 	Assists         int
-	FlagReturns     int // CTF/1FCTF: player-initiated returns this match (auto-returns filtered upstream)
+	FlagReturns     int // CTF and One Flag CTF: returns a player made this match
 	SkullsDelivered int // Harvester: cumulative deliveries this match (drives the live skull medal)
 }
 
@@ -27,7 +27,7 @@ type PresenceEntry struct {
 // player_join / player_leave events.
 type Presence struct {
 	mu     sync.RWMutex
-	bySlot map[presenceKey]PresenceEntry // (serverID, clientNum) → entry
+	bySlot map[presenceKey]PresenceEntry
 }
 
 type presenceKey struct {
@@ -40,10 +40,8 @@ func NewPresence() *Presence {
 	return &Presence{bySlot: make(map[presenceKey]PresenceEntry)}
 }
 
-// RecordJoin remembers (serverID, clientNum) → entry. Overwrites any
-// stale entry for the same slot. Two bots that happen to share a
-// clean name (and therefore a synthetic GUID) are distinguished by
-// their slot, so no cross-slot cleanup happens here.
+// RecordJoin stores entry for the slot, replacing any stale one. Bots
+// that share a clean name, and so a synthetic GUID, stay apart by slot.
 func (p *Presence) RecordJoin(serverID int64, clientNum int, entry PresenceEntry) {
 	if entry.GUID == "" {
 		return
@@ -53,10 +51,8 @@ func (p *Presence) RecordJoin(serverID int64, clientNum int, entry PresenceEntry
 	p.mu.Unlock()
 }
 
-// RecordLeave clears the specific (serverID, clientNum) slot if its
-// current GUID matches. The guid check guards against clearing a slot
-// that's already been reassigned to a different player when a stale
-// leave arrives.
+// RecordLeave clears the slot if it still holds guid, so a late leave
+// can't clear a slot that has a new player.
 func (p *Presence) RecordLeave(serverID int64, clientNum int, guid string) {
 	if guid == "" {
 		return
@@ -69,10 +65,9 @@ func (p *Presence) RecordLeave(serverID int64, clientNum int, guid string) {
 	}
 }
 
-// UpdateClientUserinfo applies a ClientUserinfoChanged (model, vr) to
-// an existing presence entry. No-op if the slot has no entry or its
-// GUID doesn't match — a stale update after the slot has been
-// reassigned must not overwrite the new occupant.
+// UpdateClientUserinfo applies a ClientUserinfoChanged (model, VR) to
+// the slot's entry if it still holds guid, so a late update can't
+// overwrite a new player.
 func (p *Presence) UpdateClientUserinfo(serverID int64, clientNum int, guid, model string, isVR bool) {
 	if guid == "" {
 		return
@@ -96,8 +91,8 @@ func (p *Presence) Lookup(serverID int64, clientNum int) (PresenceEntry, bool) {
 	return entry, ok
 }
 
-// HumanCount returns the number of non-bot entries currently tracked
-// for serverID. Drives the activity-notifier's 0↔1 transition trigger.
+// HumanCount returns the number of human entries for serverID. The
+// activity notifier fires when it moves between 0 and 1.
 func (p *Presence) HumanCount(serverID int64) int {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -120,9 +115,8 @@ func (p *Presence) Clear(serverID int64) {
 	}
 }
 
-// ResetCounters zeroes the per-match counter fields on every entry
-// for serverID, keeping identity fields intact. Called at match start
-// so the live card starts each match at 0-0-0.
+// ResetCounters zeroes the per-match counters on every entry for
+// serverID at match start, so the live card starts each match at 0.
 func (p *Presence) ResetCounters(serverID int64) {
 	p.mu.Lock()
 	defer p.mu.Unlock()

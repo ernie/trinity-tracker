@@ -21,13 +21,11 @@ func ParseMD3Shaders(r io.ReaderAt, size int64) ([]string, error) {
 		return nil, fmt.Errorf("MD3 too small: %d bytes", size)
 	}
 
-	// Read header
 	header := make([]byte, md3HeaderSize)
 	if _, err := r.ReadAt(header, 0); err != nil {
 		return nil, fmt.Errorf("read MD3 header: %w", err)
 	}
 
-	// Verify magic and version
 	if string(header[0:4]) != md3Magic {
 		return nil, fmt.Errorf("invalid MD3 magic: %q", header[0:4])
 	}
@@ -51,13 +49,11 @@ func ParseMD3Shaders(r io.ReaderAt, size int64) ([]string, error) {
 			break
 		}
 
-		// Read surface header (enough to get shader info)
 		surfHeader := make([]byte, 12*4+64+4) // up through ofsEnd fields
 		if _, err := r.ReadAt(surfHeader, surfaceOfs); err != nil {
 			return nil, fmt.Errorf("read MD3 surface %d header: %w", i, err)
 		}
 
-		// Verify surface magic
 		if string(surfHeader[0:4]) != md3Magic {
 			return nil, fmt.Errorf("invalid MD3 surface magic at offset %d", surfaceOfs)
 		}
@@ -69,7 +65,6 @@ func ParseMD3Shaders(r io.ReaderAt, size int64) ([]string, error) {
 		ofsShaders := int64(binary.LittleEndian.Uint32(surfHeader[92:96]))
 		ofsEnd := int64(binary.LittleEndian.Uint32(surfHeader[104:108]))
 
-		// Read shader entries
 		for j := int32(0); j < numShaders; j++ {
 			shaderOfs := surfaceOfs + ofsShaders + int64(j)*md3ShaderSize
 			if shaderOfs+md3ShaderSize > size {

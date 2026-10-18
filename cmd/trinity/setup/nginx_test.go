@@ -30,11 +30,11 @@ func TestRenderHubNginxConfig_ContainsExpectedDirectives(t *testing.T) {
 		"add_header Cache-Control \"public, max-age=31536000, immutable\" always;",
 		"location /demopk3s/maps/        { try_files $uri @trinity_fallback; }",
 		"location @trinity_fallback {",
-		// TrinityVision live: two-segment router is always present (beats the SPA).
+		// TrinityVision live: the two-segment route, ahead of the SPA.
 		"location ~ ^/tv/[^/]+/[^/]+/stream$ {",
 		"location @spa {",
 		"rewrite ^ /index.html last;",
-		// /q3/ pak/tvd alias on the main vhost (used by the in-browser engine).
+		// The /q3/ pak and tvd alias the in-browser engine loads from.
 		"location ~ ^/q3/(baseq3|missionpack)/pak0\\.pk3$ {",
 		"location ~ ^/q3/(.+\\.(pk3|tvd))$ {",
 		"alias /usr/lib/quake3/$1;",
@@ -50,14 +50,11 @@ func TestRenderHubNginxConfig_ContainsExpectedDirectives(t *testing.T) {
 		}
 	}
 
-	// The template must NOT carry the legacy redirect (operator retired
-	// trinity.ernie.io ahead of the migration).
 	if strings.Contains(rendered, "trinity.ernie.io") {
 		t.Errorf("rendered hub.conf still references the legacy hostname:\n%s", rendered)
 	}
 
-	// Pure hub (HasLocalRelay default false): no local relay, so no
-	// single-segment /tv proxy to :8081 — it only routes the two-segment form.
+	// A pure hub has no local relay to proxy to.
 	if strings.Contains(rendered, "127.0.0.1:8081") {
 		t.Errorf("pure hub.conf must not proxy to the relay :8081:\n%s", rendered)
 	}
@@ -74,10 +71,8 @@ func TestRenderHubNginxConfig_CombinedIncludesRelay(t *testing.T) {
 		t.Fatalf("render: %v", err)
 	}
 	rendered := string(out)
-	// A combined box serves the single-segment relay stream itself. The relay
-	// can go >60s without bytes (intermission/engine stall); without long
-	// timeouts nginx 504s the viewer. proxy_send_timeout is the discriminator —
-	// the /ws block carries only proxy_read_timeout.
+	// Only the relay block sets proxy_send_timeout; the /ws block sets just
+	// proxy_read_timeout.
 	for _, want := range []string{
 		"location ~ ^/tv/[^/]+$ {",
 		"proxy_pass http://127.0.0.1:8081;",
@@ -136,10 +131,9 @@ func TestRenderCollectorNginxConfig_ContainsExpectedDirectives(t *testing.T) {
 		"location /assets/levelshots/ {",
 		"expires 30d;",
 		"location /demopk3s/ {",
-		// TrinityVision live: collectors always serve the single-segment relay.
+		// TrinityVision live: the single-segment relay route.
 		"location ~ ^/tv/[^/]+$ {",
 		"proxy_pass http://127.0.0.1:8081;",
-		// Long timeouts + HTTP/1.1 so a quiet spell (intermission) doesn't 504.
 		"proxy_http_version 1.1;",
 		"proxy_read_timeout 86400;",
 		"proxy_send_timeout 86400;",
@@ -157,7 +151,7 @@ func TestRenderCollectorNginxConfig_ContainsExpectedDirectives(t *testing.T) {
 		}
 	}
 
-	// Collector vhost is not an app — no SPA, no api/ws proxy.
+	// The collector vhost serves files and the relay only.
 	for _, unwanted := range []string{
 		"location /api/ {",
 		"location /ws {",

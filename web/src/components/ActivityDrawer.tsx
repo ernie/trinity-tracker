@@ -14,17 +14,13 @@ interface ActivityDrawerProps {
   ) => void;
 }
 
-// Slides in from the right (matches MyServersDrawer). Only mounted when
-// open, so the mount itself is the open/close gesture — no explicit
-// transition needed for first cut.
 export function ActivityDrawer({
   activities,
   servers,
   onClose,
   onPlayerClick,
 }: ActivityDrawerProps) {
-  // Esc to close. Bound at document level so focus inside the drawer
-  // still reaches the handler.
+  // Bound on the document so Escape closes the drawer wherever focus is.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();

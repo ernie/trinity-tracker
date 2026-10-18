@@ -1,10 +1,8 @@
 import type { ConnectionStatus } from "../useWebSocket";
 
-// Shared state derivation for the two live-signal pills (StatusPill on
-// app routes, the hero pill on the landing page) so their semantics
-// can't drift apart. OFFLINE is reserved for a feed that's genuinely
-// unreachable (see ConnectionStatus) — connecting reads as quiet, not
-// as an alarming flash on every cold load or tab return.
+// Shared by StatusPill and the landing page's hero pill so the two agree.
+// OFFLINE means the feed is unreachable; a connection in progress reads as
+// quiet, so a cold load or tab return doesn't flash it.
 export interface PillState {
   stateClass: "live" | "quiet" | "offline";
   label: string;

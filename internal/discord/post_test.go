@@ -54,8 +54,6 @@ func TestPostWebhook_NonOKSurfaceBody(t *testing.T) {
 	}
 }
 
-// PostWebhookForID appends ?wait=true and parses the returned
-// message id so callers can later edit it.
 func TestPostWebhookForID_ReturnsMessageID(t *testing.T) {
 	var gotQuery string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -77,7 +75,6 @@ func TestPostWebhookForID_ReturnsMessageID(t *testing.T) {
 	}
 }
 
-// EditWebhookMessage PATCHes the right URL with the embed payload.
 func TestEditWebhookMessage_PatchesCorrectPath(t *testing.T) {
 	var gotMethod, gotPath string
 	var gotBody struct {
@@ -106,8 +103,6 @@ func TestEditWebhookMessage_PatchesCorrectPath(t *testing.T) {
 	}
 }
 
-// 404 from Discord means the message was deleted — surface as
-// ErrMessageNotFound so callers can clear their cached id.
 func TestEditWebhookMessage_NotFoundReturnsSentinel(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)

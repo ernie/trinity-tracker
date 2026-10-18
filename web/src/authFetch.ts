@@ -1,7 +1,5 @@
-// fetch wrapper for authenticated API calls. The session cookie rides
-// along automatically (same-origin default); a 401 means the session
-// died mid-use (token-version bump from another device, disable), so
-// broadcast it — AuthProvider listens and re-derives auth state.
+// A 401 means the session ended mid-use (revoked from another device, or the
+// account was disabled); AuthProvider hears the event and rechecks auth.
 
 export const AUTH_EXPIRED_EVENT = "auth-expired";
 

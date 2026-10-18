@@ -7,14 +7,11 @@ import (
 )
 
 // CopyTree mirrors src into dst, preserving file modes and symlinks.
-// Existing files in dst are overwritten; nothing in dst is removed —
-// the destination may already hold runtime-extracted assets
-// (levelshots, demopk3s) that we must not blow away.
+// Existing files in dst are overwritten, and files only in dst stay,
+// since dst may already hold extracted assets (levelshots, demo pk3s).
 //
-// Ownership of created entries follows the calling process — used as
-// the in-Go body of `_helper copy`, which re-execs trinity with the
-// service user's credentials so every file lands service-owned at
-// creation rather than via a follow-up chown.
+// Created entries belong to the calling process's user. `_helper copy`
+// runs it as the service user, so files are service-owned from creation.
 func CopyTree(src, dst string) error {
 	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
 		if err != nil {

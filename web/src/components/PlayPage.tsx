@@ -50,7 +50,7 @@ export function PlayPage() {
         setLoading(false);
       } catch (e) {
         if (!aborted)
-          setError(e instanceof Error ? e.message : "Failed to load engine");
+          setError(e instanceof Error ? e.message : "Couldn't load the game.");
       }
     }
 
@@ -60,8 +60,7 @@ export function PlayPage() {
       aborted = true;
       const mod = moduleRef.current;
       if (mod) {
-        // Best-effort teardown — any one of these may throw mid-shutdown
-        // and we still want to run the rest.
+        // Any step can throw mid-shutdown; the rest still run.
         try {
           mod.shutdown();
         } catch (e) {
@@ -82,7 +81,7 @@ export function PlayPage() {
     };
   }, [auth.isAdmin, authLoading]);
 
-  // Re-initialize video on resize so the framebuffer matches the CSS box
+  // Restart video on resize so the framebuffer matches the CSS box.
   useEffect(() => {
     const canvas = canvasRef.current;
     const mod = moduleRef.current;
@@ -104,7 +103,7 @@ export function PlayPage() {
         canvas.style.visibility = "hidden";
         if (statusRef.current) {
           statusRef.current.style.display = "";
-          statusRef.current.textContent = "Restarting video...";
+          statusRef.current.textContent = "Restarting video…";
         }
         requestAnimationFrame(() => {
           mod.ccall(
@@ -141,7 +140,7 @@ export function PlayPage() {
     return () => document.removeEventListener("pointerlockchange", handler);
   }, []);
 
-  // Prevent Tab key from leaving the canvas
+  // Tab would move focus off the canvas.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Tab") e.preventDefault();
@@ -153,7 +152,7 @@ export function PlayPage() {
   if (authLoading) {
     return (
       <div className="demo-player-page">
-        <div className="demo-status">Loading...</div>
+        <div className="demo-status">Loading…</div>
       </div>
     );
   }
@@ -198,7 +197,7 @@ export function PlayPage() {
         className="demo-canvas"
       />
       <div ref={statusRef} className="demo-status">
-        {loading ? "Loading..." : ""}
+        {loading ? "Loading…" : ""}
       </div>
       {progress.total > 0 && (
         <div

@@ -11,43 +11,33 @@ import (
 	"github.com/ernie/trinity-tracker/internal/storage"
 )
 
-// writeJSON writes a JSON response
 func writeJSON(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(data)
 }
 
-// writeError writes a JSON error response
+// writeError sends {"error": message}; the web UI shows message as is.
 func writeError(w http.ResponseWriter, status int, message string) {
 	writeJSON(w, status, map[string]string{"error": message})
 }
 
-// parseID parses an ID from the URL path
 func parseID(req *http.Request, param string) (int64, error) {
 	idStr := req.PathValue(param)
 	return strconv.ParseInt(idStr, 10, 64)
 }
 
-// Liveness thresholds for the live-cards endpoint.
-//
-// stalenessThreshold: a card with collector heartbeat older than this
-// is rendered with a "stale" chip; the card still shows.
-//
-// hideThreshold: a card whose collector hasn't heartbeated OR whose
-// last UDP success is older than this disappears from the response.
-// The thresholds are intentionally distinct so a brief blip surfaces
-// as a chip rather than a vanish.
+// Live-card liveness: a heartbeat older than the staleness threshold
+// shows a stale chip, and a card hides once its heartbeat or its last
+// UDP reply is older than the hide threshold. The gap between them
+// lets a brief blip show as a chip.
 const (
 	livenessStalenessThreshold = 60 * time.Second
 	livenessHideThreshold      = 5 * time.Minute
 )
 
-// liveServer is the live-cards payload: a server row plus the
-// hub-derived liveness signal so the UI can render a "stale" or
-// "offline" chip on the card itself. ManageableByMe is computed per
-// request from auth claims + source ownership + admin delegation —
-// the UI uses it to gate the click-to-open-RCON affordance.
+// liveServer is a live card: the server row plus its liveness, and
+// whether the caller may use RCON on it.
 type liveServer struct {
 	domain.Server
 	Online         bool   `json:"online"`
@@ -55,10 +45,7 @@ type liveServer struct {
 	ManageableByMe bool   `json:"manageable_by_me"`
 }
 
-// handleGetServers returns servers the hub has observed enforcing
-// g_trinityHandshake AND that are currently checking in. Servers go
-// handleGetVersion returns the running binary's git-describe version.
-// Public — surfaced to the footer on the frontend.
+// handleGetVersion returns the running binary's version, or "dev".
 func (r *Router) handleGetVersion(w http.ResponseWriter, req *http.Request) {
 	v := r.version
 	if v == "" {
@@ -67,18 +54,16 @@ func (r *Router) handleGetVersion(w http.ResponseWriter, req *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"version": v})
 }
 
-// missing from this list when the collector source has stopped
-// heartbeating OR the q3 server has been UDP-unreachable for the
-// hide threshold — operators see them disappear instead of stuck on
-// stale data.
+// handleGetServers returns the live cards: servers seen enforcing
+// g_trinityHandshake whose collector and game server are both
+// answering.
 func (r *Router) handleGetServers(w http.ResponseWriter, req *http.Request) {
 	servers, err := r.store.GetServers(req.Context())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	// Resolve auth once per request. owners is loaded lazily — anonymous
-	// callers never get a non-zero manageable_by_me, so we skip the query.
+	// Anonymous callers can't manage anything, so they skip the owner query.
 	claims := r.getAuthClaims(req)
 	var owners map[string]int64
 	if claims != nil {
@@ -94,13 +79,11 @@ func (r *Router) handleGetServers(w http.ResponseWriter, req *http.Request) {
 		if !s.HandshakeRequired {
 			continue
 		}
-		// Heartbeat staleness.
 		heartbeatAge := livenessHideThreshold + time.Second
 		if s.LastHeartbeatAt != nil {
 			heartbeatAge = now.Sub(*s.LastHeartbeatAt)
 		}
-		// UDP staleness — inferred from the poller's in-memory status.
-		// status==nil happens before the first poll completes.
+		// Status is nil until the first poll completes.
 		status := r.lookupServerStatus(s.ID)
 		online := false
 		udpAge := livenessHideThreshold + time.Second
@@ -126,17 +109,13 @@ func (r *Router) handleGetServers(w http.ResponseWriter, req *http.Request) {
 			isLocal := r.localSource != "" && s.Source == r.localSource
 			switch {
 			case hasOwner && ownerID == claims.UserID:
-				// User owns this source — RCON regardless of admin status.
 				manageable = true
 			case claims.IsAdmin && isLocal:
-				// Local hub+collector: admin runs the box.
+				// Admins run the hub's own collector.
 				manageable = true
 			case claims.IsAdmin && s.AdminDelegationEnabled:
-				// Remote source whose operator opted in to admin delegation.
-				// Includes admin-minted remotes (no owner row) — the
-				// operator behind the .creds still has to flip the cfg
-				// flag before admin gets RCON. The collector re-validates
-				// on every proxy request as a backstop.
+				// The operator opted in; the collector checks again on
+				// every request.
 				manageable = true
 			}
 		}
@@ -145,53 +124,49 @@ func (r *Router) handleGetServers(w http.ResponseWriter, req *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
-// handleGetServer returns a single server
 func (r *Router) handleGetServer(w http.ResponseWriter, req *http.Request) {
 	id, err := parseID(req, "id")
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid server id")
+		writeError(w, http.StatusBadRequest, "Invalid server ID.")
 		return
 	}
 
 	server, err := r.store.GetServerByID(req.Context(), id)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "server not found")
+		writeError(w, http.StatusNotFound, "Server not found.")
 		return
 	}
 	writeJSON(w, http.StatusOK, server)
 }
 
-// handleGetServerStatus returns current status for a server
 func (r *Router) handleGetServerStatus(w http.ResponseWriter, req *http.Request) {
 	id, err := parseID(req, "id")
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid server id")
+		writeError(w, http.StatusBadRequest, "Invalid server ID.")
 		return
 	}
 
 	status := r.lookupServerStatus(id)
 	if status == nil {
-		writeError(w, http.StatusNotFound, "server status not available")
+		writeError(w, http.StatusNotFound, "Server status isn't available.")
 		return
 	}
 	writeJSON(w, http.StatusOK, status)
 }
 
-// handleGetServerPlayers returns current players on a server
 func (r *Router) handleGetServerPlayers(w http.ResponseWriter, req *http.Request) {
 	id, err := parseID(req, "id")
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid server id")
+		writeError(w, http.StatusBadRequest, "Invalid server ID.")
 		return
 	}
 
 	status := r.lookupServerStatus(id)
 	if status == nil {
-		writeError(w, http.StatusNotFound, "server status not available")
+		writeError(w, http.StatusNotFound, "Server status isn't available.")
 		return
 	}
 
-	// Response with player list and counts
 	response := map[string]interface{}{
 		"players":     status.Players,
 		"human_count": status.HumanCount,
@@ -201,7 +176,9 @@ func (r *Router) handleGetServerPlayers(w http.ResponseWriter, req *http.Request
 	writeJSON(w, http.StatusOK, response)
 }
 
-// handleGetPlayers returns players with optional search and pagination
+// handleGetPlayers searches players when search is set (matching GUIDs
+// too for a valid bearer token), and otherwise lists them a page at a
+// time.
 func (r *Router) handleGetPlayers(w http.ResponseWriter, req *http.Request) {
 	search := req.URL.Query().Get("search")
 	if search != "" {
@@ -234,7 +211,7 @@ func (r *Router) handleGetPlayers(w http.ResponseWriter, req *http.Request) {
 	}
 	if v := req.URL.Query().Get("sort"); v != "" {
 		if !storage.ValidPlayerSort(v) {
-			writeError(w, http.StatusBadRequest, "invalid sort")
+			writeError(w, http.StatusBadRequest, "Invalid sort.")
 			return
 		}
 		opts.Sort = v
@@ -246,7 +223,7 @@ func (r *Router) handleGetPlayers(w http.ResponseWriter, req *http.Request) {
 	case "desc":
 		opts.Desc = true
 	default:
-		writeError(w, http.StatusBadRequest, "invalid dir")
+		writeError(w, http.StatusBadRequest, "Invalid sort direction.")
 		return
 	}
 
@@ -263,27 +240,25 @@ func (r *Router) handleGetPlayers(w http.ResponseWriter, req *http.Request) {
 	})
 }
 
-// handleGetPlayer returns a single player
 func (r *Router) handleGetPlayer(w http.ResponseWriter, req *http.Request) {
 	id, err := parseID(req, "id")
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid player id")
+		writeError(w, http.StatusBadRequest, "Invalid player ID.")
 		return
 	}
 
 	player, err := r.store.GetPlayerByID(req.Context(), id)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "player not found")
+		writeError(w, http.StatusNotFound, "Player not found.")
 		return
 	}
 	writeJSON(w, http.StatusOK, player)
 }
 
-// handleGetPlayerStatsByID returns aggregated stats for a player by ID
 func (r *Router) handleGetPlayerStatsByID(w http.ResponseWriter, req *http.Request) {
 	id, err := parseID(req, "id")
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid player id")
+		writeError(w, http.StatusBadRequest, "Invalid player ID.")
 		return
 	}
 
@@ -293,25 +268,21 @@ func (r *Router) handleGetPlayerStatsByID(w http.ResponseWriter, req *http.Reque
 	}
 
 	if !validatePeriod(period) {
-		writeError(w, http.StatusBadRequest, "invalid period: must be all, day, week, month, or year")
+		writeError(w, http.StatusBadRequest, "Invalid period. Use all, day, week, month or year.")
 		return
 	}
 
 	stats, err := r.store.GetPlayerStatsByID(req.Context(), id, period)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "player not found")
+		writeError(w, http.StatusNotFound, "Player not found.")
 		return
 	}
 
 	writeJSON(w, http.StatusOK, stats)
 }
 
-// handleGetSourceNames returns the list of source names + active flags
-// from the sources table — public, used to populate the source-filter
-// dropdown (which renders inactive sources with an "(inactive)" suffix
-// so users can still filter historical matches by them).
-// Admin-only /api/admin/sources also exists and returns the full
-// per-source detail with credential download links.
+// handleGetSourceNames returns each source's name and active flag,
+// inactive ones included so older matches can still be filtered by them.
 func (r *Router) handleGetSourceNames(w http.ResponseWriter, req *http.Request) {
 	rows, err := r.store.ListApprovedSources(req.Context())
 	if err != nil {
@@ -329,27 +300,26 @@ func (r *Router) handleGetSourceNames(w http.ResponseWriter, req *http.Request) 
 	writeJSON(w, http.StatusOK, out)
 }
 
-// handleGetMatches returns recent finished matches with server and player info
+// handleGetMatches returns finished matches, newest first, with their
+// server and players.
 func (r *Router) handleGetMatches(w http.ResponseWriter, req *http.Request) {
 	filter := storage.MatchFilter{
 		Limit:    parseLimit(req, 20, 100),
 		BeforeID: parseBeforeID(req),
 	}
 
-	// Game type filter
 	if gt := req.URL.Query().Get("game_type"); gt != "" {
 		if !validateGameType(gt) {
-			writeError(w, http.StatusBadRequest, "invalid game_type")
+			writeError(w, http.StatusBadRequest, "Invalid game_type.")
 			return
 		}
 		filter.GameType = gt
 	}
 
-	// Date filters (RFC3339 format)
 	if sd := req.URL.Query().Get("start_date"); sd != "" {
 		t, err := time.Parse(time.RFC3339, sd)
 		if err != nil {
-			writeError(w, http.StatusBadRequest, "invalid start_date format, use RFC3339")
+			writeError(w, http.StatusBadRequest, "Invalid start_date. Use RFC 3339.")
 			return
 		}
 		filter.StartDate = &t
@@ -358,7 +328,7 @@ func (r *Router) handleGetMatches(w http.ResponseWriter, req *http.Request) {
 	if ed := req.URL.Query().Get("end_date"); ed != "" {
 		t, err := time.Parse(time.RFC3339, ed)
 		if err != nil {
-			writeError(w, http.StatusBadRequest, "invalid end_date format, use RFC3339")
+			writeError(w, http.StatusBadRequest, "Invalid end_date. Use RFC 3339.")
 			return
 		}
 		filter.EndDate = &t
@@ -370,16 +340,15 @@ func (r *Router) handleGetMatches(w http.ResponseWriter, req *http.Request) {
 
 	if mode := req.URL.Query().Get("mode"); mode != "" {
 		if !validateMode(mode) {
-			writeError(w, http.StatusBadRequest, "invalid mode")
+			writeError(w, http.StatusBadRequest, "Invalid mode.")
 			return
 		}
 		filter.Mode = mode
 	}
 
 	filter.IncludeBotOnly = req.URL.Query().Get("include_bot_only") == "true"
-	// featured=true narrows to flagged matches regardless of demo state —
-	// the admin Featured section uses it to surface broken entries (flagged
-	// but demo gone) that the public /api/matches/featured endpoint hides.
+	// featured=true ignores demo state so admins can find featured
+	// matches whose demo is gone.
 	filter.FeaturedOnly = req.URL.Query().Get("featured") == "true"
 	filter.DemoOnly = req.URL.Query().Get("has_demo") == "true"
 
@@ -392,17 +361,16 @@ func (r *Router) handleGetMatches(w http.ResponseWriter, req *http.Request) {
 	writeJSON(w, http.StatusOK, matches)
 }
 
-// handleGetMatch returns a single match
 func (r *Router) handleGetMatch(w http.ResponseWriter, req *http.Request) {
 	id, err := parseID(req, "id")
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid match id")
+		writeError(w, http.StatusBadRequest, "Invalid match ID.")
 		return
 	}
 
 	match, err := r.store.GetMatchSummaryByID(req.Context(), id)
 	if err == sql.ErrNoRows {
-		writeError(w, http.StatusNotFound, "match not found")
+		writeError(w, http.StatusNotFound, "Match not found.")
 		return
 	}
 	if err != nil {
@@ -414,7 +382,8 @@ func (r *Router) handleGetMatch(w http.ResponseWriter, req *http.Request) {
 	writeJSON(w, http.StatusOK, matches[0])
 }
 
-// handleGetLeaderboard returns top players by specified category and time period
+// handleGetLeaderboard returns the top players for a category over a
+// period, optionally limited to one game type.
 func (r *Router) handleGetLeaderboard(w http.ResponseWriter, req *http.Request) {
 	limit := parseLimit(req, 50, 100)
 
@@ -423,7 +392,7 @@ func (r *Router) handleGetLeaderboard(w http.ResponseWriter, req *http.Request) 
 		category = "frags"
 	}
 	if !validateCategory(category) {
-		writeError(w, http.StatusBadRequest, "invalid category")
+		writeError(w, http.StatusBadRequest, "Invalid category.")
 		return
 	}
 
@@ -432,24 +401,23 @@ func (r *Router) handleGetLeaderboard(w http.ResponseWriter, req *http.Request) 
 		period = "all"
 	}
 	if !validatePeriod(period) {
-		writeError(w, http.StatusBadRequest, "invalid period")
+		writeError(w, http.StatusBadRequest, "Invalid period.")
 		return
 	}
 
 	gameType := req.URL.Query().Get("game_type")
 	if gameType != "" && !validateGameType(gameType) {
-		writeError(w, http.StatusBadRequest, "invalid game_type")
+		writeError(w, http.StatusBadRequest, "Invalid game_type.")
 		return
 	}
 
-	// as_of pins the period's upper bound for reproducible snapshot
-	// links (e.g. the Discord digest's footer). Parse-only validation —
-	// nonsense values just return empty/weird leaderboards.
+	// as_of pins the period's end so a snapshot link, such as the Discord
+	// digest's, always shows the same board.
 	var asOf time.Time
 	if s := req.URL.Query().Get("as_of"); s != "" {
 		parsed, err := time.Parse(time.RFC3339, s)
 		if err != nil {
-			writeError(w, http.StatusBadRequest, "invalid as_of: "+err.Error())
+			writeError(w, http.StatusBadRequest, "Invalid as_of: "+err.Error())
 			return
 		}
 		asOf = parsed
@@ -463,18 +431,18 @@ func (r *Router) handleGetLeaderboard(w http.ResponseWriter, req *http.Request) 
 	writeJSON(w, http.StatusOK, response)
 }
 
-// handleHealth returns a simple health check response
 func (r *Router) handleHealth(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("ok"))
 }
 
-// handleMergePlayers merges another player into the target player
+// handleMergePlayers merges merge_player_id into the player in the path
+// and returns the merged player.
 func (r *Router) handleMergePlayers(w http.ResponseWriter, req *http.Request) {
 	targetID, err := parseID(req, "id")
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid target player id")
+		writeError(w, http.StatusBadRequest, "Invalid target player ID.")
 		return
 	}
 
@@ -482,17 +450,17 @@ func (r *Router) handleMergePlayers(w http.ResponseWriter, req *http.Request) {
 		MergePlayerID int64 `json:"merge_player_id"`
 	}
 	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		writeError(w, http.StatusBadRequest, "The request couldn't be read.")
 		return
 	}
 
 	if body.MergePlayerID == 0 {
-		writeError(w, http.StatusBadRequest, "merge_player_id required")
+		writeError(w, http.StatusBadRequest, "merge_player_id is required.")
 		return
 	}
 
 	if body.MergePlayerID == targetID {
-		writeError(w, http.StatusBadRequest, "cannot merge player into itself")
+		writeError(w, http.StatusBadRequest, "A player can't be merged into itself.")
 		return
 	}
 
@@ -501,7 +469,6 @@ func (r *Router) handleMergePlayers(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// Return the updated player
 	player, err := r.store.GetPlayerByID(req.Context(), targetID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -510,11 +477,11 @@ func (r *Router) handleMergePlayers(w http.ResponseWriter, req *http.Request) {
 	writeJSON(w, http.StatusOK, player)
 }
 
-// handleSplitGUID splits a GUID into a new player
+// handleSplitGUID moves a GUID off its player onto a new player.
 func (r *Router) handleSplitGUID(w http.ResponseWriter, req *http.Request) {
 	guidID, err := parseID(req, "id")
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid guid id")
+		writeError(w, http.StatusBadRequest, "Invalid GUID ID.")
 		return
 	}
 
@@ -527,11 +494,10 @@ func (r *Router) handleSplitGUID(w http.ResponseWriter, req *http.Request) {
 	writeJSON(w, http.StatusOK, newPlayer)
 }
 
-// handleGetPlayerGUIDs returns all GUIDs for a player
 func (r *Router) handleGetPlayerGUIDs(w http.ResponseWriter, req *http.Request) {
 	playerID, err := parseID(req, "id")
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid player id")
+		writeError(w, http.StatusBadRequest, "Invalid player ID.")
 		return
 	}
 
@@ -544,11 +510,10 @@ func (r *Router) handleGetPlayerGUIDs(w http.ResponseWriter, req *http.Request) 
 	writeJSON(w, http.StatusOK, guids)
 }
 
-// handleGetPlayerMatches returns recent matches for a specific player
 func (r *Router) handleGetPlayerMatches(w http.ResponseWriter, req *http.Request) {
 	playerID, err := parseID(req, "id")
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid player id")
+		writeError(w, http.StatusBadRequest, "Invalid player ID.")
 		return
 	}
 
@@ -565,11 +530,10 @@ func (r *Router) handleGetPlayerMatches(w http.ResponseWriter, req *http.Request
 	writeJSON(w, http.StatusOK, matches)
 }
 
-// handleGetPlayerSessions returns recent sessions for a specific player (admin only)
 func (r *Router) handleGetPlayerSessions(w http.ResponseWriter, req *http.Request) {
 	playerID, err := parseID(req, "id")
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid player id")
+		writeError(w, http.StatusBadRequest, "Invalid player ID.")
 		return
 	}
 
@@ -581,8 +545,7 @@ func (r *Router) handleGetPlayerSessions(w http.ResponseWriter, req *http.Reques
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	// json.Marshal turns a nil slice into "null"; clients that expect
-	// an array would have to special-case it. Hand them [] instead.
+	// A nil slice would encode as null; clients expect an array.
 	if sessions == nil {
 		sessions = []domain.PlayerSession{}
 	}
@@ -591,7 +554,8 @@ func (r *Router) handleGetPlayerSessions(w http.ResponseWriter, req *http.Reques
 }
 
 // handleListAdminSessions returns recent sessions across all players,
-// optionally filtered by server_id and/or player_id. Admin only.
+// optionally filtered by server_id, player_id and a since/until range
+// on join time.
 func (r *Router) handleListAdminSessions(w http.ResponseWriter, req *http.Request) {
 	var filter storage.SessionFilter
 
@@ -605,8 +569,8 @@ func (r *Router) handleListAdminSessions(w http.ResponseWriter, req *http.Reques
 			filter.PlayerID = &id
 		}
 	}
-	// Optional RFC3339 date-range bounds on joined_at. Silently ignored
-	// when malformed so a stale localStorage value doesn't break the page.
+	// Malformed bounds are ignored so a stale saved filter can't break
+	// the page.
 	if v := req.URL.Query().Get("since"); v != "" {
 		if t, err := time.Parse(time.RFC3339, v); err == nil {
 			filter.Since = &t
@@ -630,7 +594,8 @@ func (r *Router) handleListAdminSessions(w http.ResponseWriter, req *http.Reques
 	writeJSON(w, http.StatusOK, sessions)
 }
 
-// handlePlatformStats takes optional RFC3339 since/until bounds on joined_at.
+// handlePlatformStats takes optional RFC 3339 since/until bounds on
+// join time.
 func (r *Router) handlePlatformStats(w http.ResponseWriter, req *http.Request) {
 	var since, until *time.Time
 	if v := req.URL.Query().Get("since"); v != "" {
@@ -651,28 +616,26 @@ func (r *Router) handlePlatformStats(w http.ResponseWriter, req *http.Request) {
 	writeJSON(w, http.StatusOK, stats)
 }
 
-// handleFeatureMatch toggles a match's is_featured flag. POST sets it to 1,
-// DELETE clears it. Wired through requireAdmin so this handler trusts the
-// caller's admin status.
+// handleFeatureMatch features a match on POST and unfeatures it on
+// DELETE.
 func (r *Router) handleFeatureMatch(w http.ResponseWriter, req *http.Request) {
 	idStr := req.PathValue("id")
 	matchID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, "invalid match id", http.StatusBadRequest)
+		http.Error(w, "Invalid match ID.", http.StatusBadRequest)
 		return
 	}
 
 	featured := req.Method == http.MethodPost
 	if err := r.store.SetMatchFeatured(req.Context(), matchID, featured); err != nil {
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		http.Error(w, "Internal error.", http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// handleGetFeaturedMatches returns the IDs of currently-featured matches with
-// available demos. Public endpoint; consumed by the landing-page "Watch a fight"
-// door which picks one at random on click.
+// handleGetFeaturedMatches returns the IDs of featured matches that have
+// a demo, for the landing page's Watch a fight door.
 func (r *Router) handleGetFeaturedMatches(w http.ResponseWriter, req *http.Request) {
 	limit := 20
 	if v := req.URL.Query().Get("limit"); v != "" {
@@ -682,7 +645,7 @@ func (r *Router) handleGetFeaturedMatches(w http.ResponseWriter, req *http.Reque
 	}
 	ids, err := r.store.GetFeaturedMatches(req.Context(), limit)
 	if err != nil {
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		http.Error(w, "Internal error.", http.StatusInternalServerError)
 		return
 	}
 	if ids == nil {

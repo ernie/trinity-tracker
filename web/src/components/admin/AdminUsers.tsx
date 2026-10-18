@@ -47,10 +47,10 @@ export function AdminUsers() {
       if (res.ok) {
         setUsers(await res.json());
       } else {
-        setError("Failed to load users");
+        setError("Couldn't load users.");
       }
     } catch {
-      setError("Failed to load users");
+      setError("Couldn't load users.");
     } finally {
       setLoading(false);
     }
@@ -66,7 +66,7 @@ export function AdminUsers() {
     setError("");
 
     if (createPassword.length < 8) {
-      setError("Password must be at least 8 characters");
+      setError("Password must be at least 8 characters.");
       return;
     }
 
@@ -92,10 +92,10 @@ export function AdminUsers() {
         fetchUsers();
       } else {
         const data = await res.json();
-        setError(data.error || "Failed to create user");
+        setError(data.error || "Couldn't create the user.");
       }
     } catch {
-      setError("Network error");
+      setError("Couldn't reach the server.");
     }
   };
 
@@ -111,16 +111,16 @@ export function AdminUsers() {
         fetchUsers();
       } else {
         const data = await res.json();
-        setError(data.error || "Failed to delete user");
+        setError(data.error || "Couldn't delete the user.");
       }
     } catch {
-      setError("Network error");
+      setError("Couldn't reach the server.");
     }
   };
 
   const handleResetPassword = async (userId: number) => {
     if (newPassword.length < 8) {
-      setError("Password must be at least 8 characters");
+      setError("Password must be at least 8 characters.");
       return;
     }
 
@@ -137,15 +137,13 @@ export function AdminUsers() {
         fetchUsers();
       } else {
         const data = await res.json();
-        setError(data.error || "Failed to reset password");
+        setError(data.error || "Couldn't reset the password.");
       }
     } catch {
-      setError("Network error");
+      setError("Couldn't reach the server.");
     }
   };
 
-  // Both player-search inputs debounce against this hook so a fast typist
-  // fires one fetch per pause, not one per keystroke.
   const debouncedPlayerSearch = useDebouncedValue(playerSearch, 200);
   const debouncedEditPlayerSearch = useDebouncedValue(editPlayerSearch, 200);
 
@@ -183,7 +181,6 @@ export function AdminUsers() {
     return () => ctrl.abort();
   }, [debouncedEditPlayerSearch]);
 
-  // Hide stored results once the corresponding query is too short.
   const displayPlayerResults =
     debouncedPlayerSearch.length >= 2 ? playerResults : [];
   const displayEditPlayerResults =
@@ -229,10 +226,10 @@ export function AdminUsers() {
         fetchUsers();
       } else {
         const data = await res.json();
-        setError(data.error || "Failed to update display name");
+        setError(data.error || "Couldn't update the display name.");
       }
     } catch {
-      setError("Network error");
+      setError("Couldn't reach the server.");
     }
   };
 
@@ -250,10 +247,10 @@ export function AdminUsers() {
         fetchUsers();
       } else {
         const data = await res.json();
-        setError(data.error || "Failed to update user");
+        setError(data.error || "Couldn't update the user.");
       }
     } catch {
-      setError("Network error");
+      setError("Couldn't reach the server.");
     }
   };
 
@@ -272,9 +269,6 @@ export function AdminUsers() {
 
       {error && <div className="error-message">{error}</div>}
 
-      {/* Create-user form lives behind a <details> toggle so the table stays
-          the page's primary surface; the warm-orange caret on the summary
-          rotates 90° when open, mirroring the structured-filter recipe. */}
       <details
         open={showCreateForm}
         onToggle={(e) =>
@@ -298,7 +292,7 @@ export function AdminUsers() {
             />
           </div>
           <div className="form-group">
-            <label>Temporary Password</label>
+            <label>Temporary password</label>
             <input
               type="password"
               value={createPassword}
@@ -318,7 +312,7 @@ export function AdminUsers() {
             </label>
           </div>
           <div className="form-group">
-            <label>Link to Player (optional)</label>
+            <label>Link to a player (optional)</label>
             <input
               type="text"
               placeholder="Search players…"
@@ -343,7 +337,7 @@ export function AdminUsers() {
             )}
             {createPlayerId && (
               <div className="selected-player">
-                <span>Selected: Player #{createPlayerId}</span>
+                <span>Player #{createPlayerId}</span>
                 <button
                   type="button"
                   onClick={() => {
@@ -369,8 +363,8 @@ export function AdminUsers() {
             <th>Name</th>
             <th>Role</th>
             <th>Player</th>
-            <th>Pwd Change</th>
-            <th>Last Login</th>
+            <th>Must change password</th>
+            <th>Last login</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -499,10 +493,10 @@ export function AdminUsers() {
                   </span>
                 )}
               </td>
-              <td data-label="Pwd Change">
+              <td data-label="Must change password">
                 {user.password_change_required ? "Yes" : "No"}
               </td>
-              <td data-label="Last Login">
+              <td data-label="Last login">
                 {user.last_login
                   ? new Date(user.last_login).toLocaleDateString()
                   : "Never"}
@@ -538,7 +532,7 @@ export function AdminUsers() {
                       className="admin-btn"
                       onClick={() => setResetPasswordUserId(user.id)}
                     >
-                      Reset Pwd
+                      Reset password
                     </button>
                     {user.username !== currentUsername && (
                       <button

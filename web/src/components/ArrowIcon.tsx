@@ -1,7 +1,4 @@
-// Thin directional arrow used by CTA links (→ ←) and the demo-player
-// move-pad (↑ ↓). Stroke weight matches PlayIcon so action pairs read
-// as a coherent set. Path is hard-coded per direction (rather than a
-// CSS rotation) so the icon survives ancestor transforms cleanly.
+// Each direction has its own path so the icon survives ancestor transforms.
 type Direction = "right" | "left" | "up" | "down";
 
 const PATHS: Record<Direction, string> = {

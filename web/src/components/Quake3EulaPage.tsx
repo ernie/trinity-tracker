@@ -29,9 +29,8 @@ export function Quake3EulaPage() {
     };
   }, []);
 
-  // Re-evaluate whether the box is already at bottom whenever content
-  // arrives — short EULA + tall viewport means the user never scrolls,
-  // and we'd otherwise leave the agree checkbox locked forever.
+  // A short EULA in a tall window never scrolls, so check for the
+  // bottom as soon as the text arrives.
   useEffect(() => {
     if (!eula || !boxRef.current) return;
     const el = boxRef.current;
@@ -55,7 +54,7 @@ export function Quake3EulaPage() {
     <div className="about-page">
       <div className="about-content">
         <div className="about-section">
-          <h2>Quake 3 1.32 Patch Data</h2>
+          <h2>Quake III Arena 1.32 patch data</h2>
           <p>
             The 1.32 point-release patch data (<code>pak1.pk3</code>–
             <code>pak8.pk3</code> for <code>baseq3</code>, <code>pak1.pk3</code>
@@ -65,7 +64,7 @@ export function Quake3EulaPage() {
           </p>
           {loadError && (
             <p className="eula-load-error">
-              Failed to load EULA text: {loadError}. Refresh the page.
+              Couldn&rsquo;t load the EULA text: {loadError}. Refresh the page.
             </p>
           )}
           <div
@@ -107,7 +106,7 @@ export function Quake3EulaPage() {
               }}
               download
             >
-              Download Quake 3 1.32 patches
+              Download the Quake III Arena 1.32 patches
             </a>
           </div>
         </div>

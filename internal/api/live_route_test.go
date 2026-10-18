@@ -15,8 +15,8 @@ func TestHandleLiveRedirects(t *testing.T) {
 	if err := tr.store.CreateSource(ctx, "remote-1", true, &ownerID); err != nil {
 		t.Fatalf("create source: %v", err)
 	}
-	// demo_base_url is only ever set via a collector heartbeat. Seed a
-	// trailing slash to exercise the TrimRight in handleLive.
+	// Only a heartbeat sets demo_base_url. The trailing slash exercises
+	// handleLive's TrimRight.
 	if err := tr.store.TouchSourceHeartbeat(ctx, "remote-1", time.Now().UTC(), "", "https://remote-1.example.com/"); err != nil {
 		t.Fatalf("seed heartbeat: %v", err)
 	}
@@ -44,9 +44,7 @@ func TestHandleLiveRejectsInvalidKey(t *testing.T) {
 		t.Fatalf("seed heartbeat: %v", err)
 	}
 
-	// A key outside [A-Za-z0-9._-] must be refused before it's concatenated raw
-	// into the redirect Location (defense-in-depth — the collector relay 404s
-	// such keys anyway, but the hub shouldn't emit a malformed 302).
+	// A key outside [A-Za-z0-9._-] never reaches the redirect Location.
 	for _, key := range []string{"ffa@home", "ffa~x", "ffa:9999"} {
 		req := httptest.NewRequest("GET", "/tv/remote-1/"+key+"/stream", nil)
 		w := httptest.NewRecorder()

@@ -15,42 +15,42 @@ type UpdateDisplayNameRequest struct {
 func (r *Router) handleUpdateDisplayName(w http.ResponseWriter, req *http.Request) {
 	claims := r.getAuthClaims(req)
 	if claims == nil {
-		writeError(w, http.StatusUnauthorized, "authentication required")
+		writeError(w, http.StatusUnauthorized, "Log in first.")
 		return
 	}
 
 	var body UpdateDisplayNameRequest
 	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		writeError(w, http.StatusBadRequest, "The request couldn't be read.")
 		return
 	}
 
 	cleaned := domain.CleanQ3DisplayName(body.DisplayName)
 	if cleaned == "" {
-		writeError(w, http.StatusBadRequest, "display name is empty after cleaning")
+		writeError(w, http.StatusBadRequest, "Enter a display name.")
 		return
 	}
 
 	newCanonical := storage.CanonicalizeDisplayName(cleaned)
 	if newCanonical == "" {
-		writeError(w, http.StatusBadRequest, "display name is empty after canonicalization")
+		writeError(w, http.StatusBadRequest, "Display names need some visible text, not just color codes.")
 		return
 	}
 
 	user, err := r.store.GetUserByID(req.Context(), claims.UserID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to get user")
+		writeError(w, http.StatusInternalServerError, "Couldn't load your account.")
 		return
 	}
 
 	existingCanonical := storage.CanonicalizeDisplayName(user.DisplayName)
 	if newCanonical != existingCanonical {
-		writeError(w, http.StatusUnprocessableEntity, "display name cannot change identity, only colors")
+		writeError(w, http.StatusUnprocessableEntity, "You can change colors and capitalization, but not the name itself.")
 		return
 	}
 
 	if err := r.store.SetUserDisplayName(req.Context(), claims.UserID, cleaned); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to update display name")
+		writeError(w, http.StatusInternalServerError, "Couldn't update your display name.")
 		return
 	}
 

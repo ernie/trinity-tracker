@@ -7,10 +7,6 @@ interface PeriodSelectorProps {
   onChange: (period: TimePeriod) => void;
 }
 
-// Connected segmented control for time-window selection. NavScroller
-// wraps the strip so it picks up the chevron + fade-mask affordances
-// when the buttons overflow on narrow viewports — same pattern as
-// the page-nav and admin-sidebar nav strips.
 export function PeriodSelector({ period, onChange }: PeriodSelectorProps) {
   return (
     <div className="period-selector">

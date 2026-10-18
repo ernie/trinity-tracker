@@ -16,13 +16,10 @@ interface RconSidebarProps {
   onClose: () => void;
 }
 
-// Cap on per-mount command history. Long sessions running `dumpuser`
-// or repeated `status` calls would grow unbounded otherwise.
 const HISTORY_CAP = 200;
 
-// Right-side overlay drawer for RCON command execution. Shares the
-// .drawer chrome with ActivityDrawer / MyServersDrawer; mount/unmount
-// is the open/close gesture. Esc + backdrop both close.
+// Shares the .drawer chrome with ActivityDrawer and MyServersDrawer;
+// mounting it opens it.
 export function RconSidebar({ server, onClose }: RconSidebarProps) {
   const [command, setCommand] = useState("");
   const [history, setHistory] = useState<RconCommand[]>([]);
@@ -31,9 +28,7 @@ export function RconSidebar({ server, onClose }: RconSidebarProps) {
   const outputRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const commandIdRef = useRef(0);
-  // Tracks every in-flight RCON command fetch so they can be aborted
-  // on unmount (preventing setState on a dead component and dropping
-  // late responses that would otherwise land in the next mount).
+  // Aborted on unmount so a late response can't land in the next mount.
   const inflightRef = useRef<Set<AbortController>>(new Set());
 
   // Esc closes; document-level so focus inside the drawer still reaches it.
@@ -45,7 +40,6 @@ export function RconSidebar({ server, onClose }: RconSidebarProps) {
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  // Abort every in-flight command fetch on unmount.
   useEffect(() => {
     const inflight = inflightRef.current;
     return () => {
@@ -54,8 +48,7 @@ export function RconSidebar({ server, onClose }: RconSidebarProps) {
     };
   }, []);
 
-  // Check if RCON is available for this server. Keying on server_id only
-  // so we don't re-fetch when other server fields tick (game_time_ms, etc.)
+  // Keyed on server_id so other fields ticking (game_time_ms) don't refetch.
   useEffect(() => {
     if (!server) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -69,28 +62,22 @@ export function RconSidebar({ server, onClose }: RconSidebarProps) {
       .then((res) => res.json())
       .then((data) => setRconAvailable(data.available))
       .catch(() => {
-        // Genuine network error → RCON unreachable. Aborts also land
-        // here but the unmounted setter is a no-op, so we don't gate.
         if (!ctrl.signal.aborted) setRconAvailable(false);
       });
     return () => ctrl.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [server?.server_id]);
 
-  // Auto-scroll to bottom when history changes
   useEffect(() => {
     if (outputRef.current) {
       outputRef.current.scrollTop = outputRef.current.scrollHeight;
     }
   }, [history]);
 
-  // Focus input when sidebar opens
   useEffect(() => {
     inputRef.current?.focus();
   }, [server]);
 
-  // Per-server view of history — used by both arrow-key recall and the
-  // output list. Recomputing once per render beats four times.
   const serverHistory = useMemo(
     () => history.filter((h) => h.serverName === server?.key),
     [history, server?.key],
@@ -103,13 +90,11 @@ export function RconSidebar({ server, onClose }: RconSidebarProps) {
     const newCommand: RconCommand = {
       id: commandId,
       command: cmd,
-      output: "...",
+      output: "…",
       timestamp: new Date(),
       serverName: server.key,
     };
 
-    // Immediately update UI; cap at HISTORY_CAP entries so a long
-    // session doesn't grow unbounded.
     setHistory((prev) => [...prev, newCommand].slice(-HISTORY_CAP));
     setCommand("");
     setHistoryIndex(-1);
@@ -177,7 +162,7 @@ export function RconSidebar({ server, onClose }: RconSidebarProps) {
     if (!server) {
       return (
         <div className="rcon-drawer__placeholder">
-          Select a server to issue commands.
+          Pick a server to send commands to.
         </div>
       );
     }
@@ -185,7 +170,7 @@ export function RconSidebar({ server, onClose }: RconSidebarProps) {
     if (rconAvailable === false) {
       return (
         <div className="rcon-drawer__unavailable">
-          RCON is not configured for this server.
+          RCON isn&rsquo;t set up for this server.
         </div>
       );
     }
@@ -197,7 +182,7 @@ export function RconSidebar({ server, onClose }: RconSidebarProps) {
             <div className="rcon-drawer__hint">
               {rconAvailable === null
                 ? "Checking RCON…"
-                : "Issue your first command below. ↑/↓ recalls history."}
+                : "Type a command below. ↑ and ↓ recall earlier ones."}
             </div>
           ) : (
             serverHistory.map((cmd) => (

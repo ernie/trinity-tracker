@@ -9,7 +9,6 @@ import (
 	"github.com/ernie/trinity-tracker/internal/storage"
 )
 
-// Malformed as_of must 400 before the store is touched.
 func TestHandleGetLeaderboard_AsOfMalformed(t *testing.T) {
 	r := &Router{}
 	req := httptest.NewRequest("GET", "/api/stats/leaderboard?period=week&as_of=hello", nil)
@@ -20,10 +19,8 @@ func TestHandleGetLeaderboard_AsOfMalformed(t *testing.T) {
 	}
 }
 
-// A well-formed as_of (RFC3339) is accepted and reaches the store —
-// against an empty DB, that produces an empty entries array, not a
-// 500. Far-future and far-past anchors must succeed for the same
-// reason: we don't police range, we just return what the data says.
+// Any well-formed as_of, far past or far future included, returns what
+// the data says; on an empty database that is an empty list.
 func TestHandleGetLeaderboard_AsOfAccepted(t *testing.T) {
 	store, err := storage.New(filepath.Join(t.TempDir(), "trinity.db"))
 	if err != nil {

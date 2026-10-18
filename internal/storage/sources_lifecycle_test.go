@@ -7,8 +7,6 @@ import (
 	"testing"
 )
 
-// mustCreateUser inserts a users row and returns its id. Tests use
-// this so CreateSourceRequest's owner FK lookup has a target.
 func mustCreateUser(t *testing.T, s *Store, username string) int64 {
 	t.Helper()
 	res, err := s.db.ExecContext(context.Background(), `
@@ -75,8 +73,6 @@ func TestCreateSourceRequest_DuplicatePendingBlocked(t *testing.T) {
 }
 
 func TestCreateSourceRequest_AfterApproveAllowsAnother(t *testing.T) {
-	// Multi-source-per-owner is supported: once the first pending is
-	// approved (or rejected), the user can submit a second request.
 	s := newTestStore(t)
 	ctx := context.Background()
 	uid := mustCreateUser(t, s, "alice")
@@ -84,7 +80,6 @@ func TestCreateSourceRequest_AfterApproveAllowsAnother(t *testing.T) {
 	mustReq(t, s, ctx, CreateSourceRequestArgs{Source: "host-a", OwnerUserID: uid})
 	must(t, s.ApproveSource(ctx, "host-a"))
 
-	// User now has one active. A second request should succeed.
 	mustReq(t, s, ctx, CreateSourceRequestArgs{Source: "host-b", OwnerUserID: uid})
 
 	rows, err := s.ListSourcesByOwner(ctx, uid)
@@ -94,7 +89,6 @@ func TestCreateSourceRequest_AfterApproveAllowsAnother(t *testing.T) {
 	if len(rows) != 2 {
 		t.Fatalf("got %d rows, want 2: %+v", len(rows), rows)
 	}
-	// ListSourcesByOwner orders active before pending.
 	if rows[0].Source != "host-a" || rows[0].Status != "active" {
 		t.Errorf("row 0 = %+v", rows[0])
 	}
@@ -104,8 +98,6 @@ func TestCreateSourceRequest_AfterApproveAllowsAnother(t *testing.T) {
 }
 
 func TestCreateSourceRequest_PendingBlocksEvenWithActive(t *testing.T) {
-	// Once a pending request is in flight, a third can't be added —
-	// this is the "no flooding the queue" guard.
 	s := newTestStore(t)
 	ctx := context.Background()
 	uid := mustCreateUser(t, s, "alice")
@@ -113,7 +105,6 @@ func TestCreateSourceRequest_PendingBlocksEvenWithActive(t *testing.T) {
 	mustReq(t, s, ctx, CreateSourceRequestArgs{Source: "host-a", OwnerUserID: uid})
 	must(t, s.ApproveSource(ctx, "host-a"))
 	mustReq(t, s, ctx, CreateSourceRequestArgs{Source: "host-b", OwnerUserID: uid})
-	// host-b is now pending.
 
 	err := s.CreateSourceRequest(ctx, CreateSourceRequestArgs{
 		Source: "host-c", OwnerUserID: uid,
@@ -139,8 +130,6 @@ func TestCreateSourceRequest_NameTakenByOther(t *testing.T) {
 }
 
 func TestCreateSourceRequest_NameTakenByLeftOther(t *testing.T) {
-	// A 'left' row owned by another user still claims the name —
-	// they can come back later. New requesters get ErrSourceNameTaken.
 	s := newTestStore(t)
 	ctx := context.Background()
 	a := mustCreateUser(t, s, "alice")
@@ -173,7 +162,6 @@ func TestApproveSource_FlipsToActive(t *testing.T) {
 		t.Error("active should be true")
 	}
 
-	// Idempotency: approving again is a no-op (status != pending).
 	if err := s.ApproveSource(ctx, "alice-q3"); !errors.Is(err, ErrSourceNotPending) {
 		t.Errorf("re-approve = %v, want ErrSourceNotPending", err)
 	}
@@ -365,11 +353,9 @@ func TestRenamePendingSource_RewritesAllReferences(t *testing.T) {
 	if got.Status != "pending" || got.RequestedPurpose != "fix me" {
 		t.Errorf("after rename: %+v", got)
 	}
-	// Old name is gone.
 	if _, err := s.GetSourceByName(ctx, "old-name"); !errors.Is(err, sql.ErrNoRows) {
 		t.Errorf("old-name still exists: %v", err)
 	}
-	// Audit rows carry across.
 	rows, _ := s.ListSourceAudit(ctx, "new-name", 10)
 	if len(rows) != 1 || rows[0].Action != "requested" {
 		t.Errorf("audit lost: %+v", rows)
@@ -397,7 +383,6 @@ func TestRenamePendingSource_NameTaken(t *testing.T) {
 	must(t, s.ApproveSource(ctx, "alice-q3"))
 	mustReq(t, s, ctx, CreateSourceRequestArgs{Source: "bob-q3", OwnerUserID: b})
 
-	// Trying to rename bob's pending request to "alice-q3" (taken).
 	if err := s.RenamePendingSource(ctx, "bob-q3", "alice-q3"); !errors.Is(err, ErrSourceNameTaken) {
 		t.Errorf("rename to taken = %v, want ErrSourceNameTaken", err)
 	}

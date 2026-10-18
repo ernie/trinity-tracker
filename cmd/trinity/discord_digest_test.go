@@ -10,7 +10,6 @@ import (
 	"github.com/ernie/trinity-tracker/internal/q3color"
 )
 
-// helper: build a LeaderboardResponse with N synthetic entries.
 func mkLeaderboard(period string, entries ...domain.LeaderboardEntry) *domain.LeaderboardResponse {
 	start := time.Date(2026, 4, 29, 20, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 5, 6, 20, 0, 0, 0, time.UTC)
@@ -48,22 +47,20 @@ func stripCarets(s string) string {
 func TestRenderDigestEmbed_FullWeek(t *testing.T) {
 	now := time.Date(2026, 5, 6, 20, 0, 0, 0, time.UTC)
 	results := map[string]*domain.LeaderboardResponse{
-		"frags":    mkLeaderboard("week", mkEntry(1, "^1ernie", 412, 2.84), mkEntry(2, "rocketeer", 318, 2.10)),
-		"kd_ratio": mkLeaderboard("week", mkEntry(1, "^1ernie", 412, 2.84)),
+		"frags":    mkLeaderboard("week", mkEntry(1, "^1alice", 412, 2.84), mkEntry(2, "rocketeer", 318, 2.10)),
+		"kd_ratio": mkLeaderboard("week", mkEntry(1, "^1alice", 412, 2.84)),
 	}
 	embed := renderDigestEmbed(results, []string{"frags", "kd_ratio"}, 5,
 		"https://trinity.example.com/leaderboard?period=week&as_of=2026-05-06T20:00:00Z",
 		"https://trinity.example.com", "", now)
 
-	if embed.Title != "This Week's Leaderboard" {
+	if embed.Title != "This week's leaderboard" {
 		t.Errorf("title: got %q", embed.Title)
 	}
 	if !strings.Contains(embed.URL, "as_of=") {
 		t.Errorf("URL missing as_of: %q", embed.URL)
 	}
-	// 2-per-row inline layout: 2 real fields + 1 trailing spacer to
-	// fill the 3rd inline slot, locking each cell's width to 1/3 of
-	// the embed.
+	// 2 fields + 1 spacer.
 	if len(embed.Fields) != 3 {
 		t.Fatalf("expected 3 fields (2 real + 1 spacer), got %d", len(embed.Fields))
 	}
@@ -76,8 +73,7 @@ func TestRenderDigestEmbed_FullWeek(t *testing.T) {
 	if !strings.Contains(embed.Fields[0].Value, "```ansi") {
 		t.Errorf("field value missing ansi block: %q", embed.Fields[0].Value)
 	}
-	// q3ToANSI should be applied to the colored name
-	if !strings.Contains(embed.Fields[0].Value, "\x1b[31mernie\x1b[0m") {
+	if !strings.Contains(embed.Fields[0].Value, "\x1b[31malice\x1b[0m") {
 		t.Errorf("colored name missing ansi escapes: %q", embed.Fields[0].Value)
 	}
 	if !strings.Contains(embed.Fields[0].Value, "412") {
@@ -86,11 +82,6 @@ func TestRenderDigestEmbed_FullWeek(t *testing.T) {
 	if !strings.Contains(embed.Fields[1].Value, "2.84") {
 		t.Errorf("field 1 value missing kd_ratio: %q", embed.Fields[1].Value)
 	}
-	// Footer is padded with U+2800 BRAILLE PATTERN BLANK to push the
-	// embed out to max column width — Discord reserves the footer's
-	// full width as the embed's minimum. Lock this in so a refactor
-	// doesn't drop the padding (the only thing keeping the embed
-	// from collapsing to content-width).
 	if embed.Footer == nil || !strings.Contains(embed.Footer.Text, "⠀") {
 		t.Errorf("expected footer to contain U+2800 padding, got %+v", embed.Footer)
 	}
@@ -102,10 +93,6 @@ func TestRenderDigestEmbed_FullWeek(t *testing.T) {
 	}
 }
 
-// Odd real-field counts get 2 trailing spacers (instead of 1) so the
-// final solo cell still renders at 1/3 width — consistent with the
-// rows above it. Lock this in so a refactor doesn't accidentally drop
-// a spacer and let the last row stretch full-width.
 func TestRenderDigestEmbed_OddCountAddsTwoTrailingSpacers(t *testing.T) {
 	now := time.Date(2026, 5, 6, 20, 0, 0, 0, time.UTC)
 	results := map[string]*domain.LeaderboardResponse{
@@ -120,7 +107,6 @@ func TestRenderDigestEmbed_OddCountAddsTwoTrailingSpacers(t *testing.T) {
 	if len(embed.Fields) != 6 {
 		t.Fatalf("expected 6 fields (3 real + 3 spacer), got %d", len(embed.Fields))
 	}
-	// The last 2 must be spacers (Name = ZWS).
 	for _, i := range []int{4, 5} {
 		if embed.Fields[i].Name != "​" {
 			t.Errorf("field %d should be ZWS spacer, got name=%q", i, embed.Fields[i].Name)
@@ -128,8 +114,6 @@ func TestRenderDigestEmbed_OddCountAddsTwoTrailingSpacers(t *testing.T) {
 	}
 }
 
-// Empty / missing categories collapse to "_(no activity)_" so the
-// embed's shape is stable week-to-week even on quiet weeks.
 func TestRenderDigestEmbed_EmptyCategories(t *testing.T) {
 	results := map[string]*domain.LeaderboardResponse{
 		"frags":    mkLeaderboard("week"), // no entries
@@ -138,8 +122,7 @@ func TestRenderDigestEmbed_EmptyCategories(t *testing.T) {
 	embed := renderDigestEmbed(results, []string{"frags", "captures"}, 5,
 		"https://trinity.example.com/leaderboard", "", "", time.Now())
 
-	// 2 real (placeholder-filled) + 1 trailing spacer for the 3rd
-	// inline slot.
+	// 2 placeholder fields + 1 spacer.
 	if len(embed.Fields) != 3 {
 		t.Fatalf("expected 3 fields (2 real + 1 spacer), got %d", len(embed.Fields))
 	}
@@ -172,21 +155,15 @@ func TestRenderDigestEmbed_TopNTruncates(t *testing.T) {
 	}
 }
 
-// Unknown categories are skipped silently — the config validator
-// should reject them at load time, but the renderer being defensive
-// makes mis-coordination errors recoverable rather than fatal.
 func TestRenderDigestEmbed_UnknownCategorySkipped(t *testing.T) {
 	embed := renderDigestEmbed(map[string]*domain.LeaderboardResponse{}, []string{"nonsense", "frags"}, 5,
 		"https://trinity.example.com/leaderboard", "", "", time.Now())
-	// 1 real + 2 trailing spacers (odd-count rule).
+	// 1 field + 2 spacers.
 	if len(embed.Fields) != 3 || embed.Fields[0].Name != "🔥 Frags" {
 		t.Errorf("expected the valid 'frags' field plus 2 trailing spacers, got %+v", embed.Fields)
 	}
 }
 
-// Badges are 1-cell each (verification) and 2-cell each (platform)
-// — locking the rendered widths in keeps the alignment math honest
-// across future refactors.
 func TestPlayerBadges_StableWidths(t *testing.T) {
 	cases := []struct {
 		name string
@@ -208,9 +185,6 @@ func TestPlayerBadges_StableWidths(t *testing.T) {
 	}
 }
 
-// Different verification states must produce visually distinct
-// markup. If a future refactor accidentally collapses two of them
-// (e.g. drops the background color) this catches it.
 func TestPlayerVerificationBadge_DistinctStates(t *testing.T) {
 	a := playerVerificationBadge(true, true)
 	v := playerVerificationBadge(true, false)
@@ -220,15 +194,10 @@ func TestPlayerVerificationBadge_DistinctStates(t *testing.T) {
 	}
 }
 
-// Headline player gets a labeled author bar: portrait icon (with
-// filesystem-existence check) + clean name + profile-page URL. Falls
-// back to the generic silhouette when the player's custom model
-// isn't on disk.
 func TestRenderDigestEmbed_AuthorFromLeader(t *testing.T) {
 	now := time.Date(2026, 5, 6, 20, 0, 0, 0, time.UTC)
 
-	// Stage a portrait file at a temp static dir so the existence
-	// check passes for "doom/default".
+	// A portrait on disk for "doom/default".
 	tmp := t.TempDir()
 	portraitDir := tmp + "/assets/portraits/doom"
 	if err := os.MkdirAll(portraitDir, 0o755); err != nil {
@@ -240,7 +209,7 @@ func TestRenderDigestEmbed_AuthorFromLeader(t *testing.T) {
 
 	leader := domain.LeaderboardEntry{
 		Rank:       1,
-		Player:     domain.Player{ID: 21, Name: "ernie", CleanName: "ernie", Model: "doom/default"},
+		Player:     domain.Player{ID: 21, Name: "alice", CleanName: "alice", Model: "doom/default"},
 		TotalFrags: 412,
 	}
 	results := map[string]*domain.LeaderboardResponse{
@@ -252,10 +221,7 @@ func TestRenderDigestEmbed_AuthorFromLeader(t *testing.T) {
 	if embed.Author == nil {
 		t.Fatal("expected author when leader has a model")
 	}
-	// author.name = "🥇 <name> · <headline>" so readers know which
-	// metric earned the headline slot. Q3 colors don't render here
-	// (Discord plain-text limitation); the emoji + phrase stand in.
-	wantName := "🥇 ernie · most frags"
+	wantName := "🥇 alice · most frags"
 	if embed.Author.Name != wantName {
 		t.Errorf("author.name: got %q, want %q", embed.Author.Name, wantName)
 	}
@@ -269,11 +235,9 @@ func TestRenderDigestEmbed_AuthorFromLeader(t *testing.T) {
 	}
 }
 
-// Custom model the hub doesn't have on disk → fall back to the
-// generic silhouette URL. Name + profile link still set.
 func TestRenderDigestEmbed_AuthorFallsBackOnMissingPortrait(t *testing.T) {
 	now := time.Date(2026, 5, 6, 20, 0, 0, 0, time.UTC)
-	tmp := t.TempDir() // empty — no portrait files
+	tmp := t.TempDir() // holds no portraits
 
 	leader := domain.LeaderboardEntry{
 		Rank:       1,
@@ -301,15 +265,11 @@ func TestRenderDigestEmbed_AuthorFallsBackOnMissingPortrait(t *testing.T) {
 	}
 }
 
-// The author.name headline phrase comes from whichever category
-// produces the leader, so reordering digest_categories in config
-// changes the framing automatically. ("If you put kd_ratio first,
-// the embed says 'best K/D' instead of 'most frags'.")
 func TestRenderDigestEmbed_HeadlineFollowsLeaderCategory(t *testing.T) {
 	now := time.Date(2026, 5, 6, 20, 0, 0, 0, time.UTC)
 	leader := domain.LeaderboardEntry{
 		Rank:       1,
-		Player:     domain.Player{ID: 21, Name: "ernie", CleanName: "ernie"},
+		Player:     domain.Player{ID: 21, Name: "alice", CleanName: "alice"},
 		TotalFrags: 412,
 		KDRatio:    2.84,
 	}
@@ -339,9 +299,6 @@ func TestRenderDigestEmbed_HeadlineFollowsLeaderCategory(t *testing.T) {
 	}
 }
 
-// portraitPath mirrors web/src/components/PlayerPortrait.tsx —
-// drift here would silently 404 on Discord rendering, so lock the
-// shape in.
 func TestPortraitPath(t *testing.T) {
 	cases := []struct {
 		model string
@@ -353,7 +310,7 @@ func TestPortraitPath(t *testing.T) {
 		{"*Callisto/blue", "/assets/portraits/callisto/icon_blue.png"},
 		{"doom/default", "/assets/portraits/doom/icon_default.png"},
 		{"", ""},
-		{"/", ""}, // empty head — no portrait
+		{"/", ""}, // empty head, so no portrait
 	}
 	for _, tc := range cases {
 		t.Run(tc.model, func(t *testing.T) {

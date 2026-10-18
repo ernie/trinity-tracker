@@ -26,12 +26,12 @@ export function PasswordChangeModal({
     setError("");
 
     if (newPassword.length < 8) {
-      setError("Password must be at least 8 characters");
+      setError("Password must be at least 8 characters.");
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setError("Passwords do not match");
+      setError("The passwords don't match.");
       return;
     }
 
@@ -40,7 +40,7 @@ export function PasswordChangeModal({
     setLoading(false);
 
     if (!result.success) {
-      setError(result.error || "Failed to change password");
+      setError(result.error || "Couldn't change your password.");
     } else if (onClose) {
       onClose();
     }
@@ -50,7 +50,7 @@ export function PasswordChangeModal({
     <div className="modal-overlay">
       <div className="modal password-change-modal">
         <div className="modal-header">
-          <h2>{required ? "Password Change Required" : "Change Password"}</h2>
+          <h2>{required ? "Password change required" : "Change password"}</h2>
           {!required && onClose && (
             <button className="close-btn" onClick={onClose} aria-label="Close">
               <CloseIcon />
@@ -64,7 +64,7 @@ export function PasswordChangeModal({
         )}
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>Current Password</label>
+            <label>Current password</label>
             <input
               type="password"
               value={currentPassword}
@@ -74,7 +74,7 @@ export function PasswordChangeModal({
             />
           </div>
           <div className="form-group">
-            <label>New Password</label>
+            <label>New password</label>
             <input
               type="password"
               value={newPassword}
@@ -84,7 +84,7 @@ export function PasswordChangeModal({
             />
           </div>
           <div className="form-group">
-            <label>Confirm New Password</label>
+            <label>Confirm new password</label>
             <input
               type="password"
               value={confirmPassword}
@@ -101,7 +101,7 @@ export function PasswordChangeModal({
                 loading || !currentPassword || !newPassword || !confirmPassword
               }
             >
-              {loading ? "Changing..." : "Change Password"}
+              {loading ? "Changing…" : "Change password"}
             </button>
             {!required && onClose && (
               <button type="button" className="cancel-btn" onClick={onClose}>

@@ -32,8 +32,6 @@ func TestAuthorizeUserForRcon(t *testing.T) {
 			wantOk:   true,
 		},
 		{
-			// User-added collector: owner is not is_admin, but still
-			// gets RconRoleOwner via the source ownership arm.
 			name:     "non-admin owner of their own source",
 			userID:   ownerID,
 			isAdmin:  false,

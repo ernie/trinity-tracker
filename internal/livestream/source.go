@@ -1,4 +1,3 @@
-// internal/livestream/source.go
 package livestream
 
 import (
@@ -7,10 +6,10 @@ import (
 	"io"
 )
 
-// maxSegmentBytes caps one segment's payload. It guards against a corrupt or
-// hostile length prefix triggering a huge allocation. Sized well above any
-// plausible compressed keyframe+deltas segment (engine frames are <=256 KiB
-// uncompressed; a segment is a few seconds of compressed frames).
+// maxSegmentBytes caps one segment's payload so a corrupt or hostile
+// length prefix can't force a huge allocation. A segment is a few
+// seconds of compressed frames, and an engine frame is at most 256 KiB
+// uncompressed, so real segments stay far below it.
 const maxSegmentBytes = 16 << 20 // 16 MiB
 
 func ParseStreamHeader(r io.Reader) (StreamHeader, error) {
@@ -59,7 +58,6 @@ func ReadSegment(r io.Reader) (Segment, error) {
 	case endMagic:
 		return Segment{}, io.EOF
 	case segmentMagic:
-		// fall through
 	default:
 		return Segment{}, fmt.Errorf("livestream: bad segment marker %q", marker[:])
 	}

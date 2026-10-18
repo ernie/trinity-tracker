@@ -10,8 +10,8 @@ import (
 
 func TestVersionBumpRevokesSession(t *testing.T) {
 	tr := newTestRouter(t)
-	userID := tr.webUser(t, "ernie", false)
-	c := tr.loginWeb(t, "ernie")
+	userID := tr.webUser(t, "alice", false)
+	c := tr.loginWeb(t, "alice")
 
 	if check := tr.authCheckWeb(t, c); check["authenticated"] != true {
 		t.Fatalf("precondition: cookie should authenticate: %v", check)
@@ -25,7 +25,7 @@ func TestVersionBumpRevokesSession(t *testing.T) {
 	}
 
 	// Fresh login works and carries the new version.
-	c2 := tr.loginWeb(t, "ernie")
+	c2 := tr.loginWeb(t, "alice")
 	if check := tr.authCheckWeb(t, c2); check["authenticated"] != true {
 		t.Errorf("re-login after bump failed: %v", check)
 	}
@@ -33,9 +33,9 @@ func TestVersionBumpRevokesSession(t *testing.T) {
 
 func TestPasswordChangeRevokesOtherSessions(t *testing.T) {
 	tr := newTestRouter(t)
-	tr.webUser(t, "ernie", false)
-	browserA := tr.loginWeb(t, "ernie")
-	browserB := tr.loginWeb(t, "ernie")
+	tr.webUser(t, "alice", false)
+	browserA := tr.loginWeb(t, "alice")
+	browserB := tr.loginWeb(t, "alice")
 
 	w := tr.doWeb("POST", "/api/auth/change-password",
 		`{"current_password":"password123","new_password":"password456"}`,
@@ -55,7 +55,7 @@ func TestPasswordChangeRevokesOtherSessions(t *testing.T) {
 	if check := tr.authCheckWeb(t, reissued); check["authenticated"] != true {
 		t.Errorf("changer's re-issued session rejected: %v", check)
 	}
-	// The pre-change cookie is dead too — only the re-issue survives.
+	// The pre-change cookie dies too; only the reissued one works.
 	if check := tr.authCheckWeb(t, browserA); check["authenticated"] != false {
 		t.Errorf("pre-change cookie survived: %v", check)
 	}
@@ -63,8 +63,8 @@ func TestPasswordChangeRevokesOtherSessions(t *testing.T) {
 
 func TestAdminResetRevokesSessions(t *testing.T) {
 	tr := newTestRouter(t)
-	userID := tr.webUser(t, "ernie", false)
-	c := tr.loginWeb(t, "ernie")
+	userID := tr.webUser(t, "alice", false)
+	c := tr.loginWeb(t, "alice")
 
 	// Same storage write the admin API and `trinity user reset` use.
 	hash, err := auth.HashPassword("temppass123")
@@ -81,9 +81,9 @@ func TestAdminResetRevokesSessions(t *testing.T) {
 
 func TestLogoutAllRevokesEverything(t *testing.T) {
 	tr := newTestRouter(t)
-	tr.webUser(t, "ernie", false)
-	browserA := tr.loginWeb(t, "ernie")
-	browserB := tr.loginWeb(t, "ernie")
+	tr.webUser(t, "alice", false)
+	browserA := tr.loginWeb(t, "alice")
+	browserB := tr.loginWeb(t, "alice")
 
 	w := tr.doWeb("POST", "/api/auth/logout-all", "", browserA, "")
 	if w.Code != http.StatusOK {
@@ -108,18 +108,17 @@ func TestLogoutAllRevokesEverything(t *testing.T) {
 
 func TestPlainLogoutIsPerDevice(t *testing.T) {
 	tr := newTestRouter(t)
-	tr.webUser(t, "ernie", false)
-	browserA := tr.loginWeb(t, "ernie")
-	browserB := tr.loginWeb(t, "ernie")
+	tr.webUser(t, "alice", false)
+	browserA := tr.loginWeb(t, "alice")
+	browserB := tr.loginWeb(t, "alice")
 
 	w := tr.doWeb("POST", "/api/auth/logout", "", browserA, "")
 	if w.Code != http.StatusOK {
 		t.Fatalf("logout: status %d", w.Code)
 	}
 
-	// No bump: the other browser keeps its session. (The JWT in A's
-	// cookie remains valid server-side too — plain logout is purely
-	// the cookie removal; the version is the revocation lever.)
+	// Plain logout only removes the cookie and bumps nothing, so the
+	// other browser keeps its session.
 	if check := tr.authCheckWeb(t, browserB); check["authenticated"] != true {
 		t.Errorf("plain logout must not touch other sessions: %v", check)
 	}
@@ -127,18 +126,18 @@ func TestPlainLogoutIsPerDevice(t *testing.T) {
 
 func TestDisabledUserSessionDies(t *testing.T) {
 	tr := newTestRouter(t)
-	tr.webUser(t, "ernie", false)
-	c := tr.loginWeb(t, "ernie")
+	tr.webUser(t, "alice", false)
+	c := tr.loginWeb(t, "alice")
 
-	if err := tr.store.SetUserDisabled(context.Background(), "ernie", true); err != nil {
+	if err := tr.store.SetUserDisabled(context.Background(), "alice", true); err != nil {
 		t.Fatalf("SetUserDisabled: %v", err)
 	}
 	if check := tr.authCheckWeb(t, c); check["authenticated"] != false {
 		t.Errorf("disabled user's live JWT still authenticates: %v", check)
 	}
 
-	// Re-enable: no bump happened, the cookie works again (PAT parity).
-	if err := tr.store.SetUserDisabled(context.Background(), "ernie", false); err != nil {
+	// Disabling bumped nothing, so re-enabling revives the cookie.
+	if err := tr.store.SetUserDisabled(context.Background(), "alice", false); err != nil {
 		t.Fatalf("SetUserDisabled(enable): %v", err)
 	}
 	if check := tr.authCheckWeb(t, c); check["authenticated"] != true {
@@ -148,8 +147,8 @@ func TestDisabledUserSessionDies(t *testing.T) {
 
 func TestAdminFlipIsLiveThroughJWT(t *testing.T) {
 	tr := newTestRouter(t)
-	userID := tr.webUser(t, "ernie", true)
-	c := tr.loginWeb(t, "ernie")
+	userID := tr.webUser(t, "alice", true)
+	c := tr.loginWeb(t, "alice")
 
 	probe := func() int {
 		// GET /api/users is requireAdmin.

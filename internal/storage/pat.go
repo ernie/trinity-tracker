@@ -6,13 +6,13 @@ import (
 	"errors"
 )
 
-// ErrPATNotFound is returned when no live PAT matches a hash — the
-// token is unknown, revoked, expired, or its user was deleted.
+// ErrPATNotFound is returned when no live PAT matches a hash: the
+// token is unknown, revoked or expired, or its user was deleted.
 var ErrPATNotFound = errors.New("storage: pat not found")
 
 // PATIdentity is what a valid PAT resolves to: the token row's id
-// (for last-used touches) plus the *live* user row, so claims built
-// from it reflect current privileges, not mint-time ones.
+// (for last-used touches) plus the live user row, so claims built
+// from it carry the user's current privileges.
 type PATIdentity struct {
 	PATID                  int64
 	UserID                 int64
@@ -32,8 +32,8 @@ func (s *Store) CreatePAT(ctx context.Context, userID int64, name, tokenHash str
 }
 
 // LookupPATByHash resolves a presented token hash to a live identity.
-// Revoked and expired tokens (and tokens whose user is gone) yield
-// ErrPATNotFound — indistinguishable from an unknown token on purpose.
+// Revoked and expired tokens, and tokens whose user is gone, yield
+// ErrPATNotFound so they look the same as an unknown token.
 func (s *Store) LookupPATByHash(ctx context.Context, tokenHash string) (*PATIdentity, error) {
 	var id PATIdentity
 	var playerID sql.NullInt64

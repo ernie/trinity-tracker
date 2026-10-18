@@ -66,9 +66,9 @@ server {
         return 403;
     }
 
-    # Generated manifests (portraits.json, maps.json) are regenerated in
-    # place by `trinity assets` — same name, new content — so they must
-    # revalidate (ETag 304s) rather than inherit the immutable bundle rule.
+    # `trinity assets` rewrites the generated manifests (portraits.json,
+    # maps.json) in place under the same names, so they must revalidate
+    # (ETag 304s).
     location ~* ^/assets/.*\.json$ {
         add_header Cache-Control "no-cache" always;
     }
@@ -88,7 +88,7 @@ server {
     }
 
     # SPA fallback. Real files (favicon, /flags/, /modes/, /videos/,
-    # /vr/, trinity.{html,js,wasm}, etc.) keep nginx's default — browser
+    # /vr/, trinity.{html,js,wasm}, etc.) keep nginx's default; browser
     # heuristic caching is fine for them.
     location / {
         try_files $uri $uri/ @spa;
@@ -125,9 +125,8 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
     }
 {{ if .HasLocalRelay }}
-    # This box also runs a local collector, so it serves the single-segment
-    # relay stream itself (combined install). Pure hubs omit this — they only
-    # route the two-segment form above to remote collectors.
+    # A combined install also runs a local collector, so this box serves the
+    # single-segment relay stream itself.
     location ~ ^/tv/[^/]+$ {
         proxy_pass http://127.0.0.1:8081;
         proxy_buffering off;
@@ -142,7 +141,7 @@ server {
 {{ end }}
 }
 
-# Quake 3 fast-downloads.
+# Quake III fast downloads.
 server {
     listen 80;
     listen [::]:80;

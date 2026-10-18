@@ -11,8 +11,6 @@ interface BreadcrumbsProps {
   className?: string;
 }
 
-// Simple breadcrumb trail. The last crumb renders as plain text (the
-// "you are here" indicator); earlier crumbs are links.
 export function Breadcrumbs({ crumbs, className }: BreadcrumbsProps) {
   if (crumbs.length === 0) return null;
 

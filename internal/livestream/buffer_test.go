@@ -1,4 +1,3 @@
-// internal/livestream/buffer_test.go
 package livestream
 
 import (
@@ -61,9 +60,8 @@ func TestBufferDerivesHoldbackFromKeyframeInterval(t *testing.T) {
 		t.Fatalf("measured-2s holdback = %v, want 8s", got)
 	}
 
-	// A forced early keyframe (500ms after the last) must NOT shrink the measured
-	// interval — max-tracking ignores deltas below the running max — so holdback
-	// is unchanged.
+	// A forced early keyframe 500ms after the last is shorter than the
+	// running max, so holdback is unchanged.
 	clk.now = time.Unix(4, 500*1e6)
 	b.Append(Segment{KeyframeServerTime: 4500})
 	if got := b.holdback(); got != 8*time.Second {
@@ -78,8 +76,7 @@ func TestBufferHoldbackClampsWhenTargetBelowInterval(t *testing.T) {
 	b.Append(Segment{KeyframeServerTime: 0})
 	clk.now = time.Unix(2, 0)
 	b.Append(Segment{KeyframeServerTime: 2000})
-	// target (1.5s) <= interval (2s): the encode latency alone already overshoots,
-	// so holdback floors at 0 (realized delay ≈ the 2s interval).
+	// A 1.5s target is below the 2s interval, so holdback floors at 0.
 	if got := b.holdback(); got != 0 {
 		t.Fatalf("holdback = %v, want 0 (target below the keyframe interval clamps to 0)", got)
 	}
@@ -156,9 +153,8 @@ func TestBufferFanOutTwoViewers(t *testing.T) {
 }
 
 func TestBufferConcurrentAppendAndStream(t *testing.T) {
-	// Real clock, zero delay so every segment is immediately releasable,
-	// tiny tick so Stream polls quickly. One goroutine appends while another
-	// streams — this is what exercises the Append/Stream lock under -race.
+	// One goroutine appends while another streams, for -race to check the
+	// Append/Stream locking. Zero delay releases every segment at once.
 	b := NewBuffer([]byte("HDR"), 0)
 
 	type safeBuf struct {
@@ -197,10 +193,9 @@ func TestBufferConcurrentAppendAndStream(t *testing.T) {
 }
 
 func TestBufferEvictsAgedSegments(t *testing.T) {
-	// A long-running match: 1000 segments at one per second, delay 5s. Nothing
-	// older than the delay window (plus a small eviction margin) is reachable —
-	// a new viewer always enters at latestReleasable and only moves forward — so
-	// the retained set must stay bounded instead of growing for the whole match.
+	// 1000 segments at one per second with a 5s delay. Viewers enter at
+	// latestReleasable and only move forward, so nothing older than the
+	// window plus the eviction margin is reachable.
 	clk := &fakeClock{now: time.Unix(0, 0)}
 	b := NewBuffer([]byte("HDR"), 5*time.Second)
 	b.clk = clk
@@ -211,16 +206,12 @@ func TestBufferEvictsAgedSegments(t *testing.T) {
 	b.mu.Lock()
 	n := len(b.segs)
 	b.mu.Unlock()
-	// A 5s delay window needs at most a few dozen seconds of segments; retaining
-	// all 1000 means Append never trims (the unbounded-growth bug).
 	if n > 60 {
 		t.Fatalf("retained %d segments over a 1000s stream; eviction never trims (unbounded growth)", n)
 	}
 }
 
 func TestBufferIndexTranslationAcrossEviction(t *testing.T) {
-	// After eviction, absolute IDs must still resolve to the right segments and
-	// latestReleasable must report an absolute ID, not a rebased slice index.
 	clk := &fakeClock{now: time.Unix(0, 0)}
 	b := NewBuffer([]byte("HDR"), 5*time.Second)
 	b.clk = clk
@@ -238,7 +229,6 @@ func TestBufferIndexTranslationAcrossEviction(t *testing.T) {
 		t.Fatal("eviction never ran; base did not advance")
 	}
 
-	// An evicted ID reports evicted, not exists.
 	if _, _, exists, evicted, _ := b.segAt(0); exists || !evicted {
 		t.Fatalf("segAt(0): exists=%v evicted=%v, want exists=false evicted=true", exists, evicted)
 	}
@@ -263,9 +253,8 @@ func TestBufferIndexTranslationAcrossEviction(t *testing.T) {
 }
 
 func TestBufferStreamServesContiguouslyAcrossEviction(t *testing.T) {
-	// A keeping-up viewer must receive a contiguous, in-order run of segments
-	// even while old ones are being front-evicted concurrently. Real clock,
-	// zero delay (every segment immediately releasable), tiny eviction window.
+	// Zero delay releases every segment at once; the tiny eviction window
+	// evicts while the viewer streams.
 	b := NewBuffer([]byte("HDR"), 0)
 	b.evictAfter = 20 * time.Millisecond
 
@@ -308,7 +297,6 @@ func TestBufferStreamServesContiguouslyAcrossEviction(t *testing.T) {
 	if len(got) < 20 {
 		t.Fatalf("viewer received only %d segments; expected a keeping-up viewer to get most of 60", len(got))
 	}
-	// Contiguity: a keeping-up viewer must not skip a segment, eviction or not.
 	for i := 1; i < len(got); i++ {
 		if got[i] != got[i-1]+1 {
 			t.Fatalf("non-contiguous receipt at %d: got[%d]=%d after %d (eviction caused a skip)", i, i, got[i], got[i-1])

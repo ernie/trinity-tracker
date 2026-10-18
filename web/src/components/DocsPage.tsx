@@ -7,10 +7,8 @@ import { PlatformProvider, usePlatform } from "./docs/PlatformContext";
 import { PlatformPicker } from "./docs/PlatformPicker";
 import { PlatformBadge } from "./docs/PlatformBadge";
 
-// Right rail. Re-scans the page's headings whenever the docs subroute
-// or the platform changes, since platform-only sections come and go
-// with the platform. The Outlet mounts the new subpage; rAF lets the
-// DOM settle before we read it.
+// Platform-only sections come and go with the platform, so the headings
+// are rescanned on a platform change too, a frame after the Outlet mounts.
 function DocsSectionsRail({
   contentRef,
 }: {
@@ -26,7 +24,6 @@ function DocsSectionsRail({
       const next: DocSection[] = [];
       nodes.forEach((n) => {
         if (n instanceof HTMLElement && n.id) {
-          // Pull the visible text without the copy-anchor glyph.
           const textEl = n.querySelector(".docs-h2__text");
           const label = (textEl?.textContent ?? n.textContent ?? "").trim();
           next.push({ id: n.id, label });
@@ -44,11 +41,7 @@ export function DocsPage() {
   const location = useLocation();
   const contentRef = useRef<HTMLDivElement>(null);
 
-  // Route changes inside the docs (prev/next, TOC clicks) need explicit
-  // scroll handling — React Router doesn't reset scroll, so without this
-  // a click on "Next" leaves the viewport at the bottom of the new page
-  // staring at its prev/next bar. With a hash, scroll to the anchor;
-  // without one, jump to the top of the new page.
+  // React Router keeps the scroll position across docs route changes.
   useEffect(() => {
     const tryScroll = () => {
       if (location.hash) {

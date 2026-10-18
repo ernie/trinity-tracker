@@ -17,9 +17,9 @@ import (
 const SpillFilename = "buffer.jsonl"
 const SpillHeadFilename = "buffer.head.json"
 
-// SpillCapBytes caps the live size (tail - head). Overflow compacts and
-// then drops oldest entries (incrementing Dropped) until under cap. Var
-// rather than const so tests can shrink via spillCapOverride.
+// SpillCapBytes caps the live size (tail - head). Overflow compacts the
+// file, then drops the oldest entries (counted in Dropped) until it
+// fits.
 var SpillCapBytes int64 = 100 * 1024 * 1024
 
 var spillCapOverride int64 // test-only; takes precedence when non-zero
@@ -93,7 +93,7 @@ func (q *SpillQueue) Size() int64 {
 	return q.tail - q.head
 }
 
-// Dropped counts events discarded due to cap overflow (not ring-to-disk spill).
+// Dropped counts events discarded when the queue overflows its cap.
 func (q *SpillQueue) Dropped() uint64 { return q.dropped.Load() }
 
 func (q *SpillQueue) Append(e domain.FactEvent) error {

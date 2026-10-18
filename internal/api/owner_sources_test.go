@@ -20,9 +20,8 @@ import (
 	"github.com/ernie/trinity-tracker/internal/storage"
 )
 
-// fakeUserProv is the api-test stand-in for the embedded NATS auth
-// store. It records mint/revoke calls and serves an in-memory creds
-// blob so the .creds download path returns deterministic bytes.
+// fakeUserProv stands in for the embedded NATS auth store. It counts
+// mint and revoke calls and writes predictable .creds bytes.
 type fakeUserProv struct {
 	mu          sync.Mutex
 	creds       map[string][]byte
@@ -68,9 +67,8 @@ func (f *fakeUserProv) credsPathLocked(source string) string {
 	return filepath.Join(f.credsDir, source+".creds")
 }
 
-// testRouter is the test harness: real Store with the project schema,
-// real auth.Service, real Writer, fake UserProvisioner. All five
-// owner endpoints exercise the same mux as production.
+// testRouter runs the production mux over a real Store, auth.Service
+// and Writer, with a fake UserProvisioner.
 type testRouter struct {
 	r        *Router
 	store    *storage.Store
@@ -95,8 +93,7 @@ func newTestRouter(t *testing.T) *testRouter {
 	return &testRouter{r: r, store: store, auth: authSvc, userProv: prov}
 }
 
-// loginAs creates a user (admin or not) and returns a JWT token.
-// Tests use this to drive Authorization headers.
+// loginAs creates a user and returns a JWT for it.
 func (tr *testRouter) loginAs(t *testing.T, username string, isAdmin bool) (token string, userID int64) {
 	t.Helper()
 	hash, err := auth.HashPassword("password123")
@@ -135,7 +132,6 @@ func (tr *testRouter) do(method, path, body, token string) *httptest.ResponseRec
 	return w
 }
 
-// requestSource is a helper that POSTs the request modal payload.
 func (tr *testRouter) requestSource(t *testing.T, token, name, purpose string) *httptest.ResponseRecorder {
 	t.Helper()
 	body, _ := json.Marshal(map[string]string{
@@ -172,7 +168,7 @@ func TestHandleGetMySources_TwoActivesAndPending(t *testing.T) {
 	tr := newTestRouter(t)
 	tok, _ := tr.loginAs(t, "alice", false)
 
-	// Two approved + one pending — the realistic multi-collector case.
+	// Two approved and one pending.
 	mustOK(t, tr.requestSource(t, tok, "host-a", "first machine"))
 	must(t, tr.store.ApproveSource(context.Background(), "host-a"))
 	mustOK(t, tr.requestSource(t, tok, "host-b", "second machine"))
@@ -191,7 +187,7 @@ func TestHandleGetMySources_TwoActivesAndPending(t *testing.T) {
 	if !env.HasPending {
 		t.Error("HasPending = false, want true")
 	}
-	// active rows ordered first by ListSourcesByOwner.
+	// ListSourcesByOwner orders active rows first.
 	if env.Sources[0].Status != "active" || env.Sources[1].Status != "active" {
 		t.Errorf("expected two actives first, got %+v", env.Sources)
 	}
@@ -290,13 +286,11 @@ func TestHandleDownloadMyCreds_OnlyOwnerActive(t *testing.T) {
 	tok, _ := tr.loginAs(t, "alice", false)
 
 	mustOK(t, tr.requestSource(t, tok, "alice-q3", ""))
-	// Pending → 403 (no longer the simple "no source" check, since we
-	// might own multiple — but the named one isn't active).
+	// The caller owns it, but it isn't active yet.
 	if w := tr.do("GET", "/api/sources/mine/alice-q3/creds", "", tok); w.Code != http.StatusForbidden {
 		t.Errorf("download while pending = %d, want 403", w.Code)
 	}
 
-	// Approve + mint, now download succeeds.
 	must(t, tr.store.ApproveSource(context.Background(), "alice-q3"))
 	if _, err := tr.userProv.MintUserCreds(context.Background(), "alice-q3"); err != nil {
 		t.Fatal(err)
@@ -317,7 +311,7 @@ func TestHandleDownloadMyCreds_NotOwner(t *testing.T) {
 	mustOK(t, tr.requestSource(t, tokA, "alice-q3", ""))
 	must(t, tr.store.ApproveSource(context.Background(), "alice-q3"))
 
-	// Bob asking for alice-q3 should get 404 (don't leak existence).
+	// A non-owner gets 404, so the name's existence doesn't leak.
 	w := tr.do("GET", "/api/sources/mine/alice-q3/creds", "", tokB)
 	if w.Code != http.StatusNotFound {
 		t.Errorf("bob downloading alice's creds = %d, want 404", w.Code)
@@ -344,7 +338,6 @@ func TestHandleRotateMyCreds_RateLimited(t *testing.T) {
 }
 
 func TestHandleLeaveMySource_OnlyAffectsTargeted(t *testing.T) {
-	// Alice owns two sources; leaving one should not touch the other.
 	tr := newTestRouter(t)
 	tok, uid := tr.loginAs(t, "alice", false)
 

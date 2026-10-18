@@ -8,11 +8,8 @@ import (
 	"github.com/ernie/trinity-tracker/internal/domain"
 )
 
-// fixtureOwner inserts a single "owner" user into s and returns its
-// id as a *int64 — convenient for tests that just need a non-nil
-// owner pointer to satisfy CreateSource's remote-source contract.
-// Each test gets its own DB via newTestStore, so the fixed username
-// never collides across tests.
+// fixtureOwner inserts an "owner" user and returns its id, for tests
+// that need a remote source's owner.
 func fixtureOwner(t *testing.T, s *Store) *int64 {
 	t.Helper()
 	id := mustCreateUser(t, s, "owner")
@@ -29,13 +26,10 @@ func TestCreateAndListSources(t *testing.T) {
 	if err := s.UpsertLocalSource(ctx, "local"); err != nil {
 		t.Fatalf("upsert local: %v", err)
 	}
-	// Upsert is idempotent.
 	if err := s.UpsertLocalSource(ctx, "local"); err != nil {
 		t.Fatalf("upsert local (repeat): %v", err)
 	}
 
-	// Remote collector reports its demo_base_url via a heartbeat; admin
-	// never touches this field.
 	if err := s.TouchSourceHeartbeat(ctx, "remote-1", time.Now().UTC(), "", "https://remote-1.example.com"); err != nil {
 		t.Fatalf("touch remote heartbeat: %v", err)
 	}

@@ -3,12 +3,9 @@ import { Link, useLocation, matchPath } from "react-router-dom";
 import { DISCORD_INVITE_URL } from "../constants/discord";
 import { GITHUB_REPO_URL } from "../constants/github";
 
-// Routes where the footer overlaps fullscreen content (demo player
-// WASM canvas). Add patterns here for new immersive surfaces.
+// The game canvas fills the viewport on these routes.
 const HIDDEN_FOOTER_ROUTES = ["/matches/:id/demo", "/tv/:source/:key"];
 
-// Persistent footer band on every route. Surfaces the binary's version
-// (fetched from /api/version), external community links, and authorship.
 export function Footer() {
   const location = useLocation();
   const [version, setVersion] = useState<string | null>(null);
@@ -21,15 +18,15 @@ export function Footer() {
         if (!cancelled && d?.version) setVersion(d.version);
       })
       .catch(() => {
-        /* ignore — show without version */
+        /* the footer shows without a version */
       });
     return () => {
       cancelled = true;
     };
   }, []);
 
-  // Early-return must follow all hooks so navigating between footer-
-  // visible and footer-hidden routes doesn't change the hook order.
+  // The early return follows every hook so the hook order stays fixed
+  // across routes.
   if (HIDDEN_FOOTER_ROUTES.some((p) => matchPath(p, location.pathname))) {
     return null;
   }

@@ -10,14 +10,13 @@ import (
 )
 
 // liveTap owns one persistent TCP connection to a co-located game server's live
-// tap. The engine keeps a consumer connected ACROSS map changes — ending each
+// tap. The engine keeps the consumer connected across map changes, ending each
 // map's session with a TVLe marker and starting the next with a fresh
-// StreamHeader on the same socket — so the tap outlives a single match. Its run
-// loop re-keys a new livestream.Buffer under the server key for each stream
-// session, giving viewers a stable per-server URL across map rotations without
-// the collector reconnecting. The connection is dropped only when the game
-// server itself exits (or stop() is called), at which point onClose fires so
-// the manager can clear its handle and redial on the next match.
+// StreamHeader on the same socket. The run loop registers a new
+// livestream.Buffer under the server key for each session, so viewers keep one
+// URL per server across map rotations. The connection drops only when the game
+// server exits or stop() is called; onClose then lets the manager clear its
+// handle and redial on the next match.
 type liveTap struct {
 	key      string
 	reg      *livestream.Registry
@@ -28,8 +27,8 @@ type liveTap struct {
 	stopOnce sync.Once
 }
 
-// dialLiveTap opens the TCP connection (2s timeout). Split from the header parse
-// so the manager can register the in-flight conn and close it on shutdown,
+// dialLiveTap opens the TCP connection. It's separate from the header parse so
+// the manager can register the in-flight conn and close it at shutdown,
 // interrupting a parked read. Caller owns the conn.
 func dialLiveTap(addr string) (net.Conn, error) {
 	conn, err := net.DialTimeout("tcp", addr, 2*time.Second)
@@ -40,11 +39,10 @@ func dialLiveTap(addr string) (net.Conn, error) {
 }
 
 // parseLiveTapHeader reads the first stream header off conn and builds the tap.
-// hdrTimeout bounds this read so a connected-but-silent engine can't park the
-// goroutine (the dial timeout covers connect, not the read). It's cleared once
-// the header is read because the run loop's inter-session reads legitimately
-// block for minutes across a map change. Caller owns the tap; call start() once
-// the handle is stored.
+// hdrTimeout bounds this read, since the dial timeout covers only the connect.
+// It's cleared afterward because reads between sessions block for minutes
+// across a map change. Caller owns the tap and calls start() once the handle is
+// stored.
 func parseLiveTapHeader(conn net.Conn, addr, key string, reg *livestream.Registry, hdrTimeout, delay time.Duration) (*liveTap, error) {
 	if hdrTimeout > 0 {
 		conn.SetReadDeadline(time.Now().Add(hdrTimeout))
@@ -58,8 +56,9 @@ func parseLiveTapHeader(conn net.Conn, addr, key string, reg *livestream.Registr
 	return &liveTap{key: key, reg: reg, conn: conn, delay: delay, firstHdr: hdr.Marshal()}, nil
 }
 
-// startLiveTap composes dialLiveTap + parseLiveTapHeader, failing fast if either
-// does (e.g. the server lacks sv_tvLive). Caller owns the tap; must start() or stop() it.
+// startLiveTap runs dialLiveTap and parseLiveTapHeader, failing fast if either
+// fails (for example, when the server lacks sv_tvLive). Caller owns the tap and
+// must start() or stop() it.
 func startLiveTap(addr, key string, reg *livestream.Registry, hdrTimeout, delay time.Duration) (*liveTap, error) {
 	conn, err := dialLiveTap(addr)
 	if err != nil {
@@ -68,45 +67,41 @@ func startLiveTap(addr, key string, reg *livestream.Registry, hdrTimeout, delay 
 	return parseLiveTapHeader(conn, addr, key, reg, hdrTimeout, delay)
 }
 
-// defaultLiveTapHeaderTimeout bounds the first header read at dial. A loopback
-// engine with sv_tvLive on sends the header within a server frame (~50 ms);
-// this is generous slack before declaring the tap unavailable.
+// defaultLiveTapHeaderTimeout bounds the first header read. A loopback engine
+// with sv_tvLive on sends the header within a server frame, so this is
+// generous slack.
 const defaultLiveTapHeaderTimeout = 10 * time.Second
 
-// start launches the consume loop in a goroutine. onClose is invoked exactly
-// once, after the loop exits (the connection dropped or stop() was called), so
-// the manager can drop its handle and let the next match redial. Call start
-// only after storing the tap handle.
+// start runs the consume loop in a goroutine. onClose runs exactly once, after
+// the loop exits, so the manager can drop its handle and let the next match
+// redial. Call start only after storing the tap handle.
 func (t *liveTap) start(onClose func(*liveTap)) {
 	t.onClose = onClose
 	go t.run()
 }
 
-// run consumes successive stream sessions on the persistent connection. Each
-// session registers a fresh Buffer under the server key (re-keying viewers onto
-// the new map) and is consumed until its TVLe marker; between sessions the key
-// is dropped so the relay reports 503/Retry-After during the inter-match gap.
-// The loop ends when ParseStreamHeader fails — the server closed the connection
-// (it exited) or stop() did.
+// run consumes successive stream sessions on the connection. Each session
+// registers a fresh Buffer under the server key and is consumed until its TVLe
+// marker. Between sessions the key is dropped, so the relay answers 503 with
+// Retry-After during the gap. The loop ends when ParseStreamHeader fails: the
+// server exited or stop() closed the connection.
 func (t *liveTap) run() {
 	if t.onClose != nil {
 		defer t.onClose(t)
 	}
-	// Close the viewer-facing feed when the tap is gone for good so relay
-	// responses waiting for the next session end (true end -> browsers fall to
-	// the VOD path). Deferred AFTER onClose so it runs BEFORE it: a redial fired
-	// from onClose re-registers a fresh buffer, which must happen after this
-	// Close or it would clobber the reopened feed.
+	// When the tap is gone for good, close the viewer feed so relay responses
+	// waiting for the next session end and browsers fall back to the recorded
+	// demo. Deferred after onClose so it runs before it: a redial from onClose
+	// registers a fresh buffer that must outlive this Close.
 	defer t.reg.Close(t.key)
 	hdrBytes := t.firstHdr
 	for {
 		buf := livestream.NewBuffer(hdrBytes, t.delay)
 		t.reg.Set(t.key, buf)
-		// ConsumeSegments returns on the session's TVLe (clean) or a transport
-		// error; it always calls buf.End() so viewers unblock either way.
+		// ConsumeSegments returns at the session's TVLe or on a transport
+		// error, and always calls buf.End() so viewers unblock.
 		_ = livestream.ConsumeSegments(t.conn, buf)
-		// Identity-safe: only drop the key if it still holds THIS session's
-		// buffer, never a newer one another path may have registered.
+		// Another path may have registered a newer buffer under the key.
 		t.reg.RemoveIf(t.key, buf)
 
 		// Block for the next session's header (the next map going live), or
@@ -119,10 +114,9 @@ func (t *liveTap) run() {
 	}
 }
 
-// stop closes the connection, which unblocks the run loop (ParseStreamHeader or
-// ConsumeSegments returns) and drives it to deregister its buffer and fire
-// onClose. Safe to call more than once and from multiple goroutines, including
-// before start() (in which case nothing was ever registered).
+// stop closes the connection, which unblocks the run loop so it deregisters its
+// buffer and fires onClose. Safe to call more than once, from any goroutine,
+// and before start().
 func (t *liveTap) stop() {
 	t.stopOnce.Do(func() {
 		t.conn.Close()

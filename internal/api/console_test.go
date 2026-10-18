@@ -38,7 +38,7 @@ func seedConsoleWorld(t *testing.T, tr *testRouter, ownerID int64) {
 	}
 	seed("hub-q3", "ffa", false)
 	seed("alice-q3", "ctf", true)
-	seed("alice-q3", "duel", false)
+	seed("alice-q3", "1v1", false)
 }
 
 func consoleServers(t *testing.T, tr *testRouter, token string) []ConsoleServer {
@@ -61,8 +61,8 @@ func TestConsoleServersRoleFiltering(t *testing.T) {
 	nobodyTok, _ := tr.loginAs(t, "nobody", false)
 	seedConsoleWorld(t, tr, ownerID)
 
-	// Hub admin: local ffa as owner, delegated remote ctf as hub_admin;
-	// non-delegated duel omitted.
+	// Hub admin: local ffa as owner and delegated remote ctf as
+	// hub_admin; the non-delegated server is left out.
 	got := map[string]string{}
 	for _, s := range consoleServers(t, tr, adminTok) {
 		got[s.Source+"/"+s.Key] = s.Role
@@ -78,7 +78,7 @@ func TestConsoleServersRoleFiltering(t *testing.T) {
 	for _, s := range consoleServers(t, tr, ownerTok) {
 		got[s.Source+"/"+s.Key] = s.Role
 	}
-	if len(got) != 2 || got["alice-q3/ctf"] != "owner" || got["alice-q3/duel"] != "owner" {
+	if len(got) != 2 || got["alice-q3/ctf"] != "owner" || got["alice-q3/1v1"] != "owner" {
 		t.Errorf("owner list: got %v", got)
 	}
 
@@ -136,7 +136,7 @@ func TestConsoleRcon(t *testing.T) {
 	// Unauthorized caller on a non-delegated remote server: 403, no dispatch.
 	gotServer = ""
 	w = tr.do("POST", "/api/console/rcon",
-		`{"source":"alice-q3","key":"duel","command":"status"}`, nobodyTok)
+		`{"source":"alice-q3","key":"1v1","command":"status"}`, nobodyTok)
 	if w.Code != http.StatusForbidden {
 		t.Errorf("forbidden rcon: want 403, got %d", w.Code)
 	}

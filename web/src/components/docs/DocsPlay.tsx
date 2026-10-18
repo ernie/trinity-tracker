@@ -10,18 +10,11 @@ import { HitSoundPreview } from "./HitSoundPreview";
 import { LazyVideo } from "./LazyVideo";
 import { MODE_PROFILES } from "../ServerCard";
 
-// Annotated-screenshot callout data. Each entry feeds both the
-// CalloutImage overlay (hover/focus/tap tooltips on the image) and
-// the legend list rendered below it — so prose lives in exactly one
-// place. Coordinates are percentages of the SOURCE image dimensions
-// (the full-size shots in files-for-play-guide/, sized to match the
-// canvas the yellow boxes were drawn on); the overlay scales with
-// the rendered image at any width.
-//
-// To author a new image's callouts: measure pixel rects against the
-// source image (top-left x/y, width, height), divide x/w by source
-// width and y/h by source height, multiply by 100. Source dims for
-// hud-baseq3.png: 2560×1440.
+// Each entry feeds both the CalloutImage overlay and the legend below it.
+// Coordinates are percentages of the source image (the full-size shots in
+// files-for-play-guide/): divide a pixel rect's x and width by the source
+// width, its y and height by the source height, and multiply by 100.
+// Source dims for hud-baseq3.png: 2560×1440.
 const HUD_BASEQ3_CALLOUTS: CalloutData[] = [
   {
     n: 1,
@@ -34,10 +27,10 @@ const HUD_BASEQ3_CALLOUTS: CalloutData[] = [
       <>
         Your character's head model paired with current health (yellow normally,
         red flashing at 1–25, white above 100 from Mega Health). The small
-        speaker icon overlaid on the portrait shows your VOIP state — a red X
-        means you're self-muted; a colored speaker indicates you're transmitting
-        on that channel. See <Link to="#voice-chat">Voice chat</Link> for the
-        channel colors.
+        speaker icon overlaid on the portrait shows your VoIP state: a red X
+        means you've muted yourself, and a colored speaker means you're
+        transmitting on that channel. See{" "}
+        <Link to="#voice-chat">Voice chat</Link> for the channel colors.
       </>
     ),
   },
@@ -63,11 +56,10 @@ const HUD_BASEQ3_CALLOUTS: CalloutData[] = [
     title: "Armor",
     body: (
       <>
-        Current armor with the armor icon — yellow at 50 here. On CPMA (
-        <code>g_mode 1</code>), the armor icon is color-coded green / yellow /
-        red to reflect a tiered protection system, with different maximums and
-        different absorption rates per tier. See{" "}
-        <Link to="#modes">Game modes</Link>.
+        Current armor with the armor icon, yellow at 50 here. Under CPMA rules (
+        <code>g_mode 1</code>), the icon is green, yellow, or red for the
+        armor&rsquo;s tier, and each tier has its own maximum and absorption
+        rate. See <Link to="#modes">Game modes</Link>.
       </>
     ),
   },
@@ -94,8 +86,8 @@ const HUD_BASEQ3_CALLOUTS: CalloutData[] = [
     title: "Pickup label",
     body: (
       <>
-        Briefly names whatever you just picked up — armor here, but it surfaces
-        ammo, health, powerups, and weapons the same way.
+        Briefly names whatever you just picked up: armor here, and ammo, health,
+        powerups, and weapons the same way.
       </>
     ),
   },
@@ -130,11 +122,7 @@ const HUD_BASEQ3_CALLOUTS: CalloutData[] = [
   },
 ];
 
-// Source dims for hud-teamarena.png: 2560×1440. The TA HUD goes
-// through cg_newdraw.c (rectDef-driven) rather than cg_draw.c, so
-// the layout is wholly different from baseq3 — many more callouts
-// covering team-coordination chrome (medals, persistent powerups,
-// teammate status, role declarations, lagometer).
+// Source dims for hud-teamarena.png: 2560×1440.
 const HUD_TEAMARENA_CALLOUTS: CalloutData[] = [
   {
     n: 1,
@@ -145,8 +133,8 @@ const HUD_TEAMARENA_CALLOUTS: CalloutData[] = [
     title: "Console & voice chat",
     body: (
       <>
-        Rolling notify area at the top-left — chat messages, kill feed entries,
-        and server messages all interleave here. When a voice-chat macro is
+        Rolling notify area at the top-left, where chat messages, kill feed
+        entries, and server messages interleave. When a voice-chat macro is
         playing, a player portrait appears and shifts the text to the right.
         Grunt (a bot teammate) is announcing he's bringing the flag back to
         base.
@@ -176,8 +164,8 @@ const HUD_TEAMARENA_CALLOUTS: CalloutData[] = [
     title: "Timer",
     body: (
       <>
-        Same upper-right slot as vanilla Q3. The <code>OT</code> prefix means
-        the match is in overtime.
+        Same upper-right slot as vanilla Quake III. The <code>OT</code> prefix
+        means the match is in overtime.
       </>
     ),
   },
@@ -188,7 +176,7 @@ const HUD_TEAMARENA_CALLOUTS: CalloutData[] = [
     wPct: 11.875,
     hPct: 28.542,
     title: "Flag",
-    body: <>The blue flag on its stand — what you're defending in CTF.</>,
+    body: <>The blue flag on its stand, which you&rsquo;re defending in CTF.</>,
   },
   {
     n: 5,
@@ -220,9 +208,8 @@ const HUD_TEAMARENA_CALLOUTS: CalloutData[] = [
     body: (
       <>
         One of four Team Arena <em>persistent</em> powerups sitting on its pad
-        in the world — Guard, Ammo Regen, Scout, or Doubler (the red Doubler
-        here). Once picked up, they stay with you until you die, unlike regular
-        timed powerups.
+        in the world: Guard, Ammo Regen, Scout, or Doubler (the red Doubler
+        here). Once picked up, it stays with you until you die.
       </>
     ),
   },
@@ -235,10 +222,9 @@ const HUD_TEAMARENA_CALLOUTS: CalloutData[] = [
     title: "Teammate status card",
     body: (
       <>
-        The game tries to surface a relevant teammate here — typically the flag
-        carrier in CTF / 1FCTF, otherwise whoever's situationally interesting.
-        Shows their name, current location, role-declaration icon, health,
-        armor, and current weapon.
+        The game picks a teammate to show here, usually the flag carrier in CTF
+        and 1FCTF, with their name, current location, role icon, health, armor,
+        and current weapon.
       </>
     ),
   },
@@ -264,7 +250,9 @@ const HUD_TEAMARENA_CALLOUTS: CalloutData[] = [
     wPct: 14.648,
     hPct: 10.347,
     title: "Weapon + ammo",
-    body: <>Active weapon icon and ammo count — Railgun with 35 slugs here.</>,
+    body: (
+      <>Active weapon icon and ammo count: the railgun with 35 slugs here.</>
+    ),
   },
   {
     n: 11,
@@ -275,8 +263,8 @@ const HUD_TEAMARENA_CALLOUTS: CalloutData[] = [
     title: "Portrait + health",
     body: (
       <>
-        The small speaker icon overlaid on the portrait shows your VOIP state —
-        the cyan speaker here means you're on the team channel. See{" "}
+        The small speaker icon overlaid on the portrait shows your VoIP state;
+        the cyan speaker here means you&rsquo;re on the team channel. See{" "}
         <Link to="#voice-chat">Voice chat</Link> for the channel colors.
       </>
     ),
@@ -290,9 +278,8 @@ const HUD_TEAMARENA_CALLOUTS: CalloutData[] = [
     title: "Armor",
     body: (
       <>
-        Separate slot in the TA layout. Always visible — Team Arena renders the
-        slot even at <code>0</code>, where vanilla Q3 just hides the armor
-        element entirely until you pick some up.
+        A separate slot in the Team Arena layout, shown even at <code>0</code>.
+        The baseq3 HUD hides armor until you pick some up.
       </>
     ),
   },
@@ -306,9 +293,9 @@ const HUD_TEAMARENA_CALLOUTS: CalloutData[] = [
     body: (
       <>
         What <em>you've</em> declared as your current role, with the matching
-        task icon — the upward green arrow is <em>attack</em> — plus your
-        current map location. Set via the <code>task*</code> commands listed
-        below, or from the in-game <strong>Team Orders</strong> menu.
+        task icon (the upward green arrow is <em>attack</em>), plus your current
+        map location. Set via the <code>task*</code> commands listed below, or
+        from the in-game <strong>Team Orders</strong> menu.
       </>
     ),
   },
@@ -323,7 +310,7 @@ const HUD_TEAMARENA_CALLOUTS: CalloutData[] = [
       <>
         Capture limit, then each team's flag-state icon paired with their team
         score. The flag icons are the same set used on this site's live server
-        cards. The smaller number under each is the <em>game score</em> — Team
+        cards. The smaller number under each is the <em>game score</em>: Team
         Arena tracks objective points separately from frags, with bigger
         objectives like captures worth more.
       </>
@@ -345,10 +332,7 @@ const HUD_TEAMARENA_CALLOUTS: CalloutData[] = [
   },
 ];
 
-// Source dims for scoreboard-baseq3.png: 2560×1440. Vanilla Q3
-// scoreboard pulled up via Tab — much sparser than TA. The
-// in-match status indicators (timer, score block, powerup timer)
-// stay drawn underneath the scoreboard panel.
+// Source dims for scoreboard-baseq3.png: 2560×1440.
 const SCOREBOARD_BASEQ3_CALLOUTS: CalloutData[] = [
   {
     n: 1,
@@ -362,7 +346,7 @@ const SCOREBOARD_BASEQ3_CALLOUTS: CalloutData[] = [
         Each player's head model alongside their row. Status indicators to the
         left vary by player type: bot skill (difficulty 4 here), a gold star for
         verified admins, a green checkmark for verified accounts, or VR goggles
-        behind the badge for VR clients. VOIP speaker icons appear at the
+        behind the badge for VR clients. VoIP speaker icons appear at the
         bottom-right of each portrait, channel-colored and animated when
         speaking.
       </>
@@ -387,8 +371,8 @@ const SCOREBOARD_BASEQ3_CALLOUTS: CalloutData[] = [
     body: (
       <>
         The same upper-right stack as the in-match HUD. The mode icon next to
-        the timer reports the active <code>g_mode</code> profile — vanilla Q3 in
-        this shot.
+        the timer reports the active <code>g_mode</code> profile, vanilla Quake
+        III in this shot.
       </>
     ),
   },
@@ -401,7 +385,7 @@ const SCOREBOARD_BASEQ3_CALLOUTS: CalloutData[] = [
     title: "Timed powerup",
     body: (
       <>
-        Countdown for an active timed powerup — Quad Damage with 15 seconds
+        Countdown for an active timed powerup: Quad Damage with 15 seconds
         remaining here. Appears whenever you're holding a timed powerup.
       </>
     ),
@@ -437,10 +421,7 @@ const SCOREBOARD_BASEQ3_CALLOUTS: CalloutData[] = [
   },
 ];
 
-// Source dims for scoreboard-teamarena.png: 2560×1440. TA
-// scoreboard is the densest annotated surface — team columns,
-// per-player status (task) icons, leader designation, plus seven
-// medal-category stat columns.
+// Source dims for scoreboard-teamarena.png: 2560×1440.
 const SCOREBOARD_TEAMARENA_CALLOUTS: CalloutData[] = [
   {
     n: 1,
@@ -462,7 +443,7 @@ const SCOREBOARD_TEAMARENA_CALLOUTS: CalloutData[] = [
       <>
         Same upper-right stack as the in-match HUD. The <code>OT</code> prefix
         means the match is in overtime. The mode icon reports the active{" "}
-        <code>g_mode</code> profile — vanilla Q3 in this shot.
+        <code>g_mode</code> profile, vanilla Quake III in this shot.
       </>
     ),
   },
@@ -475,7 +456,7 @@ const SCOREBOARD_TEAMARENA_CALLOUTS: CalloutData[] = [
     title: "Status (task) column",
     body: (
       <>
-        The role each player has declared via <code>task*</code> — attacking
+        The role each player has declared via <code>task*</code>: attacking
         (green) or defending (red) here. Bots flip their declarations based on
         the team leader's orders; humans declare their own (and ignore orders if
         they like).
@@ -503,13 +484,13 @@ const SCOREBOARD_TEAMARENA_CALLOUTS: CalloutData[] = [
     yPct: 29.653,
     wPct: 5.43,
     hPct: 6.667,
-    title: "Leader + VOIP",
+    title: "Leader + VoIP",
     body: (
       <>
         One player per team can be designated team leader (a voteable status).
-        The leader can issue orders that bots respect. The VOIP speaker icon
-        (cyan here = team channel) shows who's speaking on what channel while
-        the scoreboard is up.
+        The leader can issue orders that bots respect. The VoIP speaker icon
+        (cyan here, the team channel) shows who&rsquo;s speaking on which
+        channel while the scoreboard is up.
       </>
     ),
   },
@@ -543,9 +524,7 @@ const SCOREBOARD_TEAMARENA_CALLOUTS: CalloutData[] = [
   },
 ];
 
-// Source dims for demo-player.png: 1467×991 (smaller than the
-// 2560×1440 in-game shots — captured from the web demo player
-// rather than the engine's framebuffer).
+// Source dims for demo-player.png, captured from the web demo player: 1467×991.
 const DEMO_PLAYER_CALLOUTS: CalloutData[] = [
   {
     n: 1,
@@ -556,8 +535,8 @@ const DEMO_PLAYER_CALLOUTS: CalloutData[] = [
     title: "VR badge in the handicap column",
     body: (
       <>
-        The same scoreboard cell that shows bot difficulty for AI players
-        surfaces a <code>[VR]</code> badge for VR clients.
+        The same scoreboard cell that shows bot difficulty for AI players shows
+        a <code>[VR]</code> badge for VR clients.
       </>
     ),
   },
@@ -570,10 +549,9 @@ const DEMO_PLAYER_CALLOUTS: CalloutData[] = [
     title: "Followed-player VR + recent speakers",
     body: (
       <>
-        Top-right shows whether the currently-followed player is on VR, plus a
-        list of recently-active VOIP speakers (channel-colored). Inactive
-        entries fade out, so the list only shows people who are speaking or just
-        spoke.
+        The top right shows whether the followed player is in VR, plus a list of
+        recent VoIP speakers (channel-colored). Inactive entries fade out, so
+        the list only shows people who are speaking or just spoke.
       </>
     ),
   },
@@ -595,26 +573,10 @@ const DEMO_PLAYER_CALLOUTS: CalloutData[] = [
   },
 ];
 
-// /docs/play — Player's Guide. Two layers of coverage:
-//   1. Quake 3 basics for players arriving from VR communities or
-//      the landing page who haven't played Q3 before. Concise; vets
-//      skim past in seconds.
-//   2. What Trinity adds on top — accounts, optional client polish,
-//      orbit + scrubbable spectating, voice chat, and (on VR builds)
-//      head/weapon tracking and grip-based weapon adjustment.
-//
-// Per docs principles: every menu path and cvar surface here is
-// verified against the relevant source — ../trinity-engine (every
-// platform) + ../trinity (mod). Cvar enumeration belongs
-// on /docs/reference, not here — this tab describes; Reference lists.
-//
-// Platform divergence is expressed as paired PlatformOnly blocks
-// (one per platform variant). Reasoning: the reader's question is
-// "how do I do this on my client?", not "how does it differ?", so
-// they see one variant at a time and flip the rail badge if they
-// want to peek at another. PlatformTabs is reserved for sections
-// where seeing the choice up front is the point (downloads on
-// /docs/install — not used here).
+// Platform differences go in paired PlatformOnly blocks, one per platform,
+// so a reader sees only their client's variant. Cvar lists belong on
+// /docs/reference.
+
 // Team Arena role declarations: HUD icon (extracted from missionpack
 // ui/assets/statusbar/*.tga, hence the engine asset names) + task name.
 const TEAMARENA_TASKS = [
@@ -684,27 +646,32 @@ export function DocsPlay() {
       <div className="about-section docs-play__hero">
         <h1 className="docs-play__title">Playing Trinity</h1>
         <p className="docs-play__lead">
-          What your Trinity client does on top of vanilla Quake 3 — visual
-          feedback, voice chat, demo recording and playback, persistent
-          accounts, and (on VR builds) full motion tracking. Trinity stays
-          compatible with vanilla Q3 servers, so installing it doesn't change
-          which servers you can join.
+          What your Trinity client adds to vanilla Quake III: visual feedback,
+          voice chat, demo recording and playback,{" "}
+          <PlatformOnly platform="flatscreen">
+            and persistent accounts.
+          </PlatformOnly>
+          <PlatformOnly platform="vr">
+            persistent accounts, and full motion tracking.
+          </PlatformOnly>{" "}
+          Trinity still connects to standard Quake III servers, so installing it
+          doesn&rsquo;t limit which servers you can join.
         </p>
       </div>
 
       <div className="about-section">
-        <DocsH2 id="q3-basics">Quake 3 basics</DocsH2>
+        <DocsH2 id="q3-basics">Quake III basics</DocsH2>
         <details className="docs-collapsible">
           <summary>
-            For new players — goal, game types, weapons, items. Skip if you've
-            played Quake 3 before.
+            For new players: goal, game types, weapons, and items. Skip it if
+            you&rsquo;ve played Quake III before.
           </summary>
 
           <h3 className="docs-play__feature-title">Goal &amp; format</h3>
           <p>
             Most matches share a format: a time limit, a score limit, and
-            whichever fires first ends the match — the player or team in the
-            lead at that moment wins. Servers usually advertise both — say,{" "}
+            whichever comes first ends the match. The player or team in the lead
+            at that moment wins. Servers usually advertise both, such as{" "}
             <em>20 minutes or 30 frags</em>. What counts as "score" depends on
             the game type, though. Free For All, Tournament, and Team Deathmatch
             are frag-driven; Capture the Flag and the Team Arena modes have
@@ -718,39 +685,40 @@ export function DocsPlay() {
           </p>
           <ul>
             <li>
-              <strong>Free For All</strong> — everyone vs. everyone.
+              <strong>Free For All:</strong> everyone against everyone.
             </li>
             <li>
-              <strong>Tournament</strong> — 1v1.
+              <strong>Tournament:</strong> 1v1.
             </li>
             <li>
-              <strong>Team Deathmatch</strong> — team vs. team, frag count.
+              <strong>Team Deathmatch:</strong> team against team, scored by
+              frags.
             </li>
             <li>
-              <strong>Capture the Flag</strong> — grab their flag, return yours,
+              <strong>Capture the Flag:</strong> grab their flag, return yours,
               score.
             </li>
             <li>
-              <strong>One-Flag CTF</strong> <em>(Team Arena)</em> — one neutral
-              flag, deliver to the enemy base.
+              <strong>One-Flag CTF</strong> <em>(Team Arena)</em>: one neutral
+              flag, delivered to the enemy base.
             </li>
             <li>
-              <strong>Overload</strong> <em>(Team Arena)</em> — destroy the
-              enemy obelisk.
+              <strong>Overload</strong> <em>(Team Arena)</em>: destroy the enemy
+              obelisk.
             </li>
             <li>
-              <strong>Harvester</strong> <em>(Team Arena)</em> — collect skulls
-              from kills, deposit at the enemy receptacle.
+              <strong>Harvester</strong> <em>(Team Arena)</em>: collect skulls
+              from kills and deposit them at the enemy receptacle.
             </li>
           </ul>
 
           <h3 className="docs-play__feature-title">Weapons</h3>
-          <p>Q3 ships nine weapons; Team Arena adds three more.</p>
+          <p>Quake III has nine weapons; Team Arena adds three more.</p>
           <PlatformOnly platform="vr">
             <p>
-              Switch via the weapon wheel — hold your weapon hand's grip to
-              bring it up, point at the slot you want, release to select. The
-              gauntlet joins the wheel with{" "}
+              Switch weapons with the weapon wheel: hold your weapon
+              hand&rsquo;s grip to bring it up, point at the slot you want, and
+              release to select. The gauntlet joins the wheel with{" "}
               <strong>
                 Setup → VR Options → Controls → Gauntlet On Weapon Wheel
               </strong>
@@ -759,51 +727,51 @@ export function DocsPlay() {
           </PlatformOnly>
           <ul>
             <li>
-              <strong>Gauntlet</strong> — chainsaw melee. Killing with it
+              <strong>Gauntlet:</strong> chainsaw melee. Killing with it
               triggers a humiliation indicator in the kill feed.
             </li>
             <li>
-              <strong>Machinegun</strong> — accurate hitscan, light damage per
+              <strong>Machinegun:</strong> accurate hitscan, light damage per
               round.
             </li>
             <li>
-              <strong>Shotgun</strong> — close-range pellet spread.
+              <strong>Shotgun:</strong> close-range pellet spread.
             </li>
             <li>
-              <strong>Grenade Launcher</strong> — bouncing arcing projectiles.
+              <strong>Grenade Launcher:</strong> bouncing, arcing projectiles.
             </li>
             <li>
-              <strong>Rocket Launcher</strong> — splash damage; rocket-jumping
-              fuel.
+              <strong>Rocket Launcher:</strong> splash damage, and the fuel for
+              rocket jumps.
             </li>
             <li>
-              <strong>Lightning Gun</strong> — short-range continuous beam.
+              <strong>Lightning Gun:</strong> short-range continuous beam.
             </li>
             <li>
-              <strong>Railgun</strong> — slow-firing instant-hit sniper.
+              <strong>Railgun:</strong> slow-firing instant-hit sniper.
             </li>
             <li>
-              <strong>Plasma Gun</strong> — rapid-fire energy projectiles.
+              <strong>Plasma Gun:</strong> rapid-fire energy projectiles.
             </li>
             <li>
-              <strong>BFG10K</strong> — superweapon; rare placement.
+              <strong>BFG10K:</strong> a superweapon, rarely placed on maps.
             </li>
             <li>
-              <strong>Nailgun</strong> <em>(Team Arena)</em> — massive damage at
+              <strong>Nailgun</strong> <em>(Team Arena)</em>: massive damage at
               close range, but the spread and projectile speed make it tricky at
               a distance.
             </li>
             <li>
-              <strong>Prox Launcher</strong> <em>(Team Arena)</em> — lays
-              proximity mines that detonate when an enemy gets close. Area
-              denial.
+              <strong>Prox Launcher</strong> <em>(Team Arena)</em>: lays
+              proximity mines that detonate when an enemy gets close, good for
+              denying an area.
             </li>
             <li>
-              <strong>Chaingun</strong> <em>(Team Arena)</em> — belt-fed
-              rapid-fire bullet weapon; sustained DPS.
+              <strong>Chaingun</strong> <em>(Team Arena)</em>: belt-fed
+              rapid-fire bullet weapon for sustained damage.
             </li>
             <li>
-              <strong>Grapple</strong> <em>(Trinity, server-enabled)</em> — a
+              <strong>Grapple</strong> <em>(Trinity, server-enabled)</em>: a
               tenth weapon some servers hand out at spawn. See{" "}
               <Link to="/docs/play#grapple">Grapple</Link> below.
             </li>
@@ -815,41 +783,35 @@ export function DocsPlay() {
             server's <code>g_mode</code> profile.
           </p>
           <p>
-            Trinity predicts your pickups on your own machine, so an item
-            vanishes and your health, armor, or ammo moves the moment you touch
-            it instead of a round trip later. Your client tells the server it's
-            predicting (<code>cg_predictItems</code>, on by default) so both
-            sides agree on what you picked up and how much of it you got.
+            Trinity predicts your pickups, so an item vanishes and your health,
+            armor, or ammo changes the moment you touch it.{" "}
+            <code>cg_predictItems</code> controls this and is on by default.
           </p>
           <ul>
             <li>
-              <strong>Armor</strong> — in vanilla Quake 3: Shard (+5), Yellow
-              (+50), Heavy/Red (+100), maxing at 200. CPMA replaces this with a
-              tiered system (lower-tier green armor on top of yellow and red,
-              with tier-dependent absorption); see{" "}
-              <Link to="/docs/reference#server-cvars">
-                Reference · Server CVars
-              </Link>{" "}
-              entry for <code>g_mode</code>.
+              <strong>Armor:</strong> in vanilla Quake III, Shard (+5), Yellow
+              (+50), and Heavy/Red (+100), up to 200. CPMA rules replace this
+              with a tiered system that adds a lower-tier green armor, with
+              absorption that depends on the tier; see <code>g_mode</code> in{" "}
+              <Link to="/docs/reference#server-cvars">Server CVars</Link>.
             </li>
             <li>
-              <strong>Health</strong> — 5, 25, 50, and Mega Health (+100,
-              overstacks past your normal cap).
+              <strong>Health:</strong> 5, 25, 50, and Mega Health (+100,
+              stacking past your normal cap).
             </li>
             <li>
-              <strong>Powerups</strong> — Quad Damage, Battle Suit, Speed
+              <strong>Powerups:</strong> Quad Damage, Battle Suit, Speed
               (Haste), Regeneration, Invisibility (all 30 seconds); Flight (60
               seconds).
             </li>
             <li>
-              <strong>Persistent powerups</strong> <em>(Team Arena)</em> —
-              Guard, Ammo Regen, Scout, and Doubler. Unlike the timed powerups
-              above, these have no countdown: once picked up they stay with you
-              until you die.
+              <strong>Persistent powerups</strong> <em>(Team Arena)</em>: Guard,
+              Ammo Regen, Scout, and Doubler. These have no countdown; once
+              picked up, they stay with you until you die.
             </li>
             <li>
-              <strong>Holdables</strong> (use when ready) — Personal Teleporter,
-              Medkit. Team Arena adds Kamikaze and Invulnerability.
+              <strong>Holdables</strong> (use when ready): Personal Teleporter
+              and Medkit. Team Arena adds Kamikaze and Invulnerability.
             </li>
           </ul>
         </details>
@@ -859,112 +821,105 @@ export function DocsPlay() {
         <DocsH2 id="accounts">Trinity accounts</DocsH2>
         <p>
           Trinity records the matches you play on participating servers. Without
-          an account, those records attach to the per-install identity Quake 3
-          generates (your <code>qkey</code>); each new install starts a new
-          identity from the hub's perspective.
+          an account, those records attach to the per-install identity Quake III
+          generates (your <code>qkey</code>), and each new install counts as a
+          new player to the hub.
         </p>
         <p>
-          A Trinity account ties every install you sign in on to one record —
-          same name on leaderboards, same stats, no manual <code>!link</code>{" "}
-          chasing. Setup is one in-game command and a quick visit to the hub:{" "}
-          <Link to="/docs/account">Account</Link> walks through the flow.
+          A Trinity account ties every install you sign in on to one record,
+          with the same name and stats on the leaderboards. Setup is one in-game
+          command and a quick visit to this site; the{" "}
+          <Link to="/docs/account">Account</Link> page walks through it.
         </p>
         <p>
           To find Trinity-collected servers in-game, open{" "}
           <strong>Multiplayer</strong> from the main menu, then click the{" "}
           <em>Servers:</em> selector at the top until it reads{" "}
-          <strong>Trinity</strong> — that filters the list to servers registered
-          with the hub. The same servers are also listed on this site, with live
-          status, at <Link to="/servers">Servers</Link>.
+          <strong>Trinity</strong>, which filters the list to servers registered
+          with the hub. The <Link to="/servers">Servers</Link> page lists the
+          same servers with live status.
         </p>
       </div>
 
       <div className="about-section">
         <DocsH2 id="voice-chat">Voice chat</DocsH2>
         <p>
-          Opus-based voice chat works on supported servers and is recorded into
-          TV demos so spectators can hear the chatter on playback. Three
-          transmission targets, plus a fourth off-cycle option:
+          Voice chat works on servers that enable it and is recorded into
+          TrinityVision demos, so you hear the chatter on playback. There are
+          three targets you cycle through, plus a fourth you set by hand:
         </p>
         <ul>
           <li>
-            <strong>spatial</strong> — everyone nearby hears you, attenuated
-            with distance.
+            <strong>spatial:</strong> everyone nearby hears you, quieter with
+            distance.
           </li>
           <li>
-            <strong>team</strong> — your team only (team game modes only).
+            <strong>team:</strong> your team only, in team modes.
           </li>
           <li>
-            <strong>all</strong> — every player on the server hears you.
+            <strong>all:</strong> every player on the server hears you.
           </li>
           <li>
-            <strong>direct</strong> — a comma-separated list of player IDs (or
-            the keywords <code>attacker</code> / <code>crosshair</code>). Set on{" "}
-            <code>cl_voipSendTarget</code> directly; not part of the cycle
-            below.
+            <strong>direct:</strong> a comma-separated list of player IDs, or
+            the keywords <code>attacker</code> or <code>crosshair</code>. Set it
+            on <code>cl_voipSendTarget</code> directly; the cycle skips it.
           </li>
         </ul>
         <p>
-          The <code>voiptarget</code> command cycles between the first three in
-          order — <em>spatial → team (when applicable) → all → spatial</em>.
-          Bind a one-shot <em>set cl_voipSendTarget …</em> if you want a hot key
-          for whispering to a particular teammate.
+          The <code>voiptarget</code> command cycles through the first three in
+          order: <em>spatial → team (in team modes) → all → spatial</em>. Bind a
+          one-shot <em>set cl_voipSendTarget …</em> if you want a hot key for
+          whispering to a particular teammate.
         </p>
 
         <h3 className="docs-play__feature-title">Spotting who's talking</h3>
         <p>
-          Trinity surfaces voice activity in three places visible during play,
-          using channel-colored speaker icons:
+          Channel-colored speaker icons show voice activity in three places
+          during play:
         </p>
         <ul>
           <li>
-            <strong>Player portrait icon</strong> — a speaker icon on your own
-            portrait shows when your mic is active and transmitting.
+            <strong>Player portrait icon:</strong> a speaker icon on your own
+            portrait shows when your mic is transmitting.
           </li>
           <li>
-            <strong>Upper-right speakers list</strong> —{" "}
-            <code>cg_drawVoipSpeakers 1</code> draws a stack of
-            currently-speaking player names in the upper-right of the HUD.
+            <strong>Upper-right speakers list:</strong>{" "}
+            <code>cg_drawVoipSpeakers 1</code> stacks the names of the players
+            speaking right now in the upper right of the HUD.
           </li>
           <li>
-            <strong>Over-head indicators</strong> — in-world speaker icons
-            appear above speaking players' models.
+            <strong>Over-head indicators:</strong> speaker icons appear above
+            speaking players&rsquo; models.
           </li>
         </ul>
         <p>
-          The number of arcs on each icon reflects the speaker's peak volume —
-          more arcs means a higher peak, and at 90%+, the icon brightens.
+          The number of arcs on each icon shows the speaker&rsquo;s peak volume,
+          and at 90% or more the icon brightens.
         </p>
         <VoipLevelStrip />
 
         <h3 className="docs-play__feature-title">Activating voice chat</h3>
-        <p>Two ways to control when your mic transmits:</p>
+        <p>
+          Voice chat settings are in <strong>Setup → System → Sound</strong>:
+          turn <em>VOIP</em> on or off, choose an <em>Activation</em> mode, set
+          the voice-activity <em>Threshold</em>, and adjust <em>VOIP Volume</em>{" "}
+          and <em>Transmit Game Volume</em>, which lowers the game&rsquo;s sound
+          while you talk. The two activation modes:
+        </p>
         <div className="docs-table-scroll">
           <table className="docs-color-table">
             <thead>
               <tr>
                 <th></th>
-                <th>Push-to-talk</th>
-                <th>Voice activity (VAD)</th>
+                <th>Push to talk</th>
+                <th>When speaking</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <th scope="row">Mode cvar</th>
-                <td>
-                  <code>cl_voipUseVAD 0</code>
-                </td>
-                <td>
-                  <code>cl_voipUseVAD 1</code>
-                </td>
-              </tr>
-              <tr>
                 <th scope="row">When mic transmits</th>
                 <td>only while you hold a bound input</td>
-                <td>
-                  whenever the mic picks up sound above{" "}
-                  <code>cl_voipVADThreshold</code>
-                </td>
+                <td>whenever the mic picks up sound above the Threshold</td>
               </tr>
               <tr>
                 <th scope="row">Bind to</th>
@@ -978,16 +933,19 @@ export function DocsPlay() {
               <tr>
                 <th scope="row">Best for</th>
                 <td>noisy rooms, controlled chatter</td>
-                <td>quiet rooms, good noise-cancelling mic</td>
+                <td>quiet rooms, good noise-canceling mic</td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <p>Where to put the bind:</p>
         <PlatformOnly platform="flatscreen">
-          <CopyableCommand>{`bind q "+voiprecord"       // VoIP PTT / Toggle
-bind e "voiptarget"        // cycle channel: spatial → team → all`}</CopyableCommand>
+          <p>
+            Bind <strong>VoIP PTT / Toggle</strong> and{" "}
+            <strong>Voice Target</strong> under{" "}
+            <strong>Setup → Controls</strong>, next to the chat keys. Neither
+            has a default key.
+          </p>
         </PlatformOnly>
         <PlatformOnly platform="vr">
           <p>
@@ -1001,38 +959,29 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
         </PlatformOnly>
 
         <p>
-          The voice settings are in <strong>Setup → System → Sound</strong> on
-          every client: voice chat on or off, <em>Activation</em> (push to talk
-          or when speaking), the voice-activity <em>Threshold</em>, and the{" "}
-          <em>VOIP Volume</em> slider. <strong>VoIP PTT / Toggle</strong> and{" "}
-          <strong>Voice Target</strong> can also be bound under{" "}
-          <strong>Setup → Controls</strong>. Channel mutes, the on-HUD speaker
-          list, and the engine mic meter are autoexec-only;{" "}
-          <Link to="/docs/reference#player-cvars">
-            Reference · Player CVars
-          </Link>{" "}
-          lists the full set.
+          Channel mutes, the on-HUD speaker list, and the engine mic meter are
+          set only in <code>autoexec.cfg</code>;{" "}
+          <Link to="/docs/reference#player-cvars">Player CVars</Link> lists the
+          full set.
         </p>
       </div>
 
       <div className="about-section">
         <DocsH2 id="vr-tracking">1:1 head and weapon tracking</DocsH2>
         <p>
-          Trinity's VR builds track player head movement and weapon aim 1:1, so
-          what you see in-game reflects how the player is actually moving. It's
-          subtle, but it's visible to all players, flatscreen and VR alike — in
-          live gameplay and demo playback.
+          Trinity tracks VR players&rsquo; head movement and weapon aim 1:1, so
+          their models move the way the players do. It&rsquo;s subtle, and every
+          player sees it, flatscreen and VR alike, in live play and demo
+          playback. It&rsquo;s always on.
         </p>
-        <p>Always on.</p>
         <figure className="docs-hud-figure">
           <LazyVideo
             webm="/assets/play/vr_tracking.webm"
             mp4="/assets/play/vr_tracking.mp4"
           />
           <figcaption>
-            A VR player's head pose and weapon-aim direction tracked in real
-            time — the same motion every other player in the match (flatscreen
-            or VR) sees on their screen.
+            A VR player&rsquo;s head pose and weapon aim, tracked in real time,
+            as every other player in the match sees them.
           </figcaption>
         </figure>
       </div>
@@ -1047,18 +996,20 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
             Two-handed weapon grip <code>vr_twoHandedWeapons</code>
           </h3>
           <p>
-            Hold the secondary grip to stabilize the weapon. Two modes, set in{" "}
+            Hold the secondary grip to stabilize the weapon. Pick a mode in{" "}
             <strong>Setup → VR Options → Controls → Two-Handed Weapons</strong>{" "}
-            (or with <code>vr_twoHandedWeapons</code> in autoexec):
+            or with <code>vr_twoHandedWeapons</code> in autoexec: <code>0</code>{" "}
+            turns it off, <code>1</code> is Basic (the default), and{" "}
+            <code>2</code> is VR Gun Stock.
           </p>
           <ul>
             <li>
-              <strong>Basic</strong> — weapon aims along a line from your
+              <strong>Basic:</strong> the weapon aims along a line from your
               primary controller toward your secondary controller.
             </li>
             <li>
-              <strong>Virtual gun stock</strong> — weapon anchors near your
-              face, like sighting along a stock.
+              <strong>VR Gun Stock:</strong> the weapon anchors near your face,
+              like sighting along a stock.
             </li>
           </ul>
 
@@ -1092,20 +1043,19 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
           </figure>
           <ul>
             <li>
-              <strong>Secondary thumbstick left / right</strong> — cycles which
+              <strong>Secondary thumbstick left / right:</strong> cycles which
               parameter is selected.
             </li>
             <li>
-              <strong>Primary thumbstick up / down</strong> — adjusts the
-              selected value (a fine-control curve gives small deflections
-              precise nudges).
+              <strong>Primary thumbstick up / down:</strong> adjusts the
+              selected value; small deflections make fine adjustments.
             </li>
             <li>
-              <strong>A button</strong> — accept and exit adjustment mode.
+              <strong>A button:</strong> accept and exit adjustment mode.
             </li>
             <li>
-              <strong>B button</strong> — reset to default: <em>tap</em> resets
-              just the selected parameter; <em>hold for two seconds</em> resets
+              <strong>B button:</strong> reset to default. <em>Tap</em> to reset
+              the selected parameter; <em>hold for two seconds</em> to reset
               every parameter on the current weapon. A bar fills while you hold,
               and the controller buzzes when the full reset fires.
             </li>
@@ -1116,34 +1066,33 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
             <strong>Setup → VR Options → Bindings</strong>.
           </p>
           <p>
-            Switch weapons mid-adjustment to tune another one — the strip
-            reloads automatically. Changes write back to the per-weapon offset
-            cvars (<code>vr_weapon_adjustment_N</code>, one per weapon slot) the
-            moment you make them, so they persist across sessions. Adjustment
-            mode auto-exits if you die, open the virtual screen, scope a weapon,
-            or start spectating.
+            Switch weapons mid-adjustment to tune another one, and the strip
+            follows. Changes save to the per-weapon cvars (
+            <code>vr_weapon_adjustment_N</code>, one per weapon slot) as you
+            make them, so they persist across sessions. Adjustment mode exits on
+            its own if you die, open the virtual screen, scope a weapon, or
+            start spectating.
           </p>
 
           <h3 className="docs-play__feature-title">Comfort options</h3>
           <p>
             Comfort vignette, height adjust, haptic intensity, and the
-            single-player 6DoF toggle live in{" "}
+            single-player 6DoF toggle are in{" "}
             <strong>Setup → VR Options → Comfort</strong>. Snap turn is under{" "}
-            <strong>Setup → VR Options → Controls</strong>, and HUD depth /
-            scale / vertical position under{" "}
-            <strong>Setup → VR Options → HUD &amp; Display</strong>. The{" "}
-            <Link to="/docs/reference#vr-cvars">VR CVars</Link> reference lists
-            the underlying cvar names if you'd rather set defaults from{" "}
-            <code>autoexec.cfg</code>.
+            <strong>Setup → VR Options → Controls</strong>, and HUD depth,
+            scale, and vertical position under{" "}
+            <strong>Setup → VR Options → HUD &amp; Display</strong>.{" "}
+            <Link to="/docs/reference#vr-cvars">VR CVars</Link> lists the cvar
+            names for setting them in <code>autoexec.cfg</code>.
           </p>
 
           <h3 className="docs-play__feature-title">
             Refresh rate and supersampling
           </h3>
           <p>
-            <strong>Refresh Rate</strong> and <strong>Supersampling</strong>{" "}
-            live under <strong>Setup → VR Options → HUD &amp; Display</strong>.
-            The refresh-rate row lists only the rates your headset's runtime
+            <strong>Refresh Rate</strong> and <strong>Supersampling</strong> are
+            under <strong>Setup → VR Options → HUD &amp; Display</strong>. The
+            refresh-rate row lists only the rates your headset's runtime
             reports, lowest first, and takes effect as soon as you pick one.
             Higher refresh and supersampling above 1.0 both cost frame budget.
           </p>
@@ -1152,18 +1101,18 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
           <p>
             Trinity renders the edges of your view in less detail than the
             center, which frees up GPU time for a higher refresh rate or heavier
-            settings. It's on by default. The controls live under{" "}
+            settings. It's on by default. The controls are under{" "}
             <strong>Setup → VR Options → HUD &amp; Display</strong>:
           </p>
           <ul>
             <li>
-              <strong>Foveated Rendering</strong> — Off, Fixed, or Eye-Tracked.
+              <strong>Foveated Rendering:</strong> Off, Fixed, or Eye-Tracked.
               Fixed keeps the sharp region at the center of each eye's view;
               Eye-Tracked moves it with your gaze. Eye-Tracked is only offered
               on headsets with eye tracking.
             </li>
             <li>
-              <strong>Foveation Strength</strong> — Low, Medium, or High. Higher
+              <strong>Foveation Strength:</strong> Low, Medium, or High. Higher
               saves more GPU time and is more visible at the edges. Medium by
               default.
             </li>
@@ -1171,8 +1120,8 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
           <p>
             If neither row is there, your headset doesn't offer foveated
             rendering and Trinity draws full detail everywhere. If your config
-            asks for a mode your headset can't do, the menu shows what's
-            actually in force.
+            asks for a mode your headset can't do, the menu shows what's in
+            force.
           </p>
           <p>
             On a Quest or PICO with eye tracking, Trinity asks for the
@@ -1188,24 +1137,23 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
 
           <h3 className="docs-play__feature-title">VR controls</h3>
           <p>
-            Direction mode (head vs secondary controller reference), snap turn
-            angle, handedness, weapon scope (railgun zoom), trigger sensitivity,
-            and the thumbstick swap all live in{" "}
+            Direction mode (head or off-hand controller), snap turn angle,
+            handedness, weapon scope (railgun zoom), trigger sensitivity, and
+            the thumbstick swap are all in{" "}
             <strong>Setup → VR Options → Controls</strong>. Buttons are bound in{" "}
             <strong>Setup → VR Options → Bindings</strong>, with a Button and an
-            Alt + Button column per action and your controller's own button
-            glyphs — see <Link to="/docs/customize#vr">Customize</Link>.
+            Alt + Button column per action and your controller&rsquo;s own
+            button glyphs; see <Link to="/docs/customize#vr">Customize</Link>.
           </p>
 
           <h3 className="docs-play__feature-title">VR keyboard</h3>
           <p>
-            When you need to type — chat messages, console commands, name fields
-            — Trinity opens a keyboard on the virtual screen, laid out like a
-            65% PC keyboard: the main block, Home / End / Page Up / Page Down,
-            and arrow keys. Either hand types: point at a key, where a pool of
-            light marks it, and pull the trigger; hold the trigger to repeat.
-            Close it with Escape, the Menu button, or a click outside the
-            keyboard.
+            When you need to type chat messages, console commands, or names,
+            Trinity opens a keyboard on the virtual screen, laid out like a 65%
+            PC keyboard: the main block, Home / End / Page Up / Page Down, and
+            arrow keys. Either hand types: point at a key, where a pool of light
+            marks it, and pull the trigger; hold the trigger to repeat. Close it
+            with Escape, the Menu button, or a click outside the keyboard.
           </p>
           <p>
             It opens when you reach a text field with the stick, a click, or
@@ -1231,28 +1179,23 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
               className="docs-inline-icon"
             />
             ) in the handicap slot on the scoreboard for players connected from
-            a VR client. Playing Quake 3 in VR demands more of the player than
-            flatscreen does — the icon tells flatscreen opponents who they're up
-            against. The same icon shows up when you follow a VR player as a
-            spectator.
+            a VR client. Playing Quake III in VR asks more of the player than
+            flatscreen does, and the icon tells flatscreen opponents who
+            they&rsquo;re up against. The same icon shows up when you follow a
+            VR player as a spectator.
           </p>
 
           <h3 className="docs-play__feature-title">
             Pure servers and VR-aware game code
           </h3>
           <p>
-            Trinity runs the server's or mod's cgame and UI game code as QVM
-            bytecode, the same way a flatscreen client does — which means a{" "}
-            <code>sv_pure 1</code> server running a VR-aware mod will accept
-            you.
-          </p>
-          <p>
-            The catch is that in VR the QVM has to be{" "}
-            <strong>built for VR</strong>. Trinity's mod is; most other mods
-            aren't. On a non-pure baseq3 or Team Arena server, the engine swaps
-            in its built-in VR game code. Anywhere else, a QVM without VR
-            support sends you to the main menu, still in VR, with a message
-            naming the pak. On a PC you can switch to flatscreen to play it.
+            A <code>sv_pure 1</code> server running a VR-aware mod accepts you
+            in VR. The mod has to be <strong>built for VR</strong>:
+            Trinity&rsquo;s mod is, and most other mods aren&rsquo;t. On a
+            non-pure baseq3 or Team Arena server, Trinity uses its own VR game
+            code. Anywhere else, a mod without VR support sends you to the main
+            menu, still in VR, with a message naming the pak. On a PC you can
+            switch to flatscreen to play it.
           </p>
         </div>
       </PlatformOnly>
@@ -1260,9 +1203,9 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
       <div className="about-section">
         <DocsH2 id="hud">HUD</DocsH2>
         <p>
-          The layout depends on whether the server is running vanilla Quake III
-          or Team Arena (Q3's missionpack expansion) — Team Arena packs in more
-          objective and team-coordination chrome.
+          The layout depends on whether the server runs vanilla Quake III or
+          Team Arena, the expansion, which shows more objective and team
+          information.
         </p>
         <DocsModeTabs>
           <DocsModeTabs.Panel mode="baseq3">
@@ -1279,8 +1222,8 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
               <Link to="#feedback">
                 <code>cg_damageEffect</code>
               </Link>{" "}
-              directional damage indicator firing — not a HUD element itself,
-              but you'll see it constantly in matches.
+              directional damage indicator, which you&rsquo;ll see constantly in
+              matches.
             </p>
           </DocsModeTabs.Panel>
 
@@ -1353,13 +1296,13 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
       <div className="about-section">
         <DocsH2 id="modes">Game modes</DocsH2>
         <p>
-          Trinity ships four game modes, each a matched pairing of movement
-          physics and combat rules: Vanilla Q3, CPMA, Quake Live, and Quake Live
-          Turbo. Online, the server picks; when you host a server or play
-          single-player against bots, a <strong>Mode</strong> selector in the
-          create-server and single-player menus puts the choice in your hands.
-          (Console folks: <code>g_mode</code> 0–3, then <code>map_restart</code>
-          .)
+          Trinity has four game modes, each pairing movement physics with combat
+          rules: Quake III Arena (<code>g_mode 0</code>), CPMA (<code>1</code>),
+          Quake Live (<code>2</code>), and Quake Live Turbo (<code>3</code>).
+          Online, the server picks. When you host a server or play single-player
+          against bots, choose one with the <strong>Mode</strong> selector in
+          the create-server and single-player menus, or set <code>g_mode</code>{" "}
+          at the console and run <code>map_restart</code>.
         </p>
         <p>
           The server browser shows each server's mode as an icon to the left of
@@ -1441,18 +1384,17 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
       <div className="about-section">
         <DocsH2 id="clans">Team Arena clans</DocsH2>
         <p>
-          On Team Arena servers, red and blue aren't just colors — they're
-          clans: Crusaders, Intruders, Pagans, Stroggs, The Fallen, and a sixth
-          added specially for fans of VR ports, who bring an exceptionally beefy
-          challenge. Bot teammates come from the named five-member roster of the
-          clan they fight for, with the occasional free agent filling out a
-          squad.
+          On Team Arena servers, red and blue are clans: Crusaders, Intruders,
+          Pagans, Stroggs, The Fallen, and a sixth added specially for fans of
+          VR ports, who bring an exceptionally beefy challenge. Bot teammates
+          come from the named five-member roster of the clan they fight for,
+          with the occasional free agent filling out a squad.
         </p>
         <p>
           Clans play winner-stays: when a match ends, the losing side's clan
-          rotates out — banner and bots alike — and the next clan steps in to
-          take up the fight. So if your team's name and faces changed between
-          maps, you didn't imagine it: you're carrying a new clan's colors now.
+          rotates out, banner and bots alike, and the next clan steps in to take
+          up the fight. So if your team's name and faces changed between maps,
+          you didn't imagine it: you're carrying a new clan's colors now.
         </p>
       </div>
 
@@ -1470,10 +1412,10 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
           <p>
             Pick <em>First-person</em> or <em>Orbit</em> under{" "}
             <strong>Setup → Game Options → Follow Camera</strong>, or set{" "}
-            <code>cg_followMode 1</code> in autoexec. A third <em>free-fly</em>{" "}
-            mode (<code>cg_followMode 2</code>) is available during TV demo
-            playback only — the menu doesn't expose it because it doesn't make
-            sense mid-match.
+            <code>cg_followMode 1</code> in autoexec; first-person (
+            <code>0</code>) is the default. A third mode, <em>free-fly</em> (
+            <code>cg_followMode 2</code>), works only during TV demo playback,
+            so the menu leaves it out.
           </p>
         </PlatformOnly>
         <PlatformOnly platform="vr">
@@ -1498,26 +1440,26 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
           Watch live matches in the browser
         </h3>
         <p>
-          Any in-progress match on a participating server can be watched live,
-          right in the browser — no install, no account. Wherever you see a
+          You can watch any in-progress match on a participating server live in
+          your browser, and you don&rsquo;t need an account. Wherever you see a
           server card (the <Link to="/">landing page</Link> or{" "}
           <Link to="/servers">Servers</Link>), a pulsing <strong>LIVE</strong>{" "}
           pill means the broadcast is on. Click it and the viewer opens
           mid-match, already following whoever is leading. From there you can
           follow any player or fly the free camera. The feed runs slightly
-          behind the real game — hover the pill for the current delay — and the
-          small number beside it is how many people are watching right now.
+          behind the real game; hover over the pill for the current delay. The
+          small number beside it is how many people are watching.
         </p>
         <p>
           The arena knows when it has an audience. When the first viewer
           arrives, players in the server hear{" "}
           <em>&ldquo;The Vadrigar watch.&rdquo;</em> and an eye with the viewer
-          count appears on their HUDs. You're not invisible up there — make them
-          feel observed.
+          count appears on their HUDs. You&rsquo;re not invisible up there. Make
+          them feel observed.
         </p>
         <p>
-          Live viewing has no timeline to scrub — but every match is also
-          recorded:
+          Live viewing has no timeline to scrub, but every match is also
+          recorded.
         </p>
 
         <h3 className="docs-play__feature-title">
@@ -1530,29 +1472,28 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
         </p>
         <ul>
           <li>
-            <strong>In the browser</strong> — open any match from{" "}
-            <Link to="/matches">Matches</Link> and the hub plays it back through
-            the Trinity engine compiled to WebAssembly. No install required, and
-            the link works for anyone you share it with.
+            <strong>In the browser:</strong> open any match from{" "}
+            <Link to="/matches">Matches</Link> and the hub plays it back. The
+            link works for anyone you share it with.
           </li>
           <li>
-            <strong>In your local game client</strong> — download the{" "}
-            <code>.tvd</code> file from the match page (or accept the post-match
-            download prompt, which writes it into your demos folder). Local
-            playback gives you the full <code>+tv_scrub</code> and{" "}
-            <code>demopause</code> controls described above.
+            <strong>In your local game client:</strong> download the{" "}
+            <code>.tvd</code> file from the match page, or accept the post-match
+            download prompt, which saves it to your demos folder. Local playback
+            gives you the full <code>+tv_scrub</code> and <code>demopause</code>{" "}
+            controls described above.
           </li>
         </ul>
 
         <figure className="docs-hud-figure">
           <CalloutImage
             src="/assets/play/demo-player.png"
-            alt="Trinity web demo player showing scoreboard with VR badges in the handicap column, recent VOIP speakers in the upper-right, and the playback timeline scrubber at the bottom."
+            alt="Trinity web demo player showing scoreboard with VR badges in the handicap column, recent VoIP speakers in the upper right, and the playback timeline scrubber at the bottom."
             callouts={DEMO_PLAYER_CALLOUTS}
           />
           <figcaption>
-            Watching a Trinity match in the browser — same in-game scoreboard,
-            plus the playback timeline at the bottom.
+            Watching a Trinity match in the browser: the same in-game
+            scoreboard, plus the playback timeline at the bottom.
           </figcaption>
         </figure>
         <CalloutLegend callouts={DEMO_PLAYER_CALLOUTS} />
@@ -1586,7 +1527,8 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
           <code>cg_damagePlums 0</code>.
         </p>
         <p>
-          <code>cg_damagePlumScale</code> sizes them (default <code>1.0</code>).
+          <code>cg_damagePlumScale</code> multiplies their size (default{" "}
+          <code>1.0</code>).
         </p>
 
         <h3 className="docs-play__feature-title">
@@ -1596,9 +1538,9 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
           Blood that scales with damage. Bigger hits throw more blood and mist
           at the wound, gibs spray and splatter off nearby walls, and the mess
           gets painted onto the floors, walls, and ceilings around the kill.
-          Gibs are flung by the killing blow — a rocket launches them across the
-          room, a gauntlet barely nudges them — and they trail blood as they
-          fly.
+          Gibs fly in the direction of the killing blow and trail blood as they
+          go: a rocket launches them across the room, while a gauntlet barely
+          nudges them.
         </p>
         <figure className="docs-hud-figure">
           <LazyVideo
@@ -1606,7 +1548,7 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
             mp4="/assets/play/modern_blood.mp4"
           />
           <figcaption>
-            Modern blood reacting to each hit — spray, lingering trails, and
+            Modern blood reacting to each hit: spray, lingering trails, and
             marks pooling on nearby surfaces. (Yeah, quad rockets are a little
             intense 😂)
           </figcaption>
@@ -1619,17 +1561,23 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
           <strong>Setup → Game Options → Blood Density</strong>, under Blood,
           sets how much modern blood is drawn: Light, Medium, or Heavy (
           <code>cg_bloodDensity</code> <code>0</code> / <code>1</code> /{" "}
-          <code>2</code>). It's greyed out unless Blood is Modern. It defaults
-          to Heavy on a PC and Light on Steam Frame, Quest, and PICO.
+          <code>2</code>). It&rsquo;s grayed out unless Blood is Modern.{" "}
+          <PlatformOnly platform="flatscreen">
+            It defaults to Heavy.
+          </PlatformOnly>
+          <PlatformOnly platform="vr">
+            It defaults to Heavy on a PC and Light on Steam Frame, Quest, and
+            PICO.
+          </PlatformOnly>
         </p>
 
         <h3 className="docs-play__feature-title">
           Modern Damage Effect <code>cg_damageEffect</code>
         </h3>
         <p>
-          Directional red vignette overlay when taking damage — replaces the
-          classic screen-wide blood splatter with a subtler indicator that also
-          tells you which direction the hit came from.
+          A red vignette on the side of the screen the hit came from when you
+          take damage. It&rsquo;s subtler than the classic screen-wide blood
+          splatter, and it tells you where the hit came from.
         </p>
         <figure className="docs-hud-figure">
           <LazyVideo
@@ -1650,12 +1598,12 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
           Improved stencil shadows <code>cg_shadows 2</code>
         </h3>
         <p>
-          Real shadow volumes for player models, clipped against level geometry
-          so they don't bleed through walls. Pick it under{" "}
-          <strong>Setup → Graphics → Shadows</strong> — <em>None</em>,{" "}
-          <em>Low</em> (the default blob shadow), or <em>High</em> (stencil) —
-          or set <code>cg_shadows</code> to <code>0</code>, <code>1</code>, or{" "}
-          <code>2</code> in autoexec.
+          Real shadow volumes for player models, clipped so they stay on the
+          near side of walls. Pick it under{" "}
+          <strong>Setup → Graphics → Shadows</strong> (<em>None</em>,{" "}
+          <em>Low</em> for the default blob shadow, or <em>High</em> for
+          stencil), or set <code>cg_shadows</code> to <code>0</code>,{" "}
+          <code>1</code>, or <code>2</code> in autoexec.
         </p>
         <figure className="docs-hud-figure">
           <LazyVideo
@@ -1665,20 +1613,19 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
           <figcaption>Stencil shadow cast by the green armor.</figcaption>
         </figure>
         <p>
-          Four cvars tune the stencil path: <code>r_shadowDistance</code> caps
-          how far shadows are drawn, and <code>r_shadowClip</code>,{" "}
-          <code>r_shadowClipPenetration</code>, and{" "}
-          <code>r_shadowClipExtension</code> control the clipping that keeps
-          them off the far side of walls.{" "}
-          <Link to="/docs/reference#player-cvars">
-            Reference · Player CVars
-          </Link>{" "}
-          has the details.
+          Four cvars tune stencil shadows. <code>r_shadowDistance</code>{" "}
+          (default <code>256</code> units) is how far away shadows are drawn.{" "}
+          <code>r_shadowClip</code> (on by default),{" "}
+          <code>r_shadowClipPenetration</code> (default <code>4</code>), and{" "}
+          <code>r_shadowClipExtension</code> (default <code>16</code>) keep
+          shadows off the far side of walls.{" "}
+          <Link to="/docs/reference#player-cvars">Player CVars</Link> has the
+          details.
         </p>
         <PlatformOnly platform="vr">
           <p>
-            Heavier than blobs — Quest 3-class hardware handles it; older
-            headsets often can't.
+            Stencil shadows cost more than blob shadows. A Quest 3 handles them;
+            older standalone headsets may struggle.
           </p>
         </PlatformOnly>
 
@@ -1689,33 +1636,35 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
           Lamps, torches, and the sun bloom into a soft corona when they come
           into view, and fade as you turn away or move behind cover. It's on by
           default; <code>r_flares 0</code> turns it off, and{" "}
-          <code>r_flareSize</code> sets how wide the glow spreads.
+          <code>r_flareSize</code> sets how wide the glow spreads, from{" "}
+          <code>1</code> to <code>40</code> (the default).
         </p>
         <h3 className="docs-play__feature-title">
-          Greyscale rendering <code>r_mapGreyScale</code>
+          Grayscale rendering <code>r_mapGreyScale</code>
         </h3>
         <p>
           A visibility aid: <code>r_mapGreyScale 1</code> desaturates the world
-          geometry and lightmaps to greyscale while leaving entities (players,
-          weapons, items, projectiles, explosions) in full color. Enemies and
-          powerups visibly pop against the grey walls.
+          geometry and lightmaps to grayscale and leaves entities (players,
+          weapons, items, projectiles, explosions) in full color, so enemies and
+          powerups stand out against the gray walls.
         </p>
         <figure className="docs-hud-figure">
           <ZoomableImage
             src="/assets/play/r_mapgreyscale.png"
-            alt="A Trinity match rendered with r_mapGreyScale 1: the map textures are desaturated to grey while the player model, rocket explosion, lava, and on-screen powerup icons remain in full color."
+            alt="A Trinity match rendered with r_mapGreyScale 1: the map textures are desaturated to gray while the player model, rocket explosion, lava, and on-screen powerup icons remain in full color."
           />
         </figure>
         <p>
-          Latched: set it in <code>autoexec.cfg</code>, or run{" "}
-          <code>vid_restart</code> after changing it. Negative values desaturate
-          only the lightmaps for a subtler effect.
+          The range is <code>-1</code> to <code>1</code>, default <code>0</code>
+          ; negative values desaturate only the lightmaps for a subtler effect.
+          Set it in <code>autoexec.cfg</code>, or run <code>vid_restart</code>{" "}
+          after changing it.
         </p>
         <p>
-          The related <code>r_greyscale</code> turns the entire frame greyscale
-          (entities included) — less useful for gameplay. Range <code>-1</code>{" "}
-          to <code>1</code>; requires <code>r_fbo 1</code>. Both cvars come from
-          Quake3e, the engine Trinity runs on every platform.
+          The related <code>r_greyscale</code> turns the entire frame grayscale,
+          entities included. Its range is also <code>-1</code> to <code>1</code>
+          , and it requires <code>r_fbo 1</code>. Both cvars come from Quake3e,
+          which Trinity is built on.
         </p>
 
         <PlatformOnly platform="flatscreen">
@@ -1723,20 +1672,18 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
             True HDR output <code>r_hdrDisplay</code>
           </h3>
           <p>
-            On an HDR display, Trinity can render true HDR — brighter, more
-            lifelike highlights on lights, explosions, plasma, and sky — instead
-            of standard dynamic range. It's a native Vulkan feature, off by
-            default. Turn it on under{" "}
+            On an HDR display, Trinity can render in HDR, with brighter
+            highlights on lights, explosions, plasma, and sky. It needs the
+            Vulkan renderer and is off by default. Turn it on under{" "}
             <strong>Setup → Display → HDR Display</strong>, then calibrate it
-            under <strong>Setup → Display → HDR Calibration</strong> (macOS
-            supplies the peak itself, so a Mac skips this step); the{" "}
-            <Link to="/docs/customize#display-output">Customize guide</Link>{" "}
-            walks through it.
+            under <strong>Setup → Display → HDR Calibration</strong> (a Mac
+            skips this step);{" "}
+            <Link to="/docs/customize#display-output">Customize</Link> walks
+            through it.
           </p>
           <p>
-            HDR can't be captured into a normal screenshot — it tone-maps back
-            to standard range — so there's no before/after here; you'll see it
-            on the real display.
+            A normal screenshot can&rsquo;t capture HDR, so you&rsquo;ll have to
+            see it on your own display.
           </p>
         </PlatformOnly>
         <PlatformOnly platform="vr">
@@ -1744,21 +1691,18 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
             HDR on the desktop mirror <code>r_hdrDisplay</code>
           </h3>
           <p>
-            On an HDR display, Trinity can render true HDR — brighter, more
-            lifelike highlights — in the desktop mirror window (
-            <strong>Setup → VR Options → Desktop Mirror</strong>). The headset
-            itself renders standard range. Quest and PICO have no desktop
-            mirror, and the Steam Frame starts with it off. HDR is a native
-            Vulkan feature, off by default. Turn it on under{" "}
-            <strong>Setup → Display → HDR Display</strong>, then calibrate under{" "}
-            <strong>Setup → Display → HDR Calibration</strong>; the{" "}
-            <Link to="/docs/customize#display-output">Customize guide</Link>{" "}
-            walks through it.
+            On an HDR display, Trinity can render the desktop mirror window (
+            <strong>Setup → VR Options → Desktop Mirror</strong>) in HDR, with
+            brighter highlights. The headset itself renders standard range.
+            Quest and PICO have no desktop mirror, and the Steam Frame starts
+            with it off. HDR needs the Vulkan renderer and is off by default.
+            Turn it on under <strong>Setup → Display → HDR Display</strong>,
+            then calibrate under{" "}
+            <strong>Setup → Display → HDR Calibration</strong>;{" "}
+            <Link to="/docs/customize#display-output">Customize</Link> walks
+            through it.
           </p>
-          <p>
-            HDR can't be captured into a normal screenshot; it tone-maps back to
-            standard range.
-          </p>
+          <p>A normal screenshot can&rsquo;t capture HDR.</p>
         </PlatformOnly>
 
         <h3 className="docs-play__feature-title">
@@ -1795,7 +1739,7 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
         <DocsH2 id="forced-models">Forced enemy / team models</DocsH2>
         <p>
           Trinity lets you force every enemy and every teammate to render as a
-          model + skin you pick, with optional color overrides for the head,
+          model and skin you pick, with optional color overrides for the head,
           torso, legs, and rail.
         </p>
         <figure className="docs-hud-figure">
@@ -1804,8 +1748,8 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
             alt="A Trinity match with forced models active: two cyan Doom models in motion (forced enemy model + cg_enemyColors 333), a green Crash model in the background (forced team model + cg_teamColors 222), and two darkened bodies on the ground (cg_deadBodyDarken 1)."
           />
           <figcaption>
-            Cyan Dooms = enemies, green Crash = teammate, darkened bodies on the
-            ground = dead.
+            The cyan Dooms are enemies, the green Crash is a teammate, and the
+            darkened bodies on the ground are dead.
           </figcaption>
         </figure>
         <p>The config that produced the shot above:</p>
@@ -1830,22 +1774,22 @@ set cg_deadBodyDarken 1`}</CopyableCommand>
         <p>
           The color numbers are the same ones the player-settings color slider
           uses to write <code>color1</code>. A <code>?</code> placeholder in any
-          position becomes the player's team color — red, blue, or white (in
-          FFA) — so <code>cg_enemyColors "????"</code> tints every enemy (and
-          their rail) in their team's color.
+          position becomes the player&rsquo;s team color (red, blue, or white in
+          FFA), so <code>cg_enemyColors "????"</code> tints every enemy and
+          their rail in their team&rsquo;s color.
         </p>
         <p>
           The digits don't match the chat <code>^N</code> codes most players
-          know from typing colored names — a long-standing Quake 3 quirk.{" "}
-          <Link to="/docs/customize#color-codes">Customize · Color codes</Link>{" "}
-          has the side-by-side translation.
+          know from typing colored names, a long-standing Quake III quirk.{" "}
+          <Link to="/docs/customize#color-codes">Color codes</Link> has the
+          side-by-side translation.
         </p>
         <p>
           This system has no in-game menu;{" "}
           <Link to="/docs/customize#player-models">
-            Customize · Forced enemy / team models
+            Forced enemy / team models
           </Link>{" "}
-          has the cvars.
+          in Customize has the cvars.
         </p>
       </div>
     </>

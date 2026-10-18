@@ -2,10 +2,8 @@ package directory
 
 import "sync/atomic"
 
-// metrics is a small counters-only surface for now. Exposed via
-// Server.Stats() so tests can assert on event counts without scraping
-// logs. If we ever want Prometheus, swap atomics for prometheus
-// counters here without touching call sites.
+// metrics counts directory events; Server.Stats exposes them so tests
+// can check counts.
 type metrics struct {
 	heartbeatsRecv     atomic.Uint64
 	heartbeatsRejected atomic.Uint64

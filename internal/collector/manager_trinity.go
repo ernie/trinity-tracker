@@ -25,22 +25,19 @@ type pendingGreeting struct {
 }
 
 // handshakeRequired reports whether the server's most recent InitGame
-// settings enabled g_trinityHandshake. Derived from log parsing; no
-// UDP round-trip needed.
+// line in the log enabled g_trinityHandshake.
 func (m *ServerManager) handshakeRequired(state *serverState) bool {
 	return state.handshakeRequired
 }
 
-// scheduleGreetingAfterHandshake stores a pending greeting and starts a timeout.
-// If the handshake arrives before the timeout, performGreet is called with
-// the auth bundle. If the timeout fires, a warning is sent instead
-// (the QVM kicks after 10s).
+// scheduleGreetingAfterHandshake holds the greeting until the handshake
+// arrives. If the timeout fires first, the player gets a warning instead,
+// since the QVM kicks after 10 seconds.
 func (m *ServerManager) scheduleGreetingAfterHandshake(ctx context.Context, state *serverState, serverID int64, clientID int, guid, playerName, cleanName string, isVR, isTrinityEngine bool) {
 	if state.pendingGreetings == nil {
 		state.pendingGreetings = make(map[int]*pendingGreeting)
 	}
 
-	// Cancel any existing pending greeting for this client
 	if pg, ok := state.pendingGreetings[clientID]; ok {
 		pg.timer.Stop()
 		delete(state.pendingGreetings, clientID)
@@ -57,16 +54,15 @@ func (m *ServerManager) scheduleGreetingAfterHandshake(ctx context.Context, stat
 	}
 
 	pg.timer = time.AfterFunc(3*time.Second, func() {
-		// No handshake received in time — warn the player
 		m.mu.Lock()
 		if _, ok := state.pendingGreetings[clientID]; ok {
 			delete(state.pendingGreetings, clientID)
 		}
 		m.mu.Unlock()
 
-		log.Printf("No Trinity handshake from client %d on server %d — sending warning", clientID, serverID)
+		log.Printf("No Trinity handshake from client %d on server %d; sending a warning", clientID, serverID)
 		m.sendCenterPrint(serverID, clientID, "^1Trinity client required\n^7You will be disconnected.\nVisit ^5trinity.run/docs")
-		m.sendPrint(serverID, clientID, "^1This server requires a Trinity client. Visit ^5trinity.run/docs ^1to download.")
+		m.sendPrint(serverID, clientID, "^1This server needs the Trinity client. ^7Get it at ^5trinity.run/docs^7.")
 	})
 
 	state.pendingGreetings[clientID] = pg
@@ -78,7 +74,6 @@ func (m *ServerManager) handleTrinityHandshake(ctx context.Context, serverID int
 
 	client, clientOk := state.clients[data.ClientNum]
 
-	// Stamp client engine/version on the session via the hub writer.
 	if clientOk && client.guid != "" && !client.isBot {
 		m.pub.Publish(domain.FactEvent{
 			Type:      domain.FactTrinityHandshake,
@@ -93,10 +88,8 @@ func (m *ServerManager) handleTrinityHandshake(ctx context.Context, serverID int
 		})
 	}
 
-	// Pull the pending greeting (if any) and cancel its timeout. The
-	// greet RPC itself runs whether or not a handshake was scheduled —
-	// for servers without g_trinityHandshake the ClientBegin path
-	// already fired performGreet.
+	// On servers without g_trinityHandshake there's no pending greeting:
+	// ClientBegin already greeted the player.
 	var pg *pendingGreeting
 	if state.pendingGreetings != nil {
 		pg = state.pendingGreetings[data.ClientNum]
@@ -110,8 +103,7 @@ func (m *ServerManager) handleTrinityHandshake(ctx context.Context, serverID int
 		return
 	}
 
-	// Build auth bundle (nil if the client didn't supply credentials or
-	// we never stashed a nonce). The hub treats nil as unauthenticated.
+	// The hub greets a nil proof as unauthenticated.
 	var auth *hub.AuthProof
 	if data.Username != "" && data.TokenHash != "" && nonceOk {
 		auth = &hub.AuthProof{
@@ -135,18 +127,14 @@ func (m *ServerManager) sendTrinityAuthFail(serverID int64, clientNum int) {
 	}()
 }
 
-// sendTrinityAuthOk notifies the QVM that the hub has verified this
-// client's identity. userType is 1 for a verified user, 2 for an admin;
-// higher values are reserved. canonicalName, when non-empty, is sent as
-// a quoted third arg so the QVM can lock the in-game name to the
-// account's display name. Mirror of sendTrinityAuthFail — same
-// fire-and-forget shape, same logging on failure.
+// sendTrinityAuthOk tells the QVM the hub verified this client's
+// identity. userType is 1 for a verified user, 2 for an admin. A
+// non-empty canonicalName goes as a quoted third argument so the QVM
+// locks the in-game name to the account's display name.
 func (m *ServerManager) sendTrinityAuthOk(serverID int64, clientNum, userType int, canonicalName string) {
 	go func() {
-		// Q3 tokenizer doesn't support \" escaping inside quoted strings
-		// (see g_svcmds.c:567), so strip embedded quotes before sending.
-		// Spaces, control chars, and ^N color codes pass through fine in
-		// a quoted arg.
+		// The game's tokenizer has no escape for a quote inside a quoted
+		// argument; spaces and color codes pass through.
 		safeName := strings.ReplaceAll(canonicalName, "\"", "")
 		var cmd string
 		if safeName == "" {

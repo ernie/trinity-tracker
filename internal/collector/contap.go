@@ -16,17 +16,16 @@ const (
 	conTapDialTimeout  = 2 * time.Second
 	conTapHelloTimeout = 3 * time.Second
 	conTapBackoffMax   = 15 * time.Second
-	// conTapUnavailablePoll paces rediscovery when the server doesn't
-	// offer a tap (old engine, sv_conTap 0).
+	// conTapUnavailablePoll paces rediscovery while a server offers no
+	// tap (sv_conTap 0).
 	conTapUnavailablePoll = 30 * time.Second
 )
 
-// conTapRunner keeps one server's console tap attached: discover the
-// kernel-assigned port from serverinfo, dial, validate the hello, feed
-// the ring. Reconnects always rediscover — never redial a stale port.
+// conTapRunner keeps one server's console tap attached. The tap port is
+// kernel-assigned, so every reconnect rediscovers it from serverinfo.
 type conTapRunner struct {
 	key      string
-	gameAddr string // 127.0.0.1:<game port> — the stable identity
+	gameAddr string // 127.0.0.1:<game port>, the stable identity
 	gamePort string
 	ring     *console.Ring
 	done     chan struct{}
@@ -56,8 +55,8 @@ func newConTapRunner(key, gamePort string, ring *console.Ring, q3 *Q3Client, don
 	}
 }
 
-// run is the persistent loop. wasUp gates the reconnect marker so a
-// server that never offered a tap doesn't accumulate noise.
+// run reconnects until shutdown. wasUp limits the reconnect marker to
+// taps that were up before they dropped.
 func (t *conTapRunner) run() {
 	backoff := t.backoffBase
 	wasUp := false
@@ -104,7 +103,7 @@ func (t *conTapRunner) run() {
 	}
 }
 
-// discover reads sv_conport from serverinfo; 0 = no tap offered.
+// discover reads sv_conport from serverinfo; 0 means no tap.
 func (t *conTapRunner) discover() int {
 	vars, err := t.statusVars()
 	if err != nil {
@@ -117,9 +116,9 @@ func (t *conTapRunner) discover() int {
 	return port
 }
 
-// consume validates the CON1 hello (identity: the game port must match
-// ours — guards against the kernel reusing a stale ephemeral port) and
-// feeds lines into the ring until the connection drops.
+// consume checks that the CON1 hello names our game port, since the
+// kernel can hand a stale tap port to another server, then feeds lines
+// into the ring until the connection drops.
 func (t *conTapRunner) consume(conn net.Conn, wasUp bool) error {
 	defer conn.Close()
 
@@ -162,7 +161,7 @@ func (t *conTapRunner) consume(conn net.Conn, wasUp bool) error {
 	return nil // EOF: server shut down
 }
 
-// sleep waits d or until shutdown; false = shutting down.
+// sleep waits d, returning false if shutdown comes first.
 func (t *conTapRunner) sleep(d time.Duration) bool {
 	select {
 	case <-t.done:

@@ -16,34 +16,28 @@ import (
 var nginxTemplates embed.FS
 
 // NginxFields are the placeholders shared by hub.conf.tmpl and
-// collector.conf.tmpl. Both templates draw from the same struct: hub
-// uses StaticDir as the SPA root, collector uses it as the static
-// asset root the hub fetches from. Quake3Dir is the dl.<host> fastdl
-// root in both cases.
-//
-// Kept narrow on purpose: any operator-specific tuning (cache TTLs,
-// rate limiting, geoip rules) belongs in a hand-edit on the deployed
-// box, not in the templated default.
+// collector.conf.tmpl. StaticDir is the SPA root on a hub and the asset
+// root the hub fetches from on a collector; Quake3Dir is the dl.<host>
+// fastdl root in both. Host-specific tuning (cache TTLs, rate limits)
+// is a hand edit on the deployed box.
 type NginxFields struct {
 	PublicHost string
 	StaticDir  string
 	Quake3Dir  string
-	// HasLocalRelay is true when this box runs a local collector (and thus a
-	// TrinityVision relay on :8081). The hub template gates the single-segment
-	// /tv/<key> relay location on it: a combined box serves it locally; a pure
-	// hub has no relay and only 302-routes the two-segment /tv/<source>/<key>.
+	// HasLocalRelay is true when this box runs a local collector and its
+	// TrinityVision relay on :8081. Only then does the hub template serve
+	// the single-segment /tv/<key> relay location; a pure hub redirects
+	// the two-segment /tv/<source>/<key> form.
 	HasLocalRelay bool
 }
 
 // RenderHubNginxConfig renders the embedded hub.conf.tmpl to bytes.
-// Used by InstallNginx (and by tests that assert the output shape).
 func RenderHubNginxConfig(f NginxFields) ([]byte, error) {
 	return renderNginxTemplate("hub.conf.tmpl", f)
 }
 
-// RenderCollectorNginxConfig renders the embedded collector.conf.tmpl.
-// Mirrors RenderHubNginxConfig — same input struct, different vhost
-// shape (static asset hosting + fastdl, no SPA / api / ws).
+// RenderCollectorNginxConfig renders the embedded collector.conf.tmpl,
+// whose vhost serves static assets and fastdl.
 func RenderCollectorNginxConfig(f NginxFields) ([]byte, error) {
 	return renderNginxTemplate("collector.conf.tmpl", f)
 }
@@ -78,15 +72,12 @@ const (
 // site config, firewall ports (ufw/firewalld), and (unless skipCert)
 // the certbot --nginx run that gets the TLS cert.
 //
-// Both hub and collector modes render their respective templates Go-side
-// and pass the resulting file to the script via --site-file. The script
-// itself is mode-agnostic in its handling of the rendered config (it
-// just installs the file at the right path for the host distro).
+// Both modes render their template here and pass it to the script with
+// --site-file; the script installs it at the distro's path.
 //
-// In dry-run mode nothing is executed; we just announce the plan.
-// On failure the script's stdout/stderr have already streamed to the
-// operator's terminal — we wrap the exit error with the script path
-// so they can re-run it manually for diagnosis.
+// A dry run only announces the plan. On failure the script's output has
+// already streamed to the terminal, and the error names the script path
+// so the operator can rerun it.
 func InstallNginx(plan *Plan, mode NginxMode, publicURL, adminEmail, staticDir, quake3Dir string, hasLocalRelay, skipCert, skipFirewall bool) error {
 	publicHost := HostFromURL(publicURL)
 	if plan.DryRun {
@@ -163,8 +154,7 @@ func InstallNginx(plan *Plan, mode NginxMode, publicURL, adminEmail, staticDir, 
 }
 
 // stageSiteConf renders the mode-appropriate template into a temp file
-// readable by root and returns the path. Caller is responsible for
-// removing it.
+// readable by root and returns the path. The caller removes it.
 func stageSiteConf(mode NginxMode, publicHost, staticDir, quake3Dir string, hasLocalRelay bool) (string, error) {
 	fields := NginxFields{
 		PublicHost:    publicHost,

@@ -13,13 +13,11 @@ import {
 import { useLiveData } from "../contexts/LiveDataContext";
 import type { MatchSummary } from "../types";
 
-// Target page size — actual fetch limit rounds the *total displayed
-// count* (existing + this batch) to the nearest multiple of the grid
-// column count, so the bottom row is always full and any orphans left
-// behind by a viewport resize get healed by the next load.
+// Each fetch rounds the total shown to a multiple of the grid's column
+// count, so the bottom row stays full.
 const PAGE_SIZE = 10;
-// Mirrors the .matches-browser-list grid: minmax(350px, 1fr) with 20px
-// gap. Kept in sync by hand — if the CSS changes, update here too.
+// Must match the .matches-browser-list grid in CSS: minmax(350px, 1fr)
+// with a 20px gap.
 const GRID_MIN_WIDTH = 350;
 const GRID_GAP = 20;
 
@@ -31,19 +29,14 @@ function columnsForWidth(width: number): number {
   );
 }
 
-// How many cards to fetch next so the post-load total lands on a clean
-// row. Same math handles initial load (currentCount=0 → "round PAGE_SIZE
-// to nearest multiple") and incremental loads after a resize-induced
-// orphan (currentCount=9, cols=4, PAGE_SIZE=10 → desired=19 → nearest
-// multiple of 4 is 20 → batch=11).
+// The batch also fills out a row that a resize left short.
 function nextBatchSize(currentCount: number, columns: number): number {
   if (columns <= 0) return PAGE_SIZE;
   const desired = currentCount + PAGE_SIZE;
   const nearest = Math.round(desired / columns) * columns;
   const batch = nearest - currentCount;
-  // Safety net: when current is already at the rounded total (only
-  // possible in pathological cases with cols > PAGE_SIZE), still load
-  // one full row so a "Load more" click does something visible.
+  // With more columns than PAGE_SIZE the rounding can land on the current
+  // count, so load one row and Load more always shows something.
   return batch > 0 ? batch : columns;
 }
 
@@ -59,7 +52,6 @@ export function MatchesPage() {
   const { showPlayer } = useLiveData();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Read initial state from URL
   const [gameType, setGameType] = useState<GameTypeFilter>(() => {
     const gt = searchParams.get("game_type");
     return gt && isGameTypeFilter(gt) ? gt : "all";
@@ -86,11 +78,8 @@ export function MatchesPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
 
-  // Grid column count, observed from the always-rendered content
-  // container. `columns` is a state to gate the initial fetch (we
-  // don't fetch until we know how many cards make a clean row);
-  // `columnsRef` mirrors it so loadMore reads the live value without
-  // pulling it into the callback's closure deps.
+  // `columns` is state so the first fetch waits for a measurement;
+  // `columnsRef` lets loadMore read the live value outside its closure.
   const contentRef = useRef<HTMLDivElement>(null);
   const columnsRef = useRef(0);
   const [columns, setColumns] = useState(0);
@@ -110,7 +99,6 @@ export function MatchesPage() {
     return () => ro.disconnect();
   }, []);
 
-  // Update URL when filters change
   useEffect(() => {
     const params = new URLSearchParams();
     if (gameType !== "all") params.set("game_type", gameType);
@@ -130,16 +118,11 @@ export function MatchesPage() {
     setSearchParams,
   ]);
 
-  // Fetch matches when filters change. Waits for the column count so
-  // the very first batch is also row-aligned (an over-fetch on initial
-  // load would visibly orphan a card at the bottom). Subsequent column
-  // changes (viewport resize) intentionally don't refetch — that would
-  // wipe the user's loaded batch; the next loadMore picks up the new
-  // width via columnsRef.
+  // Waits for the column count so the first batch fills its rows. A resize
+  // keeps the loaded cards; the next loadMore picks up the new width.
   const measured = columns > 0;
   useEffect(() => {
     if (!measured) return;
-    // Initial fetch — currentCount is 0 since we're starting fresh.
     const limit = nextBatchSize(0, columnsRef.current);
     async function fetchMatches() {
       try {
@@ -154,7 +137,6 @@ export function MatchesPage() {
         if (source) params.set("source", source);
         if (mode) params.set("mode", mode);
 
-        // Convert datetime-local to RFC3339
         if (startDate) {
           const date = parseDateTimeLocal(startDate);
           if (date) params.set("start_date", date.toISOString());
@@ -185,8 +167,6 @@ export function MatchesPage() {
     if (loadingMore || !hasMore || matches.length === 0) return;
 
     const lastMatchId = matches[matches.length - 1].id;
-    // Use the live `matches.length` so the next batch heals any orphan
-    // row left by a viewport resize since the last fetch.
     const limit = nextBatchSize(matches.length, columnsRef.current);
     try {
       setLoadingMore(true);
@@ -304,7 +284,7 @@ export function MatchesPage() {
           <SourceFilter value={source} onChange={setSource} />
           {hasActiveFilters && (
             <button className="clear-filters-btn" onClick={clearFilters}>
-              Clear Filters
+              Clear filters
             </button>
           )}
         </div>
@@ -312,7 +292,7 @@ export function MatchesPage() {
 
       <div className="matches-content" ref={contentRef}>
         {loading ? (
-          <div className="stats-loading">Loading matches...</div>
+          <div className="stats-loading">Loading matches…</div>
         ) : matches.length === 0 ? (
           <div className="matches-empty">
             No matches found
@@ -337,7 +317,7 @@ export function MatchesPage() {
                   onClick={loadMore}
                   disabled={loadingMore}
                 >
-                  {loadingMore ? "Loading..." : "Load More"}
+                  {loadingMore ? "Loading…" : "Load more"}
                 </button>
               </div>
             )}

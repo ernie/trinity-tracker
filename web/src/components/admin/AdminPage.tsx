@@ -52,19 +52,11 @@ export function AdminPage() {
 
   return (
     <div className="admin-page">
-      {/* .admin-workspace owns the warm editorial hairline that marks
-          entry into the admin surface. One use per page, kept restrained
-          so the gradient stays meaningful. */}
       <div className="admin-workspace">
         <div className="admin-layout">
           <nav className="admin-sidebar">
-            {/* On desktop both NavScroller's wrapper and the strip below
-                are display: contents, so links sit directly in the
-                sidebar's flex column. On mobile the wrapper hosts the
-                edge chevrons (absolute) and the strip becomes a flex
-                row sized to its content (width: max-content), with the
-                outer .admin-sidebar__scroll providing overflow + masks.
-                Same shape as PageNav inside the header NavScroller. */}
+            {/* Same shape as PageNav in the header: display: contents on
+                desktop, a scrolling strip with edge chevrons on mobile. */}
             <NavScroller scrollClassName="admin-sidebar__scroll">
               <div className="admin-sidebar__strip">
                 {ADMIN_TABS.map((tab) => (
@@ -79,7 +71,7 @@ export function AdminPage() {
                     {tab.path === "sources" && pendingCount > 0 && (
                       <span
                         className="admin-sidebar-link__badge"
-                        title={`${pendingCount} pending requests`}
+                        title={`${pendingCount} pending ${pendingCount === 1 ? "request" : "requests"}`}
                       >
                         {pendingCount}
                       </span>

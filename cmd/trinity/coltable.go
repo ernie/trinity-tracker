@@ -8,9 +8,6 @@ import (
 	"github.com/ernie/trinity-tracker/internal/q3color"
 )
 
-// colAlign is right-padded by default; numeric/right-aligned columns
-// pass alignRight. We don't bother with center-align — nothing here
-// needs it.
 type colAlign int
 
 const (
@@ -18,23 +15,15 @@ const (
 	alignRight colAlign = 1
 )
 
-// column is one column's header + cells + alignment. Cells may
-// contain ANSI escape sequences; q3color.VisibleWidth measures
-// only printable runes so layout stays correct.
+// column cells may contain ANSI escape sequences.
 type column struct {
 	header string
 	cells  []string
 	align  colAlign
 }
 
-// renderTable writes a tabular layout to w. Headers are rendered
-// bold, the separator row is rendered dim — both via the helpers
-// in color.go, so they no-op when color is disabled.
-//
-// Why not text/tabwriter: tabwriter measures byte width, so any cell
-// containing ANSI escapes mis-aligns. This renderer strips ANSI when
-// computing column widths and pads after. ~30 lines of code, no
-// external deps.
+// renderTable measures visible width, so cells with ANSI escapes stay
+// aligned.
 func renderTable(w io.Writer, cols []column) {
 	if len(cols) == 0 {
 		return
@@ -53,9 +42,6 @@ func renderTable(w io.Writer, cols []column) {
 		}
 	}
 
-	// Two-space gutter between columns. The last column gets no
-	// trailing gutter — left-align doesn't need it, and right-align
-	// already pads on the left.
 	emit := func(values []string) {
 		for i, v := range values {
 			padding := visibleWidths[i] - q3color.VisibleWidth(v)

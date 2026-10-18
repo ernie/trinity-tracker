@@ -8,10 +8,10 @@ import (
 	"strings"
 )
 
-// BuildMapPak builds a per-map pk3 containing all map-specific assets not in
-// the baseline. The one artifact serves every game mount — and a map may
-// depend on assets from a game it isn't installed in — so it bundles the
-// union of dependencies across game manifests, minus each game's baseline.
+// BuildMapPak builds a per-map pk3 of the map's assets that aren't in the
+// baseline. One pk3 serves every game mount, and a map may use assets from
+// a game it isn't installed in, so it bundles the union of dependencies
+// across game manifests, minus each game's baseline.
 func BuildMapPak(mapName string, games []string, manifest *Manifest, outputPath string) error {
 	lowerBSP := strings.ToLower("maps/" + mapName + ".bsp")
 
@@ -27,7 +27,7 @@ func BuildMapPak(mapName string, games []string, manifest *Manifest, outputPath 
 			continue
 		}
 
-		// BSP bytes are identical under every game — parse once.
+		// The BSP is the same under every game, so it's parsed once.
 		if bspAssets == nil {
 			bspData, err := readFileFromIndex(lowerBSP, gm.FileIndex)
 			if err != nil {
@@ -91,12 +91,11 @@ func resolveMapNeeds(mapName, lowerBSP string, bspAssets *BSPAssets, gm *GameMan
 		resolveModel(modelPath, gm, needed)
 	}
 
-	// Resolve entity sounds. BSP "noise" values often omit the
-	// extension (e.g. "sound/ct3tourney2/thunder"); the engine tries
-	// .wav then .ogg at load time (snd_codec.c:S_CodecGetSound). Mirror
-	// that so the file actually gets bundled — otherwise the engine
-	// falls back to default_sfx, which is sound/feedback/hit.wav, and
-	// looped speakers loop the hit sound forever.
+	// BSP "noise" values often omit the extension (such as
+	// "sound/ct3tourney2/thunder"), and the engine tries .wav, then .ogg
+	// (S_CodecGetSound in snd_codec.c). Resolving the same way bundles
+	// the real file; a missing one plays default_sfx,
+	// sound/feedback/hit.wav, which looped speakers repeat forever.
 	for _, soundPath := range bspAssets.Sounds {
 		if resolved, ok := resolveAudioPath(soundPath, gm.FileIndex); ok {
 			needed[resolved] = true
@@ -128,33 +127,31 @@ func resolveMapNeeds(mapName, lowerBSP string, bspAssets *BSPAssets, gm *GameMan
 	return needed
 }
 
-// resolveShaderTextures resolves a shader name to its texture dependencies and adds them to needed.
-// The engine strips any extension before shader lookup (R_FindShader →
-// COM_StripExtension), so an MD3 ref like "textures/x/flag_0.tga" matches
-// a shader script's "textures/x/flag_0" — mirror that here.
+// resolveShaderTextures adds a shader's texture dependencies to needed.
+// The engine strips any extension before the shader lookup (R_FindShader
+// calls COM_StripExtension), so an MD3 ref like "textures/x/flag_0.tga"
+// matches a shader script's "textures/x/flag_0"; this does the same.
 func resolveShaderTextures(shaderName string, gm *GameManifest, needed map[string]bool) {
 	lower := stripExtension(strings.ToLower(shaderName))
 
-	// Look up shader definition
 	if textures, ok := gm.Shaders[lower]; ok {
 		for _, tex := range textures {
 			if resolved, ok := ResolveTexture(tex, gm.FileIndex); ok {
 				needed[resolved] = true
 			}
 		}
-		// If shader def has no texture refs (e.g. only surfaceparms),
-		// the engine uses the shader name as an implicit texture
+		// A shader with no texture refs (only surfaceparms, say) uses
+		// its name as the texture.
 		if len(textures) == 0 {
 			if resolved, ok := ResolveTexture(lower, gm.FileIndex); ok {
 				needed[resolved] = true
 			}
 		}
-		// Include the .shader script file so the engine can find the definition
 		if scriptPath, ok := gm.ShaderFiles[lower]; ok {
 			needed[scriptPath] = true
 		}
 	} else {
-		// No shader def — treat as direct texture path
+		// With no shader, the name is a texture path.
 		if resolved, ok := ResolveTexture(lower, gm.FileIndex); ok {
 			needed[resolved] = true
 		}
@@ -182,9 +179,8 @@ func resolveModel(modelPath string, gm *GameManifest, needed map[string]bool) {
 	}
 	needed[resolved] = true
 
-	// Only .md3 has a shader-table format we can parse; iqm/mdr embed
-	// materials differently and aren't worth a parser here — bundling
-	// the file itself is the important part.
+	// Only .md3 shader tables are parsed; for iqm and mdr, bundling the
+	// model file is enough.
 	if !strings.HasSuffix(resolved, ".md3") {
 		return
 	}

@@ -21,21 +21,16 @@ type rconFixture struct {
 	local   *domain.Server // local source server (hub-q3 / main)
 }
 
-// seedRconFixture builds a database with two sources:
-//   - "alice-q3": remote, owned by ownerID; servers: alice-server (no
-//     delegation) and alice-deleg (delegation enabled)
-//   - "hub-q3": local source (no owner row); server: hub-server
-//
-// Plus three users: owner (non-admin), admin (is_admin, not owner), other
-// (non-admin, not owner). Each user has a unique GameToken seeded so
-// authProof helpers can hash it.
+// seedRconFixture builds two sources: "alice-q3", remote and owned by
+// the owner user, with server "remote" (delegation off); and "hub-q3",
+// the local source, with server "main". The owner, admin and other users
+// each get a game token for the authProof helpers.
 func seedRconFixture(t *testing.T) *rconFixture {
 	t.Helper()
 	ctx := context.Background()
 	w, store := newTestWriter(t)
 	w.localSource = "hub-q3"
 
-	// Players + users
 	for _, name := range []string{"owner", "admin", "other"} {
 		_, err := store.UpsertPlayerGUID(ctx, "guid-"+name, name, name, time.Now().UTC(), false)
 		if err != nil {
@@ -43,7 +38,6 @@ func seedRconFixture(t *testing.T) *rconFixture {
 		}
 	}
 
-	// Find each player_id
 	findPlayer := func(guid string) int64 {
 		pg, err := store.GetPlayerGUIDByGUID(ctx, guid)
 		if err != nil || pg == nil {
@@ -73,7 +67,6 @@ func seedRconFixture(t *testing.T) *rconFixture {
 	adminID := mustUser("admin", true, adminPlayer)
 	otherID := mustUser("other", false, otherPlayer)
 
-	// Sources
 	if err := store.UpsertLocalSource(ctx, "hub-q3"); err != nil {
 		t.Fatalf("UpsertLocalSource: %v", err)
 	}
@@ -81,12 +74,10 @@ func seedRconFixture(t *testing.T) *rconFixture {
 		t.Fatalf("CreateSource alice-q3: %v", err)
 	}
 
-	// Servers — remote with delegation off
 	srv := &domain.Server{Key: "remote", Address: "10.0.0.1:27960"}
 	if err := store.UpsertServer(ctx, "alice-q3", srv); err != nil {
 		t.Fatalf("UpsertServer remote: %v", err)
 	}
-	// Local hub server
 	local := &domain.Server{Key: "main", Address: "127.0.0.1:27960"}
 	if err := store.UpsertServer(ctx, "hub-q3", local); err != nil {
 		t.Fatalf("UpsertServer local: %v", err)
@@ -130,10 +121,10 @@ func TestEvaluateRconStuff_OwnerOnTheirOwnRemoteSource(t *testing.T) {
 		t.Errorf("role = %q, want %q", got.Role, RconRoleOwner)
 	}
 	if got.EpochNonce == ([crypto.RconsetNonceLen]byte{}) {
-		t.Error("EpochNonce is zero — RNG not wired up")
+		t.Error("EpochNonce is zero: RNG not wired up")
 	}
 	if got.Key == ([16]byte{}) {
-		t.Error("Key is zero — DeriveRconsetKey not invoked")
+		t.Error("Key is zero: DeriveRconsetKey not invoked")
 	}
 
 	expectedKey := crypto.DeriveRconsetKey(u.GameToken, got.EpochNonce)
@@ -193,7 +184,6 @@ func TestEvaluateRconStuff_RandomUserDenied(t *testing.T) {
 }
 
 func TestEvaluateRconStuff_NonAdminOwnerStillAuthorized(t *testing.T) {
-	// User-added collector case: not is_admin, but owns the source.
 	f := seedRconFixture(t)
 	u := f.reloadUser(t, f.ownerID)
 	if u.IsAdmin {

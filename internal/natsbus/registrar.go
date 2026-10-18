@@ -19,9 +19,8 @@ const RegistrationSubjectPrefix = "trinity.register."
 type RosterProvider func() []domain.RegdServer
 
 // Registrar publishes a domain.Registration to trinity.register.<source>
-// on Start and then at interval. demoBaseURL is the operator-owned
-// URL their demos serve from; changes propagate to the hub on the
-// next heartbeat.
+// on Start and then every interval. demoBaseURL is where the operator
+// serves demos.
 type Registrar struct {
 	nc          *nats.Conn
 	source      string
@@ -72,11 +71,9 @@ func (r *Registrar) Stop() {
 	<-r.doneCh
 }
 
-// Kick requests an immediate out-of-band publish — e.g. when a server's
-// live-stream tap opens or closes, so the hub's is_live flips within ~1s
-// instead of waiting up to a full heartbeat interval. Non-blocking: if a
-// kick is already pending, this is a no-op and the pending publish reflects
-// the latest roster anyway.
+// Kick asks for an immediate publish, such as when a live-stream tap
+// opens or closes, so the hub's is_live updates within about a second.
+// It doesn't block; a kick already pending covers this one.
 func (r *Registrar) Kick() {
 	select {
 	case r.kickCh <- struct{}{}:

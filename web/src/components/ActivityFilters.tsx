@@ -9,10 +9,8 @@ import {
 import { useSources } from "../hooks/useSources";
 import { serverDisplay } from "../utils";
 
-// "Hidden" model: items present in each set are filtered out. Empty
-// sets = everything visible. Events have non-empty defaults (most off)
-// per the spam-control policy. includeBots is orthogonal — a player-
-// attribute filter applied across event types.
+// Each list names what's filtered out, so a new source, server or game
+// type shows up by default.
 export interface ActivityFilterState {
   hiddenSources: string[];
   hiddenServers: number[];
@@ -98,7 +96,8 @@ export function ActivityFilters({ state, onChange, servers }: Props) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
 
-  // Stale pruning per ServerFilters.tsx pattern.
+  // Saved entries that no longer exist are pruned once, after each list
+  // first loads.
   const sourcesValidated = useRef(false);
   const gameTypesValidated = useRef(false);
   const serversValidated = useRef(false);

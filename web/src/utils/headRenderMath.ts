@@ -1,4 +1,4 @@
-// Extra view margin so hair/hoods overflow the portrait box instead of cropping.
+// Extra view margin so hair and hoods can overflow the portrait box.
 export const HEAD_OVERFLOW = 1.4;
 
 // Beyond this many visible heads we drop to 30fps to protect the frame budget.

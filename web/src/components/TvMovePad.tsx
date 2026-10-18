@@ -1,7 +1,6 @@
 import { ArrowIcon } from "./ArrowIcon";
 import type { SendKey, HoldHandlers } from "../hooks/useTvEngine";
 
-// Free-camera movement pad, shared by the VOD demo player and the live player.
 export function TvMovePad({
   sendKey,
   holdHandlers,

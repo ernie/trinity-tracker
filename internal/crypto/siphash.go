@@ -1,29 +1,26 @@
-// Package crypto provides the shared crypto primitives used between
-// the hub, collector, and the Trinity engine (in C). All functions in
-// this package are byte-identical to their counterparts in
-// trinity-engine/code/client/cl_trinity_rconset.c.
+// Package crypto holds the crypto primitives the hub and collector
+// share with the Trinity engine. Every function here is byte-identical
+// to its counterpart in trinity-engine/code/client/cl_trinity_rconset.c.
 //
 // Two layers:
 //
 //   - SipHash128Raw / SipHash128Hex: SipHash-2-4 with 128-bit output.
-//     Hex form is what the Trinity account-auth handshake uses today
-//     (BG_HashKeyed). Raw form is what the rcon-stuff protocol uses
-//     because its message inputs include a binary nonce that may
-//     contain NUL bytes.
+//     The account-auth handshake uses the hex form (BG_HashKeyed). The
+//     rcon-stuff protocol uses the raw form, because its inputs
+//     include a binary nonce that may contain NUL bytes.
 //
 //   - DeriveRconsetKey / EncryptRconset: the framed protocol that
-//     pushes an encrypted rcon password down to the engine over a
+//     sends an encrypted rcon password to the engine through a
 //     trinity_rconset server command. See rconset.go.
 package crypto
 
 import "encoding/hex"
 
 // SipHash128Raw computes SipHash-2-4 with a 128-bit output over msg,
-// keyed by key. Both arguments are arbitrary-length byte slices; NUL
-// bytes are permitted in either. The output byte layout is chosen so
-// that hex.EncodeToString of the returned array is byte-identical to
-// SipHash128Hex(string(key), string(message)) — preserves the existing
-// auth-handshake wire format.
+// keyed by key. Both may be any length and may contain NUL bytes. The
+// output layout makes hex.EncodeToString of the result byte-identical
+// to SipHash128Hex(string(key), string(msg)), the auth-handshake wire
+// format.
 func SipHash128Raw(key, msg []byte) [16]byte {
 	k0, k1 := deriveKey(key)
 
@@ -76,7 +73,7 @@ func SipHash128Raw(key, msg []byte) [16]byte {
 	v0, v1, v2, v3 = sipRound(v0, v1, v2, v3)
 	hash1 := v0 ^ v1 ^ v2 ^ v3
 
-	// Byte layout chosen to match the legacy sipHashHex string format:
+	// Byte layout of the hex string format:
 	//   bytes 0-3:  hash0 low 32 bits, big-endian
 	//   bytes 4-7:  hash0 high 32 bits, big-endian
 	//   bytes 8-11: hash1 low 32 bits, big-endian
@@ -127,11 +124,9 @@ func sipRound(v0, v1, v2, v3 uint64) (uint64, uint64, uint64, uint64) {
 	return v0, v1, v2, v3
 }
 
-// deriveKey folds an arbitrary-length byte slice into two uint64
-// SipHash key halves. Byte-identical to DeriveKey in bg_hash.c, which
-// also runs over the key byte-by-byte (in C it terminates at NUL; the
-// rcon-stuff path only ever passes NUL-free token strings as the key,
-// so the two behaviors agree in practice).
+// deriveKey folds a byte slice into two uint64 SipHash key halves.
+// It matches DeriveKey in bg_hash.c for NUL-free keys (C stops at
+// NUL); the rcon-stuff path only passes NUL-free token strings.
 func deriveKey(key []byte) (uint64, uint64) {
 	h := [4]uint32{0x736f6d65, 0x646f7261, 0x6c796765, 0x74656462}
 	for i := 0; i < len(key); i++ {
@@ -143,8 +138,7 @@ func deriveKey(key []byte) (uint64, uint64) {
 	return k0, k1
 }
 
-// DeriveKeyForTest exposes deriveKey for cross-package test harnesses
-// (e.g. the legacy hub package SipHash tests). Not for production use.
+// DeriveKeyForTest exposes deriveKey to other packages' tests.
 func DeriveKeyForTest(key []byte) (uint64, uint64) {
 	return deriveKey(key)
 }

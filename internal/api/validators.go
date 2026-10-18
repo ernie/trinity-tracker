@@ -14,7 +14,8 @@ var validGameTypes = map[string]bool{
 	"1v1": true, "overload": true, "harvester": true,
 }
 
-// Match mode is the g_mode profile: "0" vq3, "1" cpm, "2" ql, "3" qlt.
+// Modes are g_mode values: 0 Quake III Arena, 1 CPMA, 2 Quake Live,
+// 3 Quake Live Turbo.
 var validModes = map[string]bool{"0": true, "1": true, "2": true, "3": true}
 
 var validCategories = map[string]bool{
@@ -25,7 +26,8 @@ var validCategories = map[string]bool{
 	"skulls_delivered": true, "obelisks_destroyed": true,
 }
 
-// parseLimit parses and validates a limit parameter with default and max values
+// parseLimit returns the limit parameter, or defaultLimit when it is
+// missing, not positive or above maxLimit.
 func parseLimit(r *http.Request, defaultLimit, maxLimit int) int {
 	if l := r.URL.Query().Get("limit"); l != "" {
 		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 && parsed <= maxLimit {
@@ -35,7 +37,6 @@ func parseLimit(r *http.Request, defaultLimit, maxLimit int) int {
 	return defaultLimit
 }
 
-// parseOffset parses and validates an offset parameter
 func parseOffset(r *http.Request) int {
 	if o := r.URL.Query().Get("offset"); o != "" {
 		if parsed, err := strconv.Atoi(o); err == nil && parsed >= 0 {
@@ -45,7 +46,7 @@ func parseOffset(r *http.Request) int {
 	return 0
 }
 
-// parseBeforeID parses and validates a cursor-based pagination parameter
+// parseBeforeID returns the "before" pagination cursor, or nil.
 func parseBeforeID(r *http.Request) *int64 {
 	if b := r.URL.Query().Get("before"); b != "" {
 		if parsed, err := strconv.ParseInt(b, 10, 64); err == nil && parsed > 0 {
@@ -55,17 +56,14 @@ func parseBeforeID(r *http.Request) *int64 {
 	return nil
 }
 
-// validatePeriod checks if a period string is valid
 func validatePeriod(period string) bool {
 	return validPeriods[period]
 }
 
-// validateGameType checks if a game type string is valid
 func validateGameType(gameType string) bool {
 	return validGameTypes[gameType]
 }
 
-// validateCategory checks if a leaderboard category is valid
 func validateCategory(category string) bool {
 	return validCategories[category]
 }

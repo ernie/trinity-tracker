@@ -5,18 +5,16 @@ import (
 	"net/url"
 )
 
-// sessionCookieName carries the web-session JWT. HttpOnly keeps it out
-// of reach of XSS; validity is governed by users.token_version, not the
-// cookie's age.
+// sessionCookieName carries the session JWT, HttpOnly so scripts can't
+// read it. users.token_version decides whether it is still valid.
 const sessionCookieName = "trinity_session"
 
-// sessionCookieMaxAge is the 400-day browser cap on cookie lifetime.
-// The cookie is re-issued at every login.
+// sessionCookieMaxAge is the browsers' 400-day cap on cookie lifetime.
 const sessionCookieMaxAge = 34560000
 
-// requestIsTLS reports whether the client connection is HTTPS. The
-// hub itself serves plain HTTP; nginx terminates TLS and sets
-// X-Forwarded-Proto. Plain-HTTP LAN installs get a non-Secure cookie.
+// requestIsTLS reports whether the client connected over HTTPS. nginx
+// terminates TLS and sets X-Forwarded-Proto; a plain-HTTP LAN install
+// gets a cookie without Secure.
 func requestIsTLS(req *http.Request) bool {
 	return req.TLS != nil || req.Header.Get("X-Forwarded-Proto") == "https"
 }
@@ -33,8 +31,8 @@ func setSessionCookie(w http.ResponseWriter, req *http.Request, token string) {
 	})
 }
 
-// clearSessionCookie ends the device's session: HttpOnly means JS
-// can't remove the cookie, so the server must expire it.
+// clearSessionCookie expires the cookie, which scripts can't remove
+// because it is HttpOnly.
 func clearSessionCookie(w http.ResponseWriter, req *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     sessionCookieName,
@@ -47,11 +45,10 @@ func clearSessionCookie(w http.ResponseWriter, req *http.Request) {
 	})
 }
 
-// cookieOriginAllowed is the CSRF gate for cookie-authenticated
-// requests (cookies ride along automatically; Bearer headers never
-// did). Non-GET requests bearing a cross-site Origin are refused.
-// Absent Origin passes — non-browser clients don't send it, and
-// SameSite=Lax is the backstop for browsers. Host-only compare: the
+// cookieOriginAllowed is the CSRF check for cookie-authenticated
+// requests: a write with a cross-site Origin is refused. A request with
+// no Origin passes, since non-browser clients don't send one and
+// SameSite=Lax covers browsers. Only the host is compared, because the
 // hub doesn't know its public scheme.
 func cookieOriginAllowed(req *http.Request) bool {
 	switch req.Method {

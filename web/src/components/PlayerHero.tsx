@@ -11,24 +11,14 @@ import type { PlayerStatsResponse } from "../types";
 interface PlayerHeroProps {
   player: PlayerStatsResponse["player"];
   stats: PlayerStatsResponse["stats"];
-  /** 'modal' is the compact 80px-portrait variant; 'page' is the
-   *  120px hero used on /players/:id. CSS modifier classes drive the
-   *  scale; markup is identical. */
+  /** 'modal' is the compact hero; 'page' is the /players/:id hero. */
   variant: "modal" | "page";
-  /** Optional: shown if the fetched player record has an empty name
-   *  (race during initial load). Only relevant in the modal — the
-   *  full-profile page already has stats by the time it renders. */
+  /** Shown while the fetched player record's name is still empty. */
   fallbackName?: string;
-  /** When set, the portrait becomes a button that opens the picker —
-   *  passed only by AccountPage for the owner's own hero. */
+  /** Makes the portrait a button that opens the picker. */
   onPortraitClick?: () => void;
 }
 
-// Player hero: portrait + featured-honor card paired at the top,
-// name + meta line, then a 4-up headline strip (Matches · K/D · Frags ·
-// Deaths). The featured honor defaults to Victory; the owning user can
-// promote any other honor via the star buttons in HonorsPanel. Shared
-// between PlayerStatsModal (modal variant) and PlayersPage (page variant).
 export function PlayerHero({
   player,
   stats,
@@ -38,9 +28,7 @@ export function PlayerHero({
 }: PlayerHeroProps) {
   const heroName = displayPlayerName(player) || fallbackName || "";
   const NameTag = variant === "modal" ? "h3" : "h2";
-  // Resolve featured honor by key, falling back to Victory if the linked
-  // user hasn't chosen, there's no linked user, or the stored key drifted
-  // out of HONORS (e.g. a key was retired without a data backfill).
+  // A stored key can name an honor that no longer exists.
   const featuredKey = player.featured_honor ?? DEFAULT_FEATURED_HONOR_KEY;
   const featured = HONORS.find((h) => h.key === featuredKey) ?? HONORS[0];
 
@@ -72,11 +60,8 @@ export function PlayerHero({
           )}
         </div>
         <div className="player-hero__featured" title={featured.label}>
-          {/* iconElement (e.g. <FlagPair /> for flag_returns) takes the
-              full medal slot when present, so composed emblems render
-              the same here as in the leaderboard banner. The wrapper
-              span carries the same .player-hero__featured-medal sizing
-              so the count chip below docks at the right height. */}
+          {/* The wrapper takes the medal's sizing so the count chip
+              docks at the same height. */}
           {featured.iconElement ? (
             <span className="player-hero__featured-medal">
               {featured.iconElement}

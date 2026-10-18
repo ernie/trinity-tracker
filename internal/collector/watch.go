@@ -5,8 +5,6 @@ import (
 	"time"
 )
 
-// Watch debounce constants. First guesses per the web-viewer-presence spec;
-// tune after watching real traffic.
 const (
 	// watchConfirmDelay filters drive-by page loads: a viewer must persist
 	// this long before the arena is told it's watched.
@@ -23,7 +21,7 @@ const (
 )
 
 // watchKeyState is one server key's debounce state. Timer fields double as
-// the "pending" flags (nil = not armed).
+// the "pending" flags (nil means not armed).
 type watchKeyState struct {
 	watched    bool
 	lastSent   int // count last rcon'd while watched
@@ -34,11 +32,11 @@ type watchKeyState struct {
 	repush     *time.Timer
 }
 
-// WatchNotifier turns raw relay viewer-count changes into debounced
-// trinity_watch rcon sends. Hook methods (ViewersChanged, SessionStart) only
-// mutate state and arm timers — every send happens on a timer goroutine,
-// never inline, because the registry hooks can fire under callers' locks
-// (see Registry.SetWatchHooks and ServerManager.SetRegistrarKick's contract).
+// WatchNotifier turns relay viewer-count changes into debounced
+// trinity_watch rcon sends. The hooks (ViewersChanged, SessionStart) only
+// change state and arm timers; every send runs on a timer goroutine,
+// because the registry hooks can fire under callers' locks (see
+// Registry.SetWatchHooks and ServerManager.SetRegistrarKick).
 type WatchNotifier struct {
 	mu     sync.Mutex
 	states map[string]*watchKeyState
@@ -112,7 +110,7 @@ func (w *WatchNotifier) ViewersChanged(key string, n int) {
 }
 
 // SessionStart is the Registry session hook: a new session buffer registered
-// under key (match start / map change). The QVM's level state reset, so a
+// under key (a match start or map change). The QVM's level state reset, so a
 // watched key re-pushes its count for the fresh arena population.
 func (w *WatchNotifier) SessionStart(key string) {
 	w.mu.Lock()
@@ -185,8 +183,8 @@ func (w *WatchNotifier) repushFire(key string) {
 	n := w.viewers(key)
 	count := -1
 	if s.watched && n > 0 {
-		// Unconditional resend (even if n == lastSent): the new level's
-		// configstring starts empty.
+		// Resend even when n == lastSent: the new level's configstring
+		// starts empty.
 		s.lastSent = n
 		s.lastSendAt = time.Now()
 		count = n

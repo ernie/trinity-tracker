@@ -5,22 +5,17 @@ import (
 	"time"
 )
 
-// EnvelopeSchemaVersion is the current wire format version. Bump when
-// adding or removing envelope fields in a way that the hub cannot
-// tolerate.
+// EnvelopeSchemaVersion is the current wire format version. Bump it
+// for any envelope change the hub can't tolerate.
 const EnvelopeSchemaVersion = 1
 
-// Envelope wraps a FactEvent's payload with the transport-level
-// metadata needed for distributed tracking: source identity, monotonic
-// sequence, UTC timestamp, and event type. It is the on-wire JSON
-// shape published on trinity.events.<source>. Data is the opaque
-// payload (the FactEvent.Data marshaled to JSON); the hub decodes it
-// against the event-type-specific struct after routing.
+// Envelope is the JSON published on trinity.events.<source>: a
+// FactEvent's payload plus source, sequence, UTC timestamp and event
+// type. Data is the FactEvent.Data marshaled to JSON; the hub decodes
+// it against the event's own struct after routing.
 //
-// Source is the admin-chosen collector identifier. NATS subject
-// scoping already binds each authenticated connection to its own
-// source, so the hub cross-checks but does not rely on the envelope
-// field alone for identity.
+// NATS subject scoping already binds each connection to its source,
+// so the hub only cross-checks the Source field.
 type Envelope struct {
 	SchemaVersion  int             `json:"v"`
 	Source         string          `json:"source"`

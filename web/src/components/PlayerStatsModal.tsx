@@ -15,9 +15,6 @@ interface PlayerStatsModalProps {
   onClose: () => void;
 }
 
-// Quick-look profile modal. Shares hero / honors / aka chrome with
-// the full /players/:id page; the page is the same shape at a larger
-// scale, plus admin sections + recent matches.
 export function PlayerStatsModal({
   playerName,
   playerId,

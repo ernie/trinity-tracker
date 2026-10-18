@@ -14,9 +14,8 @@ const PATPrefix = "trin_"
 
 // NewPAT mints a personal access token: the plaintext (shown to the
 // user exactly once) and the SHA-256 hex digest stored at rest. The
-// 32 random bytes make the token high-entropy enough that a fast
-// unsalted hash is the right at-rest form — lookup stays a single
-// indexed equality.
+// 32 random bytes give enough entropy for a fast unsalted hash, so
+// lookup stays a single indexed equality.
 func NewPAT() (token, hash string, err error) {
 	raw := make([]byte, 32)
 	if _, err := rand.Read(raw); err != nil {
@@ -32,8 +31,7 @@ func HashPAT(token string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// IsPAT reports whether a bearer credential is a personal access
-// token rather than a JWT.
+// IsPAT reports whether a bearer credential is a personal access token.
 func IsPAT(token string) bool {
 	return strings.HasPrefix(token, PATPrefix)
 }

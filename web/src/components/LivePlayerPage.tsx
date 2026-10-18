@@ -12,12 +12,10 @@ import { connectionUnstable, recordDrop } from "./live/connectionHealth";
 
 export function LivePlayerPage() {
   const { source, key } = useParams<{ source: string; key: string }>();
-  // Stream is /stream-suffixed; the bare path is the SPA player (full-doc load).
+  // The bare /tv path is this page; the relay serves the stream under /stream.
   const liveUrl = `/tv/${source}/${key}/stream`;
 
-  // This server's already-polled /api/servers status: the map drives the loading
-  // levelshot backdrop (instant, no waiting on the delayed stream header); the
-  // viewer delay is surfaced on LIVE-badge hover so the feed's lag is honest.
+  // /api/servers has the map before the delayed stream header arrives.
   const { servers } = useLiveData();
   const liveServer = useMemo(() => {
     for (const s of servers.values()) {
@@ -27,18 +25,15 @@ export function LivePlayerPage() {
   }, [servers, source, key]);
   const liveMap = liveServer?.map;
   const liveDelay = liveServer?.live_delay_seconds;
-  // Viewer count includes this viewer; heartbeat-fresh (~30s), like is_live.
+  // Includes this viewer.
   const liveViewers = liveServer?.live_viewers ?? 0;
   const liveBadgeDetails = [
     ...(liveViewers > 0 ? [`${liveViewers} watching`] : []),
     ...(liveDelay ? [`delayed ~${liveDelay}s`] : []),
   ].join(", ");
 
-  // ?f=<clientnum>: open already following the leader the server card picked at
-  // click time. Captured once — a client slot is only meaningful "now", so a
-  // reconnect (which fully reloads the page) must not re-apply a now-stale slot.
-  // We scrub ?f from the URL after reading it, leaving a clean URL for the
-  // reconnect reload to land on. (Match cards never emit ?f for this reason.)
+  // ?f=<clientnum> opens following the player the server card picked. It's read
+  // once and scrubbed, since a reconnect reloads the page and the slot goes stale.
   const [searchParams, setSearchParams] = useSearchParams();
   const [initialFollow] = useState(() =>
     parseClientNum(searchParams.get("f") ?? ""),
@@ -50,16 +45,13 @@ export function LivePlayerPage() {
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams]);
 
-  // useReducer for a stable dispatch; each transition's action runs in the effect below.
   const [sm, dispatchEvent] = useReducer(reduce, undefined, () =>
     initialLive(Date.now()),
   );
   const [playerListOpen, setPlayerListOpen] = useState(false);
 
-  // Connection-health verdict for THIS page life. Each abrupt reconnect reloads
-  // the page (see the reboot action below), so the drop history lives in
-  // sessionStorage and we read it once at mount — a fresh mount per drop keeps it
-  // current without polling. True ⇒ enough recent drops to warn the user.
+  // Each abrupt reconnect reloads the page, so drop history lives in
+  // sessionStorage and is read once per mount.
   const [unstableConnection] = useState(() => connectionUnstable(Date.now()));
 
   const {
@@ -89,14 +81,14 @@ export function LivePlayerPage() {
     onCanvasTouchStart: () => setPlayerListOpen(false),
   });
 
-  // Perform the reducer's one action per transition; each branch's follow-up
-  // dispatchEvent advances the machine, re-running this.
+  // Runs the reducer's action for each transition; the follow-up dispatch
+  // advances the machine.
   useEffect(() => {
     const a = sm.action;
     if (!a) return;
     if (a.kind === "probe") {
-      // The relay answers 200 (TVL1) when live, 503 in the gap. We only need
-      // the status, so cancel before draining the (endless) stream body.
+      // The relay answers 200 while live and 503 between matches. Only the
+      // status matters, so abort before reading the endless body.
       const ctrl = new AbortController();
       fetch(liveUrl, { signal: ctrl.signal })
         .then((r) => {
@@ -108,9 +100,7 @@ export function LivePlayerPage() {
           });
         })
         .catch((err) => {
-          // The success path and effect cleanup both abort, rejecting with
-          // AbortError — intentional cancellation, not a failed probe, so don't
-          // feed it back as status:0.
+          // The success path and the cleanup both abort on purpose.
           if (err?.name === "AbortError") return;
           dispatchEvent({ type: "probeResult", status: 0, now: Date.now() });
         });
@@ -124,25 +114,19 @@ export function LivePlayerPage() {
       return () => clearTimeout(t);
     }
     if (a.kind === "reboot") {
-      // An abrupt reconnect (stream was still live — our connection dropped, not a
-      // confirmed inter-match gap) is a connection-health signal; stamp it before
-      // the reload so a pattern of drops survives into the next page life and can
-      // escalate the warning. A clean next-match advance (gapConfirmed) is not.
+      // A drop while the stream was still live is recorded before the reload,
+      // so repeated drops can raise the unstable-connection warning.
       if (!sm.gapConfirmed) recordDrop(Date.now());
-      // Full reload onto the next match, not an in-document re-boot — each
-      // engine needs a fresh document (iOS can't hold two WASM heaps).
+      // Each engine needs a fresh document; iOS can't hold two WASM heaps.
       window.location.reload();
       return;
     }
-    // "showVod" needs no side effect — the render branch handles it.
   }, [sm, liveUrl]);
 
-  // A live-mode boot failure (loader throws on a non-200 open — an inter-match
-  // gap, or a transient nginx 502 at the close→reconnect transition) must poll
-  // via the SM, not dead-end: feed it in as streamEnded. Latch per error episode
-  // because the hook clears `error` only after an awaited re-import, so on a
-  // 200→reboot recovery sm.phase flips to "live" while `error` is still
-  // stale-truthy — without the latch that fires a spurious second streamEnded.
+  // A live boot failure (a non-200 open between matches, or a transient 502 at
+  // reconnect) feeds the machine as streamEnded. The latch allows one per error:
+  // the hook clears `error` only after an awaited re-import, so it can still be
+  // set after the phase returns to live.
   const bootErrorHandledRef = useRef(false);
   useEffect(() => {
     if (!error) {
@@ -155,10 +139,8 @@ export function LivePlayerPage() {
     }
   }, [error, sm.phase]);
 
-  // Two terminal states after we give up reconnecting (see reconnect.ts): "ended"
-  // means the relay confirmed the match is over; "lost" means we never reached the
-  // relay (the viewer's connection dropped) — don't claim the match finished, and
-  // offer a manual retry since we've stopped auto-probing.
+  // "ended" means the relay confirmed the match is over; "lost" means the relay
+  // was never reached, and probing has stopped, so the viewer gets a retry.
   if (sm.phase === "ended") {
     return (
       <div className="demo-player-page">
@@ -185,8 +167,8 @@ export function LivePlayerPage() {
   }
 
   const reconnecting = sm.phase === "probing" || sm.phase === "waiting";
-  // Engine-reported map wins (crisp, in-sync with an in-place change); the
-  // /api/servers map seeds the backdrop before the engine has reported one.
+  // The engine's map follows in-place changes; /api/servers covers the time
+  // before the engine reports one.
   const backdropMap = liveMapName || liveMap;
 
   return (
@@ -200,11 +182,8 @@ export function LivePlayerPage() {
       <div ref={statusRef} className="demo-status">
         {loading ? "Connecting…" : ""}
       </div>
-      {/* transitioning = an in-place map change (engine cl_tvMapName) — genuinely
-          loading the next map. reconnecting = the stream drained and we're re-
-          probing the relay: a non-200 answer (gapConfirmed) means the match ended
-          and we're between matches; otherwise the stream is still live and it was
-          OUR connection that dropped — so don't claim a map change. */}
+      {/* gapConfirmed means the relay answered non-200, so the match ended;
+          otherwise the viewer's own connection dropped. */}
       {transitioning ? (
         <div className="demo-status">Loading next map…</div>
       ) : reconnecting ? (
@@ -212,9 +191,6 @@ export function LivePlayerPage() {
           {sm.gapConfirmed ? "Waiting for the next match…" : "Reconnecting…"}
         </div>
       ) : null}
-      {/* Repeated drop→reload cycles this session ⇒ name the likely cause. Shown
-          only while a status overlay is up (booting or reconnecting) — exactly when
-          the user is waiting and wondering why; hidden once playback resumes. */}
       {unstableConnection && (loading || reconnecting) && (
         <div className="demo-conn-warning">Your connection is unstable</div>
       )}
@@ -231,11 +207,8 @@ export function LivePlayerPage() {
           />
         </div>
       )}
-      {/* Map levelshot backdrop while the engine boots, between maps (VOD-fallback
-          reconnect), and across an in-place map change — covering the blank/frozen
-          canvas and the engine's "Connection Interrupted" during a pk3 download. The
-          engine-reported map (liveMapName) is authoritative and in-sync with the
-          actual change; fall back to the /api/servers map before the engine reports. */}
+      {/* The levelshot also covers the engine's "Connection Interrupted" during a
+          pk3 download. */}
       {backdropMap &&
         (!engineReady ||
           reconnecting ||
@@ -253,7 +226,6 @@ export function LivePlayerPage() {
         className="demo-controls-bar"
         onContextMenu={(e) => e.preventDefault()}
       >
-        {/* View: POV + free-cam only (no transport/scrub/share in live) */}
         <div className="ctrl-group">
           <div
             className={`ctrl-player-wrap${playerListOpen ? " open" : ""}`}

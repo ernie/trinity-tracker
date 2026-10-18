@@ -5,9 +5,9 @@ import { platformName } from "../../utils/platform";
 import type { PlatformStats } from "../../types";
 
 const WINDOWS = [
-  { key: "7d", label: "Last 7d", days: 7 },
-  { key: "30d", label: "Last 30d", days: 30 },
-  { key: "90d", label: "Last 90d", days: 90 },
+  { key: "7d", label: "Last 7 days", days: 7 },
+  { key: "30d", label: "Last 30 days", days: 30 },
+  { key: "90d", label: "Last 90 days", days: 90 },
   { key: "all", label: "All time", days: 0 },
 ] as const;
 
@@ -40,7 +40,7 @@ export function AdminPlatforms() {
       .then(async (res) => {
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          throw new Error(data.error || "Failed to load platform stats");
+          throw new Error(data.error || "Couldn't load platform stats.");
         }
         return res.json();
       })
@@ -52,7 +52,7 @@ export function AdminPlatforms() {
           setError(
             err instanceof Error
               ? err.message
-              : "Failed to load platform stats",
+              : "Couldn't load platform stats.",
           );
           setStats(null);
         }
@@ -126,7 +126,7 @@ export function AdminPlatforms() {
                   <td data-label="Platform">{platformName(r.platform)}</td>
                   <td data-label="Mode">
                     <span className="session-platform">
-                      {r.is_vr ? "VR" : "Flat"}
+                      {r.is_vr ? "VR" : "Flatscreen"}
                       {r.is_vr && (
                         <img
                           className="session-platform__vr"
@@ -157,8 +157,8 @@ export function AdminPlatforms() {
           </table>
           <p className="platform-stats-note">
             A session counts as VR once the player has run VR in it. Play time
-            covers finished sessions. Sessions from before platform capture show
-            as Not recorded.
+            covers finished sessions. Sessions from before the tracker recorded
+            platforms show as Not recorded.
           </p>
         </>
       )}

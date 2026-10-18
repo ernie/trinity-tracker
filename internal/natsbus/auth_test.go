@@ -14,10 +14,7 @@ import (
 	"github.com/ernie/trinity-tracker/internal/natsbus"
 )
 
-// memPubKeyStore is a minimal in-memory natsbus.PubKeyStore for tests.
-// Real production storage rejects SetSourceUserPubKey on unknown
-// sources; this fake accepts any key, which is all the auth/integration
-// flows here need.
+// memPubKeyStore is an in-memory PubKeyStore that accepts any source.
 type memPubKeyStore struct {
 	mu   sync.Mutex
 	keys map[string]string
@@ -87,9 +84,8 @@ func TestAuthUserCannotPublishOtherSubject(t *testing.T) {
 	}
 	credsPath := s.Auth().CredsPath("alpha")
 
-	// Subscribe as hub-internal (full perms) to detect whether the
-	// publish actually reached the wire. If JWT perms are enforced,
-	// the subscriber should never see the message.
+	// A full-permission subscriber shows whether alpha's publish
+	// reaches the wire.
 	adminNC, err := s.ConnectInternal()
 	if err != nil {
 		t.Fatalf("admin connect: %v", err)
@@ -105,10 +101,8 @@ func TestAuthUserCannotPublishOtherSubject(t *testing.T) {
 		t.Fatalf("admin flush: %v", err)
 	}
 
-	// Alpha's user tries to publish onto Beta's subject. The server
-	// should reject the publish at the perms check (or detect it as
-	// a permissions violation asynchronously). Either way, the admin
-	// subscriber should receive nothing.
+	// The server refuses alpha's publish on beta's subject, at once or
+	// as an async permissions error; either way nothing arrives.
 	alphaNC, err := nats.Connect(s.ClientURL(), nats.UserCredentials(credsPath))
 	if err != nil {
 		t.Fatalf("alpha connect: %v", err)
@@ -119,17 +113,12 @@ func TestAuthUserCannotPublishOtherSubject(t *testing.T) {
 
 	select {
 	case <-received:
-		t.Fatal("beta received a message from alpha — permissions not enforced")
+		t.Fatal("beta received a message from alpha: permissions not enforced")
 	case <-time.After(200 * time.Millisecond):
 		// expected: rejected by server permissions
 	}
 }
 
-// Without per-source inbox scoping a collector could subscribe to
-// _INBOX.> and harvest other collectors' RPC replies, including
-// 10-minute-valid link codes. This test confirms the Sub permission
-// is scoped so source alpha cannot subscribe under source beta's
-// inbox prefix.
 func TestAuthUserCannotSubscribeAcrossInboxScopes(t *testing.T) {
 	s, _ := startAuthRig(t)
 	if _, err := s.Auth().MintUserCreds(context.Background(), "alpha"); err != nil {
@@ -183,15 +172,14 @@ func TestAuthRotationRevokesOldCreds(t *testing.T) {
 		t.Fatalf("read old creds: %v", err)
 	}
 
-	// Open a connection under the old creds. It should be active now.
 	oldNC, err := nats.Connect(s.ClientURL(), nats.UserCredentials(credsPath))
 	if err != nil {
 		t.Fatalf("old connect: %v", err)
 	}
 	defer oldNC.Close()
 
-	// Rotate (mint again for the same source). The old user pubkey
-	// must end up in the TRINITY account's revocation list.
+	// Minting again for the same source puts the old pubkey on the
+	// TRINITY account's revocation list.
 	if _, err := s.Auth().MintUserCreds(context.Background(), "gamma"); err != nil {
 		t.Fatalf("mint v2 (rotation): %v", err)
 	}
@@ -200,19 +188,16 @@ func TestAuthRotationRevokesOldCreds(t *testing.T) {
 		t.Fatalf("read new creds: %v", err)
 	}
 	if string(oldCreds) == string(newCreds) {
-		t.Fatal("rotation produced identical creds — new NKey was not generated")
+		t.Fatal("rotation produced identical creds: no new NKey was generated")
 	}
 
-	// The old client's publish should now fail; the server revokes
-	// active connections on UpdateAccountClaims. Use a fresh connect
-	// attempt with the OLD creds file contents (restored) to avoid
-	// racing with the async disconnect — writing the old bytes back
-	// into a temp file and connecting from there.
+	// The server drops revoked connections asynchronously, so a fresh
+	// connect with the old creds is the deterministic check.
 	oldFile := t.TempDir() + "/old.creds"
 	if err := os.WriteFile(oldFile, oldCreds, 0o600); err != nil {
 		t.Fatalf("restore old creds: %v", err)
 	}
-	// Give the server a moment to process the revocation propagation.
+	// Give the server a moment to apply the revocation.
 	time.Sleep(50 * time.Millisecond)
 	if nc, err := nats.Connect(s.ClientURL(), nats.UserCredentials(oldFile), nats.Timeout(500*time.Millisecond), nats.MaxReconnects(0)); err == nil {
 		nc.Close()

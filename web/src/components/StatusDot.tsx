@@ -1,6 +1,4 @@
-// Small status circle used wherever the prior ●/○ glyphs were inline.
-// `active` toggles between filled (live/running) and hollow (idle).
-// currentColor controls hue so callers can theme via CSS class.
+// Drawn in currentColor, so callers set its color with a CSS class.
 export function StatusDot({
   size = 8,
   active = false,

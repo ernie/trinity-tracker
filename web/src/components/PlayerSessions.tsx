@@ -13,7 +13,7 @@ export function PlayerSessions({ playerId }: PlayerSessionsProps) {
   if (error) {
     return (
       <div className="player-sessions-section">
-        <h4>Recent Sessions</h4>
+        <h4>Recent sessions</h4>
         <div className="sessions-error">{error}</div>
       </div>
     );
@@ -22,8 +22,8 @@ export function PlayerSessions({ playerId }: PlayerSessionsProps) {
   if (loading && sessions.length === 0) {
     return (
       <div className="player-sessions-section">
-        <h4>Recent Sessions</h4>
-        <div className="sessions-loading">Loading sessions...</div>
+        <h4>Recent sessions</h4>
+        <div className="sessions-loading">Loading sessions…</div>
       </div>
     );
   }
@@ -31,7 +31,7 @@ export function PlayerSessions({ playerId }: PlayerSessionsProps) {
   if (sessions.length === 0) {
     return (
       <div className="player-sessions-section">
-        <h4>Recent Sessions</h4>
+        <h4>Recent sessions</h4>
         <div className="sessions-empty">No sessions found</div>
       </div>
     );
@@ -39,7 +39,7 @@ export function PlayerSessions({ playerId }: PlayerSessionsProps) {
 
   return (
     <div className="player-sessions-section">
-      <h4>Recent Sessions</h4>
+      <h4>Recent sessions</h4>
       <table className="admin-data-table sessions-table">
         <thead>
           <tr>
@@ -49,7 +49,7 @@ export function PlayerSessions({ playerId }: PlayerSessionsProps) {
             <th>Engine</th>
             <th>Trinity</th>
             <th>Platform</th>
-            <th>IP Address</th>
+            <th>IP address</th>
           </tr>
         </thead>
         <tbody>
@@ -85,7 +85,7 @@ export function PlayerSessions({ playerId }: PlayerSessionsProps) {
       </table>
       {hasMore && (
         <button className="load-more-btn" onClick={loadMore} disabled={loading}>
-          {loading ? "Loading..." : "Load More"}
+          {loading ? "Loading…" : "Load more"}
         </button>
       )}
     </div>

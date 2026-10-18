@@ -22,7 +22,7 @@ function startFetch() {
     .then((res) => (res.ok ? res.json() : []))
     .catch(() => [])
     .then((data: unknown) => {
-      // A stale object-shaped manifest yields an empty picker, not a crash.
+      // A stale object-shaped manifest gives an empty picker.
       state = {
         loaded: true,
         data: Array.isArray(data) ? (data as PortraitManifest) : [],
@@ -42,9 +42,8 @@ function getSnapshot() {
 }
 
 /**
- * Available portrait icons. `data` stays empty until the manifest loads;
- * a missing portraits.json is non-fatal and resolves to loaded=true with
- * no entries.
+ * Portrait icons for the picker. A missing portraits.json loads as an empty
+ * list.
  */
 export function usePortraitManifest(): {
   loaded: boolean;

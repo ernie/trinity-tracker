@@ -66,8 +66,8 @@ func TestSourceRegistryUnknownNegativeCache(t *testing.T) {
 	}
 	reg.mu.Unlock()
 
-	// Approving via the DB inside the TTL should still return Unknown
-	// until the cache entry ages out.
+	// A DB approval inside the TTL still reads Unknown until the cache
+	// entry expires.
 	if err := store.CreateSource(context.Background(), "uuid-x", true, seedOwnerID(t, store)); err != nil {
 		t.Fatalf("create: %v", err)
 	}

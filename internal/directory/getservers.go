@@ -9,21 +9,18 @@ import (
 	"strings"
 )
 
-// Sub-MTU chunk size for getservers responses. dpmaster targets ~1400
-// bytes per datagram to stay below typical Internet path MTU after the
-// IP+UDP overhead.
+// maxResponseChunk keeps each getservers datagram under the typical
+// path MTU after IP and UDP headers, as dpmaster does.
 const maxResponseChunk = 1400
 
-// recordSizeIPv4 / recordSizeIPv6 are the on-the-wire sizes of one
-// packed server entry: separator (1) + IP (4 or 16) + port (2).
+// One packed server entry: separator (1), IP (4 or 16), port (2).
 const (
 	recordSizeIPv4 = 1 + 4 + 2
 	recordSizeIPv6 = 1 + 16 + 2
 )
 
-// queryFilters captures everything we extract from a getservers /
-// getserversExt command line. Empty/zero values mean "no constraint
-// on this dimension".
+// queryFilters holds a getservers or getserversExt query's filters; a
+// zero value doesn't filter.
 type queryFilters struct {
 	gamename     string // Ext only
 	protocol     int    // 0 means unset/parse-error → match nothing
@@ -156,9 +153,6 @@ func buildResponses(entries []regEntry, f queryFilters) [][]byte {
 	prefix := []byte(OOBHeader + keyword)
 	eot := []byte("\\EOT\x00\x00\x00")
 
-	// Records that fit in one datagram, starting fresh after `prefix`.
-	// We over-allocate the first chunk's prefix once; subsequent chunks
-	// reuse the same prefix bytes.
 	var (
 		out   [][]byte
 		buf   = append([]byte(nil), prefix...)
@@ -195,15 +189,14 @@ func buildResponses(entries []regEntry, f queryFilters) [][]byte {
 		buf = append(buf, rec...)
 		count++
 	}
-	// Final chunk gets EOT appended (even if empty — clients use the
-	// EOT-only datagram as "you got everything").
+	// The last datagram always carries EOT, even with no entries; it
+	// tells the client the list is complete.
 	buf = append(buf, eot...)
 	out = append(out, buf)
 	return out
 }
 
-// handleGetservers / handleGetserversExt run the full pipeline:
-// rate-limit, parse, snapshot, filter, pack, send.
+// handleGetservers serves getservers and getserversExt.
 func (s *Server) handleGetservers(conn *net.UDPConn, srcAddr netip.AddrPort, arg string, extended bool) {
 	s.metrics.getserversRecv.Add(1)
 

@@ -4,7 +4,8 @@ import { derivePillState } from "./pillState";
 interface StatusPillProps {
   humansOnline: number;
   activeServers: number;
-  /** Hub WS state. Drives pulse; gray only when the feed is truly down. */
+  /** Hub WebSocket state. Drives the pulse; the pill turns gray only when
+   *  the feed is down. */
   status: ConnectionStatus;
   open: boolean;
   onToggle: () => void;

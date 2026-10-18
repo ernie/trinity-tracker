@@ -7,8 +7,7 @@ import (
 	"github.com/ernie/trinity-tracker/internal/domain"
 )
 
-// TestParseObjStatus exercises the gametype-dispatched parser. The
-// clientNum=0 cases guard against confusing a real carrier with "none".
+// The clientNum=0 cases guard against reading a real carrier as "none".
 func TestParseObjStatus(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -186,8 +185,6 @@ func TestParseObjStatus(t *testing.T) {
 	}
 }
 
-// TestParseClientCountTail directly exercises the pipe-tail parser
-// edge cases the dispatcher doesn't cover on its own.
 func TestParseClientCountTail(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -219,8 +216,8 @@ func TestParseClientCountTail(t *testing.T) {
 	}
 }
 
-// buildLongTail produces "0:0,1:1,...,n-1:n-1" — exercises the parser
-// against a realistically packed tail without crossing MAX_INFO_VALUE.
+// buildLongTail returns "0:0,1:1,...,n-1:n-1", a realistically packed
+// tail that stays under MAX_INFO_VALUE.
 func buildLongTail(n int) string {
 	var b strings.Builder
 	for i := 0; i < n; i++ {

@@ -74,8 +74,8 @@ export function PlayerRecentMatches({
   if (loading) {
     return (
       <div className="recent-matches player-recent-matches">
-        <h2>Recent Matches</h2>
-        <div className="loading-small">Loading...</div>
+        <h2>Recent matches</h2>
+        <div className="loading-small">Loading…</div>
       </div>
     );
   }
@@ -83,7 +83,7 @@ export function PlayerRecentMatches({
   if (matches.length === 0) {
     return (
       <div className="recent-matches player-recent-matches">
-        <h2>Recent Matches</h2>
+        <h2>Recent matches</h2>
         <div className="no-matches">No matches yet</div>
       </div>
     );
@@ -91,7 +91,7 @@ export function PlayerRecentMatches({
 
   return (
     <div className="recent-matches player-recent-matches">
-      <h2>Recent Matches</h2>
+      <h2>Recent matches</h2>
       <div className="matches-list">
         {matches.map((match) => (
           <MatchCard
@@ -110,7 +110,7 @@ export function PlayerRecentMatches({
             onClick={loadMore}
             disabled={loadingMore}
           >
-            {loadingMore ? "Loading..." : "Load More"}
+            {loadingMore ? "Loading…" : "Load more"}
           </button>
         </div>
       )}

@@ -48,9 +48,9 @@ type AuthProof struct {
 	TokenHash string `json:"token_hash"`
 }
 
-// GreetReply: IsVerified means the GUID is linked to a user account
-// (green-checkmark state). GUIDLinked means this greet just did the
-// linking. AuthResult reports session-scoped auth outcome.
+// GreetReply answers a greet. IsVerified means the GUID is linked to a
+// user account (the green checkmark); GUIDLinked means this greet did the
+// linking; AuthResult is this session's auth outcome.
 type GreetReply struct {
 	AuthResult       AuthResult `json:"auth_result"`
 	CanonicalName    string     `json:"canonical_name"`
@@ -62,21 +62,17 @@ type GreetReply struct {
 	KDRatio          float64    `json:"kd_ratio"`
 	CompletedMatches int64      `json:"completed_matches"`
 	DisplayName      string     `json:"display_name"`
-	// RconStuff is populated only when the authenticated player is
-	// authorized to RCON the server they just joined. The collector
-	// uses (EpochNonce, Key) to encrypt the rcon password and push it
-	// to the connected client via a trinity_rconset server command. The
-	// long-lived user token is never sent to the collector — Key is a
-	// per-handshake derivative the collector can use exactly once and
-	// then forget.
+	// RconStuff is set only when the authenticated player may RCON the
+	// server they just joined. The collector uses EpochNonce and Key to
+	// encrypt the rcon password into a trinity_rconset server command.
+	// Key is a one-use, per-handshake derivative, so the user's token
+	// stays on the hub.
 	RconStuff *RconStuff `json:"rcon_stuff,omitempty"`
 }
 
-// RconStuff is the rcon-autoset payload the collector receives in
-// GreetReply. Role mirrors the RconRoleOwner / RconRoleHubAdmin
-// distinction returned by AuthorizeUserForRcon — purely for audit and
-// collector-side re-validation; the wire format produced by the
-// collector is identical either way.
+// RconStuff is the rcon-autoset payload in GreetReply. Role, from
+// AuthorizeUserForRcon, feeds the audit log and the collector's recheck;
+// the command the collector sends is the same for either role.
 type RconStuff struct {
 	EpochNonce [16]byte `json:"epoch_nonce"`
 	Key        [16]byte `json:"key"`

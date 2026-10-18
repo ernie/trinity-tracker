@@ -10,21 +10,15 @@ import (
 	"github.com/ernie/trinity-tracker/internal/domain"
 )
 
-// HandleEnvelope ingests a wire-arrived event: dedups against
-// source_progress.consumed_seq, resolves RemoteServerID via
-// (source, local_id), decodes the payload, dispatches, and
-// advances consumed_seq.
+// HandleEnvelope ingests an event from the bus: it dedups against
+// source_progress.consumed_seq, resolves the server from (source,
+// local_id), decodes and dispatches the payload, and advances
+// consumed_seq.
 //
-// Dedup is seq-only. The fresh-install case (collector watermark
-// gone but the hub holds a stale consumed_seq from the prior
-// instance) is handled by seeding the new publisher's initial seq
-// from the hub, not by time-anchoring this check — q3 log
-// timestamps aren't strictly monotonic at second resolution, so a
-// time-based drop rule will mistakenly silence live events that
-// happen to land in the same second as a slightly-newer envelope.
-//
-// last_consumed_ts is still advanced as telemetry/forward-progress
-// info; nothing in the drop path consults it.
+// Dedup uses only the seq, because game log timestamps aren't monotonic
+// within a second. A reinstalled collector stays above the hub's
+// watermark by seeding its first seq from the hub. last_consumed_ts is
+// for monitoring.
 func (w *Writer) HandleEnvelope(ctx context.Context, env domain.Envelope) error {
 	if env.Source == "" {
 		return fmt.Errorf("hub: envelope missing source (event=%s seq=%d)", env.Event, env.Seq)
@@ -38,11 +32,10 @@ func (w *Writer) HandleEnvelope(ctx context.Context, env domain.Envelope) error 
 	case SourceBlocked:
 		return nil
 	case SourceUnknown:
-		// NATS auth should have rejected this at the broker. If we see
-		// one, either auth is misconfigured or creds were issued for a
-		// source that was since deleted — either way, drop the event
-		// and log once per UnknownCheckTTL window.
-		log.Printf("hub: envelope from unprovisioned source=%q event=%s seq=%d — dropping", env.Source, env.Event, env.Seq)
+		// NATS auth should have refused this at the broker, so auth is
+		// misconfigured or the source was deleted after its credentials
+		// were issued.
+		log.Printf("hub: envelope from unprovisioned source=%q event=%s seq=%d; dropping", env.Source, env.Event, env.Seq)
 		return nil
 	}
 

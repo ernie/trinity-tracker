@@ -128,7 +128,7 @@ func ExtractMapLongNames(pk3s []string) (map[string]ArenaMeta, error) {
 	return s.Resolve(), nil
 }
 
-// parseArenaLongNames maps lowercase map id → longname from a Quake 3 .arena
+// parseArenaLongNames maps lowercase map id → longname from a Quake III .arena
 // file: a flat stream of { map "id" longname "Name" ... } blocks.
 func parseArenaLongNames(content []byte) map[string]string {
 	out := make(map[string]string)

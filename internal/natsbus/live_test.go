@@ -39,9 +39,6 @@ func (s *recordingSink) snapshot() []domain.Event {
 
 func TestLiveEventRoundTrip(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	// cancel is registered via t.Cleanup further down so it runs
-	// BEFORE writer.Stop (which waits on goroutines that exit on
-	// ctx.Done).
 	_ = cancel
 
 	port := freePort(t)
@@ -58,8 +55,6 @@ func TestLiveEventRoundTrip(t *testing.T) {
 	}
 	t.Cleanup(ns.Stop)
 
-	// Hub-side store + writer so EnrichEvent is available and the
-	// resolver can map (source, rsid) → servers.id.
 	store, err := storage.New(filepath.Join(t.TempDir(), "trinity.db"))
 	if err != nil {
 		t.Fatalf("storage.New: %v", err)
@@ -77,13 +72,11 @@ func TestLiveEventRoundTrip(t *testing.T) {
 
 	writer := hub.NewWriter(store)
 	writer.Start(ctx)
-	// Order matters: writer.Stop is registered first so it runs AFTER
-	// cancel (cleanups run LIFO); cancel frees the linkCodeCleanupLoop
-	// goroutine that writer.Stop would otherwise wait on forever.
+	// Cleanups run LIFO, so cancel runs first and ends
+	// linkCodeCleanupLoop, which writer.Stop waits for.
 	t.Cleanup(writer.Stop)
 	t.Cleanup(cancel)
 
-	// Subscriber on the hub side.
 	subNC, err := ns.ConnectInternal(nats.Name("live-subscriber"))
 	if err != nil {
 		t.Fatalf("hub connect: %v", err)
@@ -97,7 +90,6 @@ func TestLiveEventRoundTrip(t *testing.T) {
 	}
 	t.Cleanup(ls.Stop)
 
-	// Publisher on the (remote) collector side.
 	pubNC, err := ns.ConnectInternal(nats.Name("live-publisher"))
 	if err != nil {
 		t.Fatalf("collector connect: %v", err)
@@ -156,9 +148,6 @@ func TestLiveEventRoundTrip(t *testing.T) {
 
 func TestLiveSubscriberSkipsSelfSource(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	// cancel is registered via t.Cleanup further down so it runs
-	// BEFORE writer.Stop (which waits on goroutines that exit on
-	// ctx.Done).
 	_ = cancel
 
 	port := freePort(t)
@@ -183,9 +172,6 @@ func TestLiveSubscriberSkipsSelfSource(t *testing.T) {
 
 	writer := hub.NewWriter(store)
 	writer.Start(ctx)
-	// Order matters: writer.Stop is registered first so it runs AFTER
-	// cancel (cleanups run LIFO); cancel frees the linkCodeCleanupLoop
-	// goroutine that writer.Stop would otherwise wait on forever.
 	t.Cleanup(writer.Stop)
 	t.Cleanup(cancel)
 

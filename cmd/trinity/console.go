@@ -79,9 +79,8 @@ func cmdConsole(args []string) {
 	runConsoleREPL(tok, source, key)
 }
 
-// requireCLIToken loads the stored credential or exits with guidance.
-// An explicit --url must match the URL the token was minted against —
-// a token is not portable across hubs.
+// requireCLIToken exits with guidance when no token is stored. A token
+// belongs to one hub, so an explicit --url must match it.
 func requireCLIToken(urlFlag string) *cliToken {
 	tok, err := loadCLIToken()
 	if err != nil {
@@ -192,8 +191,6 @@ func matchTarget(servers []consoleServer, target string) (source, key string, ma
 	return "", "", matches
 }
 
-// resolveTarget turns "key" or "source/key" into a concrete (source,
-// key) pair, using the server list for bare-key disambiguation.
 func resolveTarget(tok *cliToken, target string) (source, key string) {
 	if s, k, ok := strings.Cut(target, "/"); ok {
 		return s, k
@@ -242,8 +239,7 @@ func printRconOutput(w io.Writer, output string) {
 	io.WriteString(w, output)
 }
 
-// streamHTTPClient has no timeout: SSE responses are held open
-// indefinitely (cliHTTPClient's 15s would kill them).
+// streamHTTPClient has no timeout because SSE responses stay open.
 var streamHTTPClient = &http.Client{}
 
 // consoleLine mirrors console.Line on the SSE wire.
@@ -334,16 +330,14 @@ func followConsole(tok *cliToken, source, key string) error {
 	return openConsoleStream(tok, source, key, nil,
 		func(tapUp bool) {
 			if !tapUp {
-				fmt.Fprintf(os.Stderr, "(console tap not connected on %s/%s — engine without sv_conTap?)\n", source, key)
+				fmt.Fprintf(os.Stderr, "(console tap not connected on %s/%s. Is sv_conTap off on that server?)\n", source, key)
 			}
 		},
 		func(text string) { fmt.Println(renderConsoleLine(text)) })
 }
 
-// runConsoleREPL is the interactive console: each line is sent as rcon
-// and the reply printed inline. On a TTY it uses x/term for raw-mode
-// line editing + history; otherwise a plain line reader so it can be
-// scripted. Exit with Ctrl-D or /quit.
+// runConsoleREPL sends each line as rcon and prints the reply. Off a
+// TTY it reads plain lines so it can be scripted. Ctrl-D or /quit exits.
 func runConsoleREPL(tok *cliToken, source, key string) {
 	prompt := source + "/" + key + "> "
 	fmt.Printf("Connected to %s/%s on %s. Ctrl-D or /quit to exit.\n", source, key, tok.URL)
@@ -383,17 +377,16 @@ func runConsoleREPL(tok *cliToken, source, key string) {
 
 	t := term.NewTerminal(stdinStdout{}, prompt)
 
-	// Live console stream interleaved with the prompt. term.Terminal
-	// redraws the pending input line around concurrent Writes, so the
-	// stream and the REPL share the screen cleanly. Best-effort: if the
-	// server has no tap (old engine), the REPL still works rcon-only.
+	// term.Terminal redraws the input line around concurrent writes, so
+	// the live stream and the prompt share the screen. Without a console
+	// tap the REPL still works for rcon.
 	stop := make(chan struct{})
 	defer close(stop)
 	go func() {
 		err := openConsoleStream(tok, source, key, stop,
 			func(tapUp bool) {
 				if !tapUp {
-					fmt.Fprintf(t, "(console tap not connected — output unavailable, rcon still works)\n")
+					fmt.Fprintf(t, "(console tap not connected: no output, but rcon still works)\n")
 				}
 			},
 			func(text string) { fmt.Fprintln(t, renderConsoleLine(text)) })

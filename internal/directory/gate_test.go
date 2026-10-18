@@ -24,9 +24,6 @@ func (f fakeGateConns) ConnectedClientIPs(userPubKey string) []netip.Addr {
 	return f[userPubKey]
 }
 
-// Local rows are admitted from any of the host's own interface IPs +
-// loopback, regardless of what the address column says. The address
-// column is informational (used elsewhere for display / demo URLs).
 func TestGateLocalAdmitsLoopback(t *testing.T) {
 	store := &fakeGateStore{
 		rows: []storage.RemoteServer{
@@ -53,9 +50,7 @@ func TestGateLocalAdmitsLoopback(t *testing.T) {
 	}
 }
 
-// Remote rows take their IP from the live NATS connection (looked up
-// by the source's user pubkey) — port comes from the address column
-// (host portion is ignored, may be a stale hostname).
+// The port comes from the address column; its hostname is ignored.
 func TestGateRemoteUsesConnIP(t *testing.T) {
 	const piPub = "UABCDEF1234567890PIPUBKEY"
 	store := &fakeGateStore{
@@ -72,15 +67,12 @@ func TestGateRemoteUsesConnIP(t *testing.T) {
 	if id, ok := g.Allow(mustAddrPort(t, "203.0.113.42:27960")); !ok || id != 7 {
 		t.Errorf("conn IP lookup id=%d ok=%v", id, ok)
 	}
-	// Hostname's stale DNS answer must NOT be admitted: that's the whole
-	// point of moving off DNS.
+	// The hostname's DNS answer isn't admitted.
 	if _, ok := g.Allow(mustAddrPort(t, "198.51.100.10:27960")); ok {
 		t.Error("only the live connection IP should be admitted")
 	}
 }
 
-// Remote source with no live connection gets dropped — it'll come back
-// next refresh once the collector reconnects.
 func TestGateRemoteWithoutConnDropped(t *testing.T) {
 	const piPub = "UABCDEF1234567890PIPUBKEY"
 	store := &fakeGateStore{
@@ -95,8 +87,6 @@ func TestGateRemoteWithoutConnDropped(t *testing.T) {
 	}
 }
 
-// Remote source with no minted creds (UserPubKey == "") is silently
-// skipped — the row appears once MintUserCreds populates user_pubkey.
 func TestGateRemoteWithoutPubkeySkipped(t *testing.T) {
 	store := &fakeGateStore{
 		rows: []storage.RemoteServer{
@@ -110,9 +100,8 @@ func TestGateRemoteWithoutPubkeySkipped(t *testing.T) {
 	}
 }
 
-// Reconnect overlap: the same source briefly has two authenticated
-// connections (old IP and new IP). Both must be admitted so heartbeats
-// don't drop during the changeover.
+// During a reconnect a source briefly has connections from its old and
+// new IPs, and both are admitted.
 func TestGateRemoteMultiConn(t *testing.T) {
 	const piPub = "UABCDEF1234567890PIPUBKEY"
 	store := &fakeGateStore{

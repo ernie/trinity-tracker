@@ -17,7 +17,7 @@ const (
 	inactiveColor = 0x95A5A6 // muted gray
 )
 
-// Q3 team enum values used by PlayerStatus.Team.
+// Team values in PlayerStatus.Team.
 const (
 	teamFree      = 0
 	teamRed       = 1
@@ -25,24 +25,18 @@ const (
 	teamSpectator = 3
 )
 
-// rosterCap caps how many players we list per roster field. 16 is
-// comfortably more than any Q3 server runs per side in practice and
-// keeps the ANSI block from wrapping in a Discord embed cell.
+// rosterCap is more players per side than servers run, and keeps the
+// ANSI block from wrapping in a Discord embed cell.
 const rosterCap = 16
 
-// FFA two-column layout: column cell wide enough for a typical Q3
-// name plus a " (bot)" suffix without crowding the next column.
+// A column fits a typical name plus " (bot)".
 const (
 	ffaColumns     = 2
 	ffaColumnWidth = 18
 )
 
-// embedMinWidthPad is a run of U+2800 BRAILLE PATTERN BLANK characters
-// appended to the description. Discord's layout engine reserves the
-// full line width when computing the embed's minimum size, so a long
-// invisible-but-counted string pushes the embed out to its column-max
-// width — wide enough for the two-column ANSI roster to avoid wrapping.
-// Same technique as the digest embed in discord_digest.go.
+// embedMinWidthPad widens the embed to its maximum so the two-column
+// roster doesn't wrap, the same U+2800 padding the digest embed uses.
 const embedMinWidthPad = "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀" +
 	"⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀" +
 	"⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀" +
@@ -50,13 +44,11 @@ const embedMinWidthPad = "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀" +
 	"⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀" +
 	"⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀"
 
-// buildActiveEmbed renders the "going active" snapshot for s.
 func buildActiveEmbed(s *domain.ServerStatus, publicURL string, mapMeta map[string]string) discord.Embed {
 	title := "🟢  " + serverDisplay(s) + " is active"
 	url := serverLink(publicURL, s.ServerID)
-	// When a live tap is open, point the (already clickable) title straight
-	// at the in-browser player and invite the click. Re-evaluated on every
-	// PATCH refresh, so it reverts to the server list if the tap later drops.
+	// With a live tap open the title links to the browser player. Each
+	// refresh re-checks, so the link reverts when the tap drops.
 	if link := liveLink(publicURL, s); link != "" {
 		title += " (click to watch)"
 		url = link
@@ -69,10 +61,9 @@ func buildActiveEmbed(s *domain.ServerStatus, publicURL string, mapMeta map[stri
 		Timestamp:   time.Now().UTC().Format(time.RFC3339),
 	}
 	red, blue, free, specs := bucketRoster(s.Players)
-	// Team mode is whenever the engine has put anyone on Red or Blue.
-	// Warmup edge case: a TDM server with everyone still on team 0
-	// falls into the FFA layout, which is fine — once the match
-	// starts, the refresh PATCH will pick up the new buckets.
+	// Team layout whenever anyone is on red or blue. A TDM warmup with
+	// everyone on team 0 shows the FFA layout until a refresh after the
+	// match starts.
 	if len(red) > 0 || len(blue) > 0 {
 		embed.Fields = append(embed.Fields,
 			teamRosterField("Red", red),
@@ -87,9 +78,7 @@ func buildActiveEmbed(s *domain.ServerStatus, publicURL string, mapMeta map[stri
 	return embed
 }
 
-// buildInactiveEmbed renders the "going inactive" notice for s.
-// No roster — the server is empty by definition — and no link: there's
-// nothing to watch or join on an idle server.
+// buildInactiveEmbed has no roster or link, since the server is empty.
 func buildInactiveEmbed(s *domain.ServerStatus, _ string, mapMeta map[string]string) discord.Embed {
 	desc := "Server is empty"
 	if s.Map != "" {
@@ -103,16 +92,13 @@ func buildInactiveEmbed(s *domain.ServerStatus, _ string, mapMeta map[string]str
 	}
 }
 
-// serverDisplay renders the canonical identity the UI elsewhere
-// also shows, e.g. "local / dm-hub". Documented at
-// internal/domain/server.go:6-7.
+// serverDisplay matches the UI's "<source> / <key>".
 func serverDisplay(s *domain.ServerStatus) string {
 	return s.Source + " / " + s.Key
 }
 
-// serverLink points the embed at the server-list page. There is no
-// per-server detail page in the UI; the list shows live cards for
-// every server so a viewer can find the right one there.
+// serverLink points at the server list, which has a live card for
+// every server.
 func serverLink(publicURL string, _ int64) string {
 	if publicURL == "" {
 		return ""
@@ -120,10 +106,9 @@ func serverLink(publicURL string, _ int64) string {
 	return publicURL + "/servers"
 }
 
-// liveLink is the in-browser live-spectate URL for s, or "" when the
-// server isn't currently being tapped (or no public URL is configured).
-// Mirrors the SPA's /tv/:source/:key route (web/src/main.tsx); source and
-// key are validated [A-Za-z0-9._-] upstream, so no URL-escaping is needed.
+// liveLink is the browser player URL for s, the site's /tv/:source/:key
+// route, or "" with no live tap or no public URL. Source and key are
+// already limited to [A-Za-z0-9._-], so they need no escaping.
 func liveLink(publicURL string, s *domain.ServerStatus) string {
 	if publicURL == "" || !s.IsLive {
 		return ""
@@ -172,9 +157,8 @@ func countRoster(players []domain.PlayerStatus) (humans, bots int) {
 	return
 }
 
-// bucketRoster sorts players by team into red / blue / free / spec
-// buckets. Each bucket is then sorted humans-first, name-ascending
-// (case-insensitive, Q3-color-stripped) — see sortRosterBucket.
+// bucketRoster splits players into red, blue, free and spectator
+// buckets, each sorted humans first, then by name.
 func bucketRoster(players []domain.PlayerStatus) (red, blue, free, specs []domain.PlayerStatus) {
 	for _, p := range players {
 		switch p.Team {
@@ -205,10 +189,8 @@ func sortRosterBucket(ps []domain.PlayerStatus) {
 	})
 }
 
-// teamRosterField renders a single team's column as an inline ANSI
-// code block. Red and Blue are both inline so Discord lays them out
-// side-by-side; the spectators field that may follow is non-inline
-// so it gets its own row underneath.
+// teamRosterField renders one team as an inline ANSI block, so red and
+// blue sit side by side and the spectators field below gets its own row.
 func teamRosterField(name string, ps []domain.PlayerStatus) discord.Field {
 	var b strings.Builder
 	b.WriteString("```ansi\n")
@@ -221,9 +203,8 @@ func teamRosterField(name string, ps []domain.PlayerStatus) discord.Field {
 	return discord.Field{Name: name, Value: b.String(), Inline: true}
 }
 
-// ffaRosterField packs the FFA roster into a two-column ANSI block.
-// Vertical space is the bottleneck on a fuller server, so we trade
-// width for height.
+// ffaRosterField uses two columns, since height runs out first on a
+// full server.
 func ffaRosterField(ps []domain.PlayerStatus) discord.Field {
 	var b strings.Builder
 	b.WriteString("```ansi\n")
@@ -232,8 +213,6 @@ func ffaRosterField(ps []domain.PlayerStatus) discord.Field {
 	return discord.Field{Name: "Players", Value: b.String()}
 }
 
-// spectatorsField goes on its own row below the play roster — they
-// aren't part of the action and deserve visual separation.
 func spectatorsField(ps []domain.PlayerStatus) discord.Field {
 	var b strings.Builder
 	b.WriteString("```ansi\n")
@@ -242,8 +221,6 @@ func spectatorsField(ps []domain.PlayerStatus) discord.Field {
 	return discord.Field{Name: "Spectators", Value: b.String()}
 }
 
-// writeRosterLines emits one player per line. Used by team columns
-// where the field itself is already narrow (inline).
 func writeRosterLines(b *strings.Builder, ps []domain.PlayerStatus) {
 	emitted := 0
 	for _, p := range ps {
@@ -262,9 +239,8 @@ func writeRosterLines(b *strings.Builder, ps []domain.PlayerStatus) {
 	}
 }
 
-// writeRosterColumns emits players in a fixed-width grid. Padding
-// is computed on the color-stripped name length since ANSI escapes
-// contribute bytes but no display width.
+// writeRosterColumns pads by the color-stripped name length, since ANSI
+// escapes add bytes but no width.
 func writeRosterColumns(b *strings.Builder, ps []domain.PlayerStatus, cols, cellWidth int) {
 	n := len(ps)
 	if n > rosterCap {

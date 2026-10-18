@@ -15,7 +15,7 @@ interface PlayerItemProps {
   onClick?: () => void;
 }
 
-// Q3 team values: 0 = Free, 1 = Red, 2 = Blue, 3 = Spectator
+// Teams: 0 free, 1 red, 2 blue, 3 spectator.
 function getTeamClass(team?: number): string {
   switch (team) {
     case 1:
@@ -29,11 +29,10 @@ function getTeamClass(team?: number): string {
   }
 }
 
-// Format time in match from joined_at timestamp to M:SS
 function formatTimeInMatch(joinedAt?: string): string | null {
   if (!joinedAt) return null;
   const joined = new Date(joinedAt);
-  // Ignore zero/invalid timestamps (Go zero time is year 0001)
+  // Go's zero time is year 1.
   if (joined.getFullYear() < 2000) return null;
   const now = new Date();
   const diffMs = now.getTime() - joined.getTime();

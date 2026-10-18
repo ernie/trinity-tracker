@@ -1,6 +1,3 @@
-// Thin X glyph for drawer/modal close buttons. Replaces inline
-// &times; entities; matches PlayIcon/StarIcon stroke weight so the
-// chrome reads as a coherent set.
 export function CloseIcon({
   size = 14,
   className,

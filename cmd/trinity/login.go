@@ -50,8 +50,8 @@ func resolveLoginURL(flagURL, configPath string) string {
 
 func cmdLogin(args []string) {
 	fs := flag.NewFlagSet("login", flag.ExitOnError)
-	urlFlag := fs.String("url", "", "base URL of the trinity hub (e.g. https://trinity.run)")
-	username := fs.String("username", "", "trinity username (prompted if omitted)")
+	urlFlag := fs.String("url", "", "base URL of the Trinity hub (e.g. https://trinity.run)")
+	username := fs.String("username", "", "Trinity username (prompted if omitted)")
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
 	fs.Parse(args)
 
@@ -68,7 +68,7 @@ func cmdLogin(args []string) {
 		fmt.Print("Username: ")
 		line, err := stdin.ReadString('\n')
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "Error: reading username")
+			fmt.Fprintln(os.Stderr, "Error: couldn't read the username")
 			os.Exit(1)
 		}
 		name = strings.TrimSpace(line)
@@ -84,22 +84,21 @@ func cmdLogin(args []string) {
 		raw, err := term.ReadPassword(int(os.Stdin.Fd()))
 		fmt.Println()
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "Error: reading password")
+			fmt.Fprintln(os.Stderr, "Error: couldn't read the password")
 			os.Exit(1)
 		}
 		password = string(raw)
 	} else {
 		line, err := stdin.ReadString('\n')
 		if err != nil && err != io.EOF {
-			fmt.Fprintln(os.Stderr, "Error: reading password")
+			fmt.Fprintln(os.Stderr, "Error: couldn't read the password")
 			os.Exit(1)
 		}
 		password = strings.TrimRight(line, "\r\n")
 	}
 
-	// A fresh login replaces any stored token for this URL — revoke the
-	// old one first (best-effort) so casual re-logins don't accumulate
-	// live PATs server-side.
+	// Revoke the token this login replaces so re-logins don't pile up
+	// live PATs on the hub.
 	if old, err := loadCLIToken(); err == nil && old != nil && old.URL == hubURL {
 		_ = revokeToken(old)
 	}
@@ -118,13 +117,11 @@ func cmdLogin(args []string) {
 
 	switch resp.StatusCode {
 	case http.StatusOK:
-		// fall through to decode
 	case http.StatusUnauthorized:
-		fmt.Fprintln(os.Stderr, "Error: invalid credentials")
+		fmt.Fprintln(os.Stderr, "Error: wrong username or password")
 		os.Exit(1)
 	default:
-		// 403 carries a reason (password change required, account
-		// disabled) — surface the server's message rather than guessing.
+		// A 403 says why: password change required or account disabled.
 		var ae apiError
 		if json.NewDecoder(resp.Body).Decode(&ae) == nil && ae.Error != "" {
 			fmt.Fprintf(os.Stderr, "Error: %s\n", ae.Error)
@@ -136,11 +133,11 @@ func cmdLogin(args []string) {
 
 	var reply cliLoginReply
 	if err := json.NewDecoder(resp.Body).Decode(&reply); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: decoding response: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error: couldn't decode the response: %v\n", err)
 		os.Exit(1)
 	}
 	if err := saveCLIToken(&cliToken{URL: hubURL, Username: reply.Username, Token: reply.Token}); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: saving token: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error: couldn't save the token: %v\n", err)
 		os.Exit(1)
 	}
 	fmt.Printf("Logged in to %s as %s.\n", hubURL, reply.Username)
@@ -161,7 +158,7 @@ func cmdLogout(args []string) {
 		return
 	}
 	if err := revokeToken(tok); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: could not revoke server-side (%v); clearing local token anyway\n", err)
+		fmt.Fprintf(os.Stderr, "Warning: couldn't revoke the token on the server (%v); clearing the local copy anyway\n", err)
 	}
 	if err := deleteCLIToken(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -170,8 +167,7 @@ func cmdLogout(args []string) {
 	fmt.Printf("Logged out of %s.\n", tok.URL)
 }
 
-// revokeToken asks the hub to revoke a PAT. A 401 means the token was
-// already dead — success for our purposes.
+// revokeToken counts a 401 as success: the token was already dead.
 func revokeToken(tok *cliToken) error {
 	req, err := http.NewRequest(http.MethodDelete, tok.URL+"/api/auth/cli-login", nil)
 	if err != nil {
@@ -189,7 +185,7 @@ func revokeToken(tok *cliToken) error {
 	return nil
 }
 
-// patName labels the minted token with where it lives.
+// patName labels the token with the user and host it lives on.
 func patName() string {
 	who := "unknown"
 	if u, err := user.Current(); err == nil {

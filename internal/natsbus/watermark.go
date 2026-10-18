@@ -16,15 +16,11 @@ const (
 	WatermarkFlushEvery    = 50
 )
 
-// Watermark is the publisher's persisted progress marker.
-//
-// LastSeq is the global monotonic sequence number for this source's
-// publisher — used to resume seq numbering across restart.
-//
-// PerServer records (LastSeq, LastTS) per RemoteServerID. The
-// collector's manager uses these as per-tailer replay cutoffs so an
-// event on server A at second T can't censor an unprocessed
-// same-second event on server B during next-boot recovery.
+// Watermark is the publisher's saved progress. LastSeq is the source's
+// sequence number, so numbering resumes after a restart. PerServer
+// holds (LastSeq, LastTS) per RemoteServerID; the collector uses them as
+// per-tailer replay cutoffs, so an event on one server can't hide a
+// same-second event on another during recovery.
 type Watermark struct {
 	LastSeq   uint64                    `json:"last_seq"`
 	PerServer map[int64]ServerWatermark `json:"per_server,omitempty"`
@@ -37,15 +33,14 @@ type ServerWatermark struct {
 	LastTS  time.Time `json:"last_ts"`
 }
 
-// IsZero reports whether the watermark holds no state. Used in place
-// of `wm == (Watermark{})` since the struct contains a map and is
-// no longer directly comparable.
+// IsZero reports whether the watermark holds no state; the map field
+// makes the struct incomparable.
 func (w Watermark) IsZero() bool {
 	return w.LastSeq == 0 && len(w.PerServer) == 0
 }
 
-// LoadWatermark returns the stored watermark or a zero value on
-// missing file (first run).
+// LoadWatermark returns the stored watermark, or a zero value when the
+// file is missing (first run).
 func LoadWatermark(dataDir string) (Watermark, error) {
 	path := filepath.Join(dataDir, WatermarkFilename)
 	data, err := os.ReadFile(path)
@@ -125,12 +120,9 @@ func (t *WatermarkTracker) Current() Watermark {
 	return t.current
 }
 
-// Update records a monotonically-increasing Seq/TS pair for one
-// RemoteServerID; older seqs are ignored (the global seq guard
-// suffices since publisher seqs are monotonic across all servers).
-// serverID==0 is treated as "no per-server bucket" — the global
-// LastSeq/LastTS still advance, so non-server-scoped events still
-// participate in seq continuity.
+// Update records seq and ts for serverID and ignores older seqs; one
+// global check suffices because publisher seqs rise across all servers.
+// serverID 0 gets no per-server entry but still advances LastSeq.
 func (t *WatermarkTracker) Update(serverID int64, seq uint64, ts time.Time) error {
 	t.mu.Lock()
 	if seq <= t.current.LastSeq {

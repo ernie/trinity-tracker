@@ -1,4 +1,4 @@
-// trinity - Quake 3 Arena statistics and tools
+// trinity is the Trinity tracker: statistics, collector, hub and tools.
 package main
 
 import (
@@ -135,7 +135,7 @@ func printUsage() {
 	fmt.Println("  server add [<key>] [--gametype X] [--port N] [flags]")
 	fmt.Println("                                      Add a game server instance (interactive on a TTY)")
 	fmt.Println("  server remove <key>                 Remove a game server instance")
-	fmt.Println("  status                              Health checks + (hub mode) live game-server status")
+	fmt.Println("  status                              Run health checks, plus live game-server status on a hub")
 	fmt.Println("  players [--humans]                  Show current players across all servers")
 	fmt.Println("  matches [--recent N]                Show recent matches (default: 20)")
 	fmt.Println("  leaderboard [--top N]               Show top players (default: 20)")
@@ -165,18 +165,18 @@ func printUsage() {
 	fmt.Println("  mapsync [path]                      Regenerate every map-derived artifact: levelshots, maps.json, demo pk3s")
 	fmt.Println("  demobake [path]                     Build baseline pk3, map pk3s, and manifest for web demo playback")
 	fmt.Println("  unpackmaps <pk3>... [--output dir] [--prefix p] [--game baseq3|missionpack] [--quake3-dir d] [--dry-run]")
-	fmt.Println("                                      Split map pack(s) into standalone per-map pk3s (incl. .aas)")
+	fmt.Println("                                      Split map pack(s) into standalone per-map pk3s, with their .aas files")
 	fmt.Println("  maps [--mode <mode>] [path]         Scan pk3s and report which game modes each map supports")
 	fmt.Println("  version                             Show version")
 	fmt.Println("  help                                Show this help")
 	fmt.Println()
-	fmt.Println("Global Options:")
+	fmt.Println("Global options:")
 	fmt.Println("  --config <path>    Path to configuration file (default /etc/trinity/config.yml)")
-	fmt.Println("  --url <url>        Base URL of the trinity server (default: derived from config)")
+	fmt.Println("  --url <url>        Base URL of the tracker (default: derived from config)")
 	fmt.Println()
 	fmt.Println("Examples:")
 	fmt.Println("  sudo trinity init                          # interactive setup")
-	fmt.Println("  sudo trinity server add                    # interactive add (gametype, port, ...)")
+	fmt.Println("  sudo trinity server add                    # asks for game type, port and the rest")
 	fmt.Println("  sudo trinity server add ffa --gametype ffa --port 27960")
 	fmt.Println("  trinity serve --config /etc/trinity/config.yml")
 	fmt.Println("  trinity players --humans")
@@ -206,8 +206,7 @@ func cmdServe(args []string) {
 	log.Printf("Trinity %s starting...", version)
 	log.Printf("Monitoring %d servers", len(cfg.Q3Servers))
 
-	// Tracker is always non-nil after config.Load (absent block
-	// defaults to hub+local-collector).
+	// config.Load defaults a missing tracker block to hub plus local collector.
 	hasHub := cfg.Tracker.Hub != nil
 	hasCollector := cfg.Tracker.Collector != nil
 
@@ -261,11 +260,8 @@ func cmdServe(args []string) {
 	if hasCollector {
 		opts := []nats.Option{
 			nats.Name("trinity-collector"),
-			// Retry forever. The 60-reconnect / 2s-wait defaults give
-			// only a ~2min budget — too short for residential links
-			// (modem reboots, DHCP renewals) and hub bounces. Reaching
-			// the terminal "closed" state once stranded the Pi for 33h
-			// publishing into the void.
+			// Retry forever: residential links drop for longer than the
+			// default two-minute reconnect budget.
 			nats.MaxReconnects(-1),
 			nats.ReconnectWait(5 * time.Second),
 			nats.DisconnectErrHandler(func(_ *nats.Conn, err error) {
@@ -282,7 +278,7 @@ func cmdServe(args []string) {
 		var connURL string
 		switch {
 		case ns != nil:
-			// Co-located: reuse hub-internal creds to skip per-source issuance.
+			// A co-located collector uses the hub's internal creds.
 			opts = append(opts, nats.InProcessServer(ns.NATSServer()), nats.UserCredentials(ns.Auth().InternalCredsPath()))
 		default:
 			creds := cfg.Tracker.NATS.CredentialsFile
@@ -319,10 +315,9 @@ func cmdServe(args []string) {
 			log.Fatalf("Failed to build RPC client: %v", err)
 		}
 		collectorRPC = rc
-		// Seed seq from the hub when it leads the local watermark, so
-		// a fresh-install collector doesn't mass-drop against the
-		// prior instance's consumed_seq. Local mode reads the store
-		// directly; remote mode asks the hub via RPC.
+		// Start from the hub's consumed_seq when it's ahead of the local
+		// watermark, so a reinstalled collector's events aren't dropped as
+		// replays.
 		initialSeq := wm.Current().LastSeq
 		if hasHub && store != nil {
 			if prog, perr := store.GetSourceProgress(ctx, collectorSource); perr == nil && prog.ConsumedSeq > initialSeq {
@@ -351,8 +346,7 @@ func cmdServe(args []string) {
 		bufferedPublisher = bufPub
 		log.Printf("Collector publishing as source=%s (last_seq=%d)", collectorSource, initialSeq)
 
-		// Only tee live events onto NATS when no local hub is co-located
-		// (otherwise manager.Events() → wsHub would double up).
+		// A co-located hub already gets live events from the manager.
 		if !hasHub {
 			lp, err := natsbus.NewLivePublisher(collectorNC, collectorSource)
 			if err != nil {
@@ -362,7 +356,6 @@ func cmdServe(args []string) {
 		}
 	}
 
-	// collectorShutdown tears down outbound collector-side components.
 	collectorShutdown := func() {
 		if registrar != nil {
 			registrar.Stop()
@@ -407,13 +400,11 @@ func cmdServe(args []string) {
 	}
 
 	var writer *hub.Writer
-	// One shared LiveState feeds both the writer (which Sets it from
-	// registration heartbeats) and the poller (which stamps is_live).
+	// The writer sets liveState from heartbeats; the poller reads it.
 	var liveState *hub.LiveState
 	if hasHub {
-		// Tell the writer the local-collector source name (if any) so
-		// the Greet handler can grant the local-admin rcon shortcut
-		// without requiring per-server admin_delegation_enabled.
+		// Greet gives admins rcon on the local source's servers without
+		// admin_delegation_enabled.
 		if hasCollector && collectorSource != "" {
 			writerOpts = append(writerOpts, hub.WithLocalSource(collectorSource))
 		}
@@ -423,11 +414,7 @@ func cmdServe(args []string) {
 		writer.Start(ctx)
 		defer writer.Stop()
 
-		// Auto-provision the local collector when hub+collector run in
-		// the same process. Remote collectors are created by the admin
-		// through POST /api/admin/sources; this branch handles the
-		// local case so single-machine installs don't need a manual
-		// provisioning step.
+		// A collector in the hub's process registers its own source.
 		if hasCollector && collectorSource != "" {
 			if err := store.UpsertLocalSource(ctx, collectorSource); err != nil {
 				log.Fatalf("Failed to register local source: %v", err)
@@ -459,7 +446,6 @@ func cmdServe(args []string) {
 
 	}
 
-	// Hub-side UDP poller: feeds live cards and /api/servers/{id}/status.
 	if hasHub {
 		remotePoller = hub.NewRemotePoller(store, collector.NewQ3Client(), cfg.Server.PollInterval, writer.Presence(), writer, ns)
 		remotePoller.SetLiveState(liveState)
@@ -467,10 +453,8 @@ func cmdServe(args []string) {
 		log.Printf("Hub polling every %v", cfg.Server.PollInterval)
 	}
 
-	// Discord server-activity notifier: opt-in via discord.activity.
-	// Subscribes to writer join/leave events and POSTs to a webhook on
-	// 0↔1 human-count transitions. Constructed after the poller because
-	// it consults poller-cached status for embed bodies.
+	// The activity notifier reads the poller's cached status, so it
+	// comes after the poller.
 	if hasHub && cfg.Discord != nil && cfg.Discord.Activity != nil && cfg.Discord.Activity.WebhookURL != "" {
 		mapMeta := loadMapMeta(cfg.Server.StaticDir)
 		activeDelay := time.Duration(cfg.Discord.Activity.ActiveDelaySeconds) * time.Second
@@ -495,8 +479,6 @@ func cmdServe(args []string) {
 		log.Printf("Hub server-activity notifier active (active_delay=%s inactive_debounce=%s)", activeDelay, debounce)
 	}
 
-	// Optional Q3 directory (master) server. Off by default; opt in via
-	// tracker.hub.directory.enabled.
 	if hasHub && cfg.Tracker.Hub.Directory != nil && cfg.Tracker.Hub.Directory.Enabled {
 		d := cfg.Tracker.Hub.Directory
 		dirSrv, err := directory.New(directory.Config{
@@ -522,8 +504,6 @@ func cmdServe(args []string) {
 		defer dirSrv.Stop()
 	}
 
-	// Route manager I/O: writer directly in hub-only; NATS RPC +
-	// buffered publisher when a collector role is active.
 	var (
 		serverClient hub.ServerClient
 		rpcClient    hub.RPCClient
@@ -545,8 +525,7 @@ func cmdServe(args []string) {
 	}
 	if cfg.Tracker.Collector.LiveRelayAddr != "" {
 		manager.SetLiveRegistry(liveReg)
-		// Arena-side viewer presence: debounced trinity_watch rcon sends on
-		// watched-state flips, count changes, and per-session re-pushes.
+		// Tells each game server how many people are watching it live.
 		watch := collector.NewWatchNotifier(liveReg.Viewers, func(key string, count int) {
 			if _, err := manager.ExecuteRconByKey(key, fmt.Sprintf("trinity_watch %d", count)); err != nil {
 				log.Printf("collector: trinity_watch %d to %s: %v", count, key, err)
@@ -554,19 +533,12 @@ func cmdServe(args []string) {
 		})
 		liveReg.SetWatchHooks(watch.ViewersChanged, watch.SessionStart)
 	}
-	// Console tap rings: one per server, filled by per-server tap
-	// consumers (sv_conTap discovery), served locally or via NATS lease.
 	consoleReg := console.NewRegistry()
 	manager.SetConsoleRegistry(consoleReg)
 
-	// Replay cutoff: the collector's NATS publisher watermark says,
-	// per RemoteServerID, "I have already published events on this
-	// server up to this seq/ts; treat older log entries as silent
-	// state-rebuild only." Per-server (not global) so a server-A
-	// event at second T can't censor an unprocessed same-second
-	// event on server B during next-boot recovery (Bug 1). Servers
-	// without a PerServer entry fall through to LastMatchEndedAt
-	// in the manager's cutoffFor.
+	// Log lines older than a server's last published event only rebuild
+	// state. The cutoff is per server so one server's events can't hide
+	// another's from the same second.
 	if collectorWatermark != nil {
 		if wm := collectorWatermark.Current(); !wm.IsZero() {
 			perServer := make(map[int64]time.Time, len(wm.PerServer))
@@ -582,13 +554,8 @@ func cmdServe(args []string) {
 	}
 	log.Printf("Server manager started, polling every %v", cfg.Server.PollInterval)
 
-	// Re-bootstrap presence whenever the collector's NATS connection
-	// reconnects. The embedded NATS server lives in the hub process,
-	// so a reconnect almost always means the hub just restarted with
-	// an empty in-memory presence map — without this, player avatars
-	// stay missing on remote-collector server cards until the next
-	// organic player_join. Idempotent on the hub side, so a transient
-	// network blip just republishes the same snapshot.
+	// A reconnect usually means the hub restarted with empty presence,
+	// so republish it; the hub treats a repeat as a no-op.
 	if collectorNC != nil && hasCollector {
 		collectorNC.SetReconnectHandler(func(*nats.Conn) {
 			log.Printf("Collector NATS reconnected; re-bootstrapping presence")
@@ -596,12 +563,9 @@ func cmdServe(args []string) {
 		})
 	}
 
-	// liveRelaySrv is declared here so both the collector startup block and
-	// the shutdown branches below share scope.
 	var liveRelaySrv *http.Server
 
-	// Start the heartbeat registrar after the manager so the initial
-	// publish reflects the actual roster.
+	// After the manager, so the first heartbeat carries the real roster.
 	if hasCollector {
 		var err error
 		registrar, err = natsbus.NewRegistrar(
@@ -618,15 +582,12 @@ func cmdServe(args []string) {
 		registrar.Start(ctx)
 		log.Printf("Collector heartbeating every %v", cfg.Tracker.Collector.HeartbeatInterval.D())
 
-		// Let live tap open/close trigger an immediate heartbeat so the
-		// per-server is_live flag flips fast (not just on the periodic tick).
+		// A live stream starting or stopping heartbeats at once, so is_live
+		// updates quickly.
 		manager.SetRegistrarKick(registrar.Kick)
 
-		// Subscribe to RCON proxy requests addressed to this collector's
-		// source. The hub publishes here when a user with auth'd access
-		// asks to RCON one of this collector's servers; the handler
-		// re-validates the per-server allow_hub_admin_rcon flag before
-		// running the command.
+		// The handler checks each server's allow_hub_admin_rcon again
+		// before running a proxied command.
 		rconHandler := collector.NewRconProxyHandler(manager)
 		if rconServer, err := natsbus.RegisterRconHandler(collectorNC, collectorSource, rconHandler); err != nil {
 			log.Fatalf("Failed to register RCON proxy handler: %v", err)
@@ -634,17 +595,14 @@ func cmdServe(args []string) {
 			defer rconServer.Stop()
 		}
 
-		// Console-follow leases: the hub watches, we forward ring lines
-		// while the lease lives. Same re-validation gate as rcon.
+		// Console lines are forwarded while the hub holds a lease, under
+		// the same check as rcon.
 		if fwd, err := natsbus.RegisterConsoleForwarder(collectorNC, collectorSource, consoleReg, rconHandler); err != nil {
 			log.Fatalf("Failed to register console forwarder: %v", err)
 		} else {
 			defer fwd.Stop()
 		}
 
-		// Live-spectating relay: serve in-progress matches to browsers on a
-		// delay. The Registry is populated by the match-lifecycle wiring
-		// (later plan); until then this returns 404, which is correct.
 		if addr := cfg.Tracker.Collector.LiveRelayAddr; addr != "" {
 			relay := livestream.NewRelayServer(liveReg)
 			liveRelaySrv = &http.Server{Addr: addr, Handler: relay}
@@ -657,7 +615,6 @@ func cmdServe(args []string) {
 		}
 	}
 
-	// Collector-only mode: no HTTP UI, just wait for signal.
 	if !hasHub {
 		log.Printf("Running in collector-only mode; no HTTP server")
 		sigCh := make(chan os.Signal, 1)
@@ -665,9 +622,7 @@ func cmdServe(args []string) {
 		sig := <-sigCh
 		log.Printf("Received signal %v, shutting down...", sig)
 		if liveRelaySrv != nil {
-			// Abrupt Close, not graceful Shutdown: live streams never end on
-			// their own, so Shutdown would block until its deadline. Viewers
-			// watch a delayed replay buffer — there's nothing to drain.
+			// Live streams never end on their own, so close them outright.
 			_ = liveRelaySrv.Close()
 		}
 		log.Println("Stopping server manager...")
@@ -692,11 +647,8 @@ func cmdServe(args []string) {
 	if ns != nil {
 		router.SetUserProvisioner(ns.Auth())
 	}
-	// Wire RCON dispatch. Local-source servers short-circuit through
-	// the in-process manager (still needs collectorSource set so the
-	// dispatcher knows which source is "us"); remote-source servers
-	// go via the NATS RCON client. Hub subNC has system-level pub
-	// permissions so it can target any source's exec subject.
+	// Local-source rcon goes through the in-process manager; remote
+	// sources go over NATS, where subNC can publish to any source.
 	if hasCollector {
 		router.SetLocalSource(collectorSource)
 	}
@@ -718,8 +670,8 @@ func cmdServe(args []string) {
 	router.StartWebSocketHub()
 	log.Printf("Serving static files from %s", cfg.Server.StaticDir)
 
-	// Forward remote-collector live events onto the WebSocket hub.
-	// selfSource skips the in-process collector's own events.
+	// The in-process collector's live events already reach the
+	// WebSocket hub, so the subscriber skips collectorSource.
 	if hasHub {
 		ls, err := natsbus.NewLiveSubscriber(subNC, store, writer, router, collectorSource)
 		if err != nil {
@@ -775,17 +727,14 @@ func cmdServe(args []string) {
 	log.Println("Shutdown complete")
 }
 
-// CLI helper variables
 var (
 	baseURL = "http://localhost:8080"
 	dbPath  string
 )
 
-// loadMapMeta reads <static_dir>/assets/maps.json (produced by
-// `trinity arenas`) and projects it to the short-id → longname map
-// the activity notifier renders into Discord embeds. Returns nil
-// (caller falls back to short ids) on any missing-file / malformed
-// case — the notifier should not block hub startup on cosmetics.
+// loadMapMeta maps short names to long names from the maps.json that
+// `trinity arenas` writes. Any problem returns nil, and the notifier
+// shows short names.
 func loadMapMeta(staticDir string) map[string]string {
 	if staticDir == "" {
 		return nil
@@ -809,26 +758,21 @@ func loadMapMeta(staticDir string) map[string]string {
 	return out
 }
 
-// loadCLIConfigFromFlags loads config using pre-parsed flag values
 func loadCLIConfigFromFlags(configPath, url string) *config.Config {
-	// Load config file
 	cfg, err := config.Load(configPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: failed to load config from %s: %v\n", configPath, err)
+		fmt.Fprintf(os.Stderr, "Warning: couldn't load config from %s: %v\n", configPath, err)
 		dbPath = "/var/lib/trinity/trinity.db"
-		// Use explicit --url flag or default
 		if url != "" {
 			baseURL = url
 		}
 		return nil
 	}
 
-	// nil on collector-only; the hub-only CLI commands that need dbPath
-	// will fail cleanly via storage.New("").
+	// Collector-only installs have no database; storage.New("") fails cleanly.
 	if cfg.Database != nil {
 		dbPath = cfg.Database.Path
 	}
-	// Derive URL from config, but allow --url flag to override
 	if url != "" {
 		baseURL = url
 	} else {
@@ -837,37 +781,29 @@ func loadCLIConfigFromFlags(configPath, url string) *config.Config {
 	return cfg
 }
 
-// openStoreForCLI loads the config (warning if missing) and opens the
-// database. Used by CLI subcommands that need direct DB access.
 func openStoreForCLI(configPath, url string) *storage.Store {
 	loadCLIConfigFromFlags(configPath, url)
 	store, err := storage.New(dbPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to open database: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error: couldn't open the database: %v\n", err)
 		os.Exit(1)
 	}
 	return store
 }
 
-// cmdStatus reports overall install health (config, service, DB,
-// hub reachability, public URL, local HTTP). On a hub install where
-// the local HTTP server is up, it also dumps the live in-game
-// per-server table — the question "what's happening on my hub right
-// now?" that the original `trinity status` answered.
-//
-// Exits 1 on any failed health check so it's scriptable.
+// cmdStatus checks the install's health and then shows each game
+// server's live state. It exits 1 on any failed check so scripts can
+// use it.
 func cmdStatus(args []string) {
 	fs := flag.NewFlagSet("status", flag.ExitOnError)
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
-	url := fs.String("url", "", "base URL of the trinity server (overrides config)")
+	url := fs.String("url", "", "base URL of the tracker (overrides config)")
 	colorMode := addColorFlag(fs)
 	fs.Parse(args)
 	applyColorMode(*colorMode)
 
 	failures := 0
-	// %-12s pads the label to 12 chars, but ANSI escapes count as
-	// bytes there too — pad first, then color, so the visible
-	// alignment stays right.
+	// Pad before coloring; %-12s counts escape bytes.
 	pass := func(label, detail string) {
 		fmt.Printf("  %s %s %s\n", green("✓"), bold(fmt.Sprintf("%-12s", label)), detail)
 	}
@@ -894,13 +830,11 @@ func cmdStatus(args []string) {
 			fail("Service", fmt.Sprintf("trinity.service is %s (run: sudo systemctl start trinity)", state))
 		}
 	}
-	// systemctl missing or failed → silent skip; many environments don't use it.
-
 	if cfg.Database != nil && cfg.Database.Path != "" {
 		if info, err := os.Stat(cfg.Database.Path); err == nil && !info.IsDir() {
 			pass("Database", cfg.Database.Path)
 		} else {
-			fail("Database", fmt.Sprintf("%s missing — service has not started successfully yet", cfg.Database.Path))
+			fail("Database", fmt.Sprintf("%s missing: the service hasn't started successfully yet", cfg.Database.Path))
 		}
 	}
 
@@ -921,14 +855,14 @@ func cmdStatus(args []string) {
 			if reachable(u) {
 				pass("Hub", hub+" reachable")
 			} else {
-				fail("Hub", u+" not reachable — check DNS, firewall, hub status")
+				fail("Hub", u+" not reachable. Check DNS, the firewall and the hub's status.")
 			}
 		}
 		if pub := cfg.Tracker.Collector.PublicURL; pub != "" {
 			if reachable(pub) {
 				pass("Public URL", pub+" reachable")
 			} else {
-				fail("Public URL", pub+" not reachable — nginx down or DNS not pointing here?")
+				fail("Public URL", pub+" not reachable. Is nginx down, or does DNS point somewhere else?")
 			}
 		}
 	}
@@ -944,7 +878,7 @@ func cmdStatus(args []string) {
 			pass("HTTP", u+" → 200")
 			httpReachable = true
 		} else {
-			fail("HTTP", u+" not reachable — service running but not bound?")
+			fail("HTTP", u+" not reachable. Is the service running but not listening?")
 		}
 	}
 
@@ -970,9 +904,7 @@ func cmdStatus(args []string) {
 	}
 }
 
-// printLiveServerTable hits the local trinity HTTP API for the
-// per-server in-game state and renders an aligned table. Best-effort
-// — failures here don't affect the health-check exit code.
+// printLiveServerTable doesn't count toward the health checks' exit code.
 func printLiveServerTable(configPath, urlOverride string) {
 	loadCLIConfigFromFlags(configPath, urlOverride)
 
@@ -982,8 +914,6 @@ func printLiveServerTable(configPath, urlOverride string) {
 		return
 	}
 
-	// Per-row collection — renderTable is column-major, so we
-	// accumulate cells per column then render once.
 	nameCol := column{header: "SERVER"}
 	mapCol := column{header: "MAP"}
 	playersCol := column{header: "PLAYERS", align: alignRight}
@@ -1031,15 +961,8 @@ func printLiveServerTable(configPath, urlOverride string) {
 	renderTable(os.Stdout, []column{nameCol, mapCol, playersCol, humansCol, statusCol})
 }
 
-// printLocalServerTable UDP-polls each configured Q3 server in
-// parallel and renders the same 5-column table as the hub-side flow.
-// Used on collector installs where there is no local HTTP API to ask
-// — we go straight to the wire via getstatus.
-//
-// Unlike the hub flow, bot/human counts here are inferred from
-// ping==0 rather than log-tracked GUIDs (see localStatusCells). That
-// heuristic is wrong only for true-zero-ping LAN humans, which is
-// vanishingly rare on a public collector.
+// printLocalServerTable polls each game server with getstatus, since a
+// collector install has no local HTTP API.
 func printLocalServerTable(cfg *config.Config) {
 	type pollResult struct {
 		status *domain.ServerStatus
@@ -1075,12 +998,8 @@ func printLocalServerTable(cfg *config.Config) {
 	renderTable(os.Stdout, []column{nameCol, mapCol, playersCol, humansCol, statusCol})
 }
 
-// localStatusCells turns a single config server + UDP-poll result
-// into the five rendered cells for one row of the status table. This
-// is where the collector-side bot heuristic lives: without manager
-// context we have no GUIDs, so ping > 0 stands in for "human" and
-// ping == 0 is counted as a bot. Cell conventions (placeholders,
-// colors) match printLiveServerTable so both tables read the same.
+// localStatusCells has no GUIDs to go on, so it counts a player with a
+// ping of 0 as a bot. A human on a LAN with a true zero ping is miscounted.
 func localStatusCells(srv config.Q3Server, status *domain.ServerStatus, err error) (name, mapName, players, humans, statusStr string) {
 	name = srv.Key
 	if err != nil || status == nil {
@@ -1103,9 +1022,7 @@ func localStatusCells(srv config.Q3Server, status *domain.ServerStatus, err erro
 	return name, mapName, fmt.Sprintf("%d", len(status.Players)), fmt.Sprintf("%d", humanCount), statusStr
 }
 
-// jsonString safely pulls a string field from a decoded JSON map.
-// Returns "" for missing or non-string fields so render code can
-// substitute a placeholder rather than panic on type assertions.
+// jsonString returns "" for a missing or non-string field.
 func jsonString(m map[string]interface{}, key string) string {
 	if v, ok := m[key].(string); ok {
 		return v
@@ -1113,9 +1030,7 @@ func jsonString(m map[string]interface{}, key string) string {
 	return ""
 }
 
-// reachable does a HEAD with a short timeout. Returns true for any
-// 2xx/3xx/4xx (the host is up and answering); only 5xx and transport
-// errors count as a failure for liveness purposes.
+// reachable counts any answer below 500 as up.
 func reachable(url string) bool {
 	req, err := http.NewRequest("HEAD", url, nil)
 	if err != nil {
@@ -1133,7 +1048,7 @@ func reachable(url string) bool {
 func cmdPlayers(args []string) {
 	fs := flag.NewFlagSet("players", flag.ExitOnError)
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
-	url := fs.String("url", "", "base URL of the trinity server")
+	url := fs.String("url", "", "base URL of the tracker")
 	humansOnly := fs.Bool("humans", false, "show only human players")
 	colorMode := addColorFlag(fs)
 	fs.Parse(args)
@@ -1141,7 +1056,6 @@ func cmdPlayers(args []string) {
 
 	loadCLIConfigFromFlags(*configPath, *url)
 
-	// Get servers
 	var servers []map[string]interface{}
 	if err := getJSON("/api/servers", &servers); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -1198,7 +1112,7 @@ func cmdPlayers(args []string) {
 			pingCell := fmt.Sprintf("%d", ping)
 			typeCell := playerType
 			if isBot {
-				nameCell = dim(cleanName) // q3ToANSI on a bot name + dim would conflict; pick clean+dim
+				nameCell = dim(cleanName) // Q3 colors would override the dim
 				scoreCell = dim(scoreCell)
 				pingCell = dim(pingCell)
 				typeCell = dim(typeCell)
@@ -1218,7 +1132,7 @@ func cmdPlayers(args []string) {
 func cmdMatches(args []string) {
 	fs := flag.NewFlagSet("matches", flag.ExitOnError)
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
-	url := fs.String("url", "", "base URL of the trinity server")
+	url := fs.String("url", "", "base URL of the tracker")
 	limit := fs.Int("recent", 20, "number of recent matches to show")
 	colorMode := addColorFlag(fs)
 	fs.Parse(args)
@@ -1247,8 +1161,6 @@ func cmdMatches(args []string) {
 			started = formatTime(s)
 		}
 
-		// "In Progress" is a state worth flagging green so it pops
-		// against the timestamps above and below it.
 		ended := green("In Progress")
 		if e, ok := match["ended_at"].(string); ok && e != "" {
 			ended = formatTime(e)
@@ -1272,7 +1184,7 @@ func cmdMatches(args []string) {
 func cmdLeaderboard(args []string) {
 	fs := flag.NewFlagSet("leaderboard", flag.ExitOnError)
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
-	url := fs.String("url", "", "base URL of the trinity server")
+	url := fs.String("url", "", "base URL of the tracker")
 	limit := fs.Int("top", 20, "number of top players to show")
 	category := fs.String("category", "frags",
 		"category: frags, deaths, kd_ratio, matches, victories, captures, flag_returns, assists, defends, impressives, excellents, humiliations")
@@ -1297,11 +1209,6 @@ func cmdLeaderboard(args []string) {
 		os.Exit(1)
 	}
 
-	// Layout matches the Discord embed: badges + colored name in
-	// the player cell, the chosen category as the headline value,
-	// matches as context. playerVerificationBadge / playerPlatformBadge
-	// emit ANSI escapes that work in both terminals (renderTable
-	// strips them when computing column widths) and Discord.
 	rankCol := column{header: "RANK", align: alignRight}
 	playerCol := column{header: "PLAYER"}
 	valueCol := column{header: spec.CLILabel, align: alignRight}
@@ -1310,7 +1217,6 @@ func cmdLeaderboard(args []string) {
 	for i, e := range resp.Entries {
 		rank := fmt.Sprintf("%d", i+1)
 		if i < 3 {
-			// Top-3 bold so they pop above the rest.
 			rank = bold(rank)
 		}
 
@@ -1331,17 +1237,12 @@ func cmdLeaderboard(args []string) {
 	renderTable(os.Stdout, []column{rankCol, playerCol, valueCol, matchesCol})
 }
 
-// cmdDiscordDigest posts a weekly leaderboard digest to a Discord
-// webhook. Designed to be invoked from cron or a systemd timer; the
-// hub does not need to know anything about Discord.
-//
-// One HTTP GET per category (against /api/stats/leaderboard), then
-// one POST to the webhook. asOf is pinned at startup so the footer's
-// snapshot link reproduces the exact rankings the embed shows.
+// cmdDiscordDigest posts a leaderboard digest to a Discord webhook. A
+// systemd timer or cron runs it.
 func cmdDiscordDigest(args []string) {
 	fs := flag.NewFlagSet("discord-digest", flag.ExitOnError)
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
-	url := fs.String("url", "", "base URL of the trinity server")
+	url := fs.String("url", "", "base URL of the tracker")
 	period := fs.String("period", "week", "time window: day|week|month|year|all")
 	topN := fs.Int("top", 5, "top entries per category (max 25)")
 	webhookOverride := fs.String("webhook", "", "override discord.webhook_url (e.g. for staging)")
@@ -1355,14 +1256,8 @@ func cmdDiscordDigest(args []string) {
 
 	cfg := loadCLIConfigFromFlags(*configPath, *url)
 
-	// Default the API base to the public URL when one's configured.
-	// The loopback default from loadCLIConfigFromFlags only works
-	// when the digest binary runs on the hub host; preferring
-	// PublicURL means operators on a separate scheduling host get a
-	// working install with no extra flags. --url still wins, so
-	// anyone who wants to bypass nginx (e.g. on the hub host) can
-	// pass --url http://127.0.0.1:8080 explicitly. Footer URL stays
-	// public regardless — that's what users click in Discord.
+	// Prefer the public URL, so the digest also works from a host other
+	// than the hub; --url still wins.
 	if *url == "" && cfg != nil && cfg.Tracker != nil && cfg.Tracker.Collector != nil && cfg.Tracker.Collector.PublicURL != "" {
 		baseURL = strings.TrimSuffix(cfg.Tracker.Collector.PublicURL, "/")
 	}
@@ -1381,8 +1276,7 @@ func cmdDiscordDigest(args []string) {
 		categories = cfg.Discord.Digest.Categories
 	}
 
-	// Pin asOf once so every per-category fetch sees the same anchor
-	// and the footer URL matches the embed contents exactly.
+	// One asOf for every fetch, so the title link shows the same rankings.
 	asOf := time.Now().UTC().Truncate(time.Second)
 	asOfStr := asOf.Format(time.RFC3339)
 
@@ -1398,19 +1292,13 @@ func cmdDiscordDigest(args []string) {
 		results[cat] = &resp
 	}
 
-	// Footer URL is what users click in Discord — it must point at
-	// the public-facing host, not the loopback API endpoint we used
-	// for the per-category fetches above. tracker.collector.public_url
-	// is where the wizard stashes the operator's chosen public URL.
-	// Falls back to baseURL on hub-only installs (which don't write a
-	// Collector block) or unconfigured ones.
+	// People click this link in Discord, so it uses the public URL when
+	// one is configured.
 	publicURL := strings.TrimSuffix(baseURL, "/")
 	if cfg != nil && cfg.Tracker != nil && cfg.Tracker.Collector != nil && cfg.Tracker.Collector.PublicURL != "" {
 		publicURL = strings.TrimSuffix(cfg.Tracker.Collector.PublicURL, "/")
 	}
 	footerURL := fmt.Sprintf("%s/leaderboard?period=%s&as_of=%s", publicURL, *period, asOfStr)
-	// staticDir lets renderDigestEmbed do a filesystem-based 404
-	// check on portrait URLs; an empty string skips the check.
 	staticDir := ""
 	if cfg != nil {
 		staticDir = cfg.Server.StaticDir
@@ -1418,7 +1306,6 @@ func cmdDiscordDigest(args []string) {
 	embed := renderDigestEmbed(results, categories, *topN, footerURL, publicURL, staticDir, time.Now())
 
 	if *dryRun {
-		// Pretty-print so operators can eyeball the payload.
 		out, _ := json.MarshalIndent(discord.WebhookPayload{Embeds: []discord.Embed{embed}}, "", "  ")
 		fmt.Println(string(out))
 		return
@@ -1433,10 +1320,8 @@ func cmdDiscordDigest(args []string) {
 	fmt.Printf("Posted digest (%d categories, period=%s, as_of=%s)\n", len(categories), *period, asOfStr)
 }
 
-// cmdUser dispatches `trinity user <subcommand>`. Each subcommand
-// parses its own flags (including --config / --url) in a single pass,
-// avoiding the unknown-flag / arg-eating behavior pflag exhibits when
-// subcommand flags are pre-parsed by a global FlagSet.
+// cmdUser lets each subcommand parse all its own flags, --config and
+// --url included, since pflag mangles args a global FlagSet pre-parses.
 func cmdUser(args []string) {
 	if len(args) < 1 {
 		fmt.Fprintf(os.Stderr, "Error: user subcommand required: add, remove, list, reset, admin, disable, enable\n")
@@ -1476,7 +1361,7 @@ func cmdUser(args []string) {
 func cmdUserAdd(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("user add", flag.ExitOnError)
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
-	url := fs.String("url", "", "base URL of the trinity server")
+	url := fs.String("url", "", "base URL of the tracker")
 	isAdmin := fs.Bool("admin", false, "create as admin user")
 	playerIDFlag := fs.Int64("player-id", 0, "link to player ID")
 	fs.Parse(args)
@@ -1495,16 +1380,14 @@ func cmdUserAdd(ctx context.Context, args []string) error {
 		playerID = playerIDFlag
 	}
 
-	// Check if user already exists
 	if _, err := store.GetUserByUsername(ctx, username); err == nil {
 		return fmt.Errorf("user '%s' already exists", username)
 	}
 
-	// Check if player is already claimed
 	if playerID != nil {
 		claimed, err := store.IsPlayerClaimed(ctx, *playerID)
 		if err != nil {
-			return fmt.Errorf("failed to check player: %w", err)
+			return fmt.Errorf("couldn't check the player: %w", err)
 		}
 		if claimed {
 			return fmt.Errorf("player %d is already linked to another user", *playerID)
@@ -1515,7 +1398,7 @@ func cmdUserAdd(ctx context.Context, args []string) error {
 	password, err := term.ReadPassword(int(os.Stdin.Fd()))
 	fmt.Println()
 	if err != nil {
-		return fmt.Errorf("failed to read password: %w", err)
+		return fmt.Errorf("couldn't read the password: %w", err)
 	}
 
 	if len(password) < 8 {
@@ -1526,34 +1409,34 @@ func cmdUserAdd(ctx context.Context, args []string) error {
 	confirm, err := term.ReadPassword(int(os.Stdin.Fd()))
 	fmt.Println()
 	if err != nil {
-		return fmt.Errorf("failed to read password: %w", err)
+		return fmt.Errorf("couldn't read the password: %w", err)
 	}
 
 	if string(password) != string(confirm) {
-		return fmt.Errorf("passwords do not match")
+		return fmt.Errorf("the passwords don't match")
 	}
 
 	hash, err := auth.HashPassword(string(password))
 	if err != nil {
-		return fmt.Errorf("failed to hash password: %w", err)
+		return fmt.Errorf("couldn't hash the password: %w", err)
 	}
 
 	if err := store.CreateUser(ctx, username, hash, *isAdmin, playerID); err != nil {
-		return fmt.Errorf("failed to create user: %w", err)
+		return fmt.Errorf("couldn't create the user: %w", err)
 	}
 
 	roleStr := "user"
 	if *isAdmin {
 		roleStr = "admin"
 	}
-	fmt.Printf("User '%s' created successfully (role: %s)\n", username, roleStr)
+	fmt.Printf("User '%s' created (role: %s)\n", username, roleStr)
 	return nil
 }
 
 func cmdUserRemove(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("user remove", flag.ExitOnError)
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
-	url := fs.String("url", "", "base URL of the trinity server")
+	url := fs.String("url", "", "base URL of the tracker")
 	fs.Parse(args)
 
 	remaining := fs.Args()
@@ -1566,21 +1449,19 @@ func cmdUserRemove(ctx context.Context, args []string) error {
 	defer store.Close()
 
 	if err := store.DeleteUser(ctx, username); err != nil {
-		// The audit-trail FK (source_audit.actor_user_id) intentionally
-		// blocks deleting users with history — point at the soft-delete.
+		// The source_audit foreign key keeps users with history.
 		if strings.Contains(err.Error(), "FOREIGN KEY") {
-			return fmt.Errorf("user %q has audit history and cannot be deleted; use: trinity user disable %s", username, username)
+			return fmt.Errorf("user %q has audit history, so it can't be deleted; run trinity user disable %s instead", username, username)
 		}
-		return fmt.Errorf("failed to remove user: %w", err)
+		return fmt.Errorf("couldn't remove the user: %w", err)
 	}
 
 	fmt.Printf("User '%s' removed\n", username)
 	return nil
 }
 
-// cmdUserDisable soft-deletes (disabled=true) or restores a user.
-// Disabled accounts fail every credential path — web, CLI, game —
-// while the row (and its audit history) stays intact.
+// cmdUserDisable disables or re-enables a user. A disabled account can't
+// log in anywhere, and its row and audit history stay.
 func cmdUserDisable(ctx context.Context, args []string, disabled bool) error {
 	verb := "disable"
 	if !disabled {
@@ -1588,7 +1469,7 @@ func cmdUserDisable(ctx context.Context, args []string, disabled bool) error {
 	}
 	fs := flag.NewFlagSet("user "+verb, flag.ExitOnError)
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
-	url := fs.String("url", "", "base URL of the trinity server")
+	url := fs.String("url", "", "base URL of the tracker")
 	fs.Parse(args)
 
 	remaining := fs.Args()
@@ -1601,7 +1482,7 @@ func cmdUserDisable(ctx context.Context, args []string, disabled bool) error {
 	defer store.Close()
 
 	if err := store.SetUserDisabled(ctx, username, disabled); err != nil {
-		return fmt.Errorf("failed to %s user: %w", verb, err)
+		return fmt.Errorf("couldn't %s the user: %w", verb, err)
 	}
 	fmt.Printf("User '%s' %sd\n", username, verb)
 	return nil
@@ -1610,7 +1491,7 @@ func cmdUserDisable(ctx context.Context, args []string, disabled bool) error {
 func cmdUserList(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("user list", flag.ExitOnError)
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
-	url := fs.String("url", "", "base URL of the trinity server")
+	url := fs.String("url", "", "base URL of the tracker")
 	colorMode := addColorFlag(fs)
 	fs.Parse(args)
 	applyColorMode(*colorMode)
@@ -1620,7 +1501,7 @@ func cmdUserList(ctx context.Context, args []string) error {
 
 	users, err := store.ListUsers(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to list users: %w", err)
+		return fmt.Errorf("couldn't list users: %w", err)
 	}
 
 	if len(users) == 0 {
@@ -1637,8 +1518,6 @@ func cmdUserList(ctx context.Context, args []string) error {
 	for _, user := range users {
 		role := "user"
 		if user.IsAdmin {
-			// admin is the row-distinguishing flag; cyan keeps it
-			// scannable without screaming.
 			role = cyan("admin")
 		}
 		if user.DisabledAt != nil {
@@ -1650,8 +1529,6 @@ func cmdUserList(ctx context.Context, args []string) error {
 		}
 		pwdChange := "no"
 		if user.PasswordChangeRequired {
-			// A pending password change is an action item — yellow
-			// flags it without claiming an actual error.
 			pwdChange = yellow("yes")
 		}
 		lastLogin := dim("never")
@@ -1671,7 +1548,7 @@ func cmdUserList(ctx context.Context, args []string) error {
 func cmdUserReset(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("user reset", flag.ExitOnError)
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
-	url := fs.String("url", "", "base URL of the trinity server")
+	url := fs.String("url", "", "base URL of the tracker")
 	fs.Parse(args)
 
 	remaining := fs.Args()
@@ -1692,7 +1569,7 @@ func cmdUserReset(ctx context.Context, args []string) error {
 	password, err := term.ReadPassword(int(os.Stdin.Fd()))
 	fmt.Println()
 	if err != nil {
-		return fmt.Errorf("failed to read password: %w", err)
+		return fmt.Errorf("couldn't read the password: %w", err)
 	}
 
 	if len(password) < 8 {
@@ -1703,20 +1580,20 @@ func cmdUserReset(ctx context.Context, args []string) error {
 	confirm, err := term.ReadPassword(int(os.Stdin.Fd()))
 	fmt.Println()
 	if err != nil {
-		return fmt.Errorf("failed to read password: %w", err)
+		return fmt.Errorf("couldn't read the password: %w", err)
 	}
 
 	if string(password) != string(confirm) {
-		return fmt.Errorf("passwords do not match")
+		return fmt.Errorf("the passwords don't match")
 	}
 
 	hash, err := auth.HashPassword(string(password))
 	if err != nil {
-		return fmt.Errorf("failed to hash password: %w", err)
+		return fmt.Errorf("couldn't hash the password: %w", err)
 	}
 
 	if err := store.ResetUserPassword(ctx, user.ID, hash); err != nil {
-		return fmt.Errorf("failed to reset password: %w", err)
+		return fmt.Errorf("couldn't reset the password: %w", err)
 	}
 
 	fmt.Printf("Password reset for '%s' (user will be required to change it on next login)\n", username)
@@ -1726,7 +1603,7 @@ func cmdUserReset(ctx context.Context, args []string) error {
 func cmdUserAdmin(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("user admin", flag.ExitOnError)
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
-	url := fs.String("url", "", "base URL of the trinity server")
+	url := fs.String("url", "", "base URL of the tracker")
 	fs.Parse(args)
 
 	remaining := fs.Args()
@@ -1745,7 +1622,7 @@ func cmdUserAdmin(ctx context.Context, args []string) error {
 
 	newAdminStatus := !user.IsAdmin
 	if err := store.UpdateUserAdmin(ctx, user.ID, newAdminStatus); err != nil {
-		return fmt.Errorf("failed to update admin status: %w", err)
+		return fmt.Errorf("couldn't update admin status: %w", err)
 	}
 
 	if newAdminStatus {
@@ -1756,22 +1633,18 @@ func cmdUserAdmin(ctx context.Context, args []string) error {
 	return nil
 }
 
-// dropToServiceUser drops to the configured service user when running as root.
-// Asset commands write into the service-owned web tree, so a bare `sudo
-// trinity ...` must not leave root-owned files the service account can't later
-// overwrite.
+// dropToServiceUser keeps a `sudo trinity ...` asset command from leaving
+// root-owned files the service can't overwrite.
 func dropToServiceUser(cfg *config.Config) {
 	if err := dropPrivileges(serviceUser(cfg)); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: failed to drop privileges: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Warning: couldn't drop privileges: %v\n", err)
 	}
 }
 
-// loadAssetConfig is the shared preamble for asset-extraction commands: load
-// config, require static_dir, then drop to the service user before any writes.
 func loadAssetConfig(configPath string) *config.Config {
 	cfg := loadCLIConfigFromFlags(configPath, "")
 	if cfg == nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to load config\n")
+		fmt.Fprintf(os.Stderr, "Error: couldn't load the config\n")
 		os.Exit(1)
 	}
 	if cfg.Server.StaticDir == "" {
@@ -1782,8 +1655,6 @@ func loadAssetConfig(configPath string) *config.Config {
 	return cfg
 }
 
-// assetInputPath resolves the source pk3 directory for an asset command: a
-// positional arg wins, otherwise the configured quake3_dir.
 func assetInputPath(cfg *config.Config, extras []string) string {
 	if len(extras) > 0 {
 		return extras[0]
@@ -1791,7 +1662,6 @@ func assetInputPath(cfg *config.Config, extras []string) string {
 	return cfg.Server.Quake3Dir
 }
 
-// cmdLevelshots extracts levelshot images from pk3 files
 func cmdLevelshots(args []string) {
 	fs := flag.NewFlagSet("levelshots", flag.ExitOnError)
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
@@ -1804,7 +1674,7 @@ func cmdLevelshots(args []string) {
 func runLevelshots(cfg *config.Config, inputPath string) {
 	outputDir := filepath.Join(cfg.Server.StaticDir, "assets", "levelshots")
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to create output directory %s: %v\n", outputDir, err)
+		fmt.Fprintf(os.Stderr, "Error: couldn't create the output directory %s: %v\n", outputDir, err)
 		os.Exit(1)
 	}
 
@@ -1828,23 +1698,20 @@ func runLevelshots(cfg *config.Config, inputPath string) {
 	fmt.Printf("Levelshots: %d extracted\n", totalExtracted)
 }
 
-// extractLevelshotsFromPk3 extracts levelshot images from a single pk3 file
 func extractLevelshotsFromPk3(pk3Path, outputDir, displayPath string) (int, error) {
 	r, err := zip.OpenReader(pk3Path)
 	if err != nil {
-		return 0, fmt.Errorf("failed to open pk3: %w", err)
+		return 0, fmt.Errorf("couldn't open the pk3: %w", err)
 	}
 	defer r.Close()
 
 	extracted := 0
 	for _, f := range r.File {
-		// Check if this is a levelshot
 		lowerName := strings.ToLower(f.Name)
 		if !strings.HasPrefix(lowerName, "levelshots/") {
 			continue
 		}
 
-		// Extract map name and extension
 		base := filepath.Base(f.Name)
 		ext := strings.ToLower(filepath.Ext(base))
 		if ext != ".jpg" && ext != ".tga" {
@@ -1854,12 +1721,10 @@ func extractLevelshotsFromPk3(pk3Path, outputDir, displayPath string) (int, erro
 		mapName := strings.TrimSuffix(base, filepath.Ext(base))
 		mapName = strings.ToLower(mapName)
 
-		// Output path is always .jpg
 		outputPath := filepath.Join(outputDir, mapName+".jpg")
 
-		// Extract and potentially convert
 		if err := extractLevelshot(f, outputPath, ext); err != nil {
-			fmt.Fprintf(os.Stderr, "  Warning: failed to extract %s: %v\n", mapName, err)
+			fmt.Fprintf(os.Stderr, "  Warning: couldn't extract %s: %v\n", mapName, err)
 			continue
 		}
 
@@ -1870,7 +1735,6 @@ func extractLevelshotsFromPk3(pk3Path, outputDir, displayPath string) (int, erro
 	return extracted, nil
 }
 
-// extractLevelshot extracts a single levelshot, converting TGA to JPG if needed
 func extractLevelshot(f *zip.File, outputPath, ext string) error {
 	rc, err := f.Open()
 	if err != nil {
@@ -1885,10 +1749,9 @@ func extractLevelshot(f *zip.File, outputPath, ext string) error {
 		img, err = tga.Decode(rc)
 	}
 	if err != nil {
-		return fmt.Errorf("failed to decode %s: %w", ext, err)
+		return fmt.Errorf("couldn't decode %s: %w", ext, err)
 	}
 
-	// Resize to 640x480 using Catmull-Rom (bicubic) interpolation
 	bounds := img.Bounds()
 	if bounds.Dx() != 640 || bounds.Dy() != 480 {
 		dst := image.NewRGBA(image.Rect(0, 0, 640, 480))
@@ -1909,7 +1772,6 @@ func extractLevelshot(f *zip.File, outputPath, ext string) error {
 	return out.Close()
 }
 
-// pk3DisplayPath returns a display-friendly path for a pk3 file relative to basePath
 func pk3DisplayPath(pk3Path, basePath string) string {
 	if rel, err := filepath.Rel(basePath, pk3Path); err == nil && !strings.HasPrefix(rel, "..") {
 		return rel
@@ -1921,7 +1783,7 @@ func getJSON(path string, target interface{}) error {
 	url := baseURL + path
 	resp, err := http.Get(url)
 	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
+		return fmt.Errorf("couldn't reach the tracker: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -1934,7 +1796,6 @@ func getJSON(path string, target interface{}) error {
 }
 
 func formatTime(isoTime string) string {
-	// Simple formatting - just show time portion
 	if idx := strings.Index(isoTime, "T"); idx != -1 {
 		time := isoTime[idx+1:]
 		if dotIdx := strings.Index(time, "."); dotIdx != -1 {
@@ -1948,9 +1809,8 @@ func formatTime(isoTime string) string {
 	return isoTime
 }
 
-// cmdArenas reads each map's worldspawn "message" longname and writes the
-// maps.json the frontend fetches. Modeled on cmdLevelshots — same input/output
-// shape; same flag set.
+// cmdArenas writes the maps.json the frontend fetches, with each map's long
+// name from its worldspawn "message".
 func cmdArenas(args []string) {
 	fs := flag.NewFlagSet("arenas", flag.ExitOnError)
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
@@ -1963,7 +1823,7 @@ func cmdArenas(args []string) {
 func runArenas(cfg *config.Config, inputPath string) {
 	outputDir := filepath.Join(cfg.Server.StaticDir, "assets")
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to create output directory %s: %v\n", outputDir, err)
+		fmt.Fprintf(os.Stderr, "Error: couldn't create the output directory %s: %v\n", outputDir, err)
 		os.Exit(1)
 	}
 
@@ -2005,7 +1865,6 @@ func runArenas(cfg *config.Config, inputPath string) {
 	}
 }
 
-// cmdPortraits extracts player portrait icons from pk3 files
 func cmdPortraits(args []string) {
 	fs := flag.NewFlagSet("portraits", flag.ExitOnError)
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
@@ -2018,7 +1877,7 @@ func cmdPortraits(args []string) {
 func runPortraits(cfg *config.Config, inputPath string) {
 	outputDir := filepath.Join(cfg.Server.StaticDir, "assets", "portraits")
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to create output directory: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error: couldn't create the output directory: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -2040,8 +1899,7 @@ func runPortraits(cfg *config.Config, inputPath string) {
 		totalExtracted += n
 	}
 
-	// Manifest is built from the extracted directory, not the pk3 walk, so
-	// icons surviving from earlier runs stay listed.
+	// Built from the output directory, so icons from earlier runs stay listed.
 	manifest, err := assets.BuildPortraitManifest(outputDir, taOnly)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: build portrait manifest: %v\n", err)
@@ -2061,15 +1919,13 @@ func runPortraits(cfg *config.Config, inputPath string) {
 	fmt.Printf("Portraits: %d extracted, %d models in %s\n", totalExtracted, len(manifest), manifestPath)
 }
 
-// extractPortraitsFromPk3 extracts player portrait icons from a pk3 file,
-// recording in taOnly whether each model's icon_default came from a
-// missionpack pk3. Mod pk3s re-bundle team skins across trees (e.g.
-// fritzkrieg red/blue in baseq3), so only the default icon — the one the
-// picker displays — decides the grouping.
+// extractPortraitsFromPk3 records in taOnly whether each model's
+// icon_default came from missionpack. Mod pk3s bundle team skins across
+// both trees, so only the default icon, the one the picker shows, decides.
 func extractPortraitsFromPk3(pk3Path, outputDir, displayPath string, taOnly map[string]bool) (int, error) {
 	r, err := zip.OpenReader(pk3Path)
 	if err != nil {
-		return 0, fmt.Errorf("failed to open pk3: %w", err)
+		return 0, fmt.Errorf("couldn't open the pk3: %w", err)
 	}
 	defer r.Close()
 
@@ -2077,7 +1933,6 @@ func extractPortraitsFromPk3(pk3Path, outputDir, displayPath string, taOnly map[
 	extracted := 0
 	for _, f := range r.File {
 		lowerName := strings.ToLower(f.Name)
-		// Match models/players/<model>/icon_<skin>.tga
 		if !strings.HasPrefix(lowerName, "models/players/") {
 			continue
 		}
@@ -2090,7 +1945,6 @@ func extractPortraitsFromPk3(pk3Path, outputDir, displayPath string, taOnly map[
 			continue
 		}
 
-		// Extract model name from path
 		parts := strings.Split(f.Name, "/")
 		if len(parts) < 4 {
 			continue
@@ -2104,32 +1958,28 @@ func extractPortraitsFromPk3(pk3Path, outputDir, displayPath string, taOnly map[
 			}
 			model = strings.ToLower(parts[3])
 		} else {
-			// Standard: models/players/<model>/icon_*.tga
 			model = strings.ToLower(parts[2])
 		}
 
-		// Create model subdirectory
 		modelDir := filepath.Join(outputDir, model)
 		if err := os.MkdirAll(modelDir, 0755); err != nil {
-			fmt.Fprintf(os.Stderr, "  Warning: failed to create directory %s: %v\n", modelDir, err)
+			fmt.Fprintf(os.Stderr, "  Warning: couldn't create directory %s: %v\n", modelDir, err)
 			continue
 		}
 
-		// Output path: portraits/<model>/icon_<skin>.png
 		outputName := strings.TrimSuffix(strings.ToLower(base), ".tga") + ".png"
 		outputPath := filepath.Join(modelDir, outputName)
 		assetName := model + "/" + outputName
 
 		if err := extractTgaToPng(f, outputPath, 128); err != nil {
-			fmt.Fprintf(os.Stderr, "  Warning: failed to extract %s: %v\n", f.Name, err)
+			fmt.Fprintf(os.Stderr, "  Warning: couldn't extract %s: %v\n", f.Name, err)
 			continue
 		}
 
 		fmt.Printf("  %s: %s\n", displayPath, assetName)
 		extracted++
 
-		// Last write wins, matching whichever icon_default.png survives
-		// on disk.
+		// The last write wins, like the icon_default.png left on disk.
 		if outputName == "icon_default.png" {
 			taOnly[model] = isTA
 		}
@@ -2138,7 +1988,6 @@ func extractPortraitsFromPk3(pk3Path, outputDir, displayPath string, taOnly map[
 	return extracted, nil
 }
 
-// cmdHeads extracts 3D head bundles (geometry + skins + textures) from pk3 files
 func cmdHeads(args []string) {
 	fs := flag.NewFlagSet("heads", flag.ExitOnError)
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
@@ -2151,7 +2000,7 @@ func cmdHeads(args []string) {
 func runHeads(cfg *config.Config, inputPath string) {
 	outputDir := filepath.Join(cfg.Server.StaticDir, "assets", "heads")
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to create output directory: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error: couldn't create the output directory: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -2194,7 +2043,7 @@ func runHeads(cfg *config.Config, inputPath string) {
 		switch {
 		case len(parts) == 2 && parts[1] == "head.md3":
 			model, assetDir = parts[0], "models/players/"+parts[0]+"/"
-		// Team Arena heads live at heads/<name>/<name>.md3, not <name>/head.md3.
+		// Team Arena heads live at heads/<name>/<name>.md3.
 		case len(parts) == 3 && parts[0] == "heads" && parts[2] == parts[1]+".md3":
 			model, assetDir = parts[1], "models/players/heads/"+parts[1]+"/"
 		default:
@@ -2209,8 +2058,7 @@ func runHeads(cfg *config.Config, inputPath string) {
 	fmt.Printf("Heads: %d extracted in %s\n", total, outputDir)
 }
 
-// writeHeadBundle encodes one head's geometry, resolves each skin surface to
-// render stages, and writes head.geo + head.json into outputDir/<model>/.
+// writeHeadBundle writes head.geo and head.json into outputDir/<model>/.
 func writeHeadBundle(model, assetDir, md3Path, md3Pk3 string, fileIndex map[string]string, shaderIndex map[string]assets.ShaderDef, outputDir string) error {
 	raw, err := assets.ReadFileFromPk3(md3Pk3, md3Path)
 	if err != nil {
@@ -2277,9 +2125,9 @@ func writeHeadBundle(model, assetDir, md3Path, md3Pk3 string, fileIndex map[stri
 	return os.WriteFile(filepath.Join(modelDir, "head.json"), mj, 0644)
 }
 
-// resolveSurfaceStages turns a skin's texture reference into render stages.
-// A matching shader yields its stages; otherwise one opaque stage from the
-// texture file. Every referenced texture is converted to a bundle-local PNG.
+// resolveSurfaceStages uses a matching shader's stages, or else one opaque
+// stage from the texture file. Every texture it touches becomes a PNG in
+// the bundle.
 func resolveSurfaceStages(texRef string, fileIndex map[string]string, shaderIndex map[string]assets.ShaderDef, modelDir string) []assets.StageManifest {
 	shaderName := strings.ToLower(strings.TrimSuffix(texRef, filepath.Ext(texRef)))
 	convert := func(ref string) (string, bool) {
@@ -2330,8 +2178,6 @@ func resolveSurfaceStages(texRef string, fileIndex map[string]string, shaderInde
 	return nil
 }
 
-// convertIndexedTextureToPng reads a texture from its source pk3 and writes it
-// as PNG. TGA/JPEG/PNG inputs are decoded by extension.
 func convertIndexedTextureToPng(virtualPath, srcPk3, outPath string) error {
 	raw, err := assets.ReadFileFromPk3(srcPk3, virtualPath)
 	if err != nil {
@@ -2359,7 +2205,6 @@ func convertIndexedTextureToPng(virtualPath, srcPk3, outPath string) error {
 	return png.Encode(out, img)
 }
 
-// cmdMedals extracts medal icons from pk3 files
 func cmdMedals(args []string) {
 	fs := flag.NewFlagSet("medals", flag.ExitOnError)
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
@@ -2372,7 +2217,7 @@ func cmdMedals(args []string) {
 func runMedals(cfg *config.Config, inputPath string) {
 	outputDir := filepath.Join(cfg.Server.StaticDir, "assets", "medals")
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to create output directory: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error: couldn't create the output directory: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -2396,11 +2241,10 @@ func runMedals(cfg *config.Config, inputPath string) {
 	fmt.Printf("Medals: %d extracted\n", totalExtracted)
 }
 
-// extractMedalsFromPk3 extracts medal icons from a pk3 file
 func extractMedalsFromPk3(pk3Path, outputDir, displayPath string) (int, error) {
 	r, err := zip.OpenReader(pk3Path)
 	if err != nil {
-		return 0, fmt.Errorf("failed to open pk3: %w", err)
+		return 0, fmt.Errorf("couldn't open the pk3: %w", err)
 	}
 	defer r.Close()
 
@@ -2409,7 +2253,6 @@ func extractMedalsFromPk3(pk3Path, outputDir, displayPath string) (int, error) {
 		lowerName := strings.ToLower(f.Name)
 		base := strings.ToLower(filepath.Base(f.Name))
 
-		// Match menu/medals/medal_*.tga or ui/assets/medal_*.tga
 		isMedalPath := (strings.HasPrefix(lowerName, "menu/medals/") || strings.HasPrefix(lowerName, "ui/assets/")) &&
 			strings.HasPrefix(base, "medal_") &&
 			strings.HasSuffix(base, ".tga")
@@ -2418,12 +2261,11 @@ func extractMedalsFromPk3(pk3Path, outputDir, displayPath string) (int, error) {
 			continue
 		}
 
-		// Output: medals/medal_*.png (flat structure)
 		outputName := strings.TrimSuffix(base, ".tga") + ".png"
 		outputPath := filepath.Join(outputDir, outputName)
 
 		if err := extractTgaToPng(f, outputPath, 128); err != nil {
-			fmt.Fprintf(os.Stderr, "  Warning: failed to extract %s: %v\n", f.Name, err)
+			fmt.Fprintf(os.Stderr, "  Warning: couldn't extract %s: %v\n", f.Name, err)
 			continue
 		}
 
@@ -2434,7 +2276,6 @@ func extractMedalsFromPk3(pk3Path, outputDir, displayPath string) (int, error) {
 	return extracted, nil
 }
 
-// cmdSkills extracts skill icons from pk3 files
 func cmdSkills(args []string) {
 	fs := flag.NewFlagSet("skills", flag.ExitOnError)
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
@@ -2447,7 +2288,7 @@ func cmdSkills(args []string) {
 func runSkills(cfg *config.Config, inputPath string) {
 	outputDir := filepath.Join(cfg.Server.StaticDir, "assets", "skills")
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to create output directory: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error: couldn't create the output directory: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -2471,11 +2312,10 @@ func runSkills(cfg *config.Config, inputPath string) {
 	fmt.Printf("Skills: %d extracted\n", totalExtracted)
 }
 
-// extractSkillsFromPk3 extracts skill icons from a pk3 file
 func extractSkillsFromPk3(pk3Path, outputDir, displayPath string) (int, error) {
 	r, err := zip.OpenReader(pk3Path)
 	if err != nil {
-		return 0, fmt.Errorf("failed to open pk3: %w", err)
+		return 0, fmt.Errorf("couldn't open the pk3: %w", err)
 	}
 	defer r.Close()
 
@@ -2484,26 +2324,24 @@ func extractSkillsFromPk3(pk3Path, outputDir, displayPath string) (int, error) {
 		lowerName := strings.ToLower(f.Name)
 		base := strings.ToLower(filepath.Base(f.Name))
 
-		// Match menu/art/skill[1-5].tga
+		// menu/art/skill[1-5].tga
 		if !strings.HasPrefix(lowerName, "menu/art/") {
 			continue
 		}
 		if !strings.HasPrefix(base, "skill") || !strings.HasSuffix(base, ".tga") {
 			continue
 		}
-		// Verify it's skill1-5
 		numPart := strings.TrimPrefix(base, "skill")
 		numPart = strings.TrimSuffix(numPart, ".tga")
 		if len(numPart) != 1 || numPart[0] < '1' || numPart[0] > '5' {
 			continue
 		}
 
-		// Output: skills/skill[1-5].png
 		outputName := strings.TrimSuffix(base, ".tga") + ".png"
 		outputPath := filepath.Join(outputDir, outputName)
 
 		if err := extractTgaToPng(f, outputPath, 128); err != nil {
-			fmt.Fprintf(os.Stderr, "  Warning: failed to extract %s: %v\n", f.Name, err)
+			fmt.Fprintf(os.Stderr, "  Warning: couldn't extract %s: %v\n", f.Name, err)
 			continue
 		}
 
@@ -2514,29 +2352,23 @@ func extractSkillsFromPk3(pk3Path, outputDir, displayPath string) (int, error) {
 	return extracted, nil
 }
 
-// flagTeamColors maps the team suffix on the output PNG to the RGB
-// color the source TGA's white silhouette is recolored to. The
-// "neutral" white tint passes the source luminance through unchanged
-// for 1FCTF, where there is one shared neutral flag and team color
-// would mislead.
+// flagTeamColors tints the source's white silhouette per team. "neutral"
+// keeps it white for the One Flag CTF flag.
 var flagTeamColors = map[string]color.NRGBA{
 	"red":     {R: 0xFF, G: 0x44, B: 0x44, A: 0xFF},
 	"blue":    {R: 0x66, G: 0x88, B: 0xFF, A: 0xFF},
 	"neutral": {R: 0xFF, G: 0xFF, B: 0xFF, A: 0xFF},
 }
 
-// flagSourceStates lists the missionpack pak0 statusbar TGA stems that
-// FlagIcon.tsx renders. Each one is emitted three times — once per team color.
+// flagSourceStates are the missionpack statusbar images FlagIcon.tsx
+// shows, each written once per team color.
 var flagSourceStates = []string{"flag_in_base", "flag_capture", "flag_missing"}
 
-// cmdObjectives extracts objective-state silhouettes, mirroring each
-// source's in-game path:
-//   - ui/assets/statusbar/flag_*.tga → <static>/assets/flags/   (tinted per team)
-//   - icons/skull_{red,blue}.tga     → <static>/assets/icons/   (tinted per team)
+// cmdObjectives writes team-tinted objective icons:
+//   - ui/assets/statusbar/flag_*.tga → <static>/assets/flags/
+//   - icons/skull_{red,blue}.tga     → <static>/assets/icons/
 //
-// Both pass through the same flagTeamColors palette so the skull and
-// flag indicators read as visually consistent. Medal art (medal_skull,
-// medal_obelisk) is `trinity medals`, not this command.
+// Both use flagTeamColors so skulls and flags match.
 func cmdObjectives(args []string) {
 	fs := flag.NewFlagSet("objectives", flag.ExitOnError)
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
@@ -2551,7 +2383,7 @@ func runObjectives(cfg *config.Config, inputPath string) {
 	iconsDir := filepath.Join(cfg.Server.StaticDir, "assets", "icons")
 	for _, d := range []string{flagsDir, iconsDir} {
 		if err := os.MkdirAll(d, 0755); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: failed to create output directory %s: %v\n", d, err)
+			fmt.Fprintf(os.Stderr, "Error: couldn't create the output directory %s: %v\n", d, err)
 			os.Exit(1)
 		}
 	}
@@ -2576,12 +2408,10 @@ func runObjectives(cfg *config.Config, inputPath string) {
 	fmt.Printf("Objectives: %d extracted\n", totalExtracted)
 }
 
-// extractObjectivesFromPk3 walks one pk3; flag silhouettes → flagsDir,
-// skull HUD icons → iconsDir. See cmdObjectives for the path contract.
 func extractObjectivesFromPk3(pk3Path, flagsDir, iconsDir, displayPath string) (int, error) {
 	r, err := zip.OpenReader(pk3Path)
 	if err != nil {
-		return 0, fmt.Errorf("failed to open pk3: %w", err)
+		return 0, fmt.Errorf("couldn't open the pk3: %w", err)
 	}
 	defer r.Close()
 
@@ -2593,7 +2423,6 @@ func extractObjectivesFromPk3(pk3Path, flagsDir, iconsDir, displayPath string) (
 			continue
 		}
 
-		// Flag silhouettes — one tinted PNG per team.
 		if strings.HasPrefix(lowerName, "ui/assets/statusbar/") {
 			stem := strings.TrimSuffix(base, ".tga")
 			matched := false
@@ -2610,7 +2439,7 @@ func extractObjectivesFromPk3(pk3Path, flagsDir, iconsDir, displayPath string) (
 				outputName := stem + "_" + team + ".png"
 				outputPath := filepath.Join(flagsDir, outputName)
 				if err := extractFlagToPng(f, outputPath, flagTeamColors[team], 128); err != nil {
-					fmt.Fprintf(os.Stderr, "  Warning: failed to extract %s as %s: %v\n", f.Name, team, err)
+					fmt.Fprintf(os.Stderr, "  Warning: couldn't extract %s as %s: %v\n", f.Name, team, err)
 					continue
 				}
 				fmt.Printf("  %s: %s\n", displayPath, outputName)
@@ -2619,9 +2448,7 @@ func extractObjectivesFromPk3(pk3Path, flagsDir, iconsDir, displayPath string) (
 			continue
 		}
 
-		// Harvester skull icons — tinted with the same team palette as
-		// the flag silhouettes so the two indicators read as visually
-		// consistent (raw missionpack source is too saturated).
+		// The missionpack skulls are too saturated, so they're retinted.
 		if strings.HasPrefix(lowerName, "icons/") {
 			var team string
 			switch base {
@@ -2635,7 +2462,7 @@ func extractObjectivesFromPk3(pk3Path, flagsDir, iconsDir, displayPath string) (
 			outputName := strings.TrimSuffix(base, ".tga") + ".png"
 			outputPath := filepath.Join(iconsDir, outputName)
 			if err := extractSkullToPng(f, outputPath, flagTeamColors[team], 128); err != nil {
-				fmt.Fprintf(os.Stderr, "  Warning: failed to extract %s: %v\n", f.Name, err)
+				fmt.Fprintf(os.Stderr, "  Warning: couldn't extract %s: %v\n", f.Name, err)
 				continue
 			}
 			fmt.Printf("  %s: %s\n", displayPath, outputName)
@@ -2647,15 +2474,9 @@ func extractObjectivesFromPk3(pk3Path, flagsDir, iconsDir, displayPath string) (
 	return extracted, nil
 }
 
-// extractSkullToPng decodes a colored skull TGA and recolors it with
-// the team tint (matching the desaturated flagTeamColors palette)
-// while preserving source alpha for the transparent background.
-// Uses max(R,G,B) as the intensity signal — generalizes the flag's
-// "R alone" approach to work with colored sources (red skull, blue
-// skull). For a grayscale source this equals R; for a fully-red
-// pixel max=R; for a fully-blue pixel max=B. Either way the silhouette
-// brightness reaches 255 where the source is fully on, so the tint
-// renders at full saturation rather than dimming by Rec. 601 weighting.
+// extractSkullToPng keeps the source alpha and takes intensity from
+// max(R,G,B), so a fully red or fully blue skull still reaches full
+// brightness under the tint.
 func extractSkullToPng(f *zip.File, outputPath string, tint color.NRGBA, targetSize int) error {
 	rc, err := f.Open()
 	if err != nil {
@@ -2701,12 +2522,9 @@ func extractSkullToPng(f *zip.File, outputPath string, tint color.NRGBA, targetS
 	return png.Encode(out, dst)
 }
 
-// extractFlagToPng decodes the source statusbar TGA (32-bit RGBA where
-// alpha is always 255 — the silhouette is a luminance ramp from black
-// foreground to white background) and emits a fully-opaque, two-tone
-// PNG: white pixels become the team color, dark pixels become black,
-// midtones lerp between them. Output is then scaled to targetSize with
-// Catmull-Rom.
+// extractFlagToPng reads the red channel as luminance: the source is
+// opaque, with the silhouette drawn as a black-to-white ramp. White
+// becomes the team color and black stays black.
 func extractFlagToPng(f *zip.File, outputPath string, tint color.NRGBA, targetSize int) error {
 	rc, err := f.Open()
 	if err != nil {
@@ -2746,10 +2564,8 @@ func extractFlagToPng(f *zip.File, outputPath string, tint color.NRGBA, targetSi
 	return png.Encode(out, dst)
 }
 
-// cmdAssets runs all asset extraction commands
-// cmdMapsync regenerates exactly the artifacts derived from the installed map
-// set (levelshots, maps.json, demo pk3s), so adding or changing maps is a
-// single command.
+// cmdMapsync regenerates everything derived from the installed maps:
+// levelshots, maps.json and the demo pk3s.
 func cmdMapsync(args []string) {
 	fs := flag.NewFlagSet("mapsync", flag.ExitOnError)
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
@@ -2758,15 +2574,15 @@ func cmdMapsync(args []string) {
 	cfg := loadAssetConfig(*configPath)
 	inputPath := assetInputPath(cfg, fs.Args())
 
-	fmt.Println("=== Extracting Levelshots ===")
+	fmt.Println("=== Extracting levelshots ===")
 	runLevelshots(cfg, inputPath)
 	fmt.Println()
 
-	fmt.Println("=== Extracting Map Names ===")
+	fmt.Println("=== Extracting map names ===")
 	runArenas(cfg, inputPath)
 	fmt.Println()
 
-	fmt.Println("=== Baking Demo pk3s ===")
+	fmt.Println("=== Baking demo pk3s ===")
 	runDemobake(cfg, inputPath, "")
 	fmt.Println()
 
@@ -2781,38 +2597,37 @@ func cmdAssets(args []string) {
 	cfg := loadAssetConfig(*configPath)
 	inputPath := assetInputPath(cfg, fs.Args())
 
-	fmt.Println("=== Extracting Levelshots ===")
+	fmt.Println("=== Extracting levelshots ===")
 	runLevelshots(cfg, inputPath)
 	fmt.Println()
 
-	fmt.Println("=== Extracting Portraits ===")
+	fmt.Println("=== Extracting portraits ===")
 	runPortraits(cfg, inputPath)
 	fmt.Println()
 
-	fmt.Println("=== Extracting Heads ===")
+	fmt.Println("=== Extracting heads ===")
 	runHeads(cfg, inputPath)
 	fmt.Println()
 
-	fmt.Println("=== Extracting Medals ===")
+	fmt.Println("=== Extracting medals ===")
 	runMedals(cfg, inputPath)
 	fmt.Println()
 
-	fmt.Println("=== Extracting Skills ===")
+	fmt.Println("=== Extracting skills ===")
 	runSkills(cfg, inputPath)
 	fmt.Println()
 
-	fmt.Println("=== Extracting Objectives ===")
+	fmt.Println("=== Extracting objectives ===")
 	runObjectives(cfg, inputPath)
 	fmt.Println()
 
-	fmt.Println("=== Extracting Map Names ===")
+	fmt.Println("=== Extracting map names ===")
 	runArenas(cfg, inputPath)
 	fmt.Println()
 
 	fmt.Println("=== All asset extraction complete ===")
 }
 
-// cmdDemobake builds baseline pk3s, manifest, and all map pk3s
 func cmdDemobake(args []string) {
 	fs := flag.NewFlagSet("demobake", flag.ExitOnError)
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
@@ -2821,7 +2636,7 @@ func cmdDemobake(args []string) {
 
 	cfg := loadCLIConfigFromFlags(*configPath, "")
 	if cfg == nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to load config\n")
+		fmt.Fprintf(os.Stderr, "Error: couldn't load the config\n")
 		os.Exit(1)
 	}
 	dropToServiceUser(cfg)
@@ -2829,8 +2644,7 @@ func cmdDemobake(args []string) {
 	runDemobake(cfg, assetInputPath(cfg, fs.Args()), *output)
 }
 
-// runDemobake bakes baseline + per-map pk3s into outputOverride, or
-// {static_dir}/demopk3s when empty.
+// runDemobake writes to {static_dir}/demopk3s unless outputOverride is set.
 func runDemobake(cfg *config.Config, quake3Dir, outputOverride string) {
 	outputDir := outputOverride
 	if outputDir == "" {
@@ -2853,7 +2667,7 @@ func cmdUnpackmaps(args []string) {
 	fs := flag.NewFlagSet("unpackmaps", flag.ExitOnError)
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
 	output := fs.String("output", "", "output directory (default: ./<firstsource>-maps/)")
-	quake3Dir := fs.String("quake3-dir", "", "Quake3 dir holding stock paks (default: config, else /usr/lib/quake3)")
+	quake3Dir := fs.String("quake3-dir", "", "Quake III directory holding the stock paks (default: config, else /usr/lib/quake3)")
 	prefix := fs.String("prefix", "", "output filename prefix, e.g. ql-")
 	game := fs.String("game", "baseq3", "target game whose stock assets the client has: baseq3 or missionpack")
 	dryRun := fs.Bool("dry-run", false, "print the split report without writing pk3s")
@@ -2916,7 +2730,7 @@ func printSplitReport(report *assets.SplitReport, dryRun bool, outputDir string)
 	fmt.Printf("%s %d map pk3s to %s (%s)\n", verb, len(report.Maps), outputDir, mb(report.TotalBytes))
 	fmt.Printf("Dropped %d unreferenced files (%s)\n", report.DeadFiles, mb(report.DeadBytes))
 	if len(report.Failed) > 0 {
-		fmt.Printf("Failed: %d — %s\n", len(report.Failed), strings.Join(report.Failed, ", "))
+		fmt.Printf("Failed (%d): %s\n", len(report.Failed), strings.Join(report.Failed, ", "))
 	}
 	var withMissing []assets.MapReport
 	for _, m := range report.Maps {
@@ -2932,7 +2746,7 @@ func printSplitReport(report *assets.SplitReport, dryRun bool, outputDir string)
 	}
 }
 
-// dropPrivileges switches to the given service user. No-op if not root.
+// dropPrivileges does nothing unless running as root.
 func dropPrivileges(username string) error {
 	if os.Getuid() != 0 {
 		return nil
@@ -2952,7 +2766,6 @@ func dropPrivileges(username string) error {
 	return nil
 }
 
-// serviceUser returns the service user from config, defaulting to "quake"
 func serviceUser(cfg *config.Config) string {
 	if cfg != nil && cfg.Server.ServiceUser != "" {
 		return cfg.Server.ServiceUser
@@ -2960,7 +2773,6 @@ func serviceUser(cfg *config.Config) string {
 	return "quake"
 }
 
-// useSystemd returns whether systemd integration is enabled
 func useSystemd(cfg *config.Config) bool {
 	if cfg != nil && cfg.Server.UseSystemd != nil {
 		return *cfg.Server.UseSystemd
@@ -2968,13 +2780,11 @@ func useSystemd(cfg *config.Config) bool {
 	return detectSystemd()
 }
 
-// detectSystemd checks if the system is running systemd
 func detectSystemd() bool {
 	_, err := os.Stat("/run/systemd/system")
 	return err == nil
 }
 
-// systemctlRun executes a systemctl command, printing stderr on failure
 func systemctlRun(args ...string) error {
 	cmd := exec.Command("systemctl", args...)
 	cmd.Stdout = os.Stdout
@@ -2982,7 +2792,6 @@ func systemctlRun(args ...string) error {
 	return cmd.Run()
 }
 
-// systemctlIsActive returns the active state of a systemd unit
 func systemctlIsActive(unit string) string {
 	out, err := exec.Command("systemctl", "is-active", unit).Output()
 	if err != nil {
@@ -2991,7 +2800,6 @@ func systemctlIsActive(unit string) string {
 	return strings.TrimSpace(string(out))
 }
 
-// writeEnvFile creates a server environment file
 func writeEnvFile(path string, port int, game string) error {
 	opts := fmt.Sprintf("+set net_port %d", port)
 	if game != "" && game != "baseq3" {
@@ -3001,7 +2809,6 @@ func writeEnvFile(path string, port int, game string) error {
 	return os.WriteFile(path, []byte(content), 0644)
 }
 
-// readEnvFile parses a server environment file for port and game
 func readEnvFile(path string) (port int, game string, err error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -3035,37 +2842,29 @@ func readEnvFile(path string) (port int, game string, err error) {
 	return port, game, scanner.Err()
 }
 
-// cmdInit walks the operator through an interactive install of one
-// of the three Trinity modes (hub+collector, hub-only, collector-only).
-// On a TTY it prompts; without one it errors out and prints the
-// flag set required to drive it from a script.
-//
-// Refuses to run when /etc/trinity/config.yml already exists. There
-// is no --force: if the operator wants to re-init, they delete the
-// file themselves — a deliberate act that protects against accidents.
+// cmdInit is the interactive installer. It won't run over an existing
+// config, so re-running it means deleting the config by hand first.
 func cmdInit(args []string) {
 	fs := flag.NewFlagSet("init", flag.ExitOnError)
 	noSystemd := fs.Bool("no-systemd", false, "skip systemd unit installation")
 	dryRun := fs.Bool("dry-run", false, "print what would happen instead of doing it (no root required)")
-	// --allow-hub is intentionally undocumented in --help. Trinity's
-	// front door is a collector that joins trinity.run; standing up
-	// your own hub is an expert path covered in docs/distributed-deployment.md.
+	// Hidden: the supported install is a collector that joins trinity.run.
+	// docs/distributed-deployment.md covers running a hub.
 	allowHub := fs.Bool("allow-hub", false, "")
 	_ = fs.MarkHidden("allow-hub")
-	skipCert := fs.Bool("skip-cert", false, "install nginx + render config + reload, but skip the certbot run (caller has staged /etc/letsencrypt/live/<host>/ already; used during hub migrations)")
-	skipFirewall := fs.Bool("skip-firewall", false, "do not poke ufw/firewalld; operator manages host firewall via cloud dashboard, nftables, or config-management")
-	skipNginx := fs.Bool("skip-nginx", false, "do not install or configure nginx; operator runs their own reverse proxy (Caddy, Traefik, etc.). Implies --skip-cert.")
-	skipLogrotate := fs.Bool("skip-logrotate", false, "do not write /etc/logrotate.d/quake3; operator manages log rotation via fluent-bit, vector, journald-only, etc.")
+	skipCert := fs.Bool("skip-cert", false, "install nginx, render its config and reload it, but skip certbot (for a caller that already staged /etc/letsencrypt/live/<host>/, as in a hub migration)")
+	skipFirewall := fs.Bool("skip-firewall", false, "leave ufw and firewalld alone, for hosts whose firewall is managed another way (cloud dashboard, nftables, config management)")
+	skipNginx := fs.Bool("skip-nginx", false, "do not install or configure nginx, for hosts running their own reverse proxy (Caddy, Traefik and so on). Implies --skip-cert.")
+	skipLogrotate := fs.Bool("skip-logrotate", false, "do not write /etc/logrotate.d/quake3, for hosts that rotate logs another way (fluent-bit, vector, journald only)")
 	configPathFlag := fs.String("config", "/etc/trinity/config.yml", "destination config path")
 	fs.Parse(args)
 
-	// --skip-nginx implies --skip-cert (no nginx → no certbot --nginx run).
 	if *skipNginx {
 		*skipCert = true
 	}
 
-	// Dry-run is for previewing/testing: no host state changes, so no
-	// root is needed and an existing config is fine to "re-plan" against.
+	// A dry run changes nothing, so it needs no root and may run over an
+	// existing config.
 	if !*dryRun && os.Getuid() != 0 {
 		fmt.Fprintln(os.Stderr, "Error: trinity init must be run as root (or use --dry-run).")
 		os.Exit(1)
@@ -3082,8 +2881,8 @@ func cmdInit(args []string) {
 	}
 
 	if !setup.IsTTY() && !*dryRun {
-		fmt.Fprintln(os.Stderr, "Error: trinity init is interactive — run it from a terminal.")
-		fmt.Fprintln(os.Stderr, "For unattended/scripted installs, write /etc/trinity/config.yml directly")
+		fmt.Fprintln(os.Stderr, "Error: trinity init is interactive. Run it from a terminal.")
+		fmt.Fprintln(os.Stderr, "For unattended or scripted installs, write /etc/trinity/config.yml directly")
 		fmt.Fprintln(os.Stderr, "and use `trinity server add` to add servers afterward.")
 		os.Exit(1)
 	}
@@ -3104,9 +2903,7 @@ func cmdInit(args []string) {
 		SkipLogrotate: *skipLogrotate,
 	})
 	if errors.Is(err, setup.ErrMissingPrereqs) {
-		// The wizard already printed the "go get the creds file"
-		// hint — exit non-zero (so install.sh sees the failure) but
-		// with no extra noise.
+		// The wizard already explained; install.sh still needs the failure.
 		os.Exit(1)
 	}
 	if err != nil {
@@ -3115,7 +2912,7 @@ func cmdInit(args []string) {
 	}
 
 	if err := answers.Validate(); err != nil {
-		fmt.Fprintf(os.Stderr, "Answers invalid: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Invalid answers: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -3129,7 +2926,7 @@ func cmdInit(args []string) {
 		fmt.Fprintln(os.Stderr, "  Web assets:  ", answers.StaticDir)
 	}
 	if answers.RunsLocalServers() {
-		fmt.Fprintln(os.Stderr, "  Quake3 dir:  ", answers.Quake3Dir)
+		fmt.Fprintln(os.Stderr, "  Game dir:    ", answers.Quake3Dir)
 		if answers.InstallEngine {
 			fmt.Fprintln(os.Stderr, "  Engine:       latest from github.com/ernie/trinity-engine")
 		}
@@ -3151,7 +2948,7 @@ func cmdInit(args []string) {
 	}
 	confirm, err := prompter.YesNo(prompt, true)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Read confirm: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Couldn't read your answer: %v\n", err)
 		os.Exit(1)
 	}
 	if !confirm {
@@ -3165,10 +2962,8 @@ func cmdInit(args []string) {
 		DryRun:     *dryRun,
 		Out:        os.Stderr,
 	})
-	// Either way, drop the install-time staging dir install.sh handed
-	// us via TRINITY_INIT_STAGE — Apply has either consumed the web/
-	// payload or never will. Skip in dry-run so the operator can
-	// re-run with confidence.
+	// Apply is done with install.sh's staging dir whether or not it
+	// succeeded; a dry run keeps it for the real run.
 	if !*dryRun {
 		setup.CleanupStage()
 	}
@@ -3179,14 +2974,12 @@ func cmdInit(args []string) {
 
 	if *dryRun {
 		fmt.Fprintln(os.Stderr)
-		fmt.Fprintln(os.Stderr, "Dry run complete — no changes made. Re-run without --dry-run as root to apply.")
+		fmt.Fprintln(os.Stderr, "Dry run complete; nothing changed. Run it again as root without --dry-run to apply.")
 		return
 	}
 
-	// Pak placement + auto-start. Runs only for installs that host
-	// servers locally — hub-only installs don't have a quake3 dir to
-	// drop paks into. Best-effort: any failure inside falls back to
-	// the manual hints below.
+	// Places the paks and starts services; whatever it can't do falls
+	// to the next steps printed below.
 	var pakResult setup.PakStepResult
 	if answers.RunsLocalServers() {
 		cwd, _ := os.Getwd()
@@ -3202,23 +2995,20 @@ func cmdInit(args []string) {
 		})
 	}
 
-	// Compute leftover work before printing anything — when there's
-	// nothing for the operator to do, the install ends on a celebration,
-	// not an empty "Next steps:" header.
 	needStart := useSd && !pakResult.Started
 	needBake := answers.Mode == setup.ModeCollector && !pakResult.Baked
 
 	fmt.Fprintln(os.Stderr)
 	if !needStart && !needBake {
 		if pakResult.Started {
-			fmt.Fprintln(os.Stderr, "All set — Trinity and your q3 servers are running.")
+			fmt.Fprintln(os.Stderr, "All set. Trinity and your Quake III servers are running.")
 		} else {
 			fmt.Fprintln(os.Stderr, "All set.")
 		}
 		if answers.HubHost != "" {
 			fmt.Fprintf(os.Stderr, "Find your source on the hub: https://%s/\n", answers.HubHost)
 		}
-		fmt.Fprintln(os.Stderr, "Now go play some Quake 3.")
+		fmt.Fprintln(os.Stderr, "Now go play some Quake III.")
 		return
 	}
 
@@ -3234,16 +3024,14 @@ func cmdInit(args []string) {
 	}
 	if needBake {
 		fmt.Fprintf(os.Stderr, "  %d. Required: generate the levelshot images and demo-playback pk3s the\n", step)
-		fmt.Fprintln(os.Stderr, "     hub serves to web viewers. Re-run when you add new maps.")
-		// Absolute path because `sudo -u` uses the target user's PATH,
-		// which on locked-down systems may not include /usr/local/bin.
+		fmt.Fprintln(os.Stderr, "     hub serves to web viewers. Run these again when you add new maps.")
+		// The target user's PATH may lack /usr/local/bin.
 		fmt.Fprintf(os.Stderr, "       sudo -u %s /usr/local/bin/trinity levelshots\n", answers.ServiceUser)
 		fmt.Fprintf(os.Stderr, "       sudo -u %s /usr/local/bin/trinity demobake\n", answers.ServiceUser)
 		step++
 	}
 }
 
-// cmdServer dispatches server subcommands
 func cmdServer(args []string) {
 	if len(args) < 1 {
 		fmt.Fprintf(os.Stderr, "Error: server subcommand required: list, add, remove\n")
@@ -3292,13 +3080,11 @@ func cmdServerList(args []string) {
 	statusCol := column{header: "STATUS"}
 
 	for _, srv := range cfg.Q3Servers {
-		// Extract port from address
 		port := ""
 		if parts := strings.SplitN(srv.Address, ":", 2); len(parts) == 2 {
 			port = parts[1]
 		}
 
-		// Try to read game from env file
 		serverName := strings.ToLower(srv.Key)
 		game := "baseq3"
 		envPath := filepath.Join(configDir, serverName+".env")
@@ -3316,8 +3102,6 @@ func cmdServerList(args []string) {
 		if useSd {
 			unit := "quake3-server@" + serverName
 			status := systemctlIsActive(unit)
-			// Color the status by what systemctl says — green for
-			// active, red for failed/inactive, dim otherwise.
 			coloredStatus := status
 			switch strings.TrimSpace(status) {
 			case "active":
@@ -3338,11 +3122,11 @@ func cmdServerList(args []string) {
 	}
 }
 
-// nextAvailablePort finds the lowest unused port >= 27960 based on existing config entries and env files
+// nextAvailablePort returns the lowest port from 27960 up that neither the
+// config nor an .env file uses.
 func nextAvailablePort(cfg *config.Config, configDir string) int {
 	used := make(map[int]bool)
 
-	// Scan config entries for ports in addresses
 	for _, srv := range cfg.Q3Servers {
 		if parts := strings.SplitN(srv.Address, ":", 2); len(parts) == 2 {
 			if p, err := strconv.Atoi(parts[1]); err == nil {
@@ -3351,7 +3135,6 @@ func nextAvailablePort(cfg *config.Config, configDir string) int {
 		}
 	}
 
-	// Scan env files
 	entries, _ := os.ReadDir(configDir)
 	for _, e := range entries {
 		if strings.HasSuffix(e.Name(), ".env") {
@@ -3368,18 +3151,16 @@ func nextAvailablePort(cfg *config.Config, configDir string) int {
 	}
 }
 
-// cmdServerAdd adds a new game server instance. With no name and on
-// a TTY, drops into the wizard's per-server prompt loop (gametype +
-// port + RCON + log path), writes the .env file (port + +exec the
-// shared <stem>.cfg) and the shared <stem>.cfg + rotation.<stem> if
-// they don't already exist, and enables the systemd template instance.
-// With a name and explicit flags, runs non-interactively for scripts.
+// cmdServerAdd prompts on a TTY when given no name, and otherwise runs
+// from flags. It writes the server's .env file, writes the game type's
+// shared <stem>.cfg and rotation.<stem> if they're missing, and enables
+// the systemd instance.
 func cmdServerAdd(args []string) {
 	fs := flag.NewFlagSet("server add", flag.ExitOnError)
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
 	port := fs.Int("port", 0, "server port (default: next available)")
 	gametypeFlag := fs.String("gametype", "", "gametype: ffa, tournament, tdm, ctf, oneflag, overload, harvester")
-	taFlag := fs.Bool("ta", false, "run under fs_game=missionpack (Team Arena weapons + maps); only meaningful for tdm/ctf")
+	taFlag := fs.Bool("ta", false, "run under fs_game=missionpack (Team Arena weapons and maps); applies to tdm and ctf only")
 	rconPassword := fs.String("rcon-password", "", "RCON password (default: generate)")
 	logPath := fs.String("log-path", "", "log file path")
 	allowHubAdminRcon := fs.Bool("allow-hub-admin-rcon", false, "allow hub admins to RCON this server in your absence (default: false)")
@@ -3405,7 +3186,7 @@ func cmdServerAdd(args []string) {
 	answers := answersFromConfig(cfg)
 	var s setup.ServerAnswers
 	if interactive {
-		fmt.Fprintln(os.Stderr, "Add a q3 server.")
+		fmt.Fprintln(os.Stderr, "Add a Quake III server.")
 		s, err = setup.PromptServer(setup.NewStdPrompter(), answers, len(cfg.Q3Servers))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Wizard failed: %v\n", err)
@@ -3419,10 +3200,7 @@ func cmdServerAdd(args []string) {
 		}
 	}
 
-	// Reject duplicates after collection — the wizard accepts any key
-	// the operator types; we enforce uniqueness here against the live
-	// config (rather than re-prompting in the wizard, which would
-	// require it to know about existing config state).
+	// The wizard accepts any key, so uniqueness is checked here.
 	for _, existing := range cfg.Q3Servers {
 		if strings.EqualFold(existing.Key, s.Key) {
 			fmt.Fprintf(os.Stderr, "Error: server '%s' already exists\n", s.Key)
@@ -3432,8 +3210,6 @@ func cmdServerAdd(args []string) {
 
 	uid, gid := uidGid(sysUser)
 
-	// Root-only steps first (systemd, file mode/ownership we couldn't
-	// set after privilege drop).
 	if useSd && os.Getuid() == 0 {
 		unit := "quake3-server@" + s.Key
 		if err := systemctlRun("enable", unit); err != nil {
@@ -3445,8 +3221,6 @@ func cmdServerAdd(args []string) {
 
 	stem := setup.Stem(s.Gametype, s.UseMissionpack)
 
-	// Write env file (in /etc/trinity, root-owned but group-readable
-	// by the service user; matches what `trinity init` writes).
 	envPath := filepath.Join(configDir, s.Key+".env")
 	opts := fmt.Sprintf("+set net_port %d", s.Port)
 	if s.RunsMissionpack() {
@@ -3459,16 +3233,15 @@ func cmdServerAdd(args []string) {
 	}
 	fmt.Println("Wrote:", envPath)
 
-	// Shared <stem>.cfg + rotation.<stem>: only write if absent (other
-	// servers of this gametype already installed them).
+	// Servers of the same game type share these files.
 	if cfg.Server.Quake3Dir != "" {
 		cfgPath := filepath.Join(cfg.Server.Quake3Dir, s.ModFolder(), stem+".cfg")
 		if _, err := os.Stat(cfgPath); err == nil {
-			fmt.Printf("  NOTE: %s already exists — left alone (existing rconpassword preserved).\n", cfgPath)
+			fmt.Printf("  Note: %s already exists, so it was left alone and its rconpassword kept.\n", cfgPath)
 		} else if body, rerr := setup.RenderServerCfg(s.Gametype, s.UseMissionpack, s.RconPassword); rerr != nil {
 			fmt.Fprintf(os.Stderr, "Warning: cfg template render: %v\n", rerr)
 		} else if err := os.MkdirAll(filepath.Dir(cfgPath), 0755); err == nil {
-			// 0640 root:<service-user> — rconpassword is in this file.
+			// It holds the rconpassword.
 			if err := os.WriteFile(cfgPath, []byte(body), 0640); err != nil {
 				fmt.Fprintf(os.Stderr, "Error writing %s: %v\n", cfgPath, err)
 			} else {
@@ -3490,9 +3263,7 @@ func cmdServerAdd(args []string) {
 		}
 	}
 
-	// Append to config.yml (after side files, so a config save failure
-	// doesn't leave us inconsistent — env+cfg without a config entry
-	// is benign; reverse is harder to debug).
+	// Saved last: stray files without a config entry are harmless.
 	server := config.Q3Server{
 		Key:               s.Key,
 		Address:           s.Address,
@@ -3515,25 +3286,20 @@ func cmdServerAdd(args []string) {
 	}
 }
 
-// answersFromConfig builds a minimal *setup.Answers from the live
-// config so PromptServer can derive defaults (PublicURL → address
-// host, etc.) without re-prompting the operator.
+// answersFromConfig gives PromptServer what it needs for its defaults.
 func answersFromConfig(cfg *config.Config) *setup.Answers {
 	a := &setup.Answers{Quake3Dir: cfg.Server.Quake3Dir}
 	if cfg.Tracker != nil && cfg.Tracker.Collector != nil {
 		a.PublicURL = cfg.Tracker.Collector.PublicURL
 	}
-	// Just the keys — PromptServer's suggestKey uses them for
-	// collision avoidance. Other fields aren't read.
+	// suggestKey reads only the keys.
 	for _, srv := range cfg.Q3Servers {
 		a.Servers = append(a.Servers, setup.ServerAnswers{Key: srv.Key})
 	}
 	return a
 }
 
-// serverAnswersFromFlags builds a ServerAnswers from CLI flags for
-// the non-interactive code path. Defaults mirror what PromptServer
-// would suggest.
+// serverAnswersFromFlags uses the same defaults PromptServer suggests.
 func serverAnswersFromFlags(name, gametypeName string, ta bool, port int, rcon, logPath string, allowHubAdminRcon bool, cfg *config.Config, configDir string) (setup.ServerAnswers, error) {
 	s := setup.ServerAnswers{Key: strings.ToLower(name), AllowHubAdminRcon: allowHubAdminRcon}
 	gt, err := parseGametype(gametypeName)
@@ -3550,8 +3316,6 @@ func serverAnswersFromFlags(name, gametypeName string, ta bool, port int, rcon, 
 	}
 	host := "127.0.0.1"
 	if cfg.Tracker != nil && cfg.Tracker.Collector != nil && cfg.Tracker.Collector.PublicURL != "" {
-		// Reuse the wizard's URL → host extractor so collector hosts
-		// get a routable address by default.
 		if h := setup.HostFromURL(cfg.Tracker.Collector.PublicURL); h != "" {
 			host = h
 		}
@@ -3568,9 +3332,7 @@ func serverAnswersFromFlags(name, gametypeName string, ta bool, port int, rcon, 
 	return s, nil
 }
 
-// parseGametype maps the operator-facing flag value to a Gametype.
-// Empty defaults to FFA so old `trinity server add NAME` calls keep
-// working with sensible defaults.
+// parseGametype defaults an empty value to FFA.
 func parseGametype(name string) (setup.Gametype, error) {
 	switch strings.ToLower(name) {
 	case "", "ffa":
@@ -3591,8 +3353,7 @@ func parseGametype(name string) (setup.Gametype, error) {
 	return 0, fmt.Errorf("unknown gametype %q (try ffa, tournament, tdm, ctf, oneflag, overload, harvester)", name)
 }
 
-// uidGid resolves a username to numeric ids; returns 0/0 if lookup
-// fails so chowns degrade to "owned by root" rather than crashing.
+// uidGid returns 0, 0 when the lookup fails, so files stay owned by root.
 func uidGid(name string) (int, int) {
 	u, err := user.Lookup(name)
 	if err != nil {
@@ -3603,7 +3364,6 @@ func uidGid(name string) (int, int) {
 	return uid, gid
 }
 
-// cmdServerRemove removes a game server instance
 func cmdServerRemove(args []string) {
 	fs := flag.NewFlagSet("server remove", flag.ExitOnError)
 	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
@@ -3627,41 +3387,35 @@ func cmdServerRemove(args []string) {
 	useSd := useSystemd(cfg)
 	configDir := filepath.Dir(*configPath)
 
-	// Do root-only operations first
 	if useSd && os.Getuid() == 0 {
 		unit := "quake3-server@" + name
-		fmt.Printf("Stopping %s...\n", unit)
+		fmt.Printf("Stopping %s…\n", unit)
 		systemctlRun("stop", unit)
-		fmt.Printf("Disabling %s...\n", unit)
+		fmt.Printf("Disabling %s…\n", unit)
 		systemctlRun("disable", unit)
 	}
 
-	// Drop privileges for file I/O
 	if err := dropPrivileges(sysUser); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: failed to drop privileges: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Warning: couldn't drop privileges: %v\n", err)
 	}
 
-	// Archive env file rather than deleting it. Operators sometimes
-	// remove a server intending to add it back with a tweak; the
-	// archived .env is a quick reference and a safety net for typos.
+	// The .env is kept, renamed, for an operator who adds the server back.
 	envPath := filepath.Join(configDir, name+".env")
 	if _, err := os.Stat(envPath); err == nil {
 		stamp := time.Now().UTC().Format("20060102-150405")
 		archived := envPath + ".removed-" + stamp
 		if err := os.Rename(envPath, archived); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to archive %s: %v\n", envPath, err)
+			fmt.Fprintf(os.Stderr, "Warning: couldn't archive %s: %v\n", envPath, err)
 		} else {
 			fmt.Println("Archived:", archived)
 		}
 	}
 
-	// Remove from config (try both the raw name and uppercase as display name)
 	found := config.RemoveServerByKey(cfg, name)
 	if !found {
 		found = config.RemoveServerByKey(cfg, strings.ToUpper(name))
 	}
 	if !found {
-		// Try case-insensitive match
 		for _, srv := range cfg.Q3Servers {
 			if strings.EqualFold(srv.Key, name) {
 				found = config.RemoveServerByKey(cfg, srv.Key)
@@ -3684,26 +3438,23 @@ func cmdServerRemove(args []string) {
 	fmt.Println("Restart trinity to apply: sudo systemctl restart trinity")
 }
 
-// collectPk3FilesOrdered returns pk3 files in Quake 3 load order (later files override earlier)
-// Order: pak0-9 numerically, then remaining pk3s alphabetically
-// Applied to baseq3 first, then missionpack
+// collectPk3FilesOrdered returns pk3s in the game's load order, later
+// files overriding earlier ones: baseq3, then missionpack, each with
+// pak0-9 first and the rest alphabetical.
 func collectPk3FilesOrdered(quake3Dir string) []string {
 	var files []string
 
-	// Check if quake3Dir is a single file
 	info, err := os.Stat(quake3Dir)
 	if err != nil {
 		return files
 	}
 	if !info.IsDir() {
-		// Single pk3 file
 		if strings.HasSuffix(strings.ToLower(quake3Dir), ".pk3") {
 			return []string{quake3Dir}
 		}
 		return files
 	}
 
-	// Check if this directory has baseq3/missionpack structure
 	hasStructure := false
 	for _, subdir := range []string{"baseq3", "missionpack"} {
 		if _, err := os.Stat(filepath.Join(quake3Dir, subdir)); err == nil {
@@ -3713,7 +3464,6 @@ func collectPk3FilesOrdered(quake3Dir string) []string {
 	}
 
 	if hasStructure {
-		// Process baseq3 and missionpack in order
 		for _, subdir := range []string{"baseq3", "missionpack"} {
 			dir := filepath.Join(quake3Dir, subdir)
 			if _, err := os.Stat(dir); os.IsNotExist(err) {
@@ -3722,22 +3472,21 @@ func collectPk3FilesOrdered(quake3Dir string) []string {
 			files = append(files, collectPk3FilesFromDir(dir)...)
 		}
 	} else {
-		// No standard structure, scan the directory directly
 		files = collectPk3FilesFromDir(quake3Dir)
 	}
 
 	return files
 }
 
-// collectPk3FilesFromDir recursively collects pk3 files from a directory
-// Returns them in Quake 3 load order: pak0-9 first, then others alphabetically
+// collectPk3FilesFromDir walks dir recursively; only root-level pak0-9
+// sort ahead of the rest.
 func collectPk3FilesFromDir(dir string) []string {
-	var pakFiles []string   // pak[0-9].pk3 at root level
-	var otherFiles []string // other pk3s
+	var pakFiles []string
+	var otherFiles []string
 
 	filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
-			return nil // Skip directories we can't read
+			return nil
 		}
 		if d.IsDir() {
 			return nil
@@ -3749,7 +3498,6 @@ func collectPk3FilesFromDir(dir string) []string {
 		name := d.Name()
 		lowerName := strings.ToLower(name)
 
-		// Only treat pak[0-9].pk3 at the root level specially
 		isRootLevel := filepath.Dir(path) == dir
 		if isRootLevel && strings.HasPrefix(lowerName, "pak") && len(lowerName) == 8 {
 			numChar := lowerName[3]
@@ -3762,19 +3510,14 @@ func collectPk3FilesFromDir(dir string) []string {
 		return nil
 	})
 
-	// Sort pak files numerically (pak0, pak1, ..., pak9)
 	sort.Slice(pakFiles, func(i, j int) bool {
 		return pakFiles[i] < pakFiles[j]
 	})
-
-	// Sort other files alphabetically
 	sort.Strings(otherFiles)
 
-	// Pak files first, then other files
 	return append(pakFiles, otherFiles...)
 }
 
-// extractTgaToPng extracts a TGA file from a zip, scales to targetSize, and saves as PNG
 func extractTgaToPng(f *zip.File, outputPath string, targetSize int) error {
 	rc, err := f.Open()
 	if err != nil {
@@ -3787,8 +3530,6 @@ func extractTgaToPng(f *zip.File, outputPath string, targetSize int) error {
 		return fmt.Errorf("decode TGA: %w", err)
 	}
 
-	// Scale to target size using Catmull-Rom (bicubic) interpolation
-	// CatmullRom produces sharper results than bilinear, better for pixel art
 	bounds := img.Bounds()
 	if bounds.Dx() != targetSize || bounds.Dy() != targetSize {
 		dst := image.NewRGBA(image.Rect(0, 0, targetSize, targetSize))

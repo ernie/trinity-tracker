@@ -14,40 +14,39 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
-// ssePingInterval keeps idle streams alive through proxies (a quiet
-// console can be silent for minutes).
+// ssePingInterval keeps idle streams alive through proxies; a quiet
+// console can go minutes without a line.
 const ssePingInterval = 15 * time.Second
 
-// consoleLeaseTTL / consoleLeaseRenew drive the remote watch lease.
 const (
 	consoleLeaseTTL   = 30 * time.Second
 	consoleLeaseRenew = 10 * time.Second
 )
 
-// handleConsoleStream serves GET /api/console/stream?source=&key= as
-// SSE: a status event, the scrollback, then live lines. Same
-// authorization as rcon. Local sources read the registry directly;
-// remote sources go through the leased NATS relay.
+// handleConsoleStream serves ?source=&key= as server-sent events: a
+// status event, the scrollback, then live lines, with the same
+// authorization as RCON. Remote sources stream through the leased
+// NATS relay.
 func (r *Router) handleConsoleStream(w http.ResponseWriter, req *http.Request) {
 	claims := r.getAuthClaims(req)
 	if claims == nil {
-		writeError(w, http.StatusUnauthorized, "authentication required")
+		writeError(w, http.StatusUnauthorized, "Log in first.")
 		return
 	}
 	source := req.URL.Query().Get("source")
 	key := req.URL.Query().Get("key")
 	if source == "" || key == "" {
-		writeError(w, http.StatusBadRequest, "source and key are required")
+		writeError(w, http.StatusBadRequest, "Source and key are required.")
 		return
 	}
 	server, err := r.store.GetServerBySourceKey(req.Context(), source, key)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "server not found")
+		writeError(w, http.StatusNotFound, "Server not found.")
 		return
 	}
 	role, err := r.authorizeRcon(req.Context(), server, claims)
 	if err != nil {
-		writeError(w, http.StatusForbidden, "you do not have console access to this server")
+		writeError(w, http.StatusForbidden, "You don't have console access to this server.")
 		return
 	}
 
@@ -59,12 +58,12 @@ func (r *Router) handleConsoleStream(w http.ResponseWriter, req *http.Request) {
 	)
 	if r.localSource != "" && source == r.localSource {
 		if r.consoleReg == nil {
-			writeError(w, http.StatusNotImplemented, "console streaming not enabled")
+			writeError(w, http.StatusNotImplemented, "Console streaming isn't enabled on this hub.")
 			return
 		}
 		ring := r.consoleReg.Lookup(key)
 		if ring == nil {
-			writeError(w, http.StatusServiceUnavailable, "console not available for this server")
+			writeError(w, http.StatusServiceUnavailable, "This server's console isn't available.")
 			return
 		}
 		scrollback, ch = ring.Subscribe()
@@ -72,7 +71,7 @@ func (r *Router) handleConsoleStream(w http.ResponseWriter, req *http.Request) {
 		cleanup = func() { ring.Unsubscribe(ch) }
 	} else {
 		if r.consoleRelay == nil {
-			writeError(w, http.StatusNotImplemented, "console streaming not enabled")
+			writeError(w, http.StatusNotImplemented, "Console streaming isn't enabled on this hub.")
 			return
 		}
 		scrollback, ch, tapUp, cleanup, err = r.consoleRelay.subscribe(source, key, claims.Username, role)
@@ -129,8 +128,8 @@ func (r *Router) handleConsoleStream(w http.ResponseWriter, req *http.Request) {
 			if !open {
 				return // dropped as slow, or relay torn down; client reconnects
 			}
-			// Dedup scrollback/live overlap by seq; a much-older seq
-			// means the collector restarted (ring reset) — accept it.
+			// Skip lines the scrollback already sent. A much older seq
+			// means the collector restarted its ring, so it passes.
 			if l.Seq <= lastSeq && lastSeq-l.Seq < 2*console.RingSize {
 				continue
 			}
@@ -142,23 +141,19 @@ func (r *Router) handleConsoleStream(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// SetConsoleRegistry wires the in-process collector's console rings
-// (local-source streaming).
+// SetConsoleRegistry plugs in the in-process collector's console rings.
 func (r *Router) SetConsoleRegistry(reg *console.Registry) {
 	r.consoleReg = reg
 }
 
-// SetConsoleClient wires the NATS console client (remote-source
-// streaming via the leased relay).
+// SetConsoleClient plugs in the NATS console client for remote sources.
 func (r *Router) SetConsoleClient(c *natsbus.ConsoleClient) {
 	r.consoleRelay = newConsoleRelay(c)
 }
 
-// consoleRelay multiplexes remote console streams: one NATS
-// subscription + lease-renewal loop per (source, key), fanned out to
-// any number of SSE viewers. Viewers issue their own Watch (fresh
-// scrollback + an extra renewal); the background renewer keeps the
-// lease alive between viewer arrivals.
+// consoleRelay shares one NATS subscription and lease per (source, key)
+// among all its viewers. Each viewer's own Watch fetches its
+// scrollback; the background renewer holds the lease between viewers.
 type consoleRelay struct {
 	client *natsbus.ConsoleClient
 
@@ -176,8 +171,8 @@ func newConsoleRelay(client *natsbus.ConsoleClient) *consoleRelay {
 	return &consoleRelay{client: client, streams: make(map[string]*relayStream)}
 }
 
-// subscribe attaches a viewer. Returns scrollback, the live channel,
-// tap state, and a cleanup func.
+// subscribe attaches a viewer, returning its scrollback, live channel,
+// tap state and cleanup.
 func (cr *consoleRelay) subscribe(source, key, username string, role natsbus.RconRole) ([]console.Line, chan console.Line, bool, func(), error) {
 	watchReq := natsbus.ConsoleWatchRequest{
 		ServerKey: key,
@@ -244,9 +239,9 @@ func (cr *consoleRelay) subscribe(source, key, username string, role natsbus.Rco
 	return reply.Scrollback, ch, reply.TapUp, cleanup, nil
 }
 
-// renew keeps the collector-side lease alive while viewers remain.
-// Errors are tolerated (the collector may be restarting); the lease
-// simply lapses if they persist.
+// renew holds the collector's lease while viewers remain. Errors are
+// tolerated, since the collector may be restarting; the lease lapses if
+// they persist.
 func (cr *consoleRelay) renew(source string, req natsbus.ConsoleWatchRequest, st *relayStream) {
 	t := time.NewTicker(consoleLeaseRenew)
 	defer t.Stop()

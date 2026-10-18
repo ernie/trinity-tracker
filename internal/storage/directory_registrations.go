@@ -23,9 +23,9 @@ type DirectoryRegistration struct {
 	ExpiresAt   time.Time
 }
 
-// ListDirectoryRegistrations returns every persisted registration.
-// Order is unspecified — the directory restores into a map keyed by
-// addr, so order doesn't matter to the caller.
+// ListDirectoryRegistrations returns every persisted registration, in
+// no particular order; the directory restores them into a map keyed
+// by addr.
 func (s *Store) ListDirectoryRegistrations(ctx context.Context) ([]DirectoryRegistration, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT addr, server_id, protocol, gamename, engine,
@@ -54,10 +54,8 @@ func (s *Store) ListDirectoryRegistrations(ctx context.Context) ([]DirectoryRegi
 	return out, rows.Err()
 }
 
-// ReplaceDirectoryRegistrations atomically swaps the persisted set
-// for the supplied rows: DELETE then bulk INSERT inside one
-// transaction. Passing an empty slice leaves the table empty (same as
-// ClearDirectoryRegistrations).
+// ReplaceDirectoryRegistrations atomically swaps the persisted set for
+// rows in one transaction. An empty slice leaves the table empty.
 func (s *Store) ReplaceDirectoryRegistrations(ctx context.Context, rows []DirectoryRegistration) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {

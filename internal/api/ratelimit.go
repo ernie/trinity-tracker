@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// rateLimiter implements a simple sliding-window rate limiter per IP.
+// rateLimiter is a sliding-window limit per IP.
 type rateLimiter struct {
 	mu       sync.Mutex
 	attempts map[string][]time.Time
@@ -31,7 +31,8 @@ func (rl *rateLimiter) Reset(ip string) {
 	rl.mu.Unlock()
 }
 
-// Allow checks if the given IP is within the rate limit.
+// Allow records an attempt from ip and reports whether it is within the
+// limit. A refused attempt isn't recorded.
 func (rl *rateLimiter) Allow(ip string) bool {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
@@ -39,7 +40,6 @@ func (rl *rateLimiter) Allow(ip string) bool {
 	now := time.Now()
 	cutoff := now.Add(-rl.window)
 
-	// Prune old entries for this IP
 	attempts := rl.attempts[ip]
 	valid := attempts[:0]
 	for _, t := range attempts {
@@ -57,7 +57,7 @@ func (rl *rateLimiter) Allow(ip string) bool {
 	return true
 }
 
-// cleanup periodically evicts stale entries to prevent unbounded growth.
+// cleanup drops expired attempts so idle IPs don't accumulate.
 func (rl *rateLimiter) cleanup() {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
@@ -81,24 +81,20 @@ func (rl *rateLimiter) cleanup() {
 	}
 }
 
-// rateLimit wraps a handler with IP-based rate limiting.
 func (r *Router) rateLimit(rl *rateLimiter, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		if !rl.Allow(getClientIP(req)) {
-			writeError(w, http.StatusTooManyRequests, "too many requests, try again later")
+			writeError(w, http.StatusTooManyRequests, "Too many requests. Try again later.")
 			return
 		}
 		next(w, req)
 	}
 }
 
-// rotationLimiter is a per-source sliding-window cap on credential
-// rotations from the owner-self-service path (5/24h per spec). The
-// IP-based rateLimiter above is the wrong granularity here — a user
-// behind CGNAT could be rotating creds for a totally different
-// account from their neighbor. In-memory only; restart resets every
-// bucket, which is acceptable: the cap is a guardrail, not a
-// security boundary.
+// rotationLimiter caps owner credential rotations per source over a
+// sliding window. It is keyed by source because users behind one NAT
+// share an IP. It lives in memory, so a restart resets it; it is a
+// guardrail, not a security boundary.
 type rotationLimiter struct {
 	cap    int
 	window time.Duration
@@ -114,8 +110,8 @@ func newRotationLimiter(cap int, window time.Duration) *rotationLimiter {
 	}
 }
 
-// allow records a hit against `key` and returns true if the call is
-// within the limit. Denied calls do NOT consume a slot.
+// allow records a hit against key and reports whether it is within the
+// limit. A denied call isn't recorded.
 func (r *rotationLimiter) allow(key string) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()

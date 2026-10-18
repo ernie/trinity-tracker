@@ -39,8 +39,7 @@ import type {
   AwardData,
 } from "../types";
 
-// Backstop only — the collector emits explicit stop events; this
-// catches the rare case where one is lost (e.g. collector restart).
+// Backstop for a lost stop event, such as across a collector restart.
 const OBELISK_ATTACK_DECAY_MS = 30_000;
 const OBELISK_ATTACK_PRUNE_INTERVAL_MS = 1000;
 
@@ -53,7 +52,6 @@ interface SelectedPlayer {
 }
 
 interface LiveDataValue {
-  // Live state
   servers: Map<number, ServerStatus>;
   liveness: Map<number, "live" | "stale" | "offline">;
   manageable: Map<number, boolean>;
@@ -61,21 +59,18 @@ interface LiveDataValue {
   newPlayers: Set<string>;
   loading: boolean;
   isConnected: boolean;
-  /** Full connecting/open/down state — feeds the status pills. */
   connectionStatus: ConnectionStatus;
-  // serverId → client_nums currently attacking that server's obelisk.
+  // serverId → client_nums attacking that server's obelisk.
   obeliskAttackersByServer: Map<number, Set<number>>;
 
-  // Derived counts (fed into the StatusPill).
   activeHumanPlayersCount: number;
   activeServersCount: number;
 
-  // Activity drawer (universal — accessible from every route via the StatusPill).
+  // The drawer, modals and palette live here because every route opens them.
   activityDrawerOpen: boolean;
   setActivityDrawerOpen: (open: boolean) => void;
   toggleActivityDrawer: () => void;
 
-  // Player-stats modal — universal because every page has clickable players.
   selectedPlayer: SelectedPlayer | null;
   showPlayer: (
     playerName: string,
@@ -83,19 +78,14 @@ interface LiveDataValue {
     playerId?: number,
   ) => void;
   closePlayer: () => void;
-  /** Monotonic counter — bumps every time the user clicks "View full
-   *  profile" inside the player-stats modal. Pages that host search /
-   *  list state (e.g. PlayersPage) can watch the counter to detect the
-   *  drill-in commit even when the URL doesn't change (clicking through
-   *  to the player you're already viewing). */
+  /** Bumps on each "View full profile" click in the player-stats modal, so a
+   *  page like PlayersPage sees the drill-in even when the URL is unchanged. */
   drillInVersion: number;
   notifyDrillIn: () => void;
 
-  // Forced password-change modal — needs to surface regardless of route.
   showPasswordChange: boolean;
   setShowPasswordChange: (open: boolean) => void;
 
-  // Command palette (⌘K / Ctrl+K).
   commandPaletteOpen: boolean;
   setCommandPaletteOpen: (open: boolean) => void;
 }
@@ -136,11 +126,9 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
     Map<number, Set<number>>
   >(new Map());
 
-  // visibleServerIdsRef gates WebSocket server_update events: RemotePoller
-  // keeps polling every active+handshake server (it doesn't know about
-  // liveness), so a hidden server's update would otherwise re-add it to
-  // the map immediately after the prune. null = "list not fetched yet";
-  // allow updates through until the first /api/servers response lands.
+  // RemotePoller polls every active handshake server, hidden ones included,
+  // so server_update events for servers outside this set are dropped. It's
+  // null, letting everything through, until /api/servers first answers.
   const visibleServerIdsRef = useRef<Set<number> | null>(null);
   const activityIdRef = useRef(0);
 
@@ -150,7 +138,6 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
     serversRef.current = servers;
   }, [servers]);
 
-  // Aggregated counts for the StatusPill.
   const { activeHumanPlayersCount, activeServersCount } = useMemo(() => {
     let humans = 0;
     let serversWithHumans = 0;
@@ -203,8 +190,7 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  // Prune expired entries and republish the slot snapshot. Only
-  // commits a new Map when membership actually changes.
+  // Prunes expired entries, committing a new Map only when membership changes.
   const refreshObeliskAttackerState = useCallback(() => {
     const now = Date.now();
     setObeliskAttackersByServer((prev) => {
@@ -290,7 +276,6 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  // WebSocket event dispatch.
   const handleEvent = useCallback(
     (event: WSEvent) => {
       switch (event.event) {
@@ -379,7 +364,7 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
           const message =
             gameType === "1fctf"
               ? `${data.player_name}${COLOR_RESET} captured the flag!`
-              : `${data.player_name}${COLOR_RESET} captured the ${data.team === 1 ? "Blue" : "Red"} flag!`;
+              : `${data.player_name}${COLOR_RESET} captured the ${data.team === 1 ? "blue" : "red"} flag!`;
           addActivity("info", message, {
             player,
             serverId: event.server_id,
@@ -404,7 +389,7 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
           const message =
             gameType === "1fctf"
               ? `${data.player_name}${COLOR_RESET} took the flag`
-              : `${data.player_name}${COLOR_RESET} took the ${data.team === 1 ? "Red" : "Blue"} flag`;
+              : `${data.player_name}${COLOR_RESET} took the ${data.team === 1 ? "red" : "blue"} flag`;
           addActivity("info", message, {
             player,
             serverId: event.server_id,
@@ -419,7 +404,7 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
           const serverName = getServerName(event.server_id);
           const gameType = getServerGameType(event.server_id);
           const isOneFlag = gameType === "1fctf";
-          const flagTeam = data.team === 1 ? "Red" : "Blue";
+          const flagTeam = data.team === 1 ? "red" : "blue";
           if (data.player_name) {
             const cleanName = cleanQ3Name(data.player_name);
             const botInfo = getPlayerBotInfo(event.server_id, cleanName);
@@ -441,8 +426,8 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
             });
           } else {
             const message = isOneFlag
-              ? `The flag was returned`
-              : `The ${flagTeam} flag was returned`;
+              ? `The flag returned to base`
+              : `The ${flagTeam} flag returned to base`;
             addActivity("info", message, {
               serverId: event.server_id,
               serverName,
@@ -467,7 +452,7 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
           const message =
             gameType === "1fctf"
               ? `${data.player_name}${COLOR_RESET} dropped the flag`
-              : `${data.player_name}${COLOR_RESET} dropped the ${data.team === 1 ? "Red" : "Blue"} flag`;
+              : `${data.player_name}${COLOR_RESET} dropped the ${data.team === 1 ? "red" : "blue"} flag`;
           addActivity("info", message, {
             player,
             serverId: event.server_id,
@@ -480,7 +465,7 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
         case "obelisk_destroy": {
           const data = event.data as ObeliskDestroyData;
           const serverName = getServerName(event.server_id);
-          const teamName = data.team === 1 ? "Red" : "Blue";
+          const teamName = data.team === 1 ? "red" : "blue";
           const cleanName = cleanQ3Name(data.attacker_name);
           const botInfo = getPlayerBotInfo(event.server_id, cleanName);
           const player = {
@@ -500,8 +485,8 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
               team: data.team,
             },
           );
-          // Clear any lingering attacker indicator; destroy is terminal.
-          // Best-effort lookup by clean_name (destroy event has no client_num).
+          // The destroy event has no client_num, so the attacker's slot is
+          // found by clean_name.
           if (data.player_id !== undefined) {
             const expiryMap = obeliskAttackersExpiryRef.current.get(
               event.server_id,
@@ -519,10 +504,10 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
         }
         case "obelisk_damage": {
           const data = event.data as ObeliskDamageData;
-          // Log only the start; stop events would just be noise.
+          // Only the start goes in the feed.
           if (data.active) {
             const serverName = getServerName(event.server_id);
-            const teamName = data.team === 1 ? "Red" : "Blue";
+            const teamName = data.team === 1 ? "red" : "blue";
             const cleanName = cleanQ3Name(data.attacker_name);
             const botInfo = getPlayerBotInfo(event.server_id, cleanName);
             const player = {
@@ -543,7 +528,6 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
               },
             );
           }
-          // Expiry is the backstop; the matching stop event is the path.
           if (data.client_num >= 0) {
             let expiryMap = obeliskAttackersExpiryRef.current.get(
               event.server_id,
@@ -570,7 +554,7 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
         case "skull_pickup": {
           const data = event.data as SkullPickupData;
           const serverName = getServerName(event.server_id);
-          const enemyName = data.team === 1 ? "Blue" : "Red";
+          const enemyName = data.team === 1 ? "blue" : "red";
           const cleanName = cleanQ3Name(data.player_name);
           const botInfo = getPlayerBotInfo(event.server_id, cleanName);
           const player = {
@@ -595,7 +579,7 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
         case "skull_score": {
           const data = event.data as SkullScoreData;
           const serverName = getServerName(event.server_id);
-          const teamName = data.team === 1 ? "Red" : "Blue";
+          const teamName = data.team === 1 ? "red" : "blue";
           const cleanName = cleanQ3Name(data.player_name);
           const botInfo = getPlayerBotInfo(event.server_id, cleanName);
           const player = {
@@ -606,7 +590,7 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
           };
           addActivity(
             "info",
-            `${data.player_name}${COLOR_RESET} scored ${data.skulls} skull${data.skulls !== 1 ? "s" : ""} for ${teamName}`,
+            `${data.player_name}${COLOR_RESET} scored ${data.skulls} skull${data.skulls !== 1 ? "s" : ""} for the ${teamName} team`,
             {
               player,
               serverId: event.server_id,
@@ -692,7 +676,7 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
           };
           addActivity(
             "chat",
-            `${data.from_name}${COLOR_RESET} -> ${data.to_name}${COLOR_RESET}: ${data.message}`,
+            `${data.from_name}${COLOR_RESET} → ${data.to_name}${COLOR_RESET}: ${data.message}`,
             { player, serverId: event.server_id, serverName },
           );
           break;
@@ -747,7 +731,7 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
             case "defend": {
               const gameType = getServerGameType(event.server_id);
               const teamColor =
-                data.team === 1 ? "Red" : data.team === 2 ? "Blue" : null;
+                data.team === 1 ? "red" : data.team === 2 ? "blue" : null;
               if (gameType === "overload") {
                 message = teamColor
                   ? `${data.player_name}${COLOR_RESET} defended the ${teamColor} obelisk!`
@@ -797,11 +781,7 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
     send: wsSend,
   } = useWebSocket(wsUrl, handleEvent);
 
-  // Subscribe to "server" only when the drawer is closed (most of the
-  // time on most clients) and add "activity" when it's open. The hook
-  // caches the payload and replays on reconnect so the wire stays
-  // honest across socket flaps. Initial render fires before the socket
-  // is open — that's fine, the cached payload is sent in onopen.
+  // Activity events come only while the drawer is open.
   useEffect(() => {
     wsSend({
       type: "subscribe",
@@ -809,9 +789,7 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
     });
   }, [activityDrawerOpen, wsSend]);
 
-  // Periodic /api/servers fetch (auth-aware: re-runs on login/logout so
-  // manageable_by_me reflects current state; the session cookie rides
-  // along on its own).
+  // Re-runs on login and logout so manageable_by_me stays current.
   useEffect(() => {
     let cancelled = false;
     async function fetchServers(initial: boolean) {
@@ -853,8 +831,7 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
           if (cancelled) return;
           setServers(statusMap);
         } else {
-          // Subsequent polls: prune any cached statuses for servers that
-          // just dropped off the visible list.
+          // Later polls drop statuses for servers that left the list.
           setServers((prev) => {
             const next = new Map<number, ServerStatus>();
             prev.forEach((status, id) => {
@@ -878,7 +855,6 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
     };
   }, [auth.isAuthenticated]);
 
-  // Forced password change — surfaces regardless of route.
   useEffect(() => {
     if (auth.isAuthenticated && auth.passwordChangeRequired) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -895,8 +871,6 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
 
   const closePlayer = useCallback(() => setSelectedPlayer(null), []);
 
-  // Bumped by the modal's "View full profile" CTA so pages can react to
-  // drill-in intent independently of URL change.
   const [drillInVersion, setDrillInVersion] = useState(0);
   const notifyDrillIn = useCallback(() => setDrillInVersion((v) => v + 1), []);
 

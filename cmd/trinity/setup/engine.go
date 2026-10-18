@@ -12,9 +12,8 @@ import (
 
 const engineRepo = "ernie/trinity-engine"
 
-// engineBinary is the name of the q3 server binary inside every release
-// zip, after the linux-<arch>/ wrapper is stripped. Engine releases
-// since v0.9.20 ship it under this single name regardless of arch.
+// engineBinary is the game server binary's name in every release zip,
+// on every arch, once the linux-<arch>/ wrapper is stripped.
 const engineBinary = "trinity.ded"
 
 // engineAsset returns the release asset name for the given GOARCH (or
@@ -44,9 +43,8 @@ func engineAsset(goarch string) (string, error) {
 //  2. Fetch trinity-linux-<arch>.zip and verify against the
 //     release's sha256sums.txt.
 //  3. Extract into installDir, stripping the linux-<arch>/ wrapper.
-//     If uid > 0, the extraction runs as that user via the
-//     `_unzip-helper` subcommand so files land owned by the service
-//     user from the start, not via a post-extract chown.
+//     If uid > 0, the extraction runs as that user through
+//     `_helper unzip`, so files are service-owned from creation.
 //  4. Replace baseq3/logs + missionpack/logs with symlinks to logDir
 //     so per-server logs land where the collector tails them.
 //  5. Replace baseq3/demos + missionpack/demos with symlinks to
@@ -93,13 +91,9 @@ func InstallEngine(plan *Plan, tag, installDir, logDir, staticDir string, uid, g
 		if err := VerifyReleaseChecksum(engineRepo, resolvedTag, asset, zipPath); err != nil {
 			return "", err
 		}
-		// Extract as the service user when uid > 0, so engine + bundled
-		// mod files land owned by quake from the start. Init still
-		// runs chownRecursive afterward as belt-and-suspenders for the
-		// wrapper dirs/symlinks created in the parent process.
 		if uid > 0 {
-			// The temp dir is mode 0700 + root-owned; quake can't
-			// traverse it. Open it up for the duration of the helper.
+			// The root-owned 0700 temp dir must be traversable by the
+			// service user while the helper runs.
 			if err := os.Chmod(tmp, 0755); err != nil {
 				return "", fmt.Errorf("chmod %s: %w", tmp, err)
 			}
@@ -113,7 +107,7 @@ func InstallEngine(plan *Plan, tag, installDir, logDir, staticDir string, uid, g
 		}
 		binPath := filepath.Join(installDir, engineBinary)
 		if _, err := os.Stat(binPath); err != nil {
-			return "", fmt.Errorf("expected %s in release zip but it's missing — release shape may have changed: %w", engineBinary, err)
+			return "", fmt.Errorf("expected %s in release zip but it's missing; the release layout may have changed: %w", engineBinary, err)
 		}
 		if err := os.Chmod(binPath, 0755); err != nil {
 			return "", fmt.Errorf("chmod %s: %w", binPath, err)
@@ -139,10 +133,9 @@ func InstallEngine(plan *Plan, tag, installDir, logDir, staticDir string, uid, g
 	return resolvedTag, nil
 }
 
-// replaceWithSymlink replaces a directory or stale symlink at link
-// with a fresh symlink → target. Idempotent: re-running the wizard
-// does not destroy operator content (a real directory written by the
-// engine unzip is removed; an existing symlink is replaced).
+// replaceWithSymlink points link at target, first removing a directory
+// (such as the one the engine zip unpacked) or a stale symlink there, so
+// rerunning the wizard is safe.
 func replaceWithSymlink(plan *Plan, link, target string) error {
 	if !plan.DryRun {
 		if info, err := os.Lstat(link); err == nil && info.Mode().IsDir() {
@@ -158,15 +151,11 @@ func replaceWithSymlink(plan *Plan, link, target string) error {
 
 // UnzipInto extracts every file in src into dest, preserving the
 // per-file mode bits from the zip header. stripComponents drops that
-// many leading path segments from each entry, matching tar's
-// --strip-components — used to peel the wrapper directory that the
-// trinity-engine release zips include (e.g. linux-x86_64/trinity.ded →
-// trinity.ded). Entries with fewer segments than the strip count are
-// silently skipped, also matching tar.
-//
-// Exported for the `_unzip-helper` subcommand, which re-execs trinity
-// inside a privileged-dropped child so the bulk extraction lands
-// service-user-owned without a post-extract chown.
+// many leading path segments from each entry, like tar's
+// --strip-components, which peels the engine release zips' wrapper
+// directory (linux-x86_64/trinity.ded → trinity.ded). Entries with
+// fewer segments are skipped, as tar does. `_helper unzip` calls it as
+// the service user.
 func UnzipInto(src, dest string, stripComponents int) error {
 	r, err := zip.OpenReader(src)
 	if err != nil {
@@ -185,7 +174,7 @@ func UnzipInto(src, dest string, stripComponents int) error {
 				continue
 			}
 		}
-		// Reject zip-slip — paths must stay inside dest.
+		// Paths must stay inside dest.
 		target := filepath.Join(dest, name)
 		if !strings.HasPrefix(target, filepath.Clean(dest)+string(os.PathSeparator)) && target != filepath.Clean(dest) {
 			return fmt.Errorf("zip entry %q escapes destination", f.Name)

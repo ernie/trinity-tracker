@@ -14,8 +14,6 @@ func newCacheTestRouter() *Router {
 	return &Router{respCache: newResponseCache()}
 }
 
-// Anonymous requests within the TTL get the cached body; the handler
-// runs once.
 func TestCached_HitWithinTTL(t *testing.T) {
 	r := newCacheTestRouter()
 	var calls atomic.Int32
@@ -40,7 +38,6 @@ func TestCached_HitWithinTTL(t *testing.T) {
 	}
 }
 
-// Distinct query strings are distinct cache keys.
 func TestCached_KeyIncludesQuery(t *testing.T) {
 	r := newCacheTestRouter()
 	var calls atomic.Int32
@@ -61,7 +58,6 @@ func TestCached_KeyIncludesQuery(t *testing.T) {
 	}
 }
 
-// An expired entry re-runs the handler.
 func TestCached_ExpiryRerunsHandler(t *testing.T) {
 	r := newCacheTestRouter()
 	var calls atomic.Int32
@@ -78,9 +74,6 @@ func TestCached_ExpiryRerunsHandler(t *testing.T) {
 	}
 }
 
-// Credentialed requests bypass the cache in both directions: they never
-// populate it and never read it. Validity is irrelevant — presence of
-// the credential is the test.
 func TestCached_CredentialBypass(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
@@ -109,19 +102,17 @@ func TestCached_CredentialBypass(t *testing.T) {
 				return w.Body.String()
 			}
 
-			// Credentialed requests never populate the cache: each runs
-			// the handler.
 			if got := do(true); got != "1" {
 				t.Fatalf("credentialed #1: got %q", got)
 			}
 			if got := do(true); got != "2" {
 				t.Fatalf("credentialed #2: got %q (cache populated by a credentialed request)", got)
 			}
-			// Anonymous misses (nothing was populated) and caches "3"...
+			// The anonymous request caches "3", which the credentialed
+			// one after it must not read.
 			if got := do(false); got != "3" {
 				t.Fatalf("anonymous: got %q", got)
 			}
-			// ...which a credentialed request must not read.
 			if got := do(true); got != "4" {
 				t.Fatalf("credentialed after anonymous: got %q (read the cached entry)", got)
 			}
@@ -129,7 +120,6 @@ func TestCached_CredentialBypass(t *testing.T) {
 	}
 }
 
-// Concurrent cold requests collapse into one handler execution.
 func TestCached_SingleFlight(t *testing.T) {
 	r := newCacheTestRouter()
 	var calls atomic.Int32
@@ -162,7 +152,6 @@ func TestCached_SingleFlight(t *testing.T) {
 	}
 }
 
-// Non-200 responses reach the caller but are not cached.
 func TestCached_ErrorsNotCached(t *testing.T) {
 	r := newCacheTestRouter()
 	var calls atomic.Int32
@@ -186,7 +175,6 @@ func TestCached_ErrorsNotCached(t *testing.T) {
 	}
 }
 
-// The entry cap holds under hostile key cardinality.
 func TestCached_EntryCapEnforced(t *testing.T) {
 	r := newCacheTestRouter()
 	h := r.cached(time.Minute, func(w http.ResponseWriter, req *http.Request) {

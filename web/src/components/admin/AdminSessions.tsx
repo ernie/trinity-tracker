@@ -17,8 +17,6 @@ const PAGE_SIZE = 50;
 
 export function AdminSessions() {
   const [servers, setServers] = useState<Server[]>([]);
-  // Hydrate from localStorage on first render so admins keep their
-  // server / player / date scope between visits.
   const [filters, setFilters] = useState<AdminSessionsFilterState>(
     loadAdminSessionsFilters,
   );
@@ -28,7 +26,6 @@ export function AdminSessions() {
   const [error, setError] = useState("");
   const [hasMore, setHasMore] = useState(false);
 
-  // Load server list for the filter section's switches.
   useEffect(() => {
     apiFetch("/api/servers")
       .then((res) => (res.ok ? res.json() : []))
@@ -40,12 +37,8 @@ export function AdminSessions() {
     (beforeID?: number) => {
       const params = new URLSearchParams();
       params.set("limit", String(PAGE_SIZE));
-      // Server filter: backend takes a single server_id. The structured
-      // panel uses a "hidden" set, so we infer the visible set as the
-      // complement. When exactly one server remains visible, use it as
-      // the backend filter; otherwise fall back to client-side filtering
-      // of the returned page (rare path — admins typically pick zero or
-      // one server, hiding the rest).
+      // The API takes one server_id, so only a single visible server is
+      // sent; several visible servers filter the returned page instead.
       const visible = servers.filter(
         (s) => !filters.hiddenServers.includes(s.id),
       );
@@ -64,10 +57,6 @@ export function AdminSessions() {
     [servers, filters],
   );
 
-  // Client-side cleanup of the returned page when the visible-server
-  // set has multiple values (we can't push that to the single-value
-  // backend filter). Acts as a defensive layer; the backend has done
-  // the heavy lifting already.
   const visibleServerSet = (() => {
     if (filters.hiddenServers.length === 0) return null;
     const visible = servers
@@ -83,13 +72,13 @@ export function AdminSessions() {
       const res = await apiFetch(buildUrl());
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to load sessions");
+        throw new Error(data.error || "Couldn't load sessions.");
       }
       const data: AdminSession[] = (await res.json()) || [];
       setSessions(data);
       setHasMore(data.length === PAGE_SIZE);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load sessions");
+      setError(err instanceof Error ? err.message : "Couldn't load sessions.");
       setSessions([]);
       setHasMore(false);
     } finally {
@@ -103,18 +92,19 @@ export function AdminSessions() {
     setLoading(true);
     try {
       const res = await apiFetch(buildUrl(lastID));
-      if (!res.ok) throw new Error("Failed to load more");
+      if (!res.ok) throw new Error("Couldn't load more sessions.");
       const data: AdminSession[] = (await res.json()) || [];
       setSessions((prev) => [...prev, ...data]);
       setHasMore(data.length === PAGE_SIZE);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load more");
+      setError(
+        err instanceof Error ? err.message : "Couldn't load more sessions.",
+      );
     } finally {
       setLoading(false);
     }
   }, [buildUrl, sessions, loading]);
 
-  // Reload from page 1 whenever filters change.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadFirstPage();

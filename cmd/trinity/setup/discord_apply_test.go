@@ -7,10 +7,6 @@ import (
 	"testing"
 )
 
-// Discord disabled (default): no digest unit files written, no timer
-// enabled. The existing TestApply_DryRun_HubOnly already implicitly
-// covers this by not asserting these strings, but we double-down here
-// with explicit "must not" checks to guard against drift.
 func TestApply_DryRun_Discord_DisabledOmitsDigestUnits(t *testing.T) {
 	tmp := t.TempDir()
 	a := &Answers{
@@ -47,9 +43,6 @@ func TestApply_DryRun_Discord_DisabledOmitsDigestUnits(t *testing.T) {
 	}
 }
 
-// Discord enabled: both unit files appear in the plan, the timer is
-// enabled, and the timer's OnCalendar= line is rendered with the
-// operator's chosen schedule.
 func TestApply_DryRun_Discord_EnabledInstallsAndEnablesTimer(t *testing.T) {
 	tmp := t.TempDir()
 	a := &Answers{
@@ -89,7 +82,6 @@ func TestApply_DryRun_Discord_EnabledInstallsAndEnablesTimer(t *testing.T) {
 	}
 }
 
-// SystemdUnitTemplated must substitute {{schedule}} verbatim.
 func TestSystemdUnitTemplated_TimerSchedule(t *testing.T) {
 	data, err := SystemdUnitTemplated("trinity-digest.timer", "quake", map[string]string{
 		"schedule": "Mon..Fri 09:30",

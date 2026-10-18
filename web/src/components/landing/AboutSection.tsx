@@ -8,22 +8,28 @@ export function AboutSection() {
       </div>
       <div className="landing-about__prose">
         <p>
-          Trinity is a community for people who know the best arena shooter ever
-          made was released in 1999. Some of us never stopped playing. Some are
-          coming home. Some are showing up for the first time, finding out what
-          a shooter feels like when it&rsquo;s just movement, weapons, and your
-          opponents.
+          Trinity is a community for people who think the best arena shooter
+          ever made came out in 1999.
         </p>
         <p>
-          Quake III had one more move left in it: VR. You&rsquo;re{" "}
-          <em>inside</em> the game now &mdash; real aim, real space between you
-          and your opponent &mdash; and flatscreen and VR share every match. If
-          you played the original, it asks far more of you than you remember.
+          It&rsquo;s Quake III Arena the way you remember it, which isn&rsquo;t
+          quite how it was. If you&rsquo;re new to it, it&rsquo;s Quake III the
+          way you&rsquo;d expect a game to work today: widescreen support,
+          high-resolution UI, a better renderer, settings menus that offer the
+          options that matter, and VR as a first-class citizen, with flatscreen
+          and VR players in the same matches.
         </p>
         <p>
-          This site is the tracker. Watch fights live, or replay them &mdash;
-          every match is recorded. Bring your own copy of Quake III to play;
-          watching needs nothing at all.
+          Long-standing bugs and unfinished pieces are fixed and finished,
+          especially in Team Arena, and the grappling hook id never completed is
+          now the grapple. Blood and damage effects are improved, and a long
+          tail of small quality-of-life changes runs through the menus and the
+          game.
+        </p>
+        <p>
+          This site is the tracker. Every match is recorded, so you can watch
+          fights live or replay them later. Playing needs your own copy of Quake
+          III Arena; watching needs nothing.
         </p>
       </div>
     </section>

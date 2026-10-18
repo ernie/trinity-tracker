@@ -9,8 +9,8 @@ import (
 	"github.com/ernie/trinity-tracker/internal/hub"
 )
 
-// ConsoleServer is one row of the console server list: a server the
-// caller is authorized to rcon, with the role they'd act under.
+// ConsoleServer is a server the caller may use RCON on, with the role
+// they act under.
 type ConsoleServer struct {
 	Source  string `json:"source"`
 	Key     string `json:"key"`
@@ -19,21 +19,19 @@ type ConsoleServer struct {
 	Role    string `json:"role"`
 }
 
-// ConsoleRconRequest addresses a server the way the CLI does: by
-// (source, key), not DB id.
+// ConsoleRconRequest addresses a server by (source, key), as the CLI
+// does.
 type ConsoleRconRequest struct {
 	Source  string `json:"source"`
 	Key     string `json:"key"`
 	Command string `json:"command"`
 }
 
-// handleConsoleServers lists the servers the caller may rcon. Servers
-// the caller has no role on are omitted — the list is "what can I
-// control", not "what exists" (that's GET /api/servers).
+// handleConsoleServers lists only the servers the caller may use RCON on.
 func (r *Router) handleConsoleServers(w http.ResponseWriter, req *http.Request) {
 	claims := r.getAuthClaims(req)
 	if claims == nil {
-		writeError(w, http.StatusUnauthorized, "authentication required")
+		writeError(w, http.StatusUnauthorized, "Log in first.")
 		return
 	}
 
@@ -66,36 +64,35 @@ func (r *Router) handleConsoleServers(w http.ResponseWriter, req *http.Request) 
 	writeJSON(w, http.StatusOK, out)
 }
 
-// handleConsoleRcon is the (source, key)-addressed twin of
-// handleRconCommand: same authorization, same dispatch, same audit —
-// only the server resolution differs.
+// handleConsoleRcon is handleRconCommand with the server addressed by
+// (source, key).
 func (r *Router) handleConsoleRcon(w http.ResponseWriter, req *http.Request) {
 	claims := r.getAuthClaims(req)
 	if claims == nil {
-		writeError(w, http.StatusUnauthorized, "authentication required")
+		writeError(w, http.StatusUnauthorized, "Log in first.")
 		return
 	}
 
 	var rconReq ConsoleRconRequest
 	if err := json.NewDecoder(req.Body).Decode(&rconReq); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		writeError(w, http.StatusBadRequest, "The request couldn't be read.")
 		return
 	}
 	if rconReq.Source == "" || rconReq.Key == "" || rconReq.Command == "" {
-		writeError(w, http.StatusBadRequest, "source, key, and command are required")
+		writeError(w, http.StatusBadRequest, "Source, key and command are required.")
 		return
 	}
 
 	server, err := r.store.GetServerBySourceKey(req.Context(), rconReq.Source, rconReq.Key)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "server not found")
+		writeError(w, http.StatusNotFound, "Server not found.")
 		return
 	}
 
 	role, err := r.authorizeRcon(req.Context(), server, claims)
 	if err != nil {
 		if errors.Is(err, errRconForbidden) {
-			writeError(w, http.StatusForbidden, "you do not have RCON access to this server")
+			writeError(w, http.StatusForbidden, "You don't have RCON access to this server.")
 			return
 		}
 		writeError(w, http.StatusInternalServerError, err.Error())

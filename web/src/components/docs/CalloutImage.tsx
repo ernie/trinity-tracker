@@ -6,11 +6,8 @@ import {
   type CSSProperties,
 } from "react";
 
-// One annotated region in a screenshot. xPct/yPct mark the top-left
-// corner; wPct/hPct the size — all as percentages of the image's
-// rendered dimensions, so the overlay scales correctly at any width.
-// title/body match the legend list rendered alongside; the same data
-// drives both surfaces.
+// xPct/yPct are the top-left corner and wPct/hPct the size, as
+// percentages of the rendered image, so the overlay scales with it.
 export interface CalloutData {
   n: number;
   xPct: number;
@@ -27,17 +24,14 @@ interface CalloutImageProps {
   callouts: CalloutData[];
 }
 
-// Collapsed-by-default numbered legend that pairs with a CalloutImage.
-// Walking the highlighted regions on the image (hover / focus / tap) is
-// the primary surface; the full legend is here as a fallback when
-// readers want it as a list. Rendered as a native <details> so it gets
-// keyboard handling and accessibility for free; the disclosure marker
-// is a custom rotating chevron via CSS so it renders the same on every
-// browser.
+// The same callouts as a list, for readers who'd rather read than
+// explore the image.
 export function CalloutLegend({ callouts }: { callouts: CalloutData[] }) {
   return (
     <details className="docs-callout-legend">
-      <summary>Hover/tap the highlighted areas, or expand for legend</summary>
+      <summary>
+        Hover over or tap a highlighted area, or open the legend
+      </summary>
       <ol className="docs-hud-legend">
         {callouts.map((c) => (
           <li key={c.n}>
@@ -49,26 +43,10 @@ export function CalloutLegend({ callouts }: { callouts: CalloutData[] }) {
   );
 }
 
-// Annotated screenshot with click-to-expand and hover/focus/tap-
-// revealed tooltips. The overlay (hotspot buttons + active tooltip)
-// renders both inline and inside the zoom modal — same React state,
-// same JSX, just two parents — so a hotspot a user pinned inline
-// stays pinned when they zoom in to inspect it more closely, and
-// vice versa.
-//
-// CalloutImage is self-contained (does not delegate to ZoomableImage)
-// so the zoom-modal stage can be sized to the image and host its own
-// percentage-positioned overlay. Body-scroll lock, Esc-to-close, and
-// focus restore are duplicated lightly from ZoomableImage rather
-// than abstracted out — the duplication is small, self-contained,
-// and keeps each component easy to reason about on its own.
-//
-// Pointer-events trick: the inline overlay container is
-// pointer-events:none, hotspot buttons inside are pointer-events:auto.
-// That lets clicks fall through to the trigger button underneath
-// everywhere except over a hotspot. In the zoom modal, the stage
-// stops click propagation so clicking the image area doesn't dismiss
-// the modal — only the dark backdrop or the close button do.
+// Owns its zoom view so the zoom stage can be sized to the image and
+// carry the same percentage overlay. The overlay is pointer-events:
+// none with hotspots set to auto, so a click anywhere else reaches the
+// zoom trigger underneath.
 export function CalloutImage({ src, alt, callouts }: CalloutImageProps) {
   const [activeN, setActiveN] = useState<number | null>(null);
   const [zoomed, setZoomed] = useState(false);
@@ -84,10 +62,8 @@ export function CalloutImage({ src, alt, callouts }: CalloutImageProps) {
     setActiveN(n);
   };
 
-  // Small close delay bridges the gap between mouse leaving a hotspot
-  // and entering the tooltip (which is positioned outside the
-  // hotspot's bounds). Without this, moving the cursor onto the
-  // tooltip flickers it off and on.
+  // The delay lets the cursor cross from a hotspot to its tooltip,
+  // which sits outside the hotspot.
   const scheduleClose = () => {
     closeTimerRef.current = window.setTimeout(() => {
       setActiveN(null);
@@ -103,10 +79,7 @@ export function CalloutImage({ src, alt, callouts }: CalloutImageProps) {
     }
   };
 
-  // Esc dismisses the active tooltip first (if any), then the zoom
-  // modal — the user's intuition is "Escape closes the topmost
-  // thing." Keydown is wired on both the inline container and the
-  // modal so it works in either context.
+  // Escape closes the tooltip first, then the zoom view.
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key !== "Escape") return;
     if (activeN !== null) {
@@ -118,16 +91,11 @@ export function CalloutImage({ src, alt, callouts }: CalloutImageProps) {
     }
   };
 
-  // Body-scroll lock + focus management for the zoom modal. Mirrors
-  // ZoomableImage's effect; lives here because CalloutImage owns
-  // its own modal. The document-level keydown picks up Escape when
-  // focus isn't in our React tree (e.g., user clicked the modal
-  // backdrop — focus is on body).
+  // The document listener catches Escape when focus has left the
+  // component, such as after a click on the backdrop.
   useEffect(() => {
     if (!zoomed) return;
-    // Snapshot the trigger at effect setup so cleanup restores focus
-    // to *this* render's button, not whatever the ref happens to be
-    // pointing at later (react-hooks/exhaustive-deps).
+    // Captured at setup so cleanup refocuses this render's trigger.
     const triggerEl = triggerRef.current;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && activeN === null) {
@@ -148,9 +116,8 @@ export function CalloutImage({ src, alt, callouts }: CalloutImageProps) {
   const activeCallout =
     activeN !== null ? callouts.find((c) => c.n === activeN) : null;
 
-  // Shared overlay JSX. Rendered into both the inline view and the
-  // zoom modal — both invocations bind to the same React state, so
-  // the active callout's tooltip follows whichever view is showing.
+  // Rendered in both views from the same state, so a pinned callout
+  // stays pinned when the reader zooms in or out.
   const overlay = (
     <>
       {callouts.map((c) => (
@@ -169,8 +136,7 @@ export function CalloutImage({ src, alt, callouts }: CalloutImageProps) {
           onFocus={() => show(c.n)}
           onBlur={scheduleClose}
           onClick={(e) => {
-            // Stop propagation so clicks inside the zoom modal
-            // don't bubble up to the backdrop and dismiss it.
+            // Keeps a click in the zoom view from closing it.
             e.stopPropagation();
             togglePinned(c.n);
           }}
@@ -239,24 +205,10 @@ interface TooltipProps {
   onMouseLeave: () => void;
 }
 
-// Tooltip placement is a two-axis heuristic on the callout's
-// position within the image:
-//
-//   Horizontal: if the box's center sits in the outer third (≤30%
-//   or ≥70%), anchor the tooltip's near edge to the box's near
-//   edge — that keeps the tooltip inside image bounds even when
-//   the box hugs an edge. Otherwise center on the box midpoint.
-//
-//   Vertical: if the box's bottom edge is in the upper 60% of the
-//   image, place tooltip below; otherwise above. Avoids tooltips
-//   running off the bottom for bottom-row callouts and off the top
-//   for top-row callouts.
-//
-// Pure CSS — no JS measurement, no edge-detection on the rendered
-// tooltip itself. Trade-off: tooltips with content wider than the
-// available anchor-side space can still overflow the image's right
-// or left edge, but only marginally compared to the previous
-// always-centered approach.
+// Placement keeps the tooltip on the image without measuring it: a
+// box near either side anchors the tooltip to its near edge, and a box
+// in the lower part of the image gets its tooltip above. A very wide
+// tooltip can still run slightly past an edge.
 function Tooltip({ callout: c, onMouseEnter, onMouseLeave }: TooltipProps) {
   const centerPct = c.xPct + c.wPct / 2;
 

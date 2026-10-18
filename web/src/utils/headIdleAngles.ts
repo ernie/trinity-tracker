@@ -1,6 +1,6 @@
 // Port of CG_DrawStatusBarHead (cgame/cg_draw.c): the HUD head faces the
-// camera (yaw 180) and idly glances around, picking a new target every
-// 100-2100ms and smoothstep-interpolating toward it.
+// camera (yaw 180) and glances around, picking a new target every
+// 100–2100 ms and easing toward it with smoothstep.
 export class HeadIdleAnimator {
   private startTime = 0;
   private endTime = 0;

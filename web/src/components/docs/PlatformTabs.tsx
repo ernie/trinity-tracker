@@ -8,22 +8,14 @@ import { type Platform } from "./platformStorage";
 
 interface PlatformTabsProps {
   children: ReactNode;
-  // Some `<PlatformTabs>` blocks won't have a panel for every
-  // platform (e.g., a VR-only feature with a VR panel but no
-  // Flatscreen one). The tabs only render entries for the
-  // platforms a Panel exists for.
 }
 
-// Container that picks the active panel from its <PlatformTabs.Panel>
-// children based on the global PlatformContext. Clicking a tab flips
-// global state, so every other PlatformTabs on the page syncs.
+// A tab sets the global platform, so every PlatformTabs on the page
+// switches together. Tabs appear only for platforms that have a panel.
 export function PlatformTabs({ children }: PlatformTabsProps) {
   const { platform, setPlatform } = usePlatform();
 
-  // Walk children to find the set of platforms with panels and the
-  // active panel. Children must be PlatformTabs.Panel elements; we
-  // identify them by their displayName at runtime (no React internals
-  // poking).
+  // Panels are recognized by displayName.
   const panels = new Map<Platform, ReactNode>();
   const childArray = Array.isArray(children) ? children : [children];
   for (const child of childArray) {
@@ -44,9 +36,6 @@ export function PlatformTabs({ children }: PlatformTabsProps) {
   const orderedPlatforms = PLATFORM_ORDER.filter((p) => panels.has(p));
   if (orderedPlatforms.length === 0) return null;
 
-  // If the active platform has no panel here, fall back to the first
-  // available — keeps the UI sensible when a content author only
-  // authored two of three variants.
   const activePlatform = panels.has(platform) ? platform : orderedPlatforms[0];
 
   return (
@@ -77,9 +66,6 @@ interface PanelProps {
   children: ReactNode;
 }
 
-// Subcomponent for the per-platform content. Has displayName so the
-// parent's child-walking can identify it without poking React
-// internals.
 function Panel({ children }: PanelProps) {
   return <>{children}</>;
 }

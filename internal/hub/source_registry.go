@@ -17,14 +17,13 @@ type SourceState int
 
 const (
 	SourceApproved SourceState = iota
-	SourceUnknown              // not in sources table — event/RPC refused
-	SourceBlocked              // admin deleted/revoked since last check
+	SourceUnknown              // not in the sources table; events and RPCs are refused
+	SourceBlocked              // revoked by an admin since the last check
 )
 
 // SourceRegistry caches sources-table membership for the ingest path.
-// Pre-provisioning is the real trust boundary (NATS auth); this is
-// defense-in-depth plus a place to record admin revocations without
-// waiting for the next DB round-trip.
+// NATS auth is the trust boundary; this is a backstop that also applies
+// admin revocations at once.
 type SourceRegistry struct {
 	store *storage.Store
 	now   func() time.Time
@@ -84,8 +83,8 @@ func (r *SourceRegistry) MarkApproved(source string) {
 	r.mu.Unlock()
 }
 
-// MarkBlocked records a revocation so in-flight messages racing the
-// admin delete don't slip through until the DB cache ages out.
+// MarkBlocked records a revocation so messages already in flight are
+// refused right away.
 func (r *SourceRegistry) MarkBlocked(source string) {
 	r.mu.Lock()
 	r.blocked[source] = struct{}{}

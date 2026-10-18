@@ -17,7 +17,6 @@ func TestMissingPaks(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(dir, mod), 0755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	// Drop pak0 + pak3 in place; pak1/pak2 stay missing.
 	for _, n := range []string{"pak0.pk3", "pak3.pk3"} {
 		if err := os.WriteFile(filepath.Join(dir, mod, n), []byte("PK\x03\x04"), 0644); err != nil {
 			t.Fatalf("write %s: %v", n, err)
@@ -54,7 +53,6 @@ func TestAnyPatchMissing(t *testing.T) {
 
 func TestIsPlausiblePak(t *testing.T) {
 	dir := t.TempDir()
-	// Real-shaped: zip magic.
 	zipPath := filepath.Join(dir, "real.pk3")
 	if err := os.WriteFile(zipPath, []byte("PK\x03\x04rest of zip"), 0644); err != nil {
 		t.Fatalf("write zip: %v", err)
@@ -62,7 +60,6 @@ func TestIsPlausiblePak(t *testing.T) {
 	if !isPlausiblePak(zipPath) {
 		t.Errorf("expected real.pk3 (zip-magic) to pass")
 	}
-	// Wrong magic.
 	textPath := filepath.Join(dir, "bogus.pk3")
 	if err := os.WriteFile(textPath, []byte("not a zip"), 0644); err != nil {
 		t.Fatalf("write text: %v", err)
@@ -70,11 +67,9 @@ func TestIsPlausiblePak(t *testing.T) {
 	if isPlausiblePak(textPath) {
 		t.Errorf("expected bogus.pk3 to fail magic check")
 	}
-	// Missing file.
 	if isPlausiblePak(filepath.Join(dir, "ghost.pk3")) {
 		t.Errorf("expected missing file to fail")
 	}
-	// Too short to read 4 bytes.
 	short := filepath.Join(dir, "short.pk3")
 	if err := os.WriteFile(short, []byte("PK"), 0644); err != nil {
 		t.Fatalf("write short: %v", err)
@@ -93,8 +88,6 @@ func TestHubURL(t *testing.T) {
 	}
 }
 
-// makeTestZip builds an in-memory zip with the given file map (path
-// inside zip → bytes) and writes it to dest.
 func makeTestZip(t *testing.T, dest string, files map[string][]byte) {
 	t.Helper()
 	var buf bytes.Buffer
@@ -207,8 +200,7 @@ func TestFetchAndExtractMods_StripsSingleWrapperDir(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(staticDir, "downloads"), 0755); err != nil {
 		t.Fatal(err)
 	}
-	// Real-world quake3-1.32-pk3s.zip wraps everything in
-	// quake3-latest-pk3s/. Same shape exercised here.
+	// The real patch zip wraps everything in quake3-latest-pk3s/.
 	makeTestZip(t, filepath.Join(staticDir, "downloads", "patch.zip"), map[string][]byte{
 		"quake3-latest-pk3s/baseq3/pak1.pk3":      []byte("p1"),
 		"quake3-latest-pk3s/baseq3/pak8.pk3":      []byte("p8"),
@@ -247,7 +239,6 @@ func TestFetchAndExtractMods_RejectsZipSlip(t *testing.T) {
 func TestResolveZip_HTTPFallback(t *testing.T) {
 	root := t.TempDir()
 	q3Dir := filepath.Join(root, "quake3")
-	// Build a zip in memory and serve it from a fake hub.
 	var zipBytes bytes.Buffer
 	zw := zip.NewWriter(&zipBytes)
 	w, _ := zw.Create("baseq3/pak1.pk3")
@@ -263,20 +254,17 @@ func TestResolveZip_HTTPFallback(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	// resolveZip builds https://<host>/downloads/<name>; httptest's TLS
-	// server has a self-signed cert, so swap http.DefaultTransport for
-	// the test's permissive client.
+	// The test server's certificate is self-signed.
 	prevTransport := http.DefaultTransport
 	http.DefaultTransport = srv.Client().Transport
 	defer func() { http.DefaultTransport = prevTransport }()
 
-	// HubHost has to match the test server's host.
 	hostURL := srv.URL // https://127.0.0.1:PORT
 	host := hostURL[len("https://"):]
 	opts := PakStepOptions{
 		Quake3Dir: q3Dir,
 		HubHost:   host,
-		// StaticDir empty → forces HTTP path.
+		// With no StaticDir the zip comes over HTTP.
 	}
 	if err := fetchAndExtractMods(opts, io.Discard, "patch.zip", []string{"baseq3"}); err != nil {
 		t.Fatalf("fetchAndExtractMods: %v", err)
@@ -313,11 +301,9 @@ func TestResolveZip_CwdMirrorsToStaticDir(t *testing.T) {
 	if err := fetchAndExtractMods(opts, io.Discard, "patch.zip", []string{"baseq3"}); err != nil {
 		t.Fatal(err)
 	}
-	// File extracted into the q3 tree.
 	if _, err := os.Stat(filepath.Join(q3Dir, "baseq3/pak1.pk3")); err != nil {
 		t.Errorf("expected extraction: %v", err)
 	}
-	// AND mirrored into the hub's downloads dir for future collectors.
 	mirrored := filepath.Join(staticDir, "downloads", "patch.zip")
 	if _, err := os.Stat(mirrored); err != nil {
 		t.Errorf("expected mirror to %s: %v", mirrored, err)

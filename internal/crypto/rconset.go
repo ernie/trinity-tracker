@@ -28,9 +28,9 @@ const (
 var ErrPlaintextLen = errors.New("crypto: rconset plaintext length out of range")
 
 // DeriveRconsetKey returns the per-handshake 16-byte key K used by the
-// rcon-stuff protocol. Hub-only: only the hub knows the user's
-// long-lived token. The collector receives K (not the token) and only
-// for as long as it needs to encrypt one message.
+// rcon-stuff protocol. Only the hub knows the user's long-lived token,
+// so only the hub calls this; the collector receives K, and only for
+// as long as it takes to encrypt one message.
 func DeriveRconsetKey(token string, epochNonce [RconsetNonceLen]byte) [16]byte {
 	msg := make([]byte, 0, len(labelKey)+RconsetNonceLen)
 	msg = append(msg, labelKey...)
@@ -39,9 +39,8 @@ func DeriveRconsetKey(token string, epochNonce [RconsetNonceLen]byte) [16]byte {
 }
 
 // EncryptRconset packages plaintext for the engine's trinity_rconset
-// server-command handler. Returns the hex string that goes directly
-// into the rcon "sv_cmd trinity_rconset <clientID> <hexblob>"
-// argument. The returned string is lowercase hex.
+// server-command handler. It returns the lowercase hex blob for the
+// rcon "sv_cmd trinity_rconset <clientID> <hexblob>" argument.
 //
 // Wire layout (decoded):
 //
@@ -59,18 +58,15 @@ func EncryptRconset(key [16]byte, epochNonce [RconsetNonceLen]byte, plaintext []
 	ctLen := len(plaintext)
 	blob := make([]byte, RconsetHeaderLen+ctLen+RconsetMACLen)
 
-	// Header
 	blob[0] = RconsetVersion
 	blob[1] = byte(ctLen)
 	copy(blob[2:2+RconsetNonceLen], epochNonce[:])
 
-	// Ciphertext = plaintext XOR keystream
 	ks := keystream(key, epochNonce, ctLen)
 	for i := 0; i < ctLen; i++ {
 		blob[RconsetHeaderLen+i] = plaintext[i] ^ ks[i]
 	}
 
-	// MAC = SipHash128(key, labelMAC || header || ciphertext)[:8]
 	macMsg := make([]byte, 0, len(labelMAC)+RconsetHeaderLen+ctLen)
 	macMsg = append(macMsg, labelMAC...)
 	macMsg = append(macMsg, blob[:RconsetHeaderLen+ctLen]...)
@@ -98,9 +94,8 @@ func keystream(key [16]byte, epochNonce [RconsetNonceLen]byte, ctLen int) []byte
 	return out[:ctLen]
 }
 
-// decryptRconsetForTest is the inverse of EncryptRconset; test-only.
-// Production decryption only ever happens on the engine side, in C.
-// Exported only as a helper for the cross-language round-trip test.
+// decryptRconsetForTest inverts EncryptRconset for the round-trip
+// tests; the engine does the real decryption.
 func decryptRconsetForTest(token string, hexBlob string) ([]byte, error) {
 	blob, err := hex.DecodeString(hexBlob)
 	if err != nil {

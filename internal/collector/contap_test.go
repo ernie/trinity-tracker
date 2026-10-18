@@ -27,7 +27,7 @@ func newFakeTap(t *testing.T) *fakeTap {
 	return &fakeTap{ln: ln, port: ln.Addr().(*net.TCPAddr).Port}
 }
 
-// serveOnce accepts one consumer, sends the hello + lines, then closes.
+// serveOnce accepts one consumer, sends the hello and lines, then closes.
 func (f *fakeTap) serveOnce(hello string, lines ...string) {
 	conn, err := f.ln.Accept()
 	if err != nil {

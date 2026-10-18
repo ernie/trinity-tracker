@@ -1,8 +1,4 @@
-// External-link glyph (box with arrow leaving the upper-right
-// corner) — pair with target="_blank" links so the new-tab behavior
-// is visually telegraphed before the click. Matches the stroke
-// weight of DownloadIcon / PlayIcon so the action vocabulary reads
-// as one set.
+// Marks links that open in a new tab.
 export function ExternalLinkIcon({
   size = 11,
   className,

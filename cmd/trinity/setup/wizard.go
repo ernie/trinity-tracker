@@ -14,14 +14,12 @@ import (
 	"time"
 )
 
-// discordWebhookRE matches Discord's webhook URL shape. Same regex as
-// internal/config/validateDiscord — the duplication is the price of
-// keeping setup out of config's import graph.
+// discordWebhookRE matches Discord's webhook URL shape. It must match
+// the regex in internal/config's validateDiscord, which is unexported.
 var discordWebhookRE = regexp.MustCompile(`^https://discord\.com/api/webhooks/\d+/[A-Za-z0-9_-]+$`)
 
-// WizardOptions controls non-prompt-collected behavior of RunWizard:
-// whether hub modes are unlocked, and which expert-mode skips are
-// active (which can suppress prompts that would otherwise be unused).
+// WizardOptions sets what RunWizard doesn't prompt for: whether hub
+// modes are unlocked, and the expert-mode skips.
 type WizardOptions struct {
 	AllowHub      bool
 	SkipCert      bool
@@ -31,21 +29,18 @@ type WizardOptions struct {
 }
 
 // RunWizard walks the operator through every prompt the install
-// needs and returns a populated Answers. mode-specific prompts
-// branch off the leading mode question; per-server prompts repeat
-// until the operator answers "no" to "add another?".
+// needs and returns a populated Answers. Mode-specific prompts branch
+// off the first question; server prompts repeat until the operator
+// declines to add another.
 //
-// opts.AllowHub controls whether the operator may pick a hub-bearing
-// mode. The default front door (`scripts/install.sh`, `trinity init`)
-// runs collector-only — Trinity is a network of collectors joining a
-// shared hub at trinity.run, and extra hubs are easy to stand up by
-// accident and hard to consolidate later. Hub installs are an expert
-// path: `trinity init --allow-hub`, documented in
-// distributed-deployment.md.
+// opts.AllowHub unlocks the hub modes (`trinity init --allow-hub`,
+// documented in distributed-deployment.md). The default is
+// collector-only: Trinity is a network of collectors joining the shared
+// hub at trinity.run, and extra hubs are easy to start by accident and
+// hard to merge later.
 //
-// The Skip* fields are copied onto the returned Answers so Apply can
-// act on them; they also gate prompts the wizard would otherwise ask
-// (e.g. AdminEmail is unused when SkipCert or SkipNginx is set).
+// The Skip* fields carry onto the returned Answers for Apply and skip
+// the prompts they make unused (AdminEmail under SkipCert or SkipNginx).
 func RunWizard(p Prompter, out io.Writer, opts WizardOptions) (*Answers, error) {
 	fmt.Fprintln(out, "Welcome to Trinity setup.")
 	fmt.Fprintln(out)
@@ -66,12 +61,11 @@ func RunWizard(p Prompter, out io.Writer, opts WizardOptions) (*Answers, error) 
 	if !opts.AllowHub {
 		a.Mode = ModeCollector
 	} else {
-		// When hub modes are unlocked we still default to collector —
-		// the operator has to actively choose to stand up a hub.
+		// Collector stays the default; a hub has to be chosen.
 		modeIdx, err := p.Choose("What kind of install?", []string{
 			ModeCombined.String() + "  (single machine)",
 			ModeHubOnly.String() + "  (central UI; remote collectors report in)",
-			ModeCollector.String() + "  (watches local q3 servers; reports to a remote hub)",
+			ModeCollector.String() + "  (watches local game servers; reports to a remote hub)",
 		}, int(ModeCollector))
 		if err != nil {
 			return nil, err
@@ -79,9 +73,6 @@ func RunWizard(p Prompter, out io.Writer, opts WizardOptions) (*Answers, error) 
 		a.Mode = Mode(modeIdx)
 	}
 
-	// Collector installs need three things from the hub admin before
-	// they can do anything useful. Gate up front so an operator who
-	// doesn't have them yet bails out before answering ten questions.
 	if a.Mode == ModeCollector {
 		if err := confirmCollectorPrereqs(p, out); err != nil {
 			return nil, err
@@ -130,12 +121,8 @@ func promptCommon(p Prompter, a *Answers) error {
 	if a.ServiceUser, err = p.Line("Service user", a.ServiceUser); err != nil {
 		return err
 	}
-	// ListenAddr and HTTPPort are not prompted: collectors auto-install
-	// nginx (which fronts every public path), and even hub mode is
-	// expected to sit behind a reverse proxy. Operators who really
-	// want the Go binary directly on the wire can edit
-	// /etc/trinity/config.yml. Defaults from RunWizard
-	// (127.0.0.1:8080) are kept as-is.
+	// ListenAddr and HTTPPort keep RunWizard's 127.0.0.1:8080 because
+	// nginx or another reverse proxy fronts every public path.
 	return nil
 }
 
@@ -147,20 +134,19 @@ func promptHub(p Prompter, a *Answers) error {
 	if a.StaticDir, err = p.Line("Web assets path", a.StaticDir); err != nil {
 		return err
 	}
-	// JWT secret isn't operator-tunable — silently mint one. Pre-set
-	// values (e.g. tests) pass through untouched.
+	// Generated unless already set, as tests do.
 	if a.JWTSecret == "" {
 		a.JWTSecret = GenerateJWTSecret()
 	}
 	return nil
 }
 
-// promptHubPublic gathers the public-facing knobs hub modes need:
-// the SPA's public URL (also the LE cert hostname), the admin email
-// for renewal alerts, and — for Combined mode — the local source ID
-// the in-process collector publishes events under. Asks once whether
-// remote collectors will connect, which decides whether the embedded
-// NATS broker binds externally with TLS or only on loopback.
+// promptHubPublic gathers what hub modes need to face the public: the
+// SPA's public URL (also the certificate's hostname), the admin email
+// for renewal alerts, and in combined mode the source ID the local
+// collector publishes under. Whether remote collectors will connect
+// decides if the embedded NATS broker binds externally with TLS or
+// only on loopback.
 func promptHubPublic(p Prompter, a *Answers, out io.Writer) error {
 	hostInput, err := promptValidated(p, out,
 		"Public hostname for this hub, e.g. trinity.example.org (must already resolve here)",
@@ -173,9 +159,6 @@ func promptHubPublic(p Prompter, a *Answers, out io.Writer) error {
 	if err := confirmDNSPointsHere(p, out, a.PublicURL); err != nil {
 		return err
 	}
-	// AdminEmail is for Let's Encrypt renewal alerts only — skip the
-	// prompt when the operator has opted out of either the certbot run
-	// or nginx altogether.
 	if !a.SkipCert && !a.SkipNginx {
 		if a.AdminEmail, err = promptValidated(p, out,
 			"Email for Let's Encrypt renewal alerts",
@@ -199,62 +182,59 @@ func promptHubPublic(p Prompter, a *Answers, out io.Writer) error {
 
 func promptCollectorCommon(p Prompter, a *Answers) error {
 	var err error
-	if a.InstallEngine, err = p.YesNo("Install latest trinity-engine release (q3 server binary + mod)?", true); err != nil {
+	if a.InstallEngine, err = p.YesNo("Install the latest Trinity engine release (game server and mod)?", true); err != nil {
 		return err
 	}
-	if a.Quake3Dir, err = p.Line("Quake3 install dir", a.Quake3Dir); err != nil {
+	if a.Quake3Dir, err = p.Line("Quake III install directory", a.Quake3Dir); err != nil {
 		return err
 	}
 	return nil
 }
 
-// ErrMissingPrereqs is returned by RunWizard when the operator says
-// they don't yet have the credentials a collector install needs.
-// cmdInit treats it as a clean exit (informational, non-zero status)
-// so the user sees the hint rather than a stack of "wizard failed"
-// noise.
+// ErrMissingPrereqs is returned by RunWizard when the operator doesn't
+// yet have what a collector install needs. cmdInit exits non-zero on
+// it without a failure message, leaving the hint as the last output.
 var ErrMissingPrereqs = fmt.Errorf("collector prerequisites not in hand")
 
-// confirmCollectorPrereqs explains what the operator needs from the
-// hub admin and bails out (with ErrMissingPrereqs) if they don't have
-// it yet. Lives at the very top of the collector wizard so nobody
-// answers ten questions only to discover they're missing a credential.
+// confirmCollectorPrereqs lists what a collector install needs and
+// returns ErrMissingPrereqs if the operator doesn't have it yet. It runs
+// first, so nobody answers every question only to find something missing.
 func confirmCollectorPrereqs(p Prompter, out io.Writer) error {
-	fmt.Fprintln(out, "This installer joins your Quake 3 host to a Trinity hub as a collector.")
-	fmt.Fprintln(out, "You will need:")
+	fmt.Fprintln(out, "This installer connects your Quake III Arena host to a Trinity hub as a")
+	fmt.Fprintln(out, "collector. You will need:")
 	fmt.Fprintln(out)
-	fmt.Fprintln(out, "  1. The hub hostname           (e.g. trinity.run)")
-	fmt.Fprintln(out, "  2. A source ID                (approved name from \"My Servers\" on the hub)")
-	fmt.Fprintln(out, "  3. A .creds file              (download from \"My Servers\" after approval)")
-	fmt.Fprintln(out, "  4. A public hostname          (must already resolve to this box in DNS,")
-	fmt.Fprintln(out, "                                 plus a dl.<hostname> A/AAAA record on the")
-	fmt.Fprintln(out, "                                 same host for the Quake 3 fastdl vhost)")
-	fmt.Fprintln(out, "  5. An email address           (for your Let's Encrypt SSL cert)")
+	fmt.Fprintln(out, "  1. The hub hostname           (such as trinity.run)")
+	fmt.Fprintln(out, "  2. A source ID                (your approved name from \"My servers\" on the hub)")
+	fmt.Fprintln(out, "  3. A .creds file              (download it from \"My servers\" after approval)")
+	fmt.Fprintln(out, "  4. A public hostname          (must already resolve to this box in DNS, plus")
+	fmt.Fprintln(out, "                                 a dl.<hostname> A or AAAA record for the same")
+	fmt.Fprintln(out, "                                 box, which serves fast downloads)")
+	fmt.Fprintln(out, "  5. An email address           (for your Let's Encrypt certificate)")
 	fmt.Fprintln(out)
-	fmt.Fprintln(out, "Optional (saves a path-prompt during pak install): copy your retail")
-	fmt.Fprintln(out, "Quake 3 pak0.pk3 into the current directory as q3-pak0.pk3, and")
-	fmt.Fprintln(out, "mp-pak0.pk3 if you'll run Team Arena gametypes. The wizard will")
-	fmt.Fprintln(out, "find them by name and place them without prompting.")
+	fmt.Fprintln(out, "Optional: to skip a path prompt during the pak install, copy your retail")
+	fmt.Fprintln(out, "Quake III Arena pak0.pk3 into the current directory as q3-pak0.pk3, and your")
+	fmt.Fprintln(out, "Team Arena pak0.pk3 as mp-pak0.pk3 if you'll run Team Arena game types. The")
+	fmt.Fprintln(out, "wizard finds them by name and puts them in place without asking.")
 	fmt.Fprintln(out)
-	fmt.Fprintln(out, "The wizard will install nginx, obtain a Let's Encrypt SAN cert covering both")
-	fmt.Fprintln(out, "<hostname> and dl.<hostname>, and open the firewall ports it needs (80/443/tcp")
-	fmt.Fprintln(out, "+ 27960-28000/udp on ufw or firewalld). Both DNS records must resolve to this")
-	fmt.Fprintln(out, "box BEFORE you run, or the cert fetch will time out and the wizard will fail")
-	fmt.Fprintln(out, "mid-apply.")
+	fmt.Fprintln(out, "The wizard installs nginx, gets a Let's Encrypt certificate covering both")
+	fmt.Fprintln(out, "<hostname> and dl.<hostname>, and opens the firewall ports it needs (80/443/tcp")
+	fmt.Fprintln(out, "and 27960-28000/udp, with ufw or firewalld). Both DNS records must resolve to")
+	fmt.Fprintln(out, "this box BEFORE you run it, or the certificate request times out and the")
+	fmt.Fprintln(out, "wizard fails partway through.")
 	fmt.Fprintln(out)
-	fmt.Fprintln(out, "If your hub has a public web UI, log in there and click \"Add Servers\" — an admin")
-	fmt.Fprintln(out, "will approve your request and the drawer that appears gives you the source ID")
-	fmt.Fprintln(out, "and a .creds download. Otherwise (or if your hub admin prefers it), ask them")
-	fmt.Fprintln(out, "directly — for trinity.run, the Trinity Discord works")
+	fmt.Fprintln(out, "To get a source ID and .creds file, log in on the hub's website and click")
+	fmt.Fprintln(out, "\"Add servers\" (or \"My servers\", then \"Add another source\"). Once an admin")
+	fmt.Fprintln(out, "approves your request, your source in \"My servers\" shows its name and a")
+	fmt.Fprintln(out, ".creds download. For trinity.run, ask for help in the Trinity Discord")
 	fmt.Fprintln(out, "(https://discord.gg/uJ5EPAXKfs).")
 	fmt.Fprintln(out)
-	ok, err := p.YesNo("Do you have these in hand now?", false)
+	ok, err := p.YesNo("Do you have these now?", false)
 	if err != nil {
 		return err
 	}
 	if !ok {
 		fmt.Fprintln(out)
-		fmt.Fprintln(out, "Re-run the install once you have the source ID, .creds file, and a public")
+		fmt.Fprintln(out, "Run the install again once you have the source ID, .creds file and a public")
 		fmt.Fprintln(out, "hostname pointed at this box.")
 		return ErrMissingPrereqs
 	}
@@ -292,12 +272,12 @@ func promptCollectorOnly(p Prompter, a *Answers, out io.Writer) error {
 	}
 	if !filled {
 		if a.SourceID, err = promptValidated(p, out,
-			"Source ID (from \"My Servers\" on the hub)",
+			"Source ID (from \"My servers\" on the hub)",
 			"", validateSourceID); err != nil {
 			return err
 		}
 		if a.CredsFile, err = promptValidated(p, out,
-			"Path to .creds file from hub admin",
+			"Path to your .creds file",
 			"", validateCredsFile); err != nil {
 			return err
 		}
@@ -305,29 +285,24 @@ func promptCollectorOnly(p Prompter, a *Answers, out io.Writer) error {
 	return nil
 }
 
-// credsCandidate is one usable .creds file discovered in the wizard's
-// CWD. The hub UI saves the file as "<source-id>.creds", so the stem
-// gives us the source ID for free — provided the operator didn't
-// hand-rename it to something the hub won't accept.
+// credsCandidate is one usable .creds file in the working directory.
+// The site saves the file as "<source-id>.creds", so its stem is the
+// source ID.
 type credsCandidate struct {
 	path     string
 	sourceID string
 }
 
-// credsRejection is a *.creds file we found but can't auto-fill from —
-// either unreadable, or its stem isn't a valid source ID. Surfaced
-// to the operator so they're not left wondering why a file they
-// can see in `ls` was ignored.
+// credsRejection is a *.creds file that's unreadable or whose stem
+// isn't a valid source ID. The wizard prints the reason.
 type credsRejection struct {
 	path   string
 	reason string
 }
 
-// discoverCredsIn globs *.creds in dir and partitions them into
-// usable candidates (stem passes validateSourceID, file is readable)
-// and rejections (everything else, with a human-readable reason).
-// The wizard prints rejections so an operator with a hand-renamed
-// file or a stale candidate sees why it was skipped.
+// discoverCredsIn splits the *.creds files in dir into usable
+// candidates (readable, with a stem that passes validateSourceID) and
+// rejections with a reason.
 func discoverCredsIn(dir string) (valid []credsCandidate, rejected []credsRejection) {
 	matches, err := filepath.Glob(filepath.Join(dir, "*.creds"))
 	if err != nil {
@@ -351,11 +326,9 @@ func discoverCredsIn(dir string) (valid []credsCandidate, rejected []credsReject
 	return valid, rejected
 }
 
-// tryAutoFillCreds looks for a usable .creds file in the operator's
-// CWD and offers to skip the SourceID/CredsFile prompts. Returns true
-// when a.SourceID and a.CredsFile have been populated. The hub-issued
-// .creds filename is the source name, so a single match lets the
-// wizard collapse two prompts into one Y/n confirmation.
+// tryAutoFillCreds looks for a usable .creds file in the working
+// directory and offers it in place of the SourceID and CredsFile
+// prompts. It returns true when it filled a.SourceID and a.CredsFile.
 func tryAutoFillCreds(p Prompter, out io.Writer, a *Answers) (bool, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -382,13 +355,12 @@ func tryAutoFillCreds(p Prompter, out io.Writer, a *Answers) (bool, error) {
 		a.CredsFile = c.path
 		return true, nil
 	default:
-		// Multi-match: numbered choose menu, with a tail option that
-		// drops back to the manual prompts so the operator isn't trapped.
+		// The last choice falls back to the manual prompts.
 		opts := make([]string, len(candidates)+1)
 		for i, c := range candidates {
 			opts[i] = fmt.Sprintf("%s  (source: %s)", filepath.Base(c.path), c.sourceID)
 		}
-		opts[len(candidates)] = "(none — enter manually)"
+		opts[len(candidates)] = "(none: I'll type them in)"
 		idx, err := p.Choose("Multiple .creds files found in this directory:", opts, 0)
 		if err != nil {
 			return false, err
@@ -402,9 +374,8 @@ func tryAutoFillCreds(p Prompter, out io.Writer, a *Answers) (bool, error) {
 	}
 }
 
-// promptValidated wraps p.Line with a validation loop. Validation
-// errors print to out and re-prompt rather than failing the wizard,
-// so an operator can fix a typo without restarting.
+// promptValidated wraps p.Line in a loop that prints each validation
+// error and asks again, so a typo doesn't end the wizard.
 func promptValidated(p Prompter, out io.Writer, prompt, def string, validate func(string) error) (string, error) {
 	for {
 		v, err := p.Line(prompt, def)
@@ -419,17 +390,14 @@ func promptValidated(p Prompter, out io.Writer, prompt, def string, validate fun
 	}
 }
 
-// validateSourceID mirrors storage.ValidateSource on shape (alnum +
-// '_' + '-') but with the project-wide 16-char ceiling. Looser on the
-// floor than the owner-request modal's 3-char minimum
-// (`api/owner_sources.go`) — admin-provisioned sources bypass that
-// modal and may be shorter, and the wizard has to accept anything the
-// hub already issued a .creds for. Catching the shape here turns an
-// opaque NATS auth failure later into a clear "fix this answer now"
-// prompt.
+// validateSourceID mirrors storage.ValidateSource's characters
+// (letters, digits, _ and -) with the 16-character limit. It accepts
+// names under the request form's 3-character minimum
+// (`api/owner_sources.go`), since admin-created sources can be shorter
+// and the wizard must accept any name the hub issued .creds for.
 func validateSourceID(s string) error {
 	if len(s) < 1 || len(s) > 16 {
-		return fmt.Errorf("source ID must be 1-16 characters")
+		return fmt.Errorf("source ID must be 1–16 characters")
 	}
 	for _, r := range s {
 		switch {
@@ -438,7 +406,7 @@ func validateSourceID(s string) error {
 		case r >= '0' && r <= '9':
 		case r == '_' || r == '-':
 		default:
-			return fmt.Errorf("source ID may only contain letters, digits, '_' or '-'")
+			return fmt.Errorf("source ID can use only letters, digits, _ and -")
 		}
 	}
 	return nil
@@ -446,8 +414,8 @@ func validateSourceID(s string) error {
 
 // normalizePublicHostname accepts either a bare hostname
 // ("q3.example.com") or a pasted URL ("https://q3.example.com/foo"),
-// strips any scheme/path/port, and returns the hostname alone. Errors
-// if the result isn't shaped like a fully-qualified hostname.
+// and returns the hostname alone. It errors when the result isn't a
+// fully qualified hostname.
 func normalizePublicHostname(s string) (string, error) {
 	s = strings.TrimSpace(s)
 	if s == "" {
@@ -461,7 +429,7 @@ func normalizePublicHostname(s string) (string, error) {
 		h = h[:i]
 	}
 	if !strings.Contains(h, ".") {
-		return "", fmt.Errorf("need a fully-qualified hostname with at least one dot (e.g. q3.example.com)")
+		return "", fmt.Errorf("need a full hostname with at least one dot, such as q3.example.com")
 	}
 	for _, r := range h {
 		switch {
@@ -476,28 +444,21 @@ func normalizePublicHostname(s string) (string, error) {
 	return h, nil
 }
 
-// validatePublicHostname is the prompt-time loop variant — re-runs
-// normalize and returns just its error so promptValidated can re-ask.
+// validatePublicHostname returns normalizePublicHostname's error for
+// promptValidated.
 func validatePublicHostname(s string) error {
 	_, err := normalizePublicHostname(s)
 	return err
 }
 
-// confirmDNSPointsHere does an active DNS lookup on the hostname from
-// publicURL and surfaces the result before the wizard sinks the
-// operator into a multi-minute apply phase whose final step (certbot
-// HTTP-01) cannot succeed unless the hostname already resolves to
-// this box's public IP. Three outcomes:
+// confirmDNSPointsHere looks up publicURL's hostname before the long
+// apply phase, whose certbot step needs that name to resolve to this
+// box's public IP:
 //
-//   - DNS resolves and at least one of the returned IPs matches our
-//     outbound IP: silent pass.
-//   - DNS resolves but none of the returned IPs match (or we can't
-//     determine our outbound IP): print resolved IPs + ask the
-//     operator to confirm one of them is this box. Defaults to yes —
-//     they may be behind NAT/CDN and know better than we do.
-//   - DNS does not resolve at all: print the bad-news message and
-//     default to no — DNS-not-set-up is almost always a real mistake
-//     the operator should fix before proceeding, not power through.
+//   - one of the resolved IPs is ours: it passes without asking
+//   - none match, or our IP is unknown: it lists the IPs and asks,
+//     defaulting to yes, since a box behind NAT or a CDN can be right
+//   - the name doesn't resolve: it explains and asks, defaulting to no
 func confirmDNSPointsHere(p Prompter, out io.Writer, publicURL string) error {
 	host := HostFromURL(publicURL)
 	if host == "" {
@@ -506,9 +467,9 @@ func confirmDNSPointsHere(p Prompter, out io.Writer, publicURL string) error {
 	ips, err := net.LookupHost(host)
 	if err != nil || len(ips) == 0 {
 		fmt.Fprintf(out, "\n  WARNING: DNS for %q does not resolve.\n", host)
-		fmt.Fprintln(out, "  Let's Encrypt validates over HTTP-01 to that hostname; without DNS")
-		fmt.Fprintln(out, "  pointing at this box's public IP, the cert fetch will time out and")
-		fmt.Fprintln(out, "  the wizard will fail mid-apply.")
+		fmt.Fprintln(out, "  Let's Encrypt checks that hostname over HTTP. Unless DNS points at this")
+		fmt.Fprintln(out, "  box's public IP, the certificate request times out and the wizard fails")
+		fmt.Fprintln(out, "  partway through.")
 		ok, perr := p.YesNo("Continue anyway?", false)
 		if perr != nil {
 			return perr
@@ -529,7 +490,7 @@ func confirmDNSPointsHere(p Prompter, out io.Writer, publicURL string) error {
 	fmt.Fprintf(out, "\n  %q resolves to: %s\n", host, strings.Join(ips, ", "))
 	if mine != "" {
 		fmt.Fprintf(out, "  This box's public IP is:  %s\n", mine)
-		fmt.Fprintln(out, "  DNS doesn't point at this box. Let's Encrypt HTTP-01 validation will fail.")
+		fmt.Fprintln(out, "  DNS doesn't point at this box, so the Let's Encrypt check will fail.")
 		ok, perr := p.YesNo("Continue anyway?", false)
 		if perr != nil {
 			return perr
@@ -539,8 +500,8 @@ func confirmDNSPointsHere(p Prompter, out io.Writer, publicURL string) error {
 		}
 		return nil
 	}
-	fmt.Fprintln(out, "  Couldn't determine this box's public IP. Make sure that address points")
-	fmt.Fprintln(out, "  at it, or Let's Encrypt HTTP-01 validation will fail.")
+	fmt.Fprintln(out, "  Couldn't find this box's public IP. Make sure one of those addresses is")
+	fmt.Fprintln(out, "  this box, or the Let's Encrypt check will fail.")
 	ok, perr := p.YesNo("Continue?", true)
 	if perr != nil {
 		return perr
@@ -551,10 +512,9 @@ func confirmDNSPointsHere(p Prompter, out io.Writer, publicURL string) error {
 	return nil
 }
 
-// publicIP asks an echo service for our Internet-facing IP. Cloud VMs
-// behind 1:1 NAT see only a private local address, so the local
-// interface IP wouldn't match what DNS resolves to. Returns "" if both
-// services fail.
+// publicIP asks an echo service for our Internet-facing IP, since a
+// cloud VM behind 1:1 NAT has only a private address locally. It
+// returns "" if both services fail.
 func publicIP() string {
 	services := []string{
 		"https://api.ipify.org",
@@ -577,15 +537,13 @@ func publicIP() string {
 }
 
 // promptDiscord asks whether to enable the weekly Discord leaderboard
-// digest. Declining short-circuits — no fields are populated, no
-// systemd units installed. Accepting collects a webhook URL and a
-// systemd OnCalendar= schedule (default Sunday 20:00 local time).
+// digest. Accepting collects a webhook URL and a systemd OnCalendar=
+// schedule (default "Mon 00:00", host local time).
 func promptDiscord(p Prompter, a *Answers, out io.Writer) error {
 	fmt.Fprintln(out)
-	fmt.Fprintln(out, "Optional: a weekly Discord leaderboard digest can post to a")
-	fmt.Fprintln(out, "channel via webhook. Skip this if you don't have a server,")
-	fmt.Fprintln(out, "or you can configure it later by editing /etc/trinity/config.yml")
-	fmt.Fprintln(out, "and `systemctl enable --now trinity-digest.timer`.")
+	fmt.Fprintln(out, "Optional: post a weekly leaderboard digest to a Discord channel through a")
+	fmt.Fprintln(out, "webhook. You can skip this and set it up later by editing")
+	fmt.Fprintln(out, "/etc/trinity/config.yml and running `systemctl enable --now trinity-digest.timer`.")
 
 	enable, err := p.YesNo("Enable weekly Discord digest?", false)
 	if err != nil {
@@ -610,9 +568,8 @@ func promptDiscord(p Prompter, a *Answers, out io.Writer) error {
 	return nil
 }
 
-// validateDiscordWebhookURL mirrors the regex in
-// internal/config/validateDiscord. Catching shape errors here means
-// the operator isn't surprised at the *next* config.Load round-trip.
+// validateDiscordWebhookURL checks the URL at the prompt with the regex
+// config.Load applies later.
 func validateDiscordWebhookURL(s string) error {
 	if !discordWebhookRE.MatchString(s) {
 		return fmt.Errorf("not a Discord webhook URL (expected https://discord.com/api/webhooks/{id}/{token})")
@@ -620,11 +577,9 @@ func validateDiscordWebhookURL(s string) error {
 	return nil
 }
 
-// validateAdminEmail rejects obviously-bad addresses so the wizard
-// catches typos before certbot does (its rejection comes after the
-// `apt install` and stage-1 nginx config write — much later in the
-// flow). Liberal: anything with a single '@' and a dot in the domain
-// passes; we don't try to do RFC-5321 here.
+// validateAdminEmail catches typos at the prompt, well before certbot
+// would reject the address. Any address with one '@' and a dot in the
+// domain passes.
 func validateAdminEmail(s string) error {
 	at := strings.IndexByte(s, '@')
 	if at < 1 || at == len(s)-1 || strings.Count(s, "@") != 1 {
@@ -636,10 +591,8 @@ func validateAdminEmail(s string) error {
 	return nil
 }
 
-// validateCredsFile checks that the path exists and is a readable
-// regular file. Apply will copy it to /etc/trinity/source.creds later;
-// catching a typo here means we don't leave a half-applied install on
-// the operator's box.
+// validateCredsFile checks that the path is a readable regular file
+// before Apply starts, so a typo can't leave a half-applied install.
 func validateCredsFile(path string) error {
 	info, err := os.Stat(path)
 	if err != nil {
@@ -661,8 +614,8 @@ func validateCredsFile(path string) error {
 
 func promptServers(p Prompter, a *Answers, out io.Writer) error {
 	fmt.Fprintln(out)
-	fmt.Fprintln(out, "Configure q3 servers running on this host. Add as many as you like.")
-	add, err := p.YesNo("Add a q3 server now?", true)
+	fmt.Fprintln(out, "Set up the game servers that run on this host. Add as many as you like.")
+	add, err := p.YesNo("Add a game server now?", true)
 	if err != nil {
 		return err
 	}
@@ -680,8 +633,8 @@ func promptServers(p Prompter, a *Answers, out io.Writer) error {
 	return nil
 }
 
-// PromptServer collects a single ServerAnswers. Exposed so
-// `trinity server add` can reuse it.
+// PromptServer collects a single ServerAnswers, for the wizard and
+// `trinity server add`.
 func PromptServer(p Prompter, a *Answers, index int) (ServerAnswers, error) {
 	defaultPort := 27960 + index
 
@@ -689,7 +642,7 @@ func PromptServer(p Prompter, a *Answers, index int) (ServerAnswers, error) {
 	var err error
 
 	// Gametype first so the key default can match it.
-	gtIdx, err := p.Choose("  Gametype:", gametypeLabels(), 0)
+	gtIdx, err := p.Choose("  Game type:", gametypeLabels(), 0)
 	if err != nil {
 		return s, err
 	}
@@ -698,7 +651,7 @@ func PromptServer(p Prompter, a *Answers, index int) (ServerAnswers, error) {
 	s.UseMissionpack = choice.UseMissionpack
 
 	defaultKey := suggestKey(s.Gametype, s.UseMissionpack, a.Servers)
-	if s.Key, err = p.Line("  Server key (lowercase/digits/underscore/hyphen)", defaultKey); err != nil {
+	if s.Key, err = p.Line("  Server key (lowercase letters, digits, _ and -)", defaultKey); err != nil {
 		return s, err
 	}
 	s.Key = strings.ToLower(s.Key)
@@ -727,10 +680,8 @@ func PromptServer(p Prompter, a *Answers, index int) (ServerAnswers, error) {
 	if s.LogPath, err = p.Line("  Log path", defaultLog); err != nil {
 		return s, err
 	}
-	// Per-server opt-in for hub-admin RCON delegation. Defaults off
-	// — operators must explicitly grant the keys. Stored alongside the
-	// rcon password and re-published to the hub on every heartbeat;
-	// flipping it later is a config edit + service restart away.
+	// Off unless granted. The collector sends it to the hub on every
+	// heartbeat, so changing it later is a config edit and a restart.
 	if s.AllowHubAdminRcon, err = p.YesNo("  Allow hub admins to RCON this server in your absence?", false); err != nil {
 		return s, err
 	}
@@ -783,14 +734,12 @@ func portFromAddress(addr string) int {
 }
 
 // GenerateRCONPassword returns a base64-encoded 18-byte random string
-// (24 chars, no padding). Long enough to brute-force-resist; short
-// enough to type into an RCON-capable client if you ever need to.
+// (24 chars, no padding): long enough to resist brute force, short
+// enough to type into an RCON client.
 func GenerateRCONPassword() string {
 	var b [18]byte
 	if _, err := rand.Read(b[:]); err != nil {
-		// crypto/rand failures on Linux are essentially impossible.
-		// Falling back to a constant would be worse than panicking
-		// — silently weak passwords are how you get owned.
+		// A weak password is worse than a crash.
 		panic("setup: failed to read crypto/rand: " + err.Error())
 	}
 	return base64.RawURLEncoding.EncodeToString(b[:])

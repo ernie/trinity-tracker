@@ -1,24 +1,19 @@
 package hub
 
-// ActivityNotifier is the surface the hub writer uses to report
-// per-server lifecycle events for the server-activity Discord
-// notifications. The concrete implementation lives in
-// internal/notify; this interface keeps hub free of that import.
+// ActivityNotifier receives the per-server lifecycle events behind the
+// Discord server-activity notifications. internal/notify implements it,
+// so hub doesn't import notify.
 //
-// OnMatchStart fires after the hub has accepted a match_start
-// fact event and reset presence counters. The notifier uses it
-// to refresh the live embed when a server is mid-session and a
-// new map (or new match on the same map) starts.
+// OnMatchStart fires after the hub accepts a match_start and resets
+// presence counters, so a live embed can refresh for the new match.
 type ActivityNotifier interface {
 	OnHumanJoin(serverID int64)
 	OnHumanLeave(serverID int64)
 	OnMatchStart(serverID int64)
 }
 
-// SetActivityNotifier installs n as the receiver of human join/leave
-// callbacks. Safe to call before or after Start; on every event the
-// handler loads the latest value atomically. Passing nil clears any
-// previously installed notifier.
+// SetActivityNotifier installs n as the receiver of activity events.
+// It's safe to call before or after Start; nil clears it.
 func (w *Writer) SetActivityNotifier(n ActivityNotifier) {
 	if n == nil {
 		w.activityNotifier.Store((*ActivityNotifier)(nil))

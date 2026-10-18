@@ -5,9 +5,6 @@ import (
 	"time"
 )
 
-// getTimePeriodBounds is the only place leaderboard windows are
-// computed; pinning asOf makes the result reproducible for snapshot
-// links. These tests lock that contract in.
 func TestGetTimePeriodBounds_AsOfPinsTheUpperBound(t *testing.T) {
 	pin := time.Date(2026, 5, 6, 20, 0, 0, 0, time.UTC)
 
@@ -33,8 +30,7 @@ func TestGetTimePeriodBounds_AsOfPinsTheUpperBound(t *testing.T) {
 	}
 }
 
-// Zero-value asOf falls back to time.Now(). The exact "now" is racy
-// to assert against, so we just check the bounds straddle the call.
+// The exact "now" can't be asserted, so the end must fall within the call.
 func TestGetTimePeriodBounds_ZeroAsOfIsLive(t *testing.T) {
 	before := time.Now()
 	start, end := getTimePeriodBounds("week", time.Time{})
@@ -49,8 +45,6 @@ func TestGetTimePeriodBounds_ZeroAsOfIsLive(t *testing.T) {
 	}
 }
 
-// "all" returns a zero start and a far-future end (to bypass any
-// time-based WHERE clauses). asOf still anchors the offset.
 func TestGetTimePeriodBounds_AllSpansEverything(t *testing.T) {
 	pin := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	start, end := getTimePeriodBounds("all", pin)

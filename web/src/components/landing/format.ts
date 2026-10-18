@@ -1,8 +1,4 @@
-// Tiny helpers used by the landing page's hero pulse. Kept colocated with
-// the section components they serve so changes to copy/format don't touch
-// shared utility modules.
-
-/** Returns `one` when n === 1, else `many`. Used for hero-pulse pluralization. */
+/** Returns `one` when n === 1, else `many`. */
 export function plural(n: number, one: string, many: string): string {
   return n === 1 ? one : many;
 }

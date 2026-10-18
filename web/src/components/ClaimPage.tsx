@@ -114,13 +114,11 @@ export function ClaimPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Register form
   const [displayName, setDisplayName] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  // Login form
   const [loginUsername, setLoginUsername] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
 
@@ -140,14 +138,14 @@ export function ClaimPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Invalid or expired claim code");
+        setError(data.error || "That code is wrong or has expired.");
         return;
       }
 
       setClaimInfo(data);
       setStep("validated");
     } catch {
-      setError("Network error");
+      setError("Couldn't reach the server.");
     } finally {
       setLoading(false);
     }
@@ -158,12 +156,12 @@ export function ClaimPage() {
     setError("");
 
     if (password.length < 8) {
-      setError("Password must be at least 8 characters");
+      setError("Password must be at least 8 characters.");
       return;
     }
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match");
+      setError("The passwords don't match.");
       return;
     }
 
@@ -184,16 +182,18 @@ export function ClaimPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Failed to create account");
+        setError(data.error || "Couldn't create your account.");
         return;
       }
 
       // The register response set the session cookie; sync auth state.
       await refresh();
-      setSuccessMessage(`Account "${username}" created and player linked!`);
+      setSuccessMessage(
+        `Created account "${username}" and linked this player to it.`,
+      );
       setStep("success");
     } catch {
-      setError("Network error");
+      setError("Couldn't reach the server.");
     } finally {
       setLoading(false);
     }
@@ -210,7 +210,7 @@ export function ClaimPage() {
         password: loginPassword,
       });
       if (!success) {
-        setError("Invalid credentials");
+        setError("Wrong username or password.");
         setLoading(false);
         return;
       }
@@ -223,14 +223,14 @@ export function ClaimPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Failed to link player");
+        setError(data.error || "Couldn't link this player.");
         return;
       }
 
-      setSuccessMessage("Player linked to your account!");
+      setSuccessMessage("Player linked to your account.");
       setStep("success");
     } catch {
-      setError("Network error");
+      setError("Couldn't reach the server.");
     } finally {
       setLoading(false);
     }
@@ -249,14 +249,14 @@ export function ClaimPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Failed to link player");
+        setError(data.error || "Couldn't link this player.");
         return;
       }
 
-      setSuccessMessage("Player linked to your account!");
+      setSuccessMessage("Player linked to your account.");
       setStep("success");
     } catch {
-      setError("Network error");
+      setError("Couldn't reach the server.");
     } finally {
       setLoading(false);
     }
@@ -268,8 +268,8 @@ export function ClaimPage() {
         {step === "code_entry" && (
           <section className="claim-section">
             <p className="claim-instructions">
-              Enter the 6-digit code from the <code>!claim</code> command
-              in-game.
+              Enter the six-digit code you got by typing <code>!claim</code> in
+              chat on a Trinity server.
             </p>
             <form onSubmit={handleValidate} className="claim-form">
               <div className="claim-code-input-group">
@@ -291,7 +291,7 @@ export function ClaimPage() {
                   disabled={code.length !== 6 || loading}
                   className="claim-submit-btn"
                 >
-                  {loading ? "Validating..." : "Submit"}
+                  {loading ? "Checking…" : "Submit"}
                 </button>
               </div>
               {error && <div className="claim-error centered">{error}</div>}
@@ -318,7 +318,7 @@ export function ClaimPage() {
                     disabled={loading}
                     className="claim-primary-btn"
                   >
-                    {loading ? "Linking..." : "Link Player"}
+                    {loading ? "Linking…" : "Link player"}
                   </button>
                   <button
                     onClick={() => {
@@ -350,7 +350,7 @@ export function ClaimPage() {
                     }}
                     className="claim-primary-btn"
                   >
-                    Create Account
+                    Create account
                   </button>
                   <button
                     onClick={() => {
@@ -374,10 +374,10 @@ export function ClaimPage() {
               stats={claimInfo.stats}
             />
 
-            <h3>Create Account</h3>
+            <h3>Create account</h3>
             <form onSubmit={handleRegister} className="claim-form vertical">
               <div className="claim-form-group">
-                <label htmlFor="display-name">Display Name</label>
+                <label htmlFor="display-name">Display name</label>
                 <DisplayNameEditor
                   value={displayName}
                   onChange={setDisplayName}
@@ -407,7 +407,7 @@ export function ClaimPage() {
                 />
               </div>
               <div className="claim-form-group">
-                <label htmlFor="confirm-password">Confirm Password</label>
+                <label htmlFor="confirm-password">Confirm password</label>
                 <input
                   id="confirm-password"
                   type="password"
@@ -423,7 +423,7 @@ export function ClaimPage() {
                   disabled={loading}
                   className="claim-primary-btn"
                 >
-                  {loading ? "Creating..." : "Create Account"}
+                  {loading ? "Creating…" : "Create account"}
                 </button>
                 <button
                   type="button"
@@ -447,7 +447,7 @@ export function ClaimPage() {
               stats={claimInfo.stats}
             />
 
-            <h3>Log In to Link</h3>
+            <h3>Log in to link</h3>
             <form onSubmit={handleLogin} className="claim-form vertical">
               <div className="claim-form-group">
                 <label htmlFor="login-username">Username</label>
@@ -477,7 +477,7 @@ export function ClaimPage() {
                   disabled={loading}
                   className="claim-primary-btn"
                 >
-                  {loading ? "Logging in..." : "Log In & Link"}
+                  {loading ? "Logging in…" : "Log in and link"}
                 </button>
                 <button
                   type="button"
@@ -502,7 +502,7 @@ export function ClaimPage() {
               onClick={() => navigate("/account")}
               className="claim-primary-btn"
             >
-              Go to Account
+              Go to your account
             </button>
           </section>
         )}

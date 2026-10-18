@@ -169,14 +169,12 @@ func TestToConfig_Combined_EmitsHubAndCollectorBlocks(t *testing.T) {
 	if cfg.Tracker.Collector.HubHost != "hub.example.com" {
 		t.Errorf("hub host: got %q (should be PublicURL hostname)", cfg.Tracker.Collector.HubHost)
 	}
-	// Live spectating is default-on for shipped collectors.
 	if cfg.Tracker.Collector.LiveRelayAddr != defaultLiveRelayAddr {
 		t.Errorf("live relay addr: got %q want %q", cfg.Tracker.Collector.LiveRelayAddr, defaultLiveRelayAddr)
 	}
 	if cfg.Tracker.Collector.LiveDelay != config.Duration(defaultLiveDelay) {
 		t.Errorf("live delay: got %v want %v", cfg.Tracker.Collector.LiveDelay, defaultLiveDelay)
 	}
-	// Default (no remote collectors) → localhost-only NATS, no TLS.
 	if cfg.Tracker.NATS.URL != "nats://127.0.0.1:4222" {
 		t.Errorf("nats url: got %q", cfg.Tracker.NATS.URL)
 	}
@@ -215,7 +213,6 @@ func TestToConfig_HubOnly_NoCollectorBlock(t *testing.T) {
 	if cfg.Tracker.Collector != nil {
 		t.Errorf("hub-only should not have collector block: %+v", cfg.Tracker.Collector)
 	}
-	// Default (no remote collectors) → localhost-only NATS.
 	if cfg.Tracker.NATS.URL != "nats://127.0.0.1:4222" {
 		t.Errorf("hub-only nats url: got %q", cfg.Tracker.NATS.URL)
 	}

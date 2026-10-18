@@ -49,9 +49,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [auth, setAuth] = useState<AuthState>(loggedOut);
   const [loading, setLoading] = useState(true);
 
-  // Derive auth state from the server; the HttpOnly session cookie
-  // rides along on its own. Promise-chain form: every setState lives
-  // in a callback, never in the synchronous body.
+  // A promise chain, so every setState runs in a callback
+  // (react-hooks/set-state-in-effect).
   const refresh = useCallback(
     (): Promise<void> =>
       fetch("/api/auth/check")
@@ -78,8 +77,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     [],
   );
 
-  // Check the session on mount, and re-check whenever an apiFetch
-  // sees a 401 (session revoked mid-use from another device).
   useEffect(() => {
     refresh();
     const onExpired = () => {
@@ -118,8 +115,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     [],
   );
 
-  // The server must expire the cookie (HttpOnly — JS can't). State
-  // clears regardless of the request's fate.
+  // The cookie is HttpOnly, so only the server can expire it. Local state
+  // clears whatever the request does.
   const logout = useCallback(async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
@@ -128,8 +125,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, []);
 
-  // Bumps the account's token version: every session on every device
-  // dies, unlike plain logout (this device only).
+  // Bumps the account's token version, which ends its sessions on every device.
   const logoutEverywhere = useCallback(async () => {
     try {
       await fetch("/api/auth/logout-all", { method: "POST" });
@@ -157,16 +153,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (!res.ok) {
           return {
             success: false,
-            error: data.error || "Failed to change password",
+            error: data.error || "Couldn't change your password.",
           };
         }
 
-        // Server re-issued this device's session cookie with the
-        // bumped token version; other devices are logged out.
+        // The server reissued this device's cookie; other devices are logged out.
         setAuth((prev) => ({ ...prev, passwordChangeRequired: false }));
         return { success: true };
       } catch {
-        return { success: false, error: "Network error" };
+        return { success: false, error: "Couldn't reach the server." };
       }
     },
     [],

@@ -21,7 +21,6 @@ func TestCanonicalizeDisplayName(t *testing.T) {
 		{"^1Foo^7   Bar^1", "foo bar"},
 		{"", ""},
 		{"[VR]", ""},
-		// Case-insensitive: different casing, same canonical form
 		{"Foo", "foo"},
 		{"FOO", "foo"},
 	}
@@ -98,7 +97,8 @@ func TestAdminSetUserDisplayName(t *testing.T) {
 		t.Fatal("unknown user: err = nil, want error")
 	}
 
-	// Every unset user holds display_name_canonical = ''.
+	// Every user without a display name holds display_name_canonical = '',
+	// so an empty value must fail with an error other than taken.
 	if err := s.AdminSetUserDisplayName(ctx, bob.ID, "", ""); err == nil || errors.Is(err, ErrDisplayNameTaken) {
 		t.Fatalf("empty canonical: err = %v, want non-taken error", err)
 	}

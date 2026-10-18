@@ -16,15 +16,9 @@ import (
 	"github.com/ernie/trinity-tracker/internal/storage"
 )
 
-// TestTwoProcessMatchLifecycle exercises the collector-only
-// deployment path from the outside: a hub boots with all its
-// subscriptions, provisions a new source through the admin-ish code
-// path (CreateSource + MintUserCreds), hands the issued .creds file
-// to a separate NATS connection opened over TCP — not the
-// nats.InProcessServer shortcut — and then drives a scripted match
-// lifecycle through the same RPCs + publishers the real collector
-// uses. At the end we read the hub's DB and assert every expected
-// row landed.
+// The collector side connects over TCP with the issued .creds file, as
+// a remote collector does, and plays a match through the real RPCs and
+// publisher; the hub's DB must hold every expected row.
 func TestTwoProcessMatchLifecycle(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -66,9 +60,8 @@ func TestTwoProcessMatchLifecycle(t *testing.T) {
 		t.Fatalf("RegisterRPCHandlers: %v", err)
 	}
 
-	// Teardown in LIFO order: stop inbound first, then cancel the
-	// writer's ctx, then stop the writer (so its linkCode loop
-	// unblocks), then close conns + NATS.
+	// Cleanups run LIFO: stop inbound, cancel the writer's ctx so its
+	// link-code loop exits, stop the writer, then close conns and NATS.
 	t.Cleanup(func() { ns.Stop() })
 	t.Cleanup(func() { _ = store.Close() })
 	t.Cleanup(func() { subNC.Close() })
@@ -77,7 +70,7 @@ func TestTwoProcessMatchLifecycle(t *testing.T) {
 	t.Cleanup(sub.Stop)
 	t.Cleanup(rpcSrv.Stop)
 
-	// --- Provisioning (what the admin UI's POST /api/admin/sources does) ---
+	// Provisioned the way POST /api/admin/sources does it.
 	const source = "remote-1"
 	const localID = int64(42)
 	reg := domain.Registration{
@@ -106,7 +99,6 @@ func TestTwoProcessMatchLifecycle(t *testing.T) {
 		t.Fatalf("UpsertRemoteServers: %v", err)
 	}
 
-	// --- Collector-side connection over real TCP with issued creds ---
 	collectorNC, err := nats.Connect(ns.ClientURL(),
 		nats.UserCredentials(credsPath),
 		nats.CustomInboxPrefix(natsbus.InboxPrefixFor(source)),
@@ -126,11 +118,9 @@ func TestTwoProcessMatchLifecycle(t *testing.T) {
 		t.Fatalf("NewRPCClient: %v", err)
 	}
 
-	// --- Scripted match lifecycle ---
 	now := time.Date(2026, 4, 19, 16, 0, 0, 0, time.UTC)
 
-	// 1. Upsert identity for the human player via RPC (what the
-	//    collector does at ClientUserinfo time).
+	// 1. Identity upsert, as the collector does at ClientUserinfo.
 	const (
 		humanGUID  = "GUIDHUMANAAAAAAAAAAAAAAAAAAAAAAA"
 		humanName  = "Alice"
@@ -182,8 +172,8 @@ func TestTwoProcessMatchLifecycle(t *testing.T) {
 		t.Fatalf("player_join Publish: %v", err)
 	}
 
-	// 4. Trinity handshake stamps client_engine/client_version on
-	//    the open session.
+	// 4. The Trinity handshake stamps client_engine and client_version
+	//    on the open session.
 	handshakeAt := joinedAt.Add(1 * time.Second)
 	if err := pub.Publish(domain.FactEvent{
 		Type:      domain.FactTrinityHandshake,
@@ -230,7 +220,7 @@ func TestTwoProcessMatchLifecycle(t *testing.T) {
 		t.Fatalf("match_end Publish: %v", err)
 	}
 
-	// --- Wait for consumed_seq to catch up, then assert DB state ---
+	// Wait for consumed_seq to catch up.
 	deadline := time.Now().Add(3 * time.Second)
 	var consumed uint64
 	for time.Now().Before(deadline) {
@@ -256,7 +246,6 @@ func TestTwoProcessMatchLifecycle(t *testing.T) {
 		t.Errorf("MapName = %q", match.MapName)
 	}
 
-	// match_player_stats row should exist for Alice.
 	pg, err := store.GetPlayerGUIDByGUID(ctx, humanGUID)
 	if err != nil || pg == nil {
 		t.Fatalf("player_guids row missing for %s: %v", humanGUID, err)

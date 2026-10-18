@@ -11,19 +11,19 @@ import { stripVRPrefix } from "../../utils";
 export interface DuelistData {
   name: string;
   cleanName?: string;
-  /** Q3 model id (e.g. "sarge/default") used by ModelHead. */
+  /** Model and skin, such as "sarge/default". */
   model?: string;
   isBot?: boolean;
-  /** 1–5 bot skill, drives BotBadge color. */
+  /** Bot skill, 1–5. */
   skill?: number;
   isVR?: boolean;
   isVerified?: boolean;
   isAdmin?: boolean;
   score: number;
-  /** sub-text below the score, e.g. "24 ping" or "25 K · 19 D" */
+  /** Text below the score, such as "24 ping" or "25 K · 19 D". */
   sub?: React.ReactNode;
   awards?: AwardEntry[];
-  /** DB player ID — opens PlayerStatsModal on click. */
+  /** Opens PlayerStatsModal on click. */
   playerId?: number;
 }
 
@@ -31,7 +31,7 @@ interface DuelistsProps {
   left: DuelistData;
   right: DuelistData;
   state: ScoreState;
-  /** Live: always `vs`, no winner/loser styling. */
+  /** Live: always `vs`, with no winner or loser styling. */
   live?: boolean;
   onPlayerClick?: (
     playerName: string,
@@ -110,8 +110,6 @@ function Duelist({ data, side, winnerSide, onClick }: DuelistProps) {
             size="sm"
           />
         )}
-        {/* Medal stack hangs off the inner edge of the portrait,
-            absolutely positioned so it doesn't shift name/score below. */}
         <DuelistAwards awards={data.awards} side={side} />
       </span>
       <span className={`duelist__name ${isLoser ? "dim" : ""}`}>
@@ -142,9 +140,8 @@ export function Duelists({
         ? "right"
         : null;
 
-  // Sized-up duelist columns leave no room for a stacked
-  // "NO\nCONTEST" between them. Surface tie/no_contest as a thin
-  // banner above the row instead; connector stays a clean "vs".
+  // The portrait columns leave no room between them for a stacked
+  // "NO CONTEST", so tie and no contest show as a banner above the row.
   const banner =
     !live && (state === "tie" || state === "no_contest") ? (
       <div className={`duelists-state ${state === "tie" ? "tie" : "nc"}`}>

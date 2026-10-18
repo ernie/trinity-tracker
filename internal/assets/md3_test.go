@@ -8,9 +8,9 @@ import (
 )
 
 // buildTestMD3 constructs a minimal valid MD3 with one surface and the
-// given shader names, following md3Header_t/md3Surface_t in the engine's
-// qfiles.h. A nonzero numTags ensures ofsTags != ofsSurfaces, so offset
-// regressions can't pass by coincidence (the original parser bug did).
+// given shader names, following md3Header_t and md3Surface_t in the
+// engine's qfiles.h. A nonzero numTags keeps ofsTags and ofsSurfaces
+// apart, so reading the wrong offset can't pass by coincidence.
 func buildTestMD3(shaderNames []string) []byte {
 	var buf bytes.Buffer
 	w := func(v uint32) { binary.Write(&buf, binary.LittleEndian, v) }

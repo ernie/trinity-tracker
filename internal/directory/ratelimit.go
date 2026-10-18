@@ -6,10 +6,9 @@ import (
 	"time"
 )
 
-// rateLimiter is a per-IP token bucket guarding the amplification
-// vectors (getservers / getserversExt). Defaults are intentionally
-// loose for v1 — Q3 clients refresh their server browser at human
-// timescales — and not exposed in YAML; tighten if abuse is observed.
+// rateLimiter is a per-IP token bucket on getservers and getserversExt,
+// the requests that amplify. Its limits are loose because clients
+// refresh their server browser at human pace, and aren't configurable.
 type rateLimiter struct {
 	mu       sync.Mutex
 	now      func() time.Time
@@ -39,9 +38,9 @@ func newRateLimiter(capacity float64, refillPerSecond float64, now func() time.T
 	}
 }
 
-// Allow consumes one token from ip's bucket. Returns false if the
-// bucket is empty (caller should drop the request silently — no error
-// reply, since UDP error replies themselves amplify).
+// Allow consumes one token from ip's bucket and reports false when it's
+// empty. The caller drops the request without replying, since a UDP
+// error reply would itself amplify.
 func (r *rateLimiter) Allow(ip netip.Addr) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -67,8 +66,8 @@ func (r *rateLimiter) Allow(ip netip.Addr) bool {
 	return true
 }
 
-// gcLocked drops buckets that have been quiet long enough to be at
-// full capacity — those carry no state we need to remember.
+// gcLocked drops buckets that have refilled to capacity, since they
+// hold nothing worth keeping.
 func (r *rateLimiter) gcLocked(now time.Time) {
 	for ip, b := range r.buckets {
 		elapsed := now.Sub(b.last).Seconds()

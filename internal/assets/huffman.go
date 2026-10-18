@@ -233,9 +233,8 @@ func (m *MsgReader) ReadBits(n int) int {
 	return value
 }
 
-// ReadU8 reads one byte (8 bits via Huffman). Named ReadU8 rather than
-// ReadByte so the receiver does not accidentally satisfy io.ByteReader
-// (which requires a (byte, error) signature).
+// ReadU8 reads one Huffman-coded byte. The name keeps MsgReader from
+// looking like an io.ByteReader, whose ReadByte returns (byte, error).
 func (m *MsgReader) ReadU8() byte {
 	return byte(m.ReadBits(8))
 }

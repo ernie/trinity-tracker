@@ -13,10 +13,8 @@ func TestSetMatchFeatured(t *testing.T) {
 	store := newTestStore(t)
 	ctx := context.Background()
 
-	// Seed: insert a match with has_human_player=1 and demo_available=1
 	matchID := seedTestMatch(t, store, true, true)
 
-	// Initially not featured
 	ids, err := store.GetFeaturedMatches(ctx, 20)
 	if err != nil {
 		t.Fatalf("GetFeaturedMatches: %v", err)
@@ -25,7 +23,6 @@ func TestSetMatchFeatured(t *testing.T) {
 		t.Fatalf("expected 0 featured, got %d", len(ids))
 	}
 
-	// Set featured
 	if err := store.SetMatchFeatured(ctx, matchID, true); err != nil {
 		t.Fatalf("SetMatchFeatured: %v", err)
 	}
@@ -38,7 +35,6 @@ func TestSetMatchFeatured(t *testing.T) {
 		t.Fatalf("expected [%d], got %v", matchID, ids)
 	}
 
-	// Unset
 	if err := store.SetMatchFeatured(ctx, matchID, false); err != nil {
 		t.Fatalf("SetMatchFeatured(false): %v", err)
 	}
@@ -93,8 +89,8 @@ func TestGetFilteredMatchSummaries_FeaturedAndDemoFilters(t *testing.T) {
 		return out
 	}
 
-	// FeaturedOnly includes flagged matches regardless of demo state — the
-	// admin view surfaces demo-less entries that GetFeaturedMatches hides.
+	// FeaturedOnly includes flagged matches without a demo, which the admin
+	// view shows and GetFeaturedMatches hides.
 	got, err := store.GetFilteredMatchSummaries(ctx, MatchFilter{FeaturedOnly: true, IncludeBotOnly: true})
 	if err != nil {
 		t.Fatal(err)
@@ -193,9 +189,8 @@ func seedTestMatch(t *testing.T, store *Store, hasHuman, hasDemo bool) int64 {
 	return id
 }
 
-// suffixCounter increments per call to guarantee unique uuids even within a
-// single nanosecond. UnixNano can't be relied on alone — two consecutive
-// inserts can land in the same instant on fast machines.
+// suffixCounter keeps uuids unique when two inserts land in the same
+// nanosecond, which happens on fast machines.
 var suffixCounter int64
 
 func randomSuffix() string {

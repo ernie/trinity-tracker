@@ -308,14 +308,14 @@ func skipPlayerDelta(msg *MsgReader) {
 			bits = -bits
 		}
 		if bits == 0 {
-			// Float — no zero check for players
+			// Float; player fields have no zero check.
 			if msg.ReadBits(1) == 0 {
 				msg.ReadBits(floatIntBits) // integral float
 			} else {
 				msg.ReadBits(32) // full float
 			}
 		} else {
-			// Integer — no zero check for players
+			// Integer; player fields have no zero check.
 			msg.ReadBits(bits)
 		}
 	}

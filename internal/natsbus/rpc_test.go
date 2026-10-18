@@ -126,7 +126,7 @@ func TestRPCClaimRoundTripGeneratesCode(t *testing.T) {
 	client, store := startRPCRig(t)
 	ctx := context.Background()
 
-	if _, err := store.UpsertPlayerGUID(ctx, "guid-a", "Ernie", "ernie", time.Now().UTC(), false); err != nil {
+	if _, err := store.UpsertPlayerGUID(ctx, "guid-a", "Alice", "alice", time.Now().UTC(), false); err != nil {
 		t.Fatalf("seed player: %v", err)
 	}
 	reply, err := client.Claim(ctx, hub.ClaimRequest{GUID: "guid-a"})
@@ -174,7 +174,7 @@ func TestRPCIdentityRoundTrip(t *testing.T) {
 	ctx := context.Background()
 	ts := time.Now().UTC()
 
-	id, err := client.UpsertPlayerIdentity(ctx, "guid-human", "Ernie", "ernie", ts, false)
+	id, err := client.UpsertPlayerIdentity(ctx, "guid-human", "Alice", "alice", ts, false)
 	if err != nil {
 		t.Fatalf("UpsertPlayerIdentity: %v", err)
 	}

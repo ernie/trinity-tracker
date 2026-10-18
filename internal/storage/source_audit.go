@@ -19,10 +19,11 @@ type SourceAuditEntry struct {
 	CreatedAt   time.Time
 }
 
-// WriteSourceAudit records a lifecycle event. The handler layer calls
-// this on every state change (requested/approved/rejected/rotated/
-// downloaded/left/rejoined/revoked) so the trail survives restarts.
-// Pass nil for actorUserID when the action is system-initiated.
+// WriteSourceAudit records a lifecycle event (requested, approved,
+// rejected, renamed, downloaded, rotated, left, rejoined, revoked,
+// reactivated) or an RCON action (rcon.exec, rcon.denied,
+// rcon.autoset). Pass nil for actorUserID when the system took the
+// action.
 func (s *Store) WriteSourceAudit(ctx context.Context, source string, actorUserID *int64, action, detail string) error {
 	var actor sql.NullInt64
 	if actorUserID != nil {

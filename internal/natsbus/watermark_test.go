@@ -33,7 +33,7 @@ func TestSaveLoadWatermarkRoundTrip(t *testing.T) {
 }
 
 func TestSaveWatermarkIsAtomic(t *testing.T) {
-	// Sentinel: after a successful Save, no .tmp file remains.
+	// No .tmp file remains after a successful save.
 	dir := t.TempDir()
 	if err := SaveWatermark(dir, Watermark{LastSeq: 1}); err != nil {
 		t.Fatalf("save: %v", err)
@@ -93,8 +93,6 @@ func TestWatermarkTrackerTracksPerServer(t *testing.T) {
 	ts1 := time.Date(2026, 5, 11, 17, 11, 58, 0, time.UTC)
 	ts2 := time.Date(2026, 5, 11, 17, 12, 8, 0, time.UTC)
 	// 1v1 (server 2) publishes at 17:11:58, then ctf-ta (server 4) at 17:12:08.
-	// Without per-server tracking, both would share a single LastTS, and a
-	// 1v1 event at 17:12:08 would be censored by ctf-ta's advance.
 	if err := tr.Update(2, 100, ts1); err != nil {
 		t.Fatalf("update server 2: %v", err)
 	}
@@ -146,8 +144,7 @@ func TestWatermarkTrackerBatchFlushTripsAtThreshold(t *testing.T) {
 	if err != nil {
 		t.Fatalf("tracker: %v", err)
 	}
-	// Push WatermarkFlushEvery updates — the last one must trigger
-	// the flush.
+	// The WatermarkFlushEvery-th update triggers the flush.
 	for i := 1; i <= WatermarkFlushEvery; i++ {
 		if err := tr.Update(1, uint64(i), time.Now().UTC()); err != nil {
 			t.Fatalf("update %d: %v", i, err)

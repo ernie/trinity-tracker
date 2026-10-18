@@ -20,7 +20,7 @@ export function LoginForm({ onLogin }: LoginFormProps) {
     const success = await onLogin(username, password);
 
     if (!success) {
-      setError("Invalid credentials");
+      setError("Wrong username or password.");
     }
     setLoading(false);
   };
@@ -32,7 +32,7 @@ export function LoginForm({ onLogin }: LoginFormProps) {
           Claim
         </Link>
         <button className="login-toggle" onClick={() => setExpanded(true)}>
-          Login
+          Log in
         </button>
       </div>
     );
@@ -57,7 +57,7 @@ export function LoginForm({ onLogin }: LoginFormProps) {
         autoComplete="current-password"
       />
       <button type="submit" disabled={loading || !username || !password}>
-        {loading ? "..." : "Login"}
+        {loading ? "…" : "Log in"}
       </button>
       <button
         type="button"

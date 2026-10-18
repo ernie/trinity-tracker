@@ -54,7 +54,7 @@ export function DisplayNameEditor({
       )}
       {canonicalMismatch && (
         <div className="display-name-hint">
-          Cannot change your name, only restyle it
+          You can change colors and capitalization, but not the name itself.
         </div>
       )}
       {error && <div className="display-name-error">{error}</div>}

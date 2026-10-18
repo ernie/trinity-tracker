@@ -45,12 +45,12 @@ export function PortraitPickerModal({
       });
       if (!res.ok) {
         const body = await res.json();
-        setError(body.error || "Failed to update profile icon");
+        setError(body.error || "Couldn't update your profile icon.");
         return;
       }
       onSaved();
     } catch {
-      setError("Network error");
+      setError("Couldn't reach the server.");
     } finally {
       setSaving(false);
     }
@@ -74,7 +74,7 @@ export function PortraitPickerModal({
         >
           &times;
         </button>
-        <h2>Choose Profile Icon</h2>
+        <h2>Choose profile icon</h2>
         {error && <div className="error-message">{error}</div>}
         {current && (
           <button
@@ -86,9 +86,9 @@ export function PortraitPickerModal({
           </button>
         )}
         {!loaded ? (
-          <div className="loading">Loading...</div>
+          <div className="loading">Loading…</div>
         ) : models.length === 0 ? (
-          <p className="no-player">Portraits are not available.</p>
+          <p className="no-player">No portraits are available.</p>
         ) : (
           <div className="portrait-picker-scroll">
             <div className="portrait-picker-grid">

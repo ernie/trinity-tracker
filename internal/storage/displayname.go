@@ -12,9 +12,9 @@ import (
 
 var displayNameMultiSpace = regexp.MustCompile(`\s+`)
 
-// reservedNames contains Q3 + Team Arena bot names (missionpack pak0
-// scripts/bots.txt), the TA clan aliases the mod synthesizes as bots,
-// plus engine defaults that must stay unclaimed.
+// reservedNames holds the Quake III and Team Arena bot names
+// (missionpack pak0 scripts/bots.txt), the Team Arena clan aliases the
+// mod adds as bots, and engine defaults that must stay unclaimed.
 var reservedNames = func() map[string]bool {
 	names := []string{
 		"Anarki", "Angel", "Biker", "Bitterman", "Bones", "Cadavre",
@@ -42,12 +42,11 @@ func isReservedName(canonical string) bool {
 }
 
 // nameEntitled reports whether playerID may have rawName recorded in its
-// alias ("also known as") history. It is false for reserved names (bot names
-// + the engine default UnnamedPlayer), which nobody owns, and for a display
-// name locked by a *different* user — both are names a player only lands on
-// transiently before the server forces a rename. Runs on the caller's querier
-// (typically the in-flight tx) so the ownership read sees the same data the
-// surrounding write does.
+// alias ("also known as") history. It is false for reserved names (bot
+// names and the engine default UnnamedPlayer) and for a display name
+// locked by another user: a player only holds those until the server
+// forces a rename. It runs on the caller's querier, usually the in-flight
+// tx, so the ownership read sees the same data as the surrounding write.
 func nameEntitled(ctx context.Context, q sqlQuerier, rawName string, playerID int64) (bool, error) {
 	cano := CanonicalizeDisplayName(rawName)
 	if cano == "" {
@@ -80,13 +79,8 @@ func (s *Store) IsNameReserved(ctx context.Context, rawName string, excludePlaye
 	return s.IsDisplayNameTaken(ctx, cano, excludePlayerID)
 }
 
-// CanonicalizeDisplayName returns the per-account-uniqueness form of a raw
-// display name. Composition:
-//  1. domain.StripVRTag   — removes "[VR]" prefix/suffix decoration
-//  2. domain.CleanQ3Name  — strips Q3 color codes (^0-^7)
-//  3. collapse whitespace runs to a single space
-//  4. trim ends
-//  5. lowercase — "Foo" and "FOO" resolve to the same identity
+// CanonicalizeDisplayName returns the form display names must be unique
+// in, so "^1Foo [VR]" and "foo" count as the same name.
 func CanonicalizeDisplayName(raw string) string {
 	s := domain.StripVRTag(raw)
 	s = domain.CleanQ3Name(s)

@@ -8,7 +8,7 @@ const PLATFORM_NAMES: Record<string, string> = {
   unknown: "Unknown",
 };
 
-// older sessions have no platform
+// Older sessions have no platform.
 export function platformName(platform?: string): string {
   if (!platform) return "Not recorded";
   return PLATFORM_NAMES[platform] ?? platform;

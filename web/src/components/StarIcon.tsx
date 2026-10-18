@@ -1,6 +1,3 @@
-// Five-point star used by feature-toggle on MatchCard and MatchDetailPage.
-// `filled` flips between hollow stroke (inactive) and solid (active);
-// callers drive hue via currentColor (text-dim at rest, ember when on).
 export function StarIcon({
   size = 12,
   filled = false,

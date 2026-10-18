@@ -31,15 +31,14 @@ const (
 	entCPMAArmor   = "item_armor_jacket"
 )
 
-// Team Arena items. Holdable kamikaze/invulnerability are the TA additions
-// (holdable_teleporter and holdable_medkit ship in baseq3).
+// Team Arena items. Only kamikaze and invulnerability count as Team Arena
+// holdables; the teleporter and medkit ship in baseq3.
 var (
 	taPowerups  = map[string]bool{"item_scout": true, "item_guard": true, "item_doubler": true, "item_ammoregen": true}
 	taHoldables = map[string]bool{"holdable_kamikaze": true, "holdable_invulnerability": true}
 	taWeapons   = map[string]bool{"weapon_nailgun": true, "weapon_chaingun": true, "weapon_prox_launcher": true}
 )
 
-// mapEntities is what we extract per .bsp.
 type mapEntities struct {
 	DM         int
 	RedPlayer  int
@@ -61,7 +60,6 @@ type mapEntities struct {
 	HasCPMAArmor bool
 }
 
-// mapRow is one entry in the scan results.
 type mapRow struct {
 	Name    string
 	Pk3     string
@@ -69,9 +67,7 @@ type mapRow struct {
 	HasBots bool // a matching .aas file exists in some pk3 (bot navigation data)
 }
 
-// mapFilter holds the per-flag filter values parsed from the CLI. Numeric
-// filters use 0/MaxInt as no-op sentinels so the keep predicate is just
-// arithmetic with no extra "is set" tracking.
+// mapFilter's numeric bounds use 0 and MaxInt as their unset values.
 type mapFilter struct {
 	minDM, maxDM                     int
 	minTeamPlayers, maxTeamPlayers   int
@@ -134,8 +130,7 @@ func (f mapFilter) keep(r mapRow) bool {
 	return true
 }
 
-// labels returns the active filters in CLI form, suitable for echoing back
-// in the footer summary. Order matches the help text.
+// labels returns the active filters in CLI form, in help-text order.
 func (f mapFilter) labels() []string {
 	var out []string
 	if f.minDM > 0 {
@@ -208,7 +203,7 @@ func cmdMaps(args []string) {
 	fs.BoolVar(&f.cpma, "cpma", false, "require CPMA green armor (item_armor_jacket)")
 	fs.BoolVar(&f.bots, "bots", false, "require bot support (matching .aas navigation file in any pk3)")
 
-	// Cosmetic: hide the MaxInt sentinel in --help; the value still defaults to MaxInt.
+	// Hide the MaxInt default in --help.
 	for _, name := range []string{"max-dm", "max-team-players", "max-team-respawns"} {
 		fs.Lookup(name).DefValue = "no limit"
 	}
@@ -222,7 +217,7 @@ func cmdMaps(args []string) {
 		fmt.Fprintln(os.Stderr, "Filters AND together. Examples:")
 		fmt.Fprintln(os.Stderr, "  trinity maps --ctf --min-team-players 4       playable 4v4 CTF maps")
 		fmt.Fprintln(os.Stderr, "  trinity maps --cpma --min-dm 6                CPMA-aware FFA maps")
-		fmt.Fprintln(os.Stderr, "  trinity maps --neutral-flag --ta-powerup      1FCTF with TA powerups")
+		fmt.Fprintln(os.Stderr, "  trinity maps --neutral-flag --ta-powerup      One Flag CTF maps with Team Arena powerups")
 		fmt.Fprintln(os.Stderr, "  trinity maps --bots --min-dm 4                FFA maps that support bots")
 		fmt.Fprintln(os.Stderr)
 		fmt.Fprintln(os.Stderr, "Options:")
@@ -232,7 +227,6 @@ func cmdMaps(args []string) {
 		os.Exit(2)
 	}
 
-	// Resolve input dir: positional arg wins; else config; else default.
 	inputPath := ""
 	if extras := fs.Args(); len(extras) > 0 {
 		inputPath = extras[0]
@@ -259,20 +253,15 @@ func cmdMaps(args []string) {
 	streamMapsTable(pk3Files, inputPath, f)
 }
 
-// bspLocation records where to find a .bsp's entity lump.
 type bspLocation struct {
 	pk3Path    string
 	pk3Display string
 	bspName    string // path inside the pk3
 }
 
-// indexMaps walks every pk3's central directory (no decompression) to find all
-// .bsp entries and the matching .aas (bot navigation) files. Returns the bsp
-// index keyed by lowercased map basename, the alphabetically sorted list of
-// names, and a set of names whose .aas was found in any pk3. Last-loaded pk3
-// wins on bsp duplicates, matching the engine's resource-resolution precedence;
-// .aas presence is a union across all pk3s because companion bot packs commonly
-// ship .aas separately from the .bsp.
+// indexMaps reads only the pk3 directories. On a duplicate .bsp the last
+// pk3 wins, as in the engine; an .aas in any pk3 counts, since bot packs
+// often ship .aas files apart from their maps.
 func indexMaps(pk3Files []string, basePath string) (map[string]bspLocation, []string, map[string]bool) {
 	index := make(map[string]bspLocation)
 	aasMaps := make(map[string]bool)
@@ -304,10 +293,8 @@ func indexMaps(pk3Files []string, basePath string) (map[string]bspLocation, []st
 	return index, names, aasMaps
 }
 
-// streamFromIndex iterates the sorted name list, parses each map's entities,
-// and calls visit. Maintains a 1-entry pk3 cache so adjacent maps in the same
-// pk3 (common — e.g. all q3wcp* live in q3wpak1.pk3) skip re-opening. aasMaps
-// supplies the bot-support flag for each row.
+// streamFromIndex keeps the last pk3 open, since neighboring maps usually
+// share one.
 func streamFromIndex(index map[string]bspLocation, names []string, aasMaps map[string]bool, visit func(mapRow)) int {
 	var (
 		cachePath  string
@@ -373,10 +360,10 @@ func readMapEntities(f *zip.File) (mapEntities, error) {
 		return mapEntities{}, err
 	}
 	if len(data) < 8+17*8 {
-		return mapEntities{}, fmt.Errorf("file too small to be a Q3 BSP")
+		return mapEntities{}, fmt.Errorf("file too small to be a Quake III BSP")
 	}
 	if !bytes.Equal(data[:4], []byte("IBSP")) {
-		return mapEntities{}, fmt.Errorf("not a Q3 BSP (missing IBSP magic)")
+		return mapEntities{}, fmt.Errorf("not a Quake III BSP (missing IBSP magic)")
 	}
 
 	off := int(int32(binary.LittleEndian.Uint32(data[8:12])))
@@ -388,9 +375,6 @@ func readMapEntities(f *zip.File) (mapEntities, error) {
 	return parseEntityClasses(data[off : off+length]), nil
 }
 
-// parseEntityClasses pulls the "classname" value out of every entity block in
-// the entity lump and tallies the ones we care about. The lump is plain ASCII;
-// each entity is a brace-delimited block of `"key" "value"` pairs.
 func parseEntityClasses(lump []byte) mapEntities {
 	var ents mapEntities
 	for _, cn := range entityClassnames(lump) {
@@ -434,9 +418,7 @@ func parseEntityClasses(lump []byte) mapEntities {
 	return ents
 }
 
-// entityClassnames yields lowercase classname values from a Q3 entity lump.
-// We do a minimal walk rather than a full key/value parser: find every
-// `"classname"` token and read the next quoted string.
+// entityClassnames reads the quoted value after each "classname" token.
 func entityClassnames(lump []byte) []string {
 	const key = `"classname"`
 	var out []string
@@ -447,7 +429,6 @@ func entityClassnames(lump []byte) []string {
 			return out
 		}
 		j := i + idx + len(key)
-		// Skip whitespace until the opening quote of the value.
 		for j < len(lump) && lump[j] != '"' {
 			j++
 		}
@@ -467,9 +448,8 @@ func entityClassnames(lump []byte) []string {
 	}
 }
 
-// Box-drawn table layout. Widths are fixed so rows can be streamed without
-// buffering. Numeric columns size for up to 5 digits; flag columns assume
-// each emoji renders as 2 cells (true on every modern terminal).
+// Fixed widths let rows stream without buffering. Numeric columns fit five
+// digits; emoji take two cells.
 type col struct {
 	header  string
 	width   int  // inner width (between vertical bars), excluding bar but including padding
@@ -477,8 +457,7 @@ type col struct {
 	emoji   bool // true for the flag columns (FLAG..WPN)
 }
 
-// defaultMapsCols returns a fresh copy of the column layout. The MAP column's
-// width is sized by the caller after a pre-pass over pk3 directories.
+// defaultMapsCols returns a fresh layout; the caller sizes the MAP column.
 func defaultMapsCols() []col {
 	return []col{
 		{"MAP", 5, false, false},
@@ -499,8 +478,7 @@ func defaultMapsCols() []col {
 	}
 }
 
-// longestName returns the longest string in names, with a floor of len("MAP")
-// so the column is at least wide enough for its header.
+// longestName has a floor of len("MAP") so the header fits.
 func longestName(names []string) int {
 	max := len("MAP")
 	for _, n := range names {
@@ -516,9 +494,6 @@ const (
 	emojiNo  = "❌"
 )
 
-// streamMapsTable scans pk3s alphabetically and emits each row to stdout as
-// it's parsed, wrapped in a Unicode box-drawn table. With filter, non-matching
-// rows are silently dropped.
 func streamMapsTable(pk3Files []string, basePath string, f mapFilter) {
 	printColumnKey(os.Stdout)
 	labels := f.labels()
@@ -555,7 +530,6 @@ func streamMapsTable(pk3Files []string, basePath string, f mapFilter) {
 	}
 }
 
-// streamMapNames emits just bare map names alphabetically as they're parsed.
 func streamMapNames(pk3Files []string, basePath string, f mapFilter) {
 	index, names, aasMaps := indexMaps(pk3Files, basePath)
 	streamFromIndex(index, names, aasMaps, func(r mapRow) {
@@ -640,8 +614,7 @@ func padCenter(s string, width int) string {
 	return strings.Repeat(" ", left) + s + strings.Repeat(" ", right)
 }
 
-// padEmoji centers a 2-cell-wide emoji glyph in a cell of the given width.
-// Most modern terminals render emoji presentation-form codepoints as 2 cells.
+// padEmoji centers an emoji, counted as two cells wide.
 func padEmoji(present bool, width int) string {
 	sym := emojiNo
 	if present {
@@ -657,7 +630,6 @@ func padEmoji(present bool, width int) string {
 	return strings.Repeat(" ", left) + sym + strings.Repeat(" ", right)
 }
 
-// printColumnKey explains the table columns so the report is self-describing.
 func printColumnKey(w io.Writer) {
 	fmt.Fprintln(w, "Columns:")
 	fmt.Fprintln(w, "  MAP    map name (.bsp filename without extension)")

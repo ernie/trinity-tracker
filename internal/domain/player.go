@@ -19,9 +19,9 @@ type Player struct {
 	Skill                float64   `json:"skill,omitempty"` // bot skill level (1-5), 0 if human
 	IsVerified           bool      `json:"is_verified"`
 	IsAdmin              bool      `json:"is_admin"`
-	// FeaturedHonor is the linked user's chosen honor key (e.g. "victories",
-	// "captures") for the profile hero card. nil = no linked user, or linked
-	// user hasn't chosen — the frontend falls back to 'victories'.
+	// FeaturedHonor is the linked user's chosen honor key, such as
+	// "victories", for the profile hero card. It's nil with no linked
+	// user or no choice, and the frontend then shows victories.
 	FeaturedHonor *string      `json:"featured_honor,omitempty"`
 	GUIDs         []PlayerGUID `json:"guids,omitempty"` // populated when fetching with details
 }
@@ -198,19 +198,19 @@ type PlayerProfile struct {
 	IsVR                 bool   `json:"is_vr"`
 }
 
-// q3ColorCodeRegex matches Quake 3 color codes like ^1, ^2, etc.
 var q3ColorCodeRegex = regexp.MustCompile(`\^[0-9]`)
 
-// CleanQ3Name removes Quake 3 color codes from a player name
+// CleanQ3Name removes Quake III color codes from a player name.
 func CleanQ3Name(name string) string {
 	return q3ColorCodeRegex.ReplaceAllString(name, "")
 }
 
-// CleanQ3DisplayName combines the engine's Info_SetValueForKey restrictions
-// (\, ", ; stripped) with the QVM's BG_CleanName algorithm: strips leading
-// whitespace, drops black color codes (^0, ^8), removes non-printable chars,
-// collapses runs of more than 2 spaces, and caps output at 31 bytes.
-// Returns empty string if the result has no visible (non-color-code) characters.
+// CleanQ3DisplayName cleans a name the way the game does: the engine's
+// Info_SetValueForKey drops \, " and ;, and the mod's BG_CleanName
+// strips leading whitespace, black color codes (^0, ^8) and
+// non-printable characters, allows at most two spaces in a row, and
+// caps the result at 31 bytes. It returns "" when nothing visible is
+// left.
 func CleanQ3DisplayName(raw string) string {
 	const maxBytes = 31
 
@@ -274,12 +274,8 @@ func CleanQ3DisplayName(raw string) string {
 	return string(out)
 }
 
-// vrLeadingRe matches a leading "[VR]" tag, optionally preceded by
-// Q3 color runs (e.g. "^7[VR] alice") and followed by whitespace.
 var vrLeadingRe = regexp.MustCompile(`(?i)^(?:\^[0-9])*\[VR\]\s*`)
 
-// vrTrailingRe matches a trailing "[VR]" tag with optional leading
-// whitespace and trailing color runs ("alice [VR]^7").
 var vrTrailingRe = regexp.MustCompile(`(?i)\s*\[VR\](?:\^[0-9])*$`)
 
 // StripVRTag removes the "[VR]" decoration the Trinity VR client

@@ -1,6 +1,4 @@
-// Simple check glyph for confirmation/copied states (e.g. DocsH2 anchor).
-// Stroke weight slightly heavier than other 12-grid icons because the
-// shape is short and benefits from a sturdier line.
+// The short strokes need a heavier line than the other 12-grid icons.
 export function CheckIcon({
   size = 12,
   className,

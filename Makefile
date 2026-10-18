@@ -5,8 +5,7 @@ ENGINE_DIR ?= ../trinity-engine
 BINDIR ?= $(PREFIX)/bin
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 
-# Deploy targets push freshly-built artifacts to the running install.
-# Overridable for non-default service users / install roots.
+# Override these for a different service user or install root.
 DEPLOY_USER ?= quake
 DEPLOY_WEB ?= /var/lib/trinity/web
 SERVICE ?= trinity
@@ -23,21 +22,15 @@ install: build
 	install -d $(DESTDIR)$(BINDIR)
 	install -m 755 bin/trinity $(DESTDIR)$(BINDIR)/
 
-# Deploy = build (as you, for mise PATH) + sudo-only file moves.
-# `sudo make deploy` would strip mise's PATH and break the build — run plain `make deploy`.
+# Run plain `make deploy`: it builds as you, since sudo drops mise's PATH,
+# and uses sudo only to move files.
 deploy: deploy-frontend deploy-backend
 
-# NB: no --delete. The webroot also holds runtime-extracted assets from
-# `trinity assets` (levelshots/, portraits/, skills/, maps.json, and the
-# extracted contents of medals/, flags/, icons/) that live nowhere in
-# web/dist/ — a blind --delete would wipe them. The only stale files
-# we actually need to purge are the content-hashed bundles from prior
-# builds, so we do that explicitly in the second step.
-#
-# --chown gives fresh files to $(DEPLOY_USER) so the service can read
-# them without a post-hoc chown -R. rsync writes to a tmp file then
-# renames, so a partial failure can't take the site down the way the
-# old rm-then-cp pattern could.
+# The webroot also holds what `trinity assets` extracts (levelshots/,
+# portraits/, skills/, maps.json, and the contents of medals/, flags/
+# and icons/), so the second step removes only stale content-hashed
+# bundles. rsync writes each file under a temporary name and renames
+# it, so a failed deploy leaves the site serving the old files.
 deploy-frontend: build
 	sudo rsync -a --chown=$(DEPLOY_USER):$(DEPLOY_USER) web/dist/ $(DEPLOY_WEB)/
 	@for f in $(DEPLOY_WEB)/assets/main-*.js $(DEPLOY_WEB)/assets/main-*.css; do \

@@ -31,8 +31,8 @@ type Store struct {
 }
 
 // rwDB routes reads and writes to separate pools. WAL lets readers run
-// concurrently with the single writer, but only across connections — a
-// shared one-connection pool queues every read behind every write.
+// alongside the single writer only across connections, so reads get
+// their own pool.
 type rwDB struct {
 	read  *sql.DB
 	write *sql.DB
@@ -74,10 +74,7 @@ func New(dbPath string) (*Store, error) {
 	write.SetMaxOpenConns(1)
 	write.SetMaxIdleConns(1)
 
-	// Create tables. schema.sql is idempotent (CREATE TABLE IF NOT
-	// EXISTS everywhere). Additive column changes to an existing
-	// install are handled out-of-band — the operator runs the ALTER
-	// manually before deploying a release that depends on it.
+	// schema.sql is idempotent (CREATE ... IF NOT EXISTS throughout).
 	if _, err := write.Exec(schema); err != nil {
 		write.Close()
 		return nil, fmt.Errorf("creating schema: %w", err)
@@ -103,9 +100,9 @@ func (s *Store) Close() error {
 // --- Server methods ---
 
 // UpsertServer creates or updates a server scoped to source. Identity
-// is (source, address) so two collectors that happen to advertise the
-// same address get separate rows instead of trampling each other.
-// source is required; the schema rejects an empty value.
+// is (source, address), so two collectors advertising the same address
+// get separate rows. source is required; the schema rejects an empty
+// value.
 func (s *Store) UpsertServer(ctx context.Context, source string, srv *domain.Server) error {
 	if source == "" {
 		return fmt.Errorf("storage.UpsertServer: source is required")
@@ -184,9 +181,9 @@ func (s *Store) GetServerByID(ctx context.Context, id int64) (*domain.Server, er
 	return &srv, nil
 }
 
-// GetServerBySourceKey resolves a server by its (source, key) identity —
-// the addressing the console CLI speaks (it has no DB ids). Same COLLATE
-// NOCASE key matching as UpsertServer.
+// GetServerBySourceKey resolves a server by its (source, key) identity,
+// which is how the console CLI names servers. Keys match case-
+// insensitively, as in UpsertServer.
 func (s *Store) GetServerBySourceKey(ctx context.Context, source, key string) (*domain.Server, error) {
 	var srv domain.Server
 	var lastMatchUUID sql.NullString
@@ -224,9 +221,8 @@ func (s *Store) SetServerHandshakeRequired(ctx context.Context, serverID int64, 
 }
 
 // SetServerAdminDelegation sets servers.admin_delegation_enabled for a
-// single row. The collector's heartbeat is the production source of
-// truth for this flag (mirrored from the collector's per-server cfg);
-// this setter exists for tests and for any future admin-side override.
+// single row. In production the collector's heartbeat sets the flag
+// from its per-server config; tests use this setter.
 func (s *Store) SetServerAdminDelegation(ctx context.Context, serverID int64, enabled bool) error {
 	v := 0
 	if enabled {
@@ -311,13 +307,9 @@ func (s *Store) UpsertPlayerGUID(ctx context.Context, guid, name, cleanName stri
 		}
 	}
 
-	// Only record names the player is entitled to. A bot name / the engine
-	// default (reserved), or a display name locked by another user, is a name
-	// a human only lands on transiently — the server forces a rename when the
-	// chosen name isn't theirs. Recording it would pollute their "also known
-	// as" list with a name they never really held, so skip the history write.
-	// Identity (players.name / player_guids.name) above still tracks the live
-	// in-game name; the next userinfo corrects it once the rename lands.
+	// The alias history keeps only names the player is entitled to (see
+	// nameEntitled). The identity columns above still track the live
+	// in-game name, and the next userinfo corrects it after the rename.
 	if entitled, err := nameEntitled(ctx, tx, name, pg.PlayerID); err != nil {
 		return nil, err
 	} else if entitled {
@@ -498,7 +490,6 @@ func (s *Store) GetPlayerByID(ctx context.Context, id int64) (*domain.Player, er
 		p.FeaturedHonor = &featuredHonor.String
 	}
 
-	// Get most recent model and skill from match_player_stats
 	var model sql.NullString
 	var skill sql.NullFloat64
 	_ = s.db.QueryRowContext(ctx, `
@@ -519,7 +510,6 @@ func (s *Store) GetPlayerByID(ctx context.Context, id int64) (*domain.Player, er
 		p.Skill = skill.Float64
 	}
 
-	// Get all GUIDs for this player
 	guids, err := s.GetPlayerGUIDs(ctx, p.ID)
 	if err != nil {
 		return nil, err
@@ -529,10 +519,10 @@ func (s *Store) GetPlayerByID(ctx context.Context, id int64) (*domain.Player, er
 	return &p, nil
 }
 
-// modelSubquery surfaces the player-level portrait: the account-chosen
-// users.portrait when set, else the most-recent model from
-// match_player_stats — as a correlated subquery so a single round trip
-// populates the card portraits. Requires `users u` to be LEFT JOINed.
+// modelSubquery yields the player's portrait: users.portrait when set,
+// else the latest model from match_player_stats. It's a correlated
+// subquery so one round trip fills every card's portrait, and it needs
+// `users u` LEFT JOINed.
 const modelSubquery = `COALESCE(NULLIF(u.portrait, ''), (
 	SELECT mps.model
 	FROM match_player_stats mps
@@ -554,7 +544,6 @@ func (s *Store) SearchPlayers(ctx context.Context, query string, limit int, incl
 	var err error
 
 	if includeGUID {
-		// Search by name OR by GUID (admin feature)
 		rows, err = s.db.QueryContext(ctx, `
 			SELECT DISTINCT p.id, COALESCE(u.display_name, p.name), COALESCE(u.display_name_canonical, p.clean_name), p.first_seen, p.last_seen,
 				COALESCE((
@@ -576,7 +565,6 @@ func (s *Store) SearchPlayers(ctx context.Context, query string, limit int, incl
 			LIMIT ?
 		`, searchPattern, searchPattern, searchPattern, searchPattern, limit)
 	} else {
-		// Search by name only
 		rows, err = s.db.QueryContext(ctx, `
 			SELECT p.id, COALESCE(u.display_name, p.name), COALESCE(u.display_name_canonical, p.clean_name), p.first_seen, p.last_seen,
 				COALESCE((
@@ -617,8 +605,8 @@ func (s *Store) SearchPlayers(ctx context.Context, query string, limit int, incl
 	return players, rows.Err()
 }
 
-// playerListSorts whitelists the ORDER BY targets accepted by GetPlayers —
-// sort keys arrive from the URL and must never reach SQL verbatim.
+// playerListSorts lists the ORDER BY targets GetPlayers accepts; sort
+// keys arrive from the URL and must never reach SQL verbatim.
 var playerListSorts = map[string]string{
 	"last_seen":  "p.last_seen",
 	"first_seen": "p.first_seen",
@@ -745,9 +733,8 @@ func (s *Store) GetPlayerNames(ctx context.Context, playerID int64) ([]domain.Pl
 
 // --- Player Merge/Link methods ---
 
-// MergePlayers moves all GUIDs from sourcePlayerID to targetPlayerID, then deletes source
+// MergePlayers moves all GUIDs from sourcePlayerID to targetPlayerID, then deletes source.
 func (s *Store) MergePlayers(ctx context.Context, targetPlayerID, sourcePlayerID int64) error {
-	// Move all GUIDs to target player
 	_, err := s.db.ExecContext(ctx, `
 		UPDATE player_guids SET player_id = ? WHERE player_id = ?
 	`, targetPlayerID, sourcePlayerID)
@@ -755,9 +742,7 @@ func (s *Store) MergePlayers(ctx context.Context, targetPlayerID, sourcePlayerID
 		return err
 	}
 
-	// Update target player's first_seen, last_seen, and recompute is_vr
-	// Note: name/clean_name are NOT updated here - we preserve the target player's name
-	// The name will update naturally when any of the merged GUIDs become active again
+	// The target keeps its name until one of the merged GUIDs plays again.
 	_, err = s.db.ExecContext(ctx, `
 		UPDATE players SET
 			first_seen = (SELECT MIN(first_seen) FROM player_guids WHERE player_id = ?),
@@ -769,14 +754,12 @@ func (s *Store) MergePlayers(ctx context.Context, targetPlayerID, sourcePlayerID
 		return err
 	}
 
-	// Delete the source player (CASCADE will handle if any orphaned refs)
 	_, err = s.db.ExecContext(ctx, `DELETE FROM players WHERE id = ?`, sourcePlayerID)
 	return err
 }
 
-// SplitGUID creates a new player from a GUID (for unlinking)
+// SplitGUID moves a GUID to a new player of its own, for unlinking.
 func (s *Store) SplitGUID(ctx context.Context, playerGUIDID int64) (*domain.Player, error) {
-	// Get the GUID info
 	var pg domain.PlayerGUID
 	err := s.db.QueryRowContext(ctx, `
 		SELECT id, player_id, guid, name, clean_name, first_seen, last_seen, is_vr
@@ -786,7 +769,6 @@ func (s *Store) SplitGUID(ctx context.Context, playerGUIDID int64) (*domain.Play
 		return nil, err
 	}
 
-	// Check if this is the only GUID for the player
 	var guidCount int
 	err = s.db.QueryRowContext(ctx, `
 		SELECT COUNT(*) FROM player_guids WHERE player_id = ?
@@ -798,7 +780,6 @@ func (s *Store) SplitGUID(ctx context.Context, playerGUIDID int64) (*domain.Play
 		return nil, fmt.Errorf("cannot split: player only has one GUID")
 	}
 
-	// Create new player (inherit is_vr from the GUID being split)
 	result, err := s.db.ExecContext(ctx, `
 		INSERT INTO players (name, clean_name, first_seen, last_seen, is_vr)
 		VALUES (?, ?, ?, ?, ?)
@@ -808,7 +789,6 @@ func (s *Store) SplitGUID(ctx context.Context, playerGUIDID int64) (*domain.Play
 	}
 	newPlayerID, _ := result.LastInsertId()
 
-	// Move the GUID to new player
 	_, err = s.db.ExecContext(ctx, `
 		UPDATE player_guids SET player_id = ? WHERE id = ?
 	`, newPlayerID, playerGUIDID)
@@ -816,7 +796,6 @@ func (s *Store) SplitGUID(ctx context.Context, playerGUIDID int64) (*domain.Play
 		return nil, err
 	}
 
-	// Recompute source player's is_vr from remaining GUIDs
 	_, err = s.db.ExecContext(ctx, `
 		UPDATE players SET is_vr = EXISTS(
 			SELECT 1 FROM player_guids WHERE player_id = ? AND is_vr = TRUE
@@ -826,7 +805,6 @@ func (s *Store) SplitGUID(ctx context.Context, playerGUIDID int64) (*domain.Play
 		return nil, err
 	}
 
-	// Return the new player
 	return s.GetPlayerByID(ctx, newPlayerID)
 }
 
@@ -861,7 +839,7 @@ func (s *Store) MarkSessionVR(ctx context.Context, sessionID int64) error {
 	return err
 }
 
-// EndSession closes a session with the leave time (idempotent - no-op if already closed)
+// EndSession closes a session with the leave time; a closed session is left as is.
 func (s *Store) EndSession(ctx context.Context, sessionID int64, leftAt time.Time) error {
 	formattedLeftAt := formatTimestamp(leftAt)
 	_, err := s.db.ExecContext(ctx, `
@@ -1227,7 +1205,6 @@ func (s *Store) FlushMatchPlayerStats(ctx context.Context, matchID, playerGUIDID
 		return nil // Updated existing row
 	}
 
-	// No existing row - insert new
 	_, err = s.db.ExecContext(ctx, `
 		INSERT INTO match_player_stats (
 			match_id, player_guid_id, client_id, frags, deaths, completed, score, team,
@@ -1243,13 +1220,12 @@ func (s *Store) FlushMatchPlayerStats(ctx context.Context, matchID, playerGUIDID
 		return err
 	}
 
-	// Mark match as having a human player
 	_, err = s.db.ExecContext(ctx, `UPDATE matches SET has_human_player = TRUE WHERE id = ? AND has_human_player = FALSE`, matchID)
 	if err != nil {
 		return err
 	}
 
-	// Propagate VR status to player_guids and players (sticky: never reset to false)
+	// VR is sticky on player_guids and players.
 	if isVR {
 		_, err = s.db.ExecContext(ctx, `UPDATE player_guids SET is_vr = TRUE WHERE id = ? AND is_vr = FALSE`, playerGUIDID)
 		if err != nil {
@@ -1282,7 +1258,6 @@ func boolToInt(b bool) int {
 func (s *Store) GetLeaderboard(ctx context.Context, category, period string, limit int, gameType string, asOf time.Time) (*domain.LeaderboardResponse, error) {
 	start, end := getTimePeriodBounds(period, asOf)
 
-	// Determine ORDER BY clause based on category
 	var orderBy string
 	switch category {
 	case "kd_ratio":
@@ -1320,7 +1295,6 @@ func (s *Store) GetLeaderboard(ctx context.Context, category, period string, lim
 	var query string
 	var args []interface{}
 
-	// Always join matches if filtering by game type or period
 	needsMatchJoin := period != "all" || gameType != ""
 
 	if !needsMatchJoin {
@@ -1375,7 +1349,6 @@ func (s *Store) GetLeaderboard(ctx context.Context, category, period string, lim
 			LIMIT ?`
 		args = []interface{}{limit}
 	} else {
-		// Build WHERE conditions
 		whereConditions := "p.is_bot = FALSE AND p.clean_name NOT LIKE '[VR] Player#%'"
 
 		if period != "all" {
@@ -1491,10 +1464,9 @@ func (s *Store) GetLeaderboard(ctx context.Context, category, period string, lim
 	return response, nil
 }
 
-// getTimePeriodBounds returns start and end times for a given period
-// (rolling windows). asOf overrides "now" — pass time.Time{} to use the
-// wall clock. Letting callers pin the anchor makes leaderboard URLs
-// reproducible long after the digest fires.
+// getTimePeriodBounds returns the rolling window for period, ending at
+// asOf, or at the wall clock when asOf is zero. A pinned asOf keeps
+// leaderboard links from the digest reproducible later.
 func getTimePeriodBounds(period string, asOf time.Time) (start, end time.Time) {
 	if asOf.IsZero() {
 		asOf = time.Now()
@@ -1523,7 +1495,6 @@ func (s *Store) GetPlayerStatsByID(ctx context.Context, playerID int64, period s
 
 // getPlayerStats is the shared implementation for getting player stats
 func (s *Store) getPlayerStats(ctx context.Context, playerID int64, period string) (*domain.PlayerStatsResponse, error) {
-	// Get player with GUIDs
 	player, err := s.GetPlayerByID(ctx, playerID)
 	if err != nil {
 		return nil, err
@@ -1531,7 +1502,6 @@ func (s *Store) getPlayerStats(ctx context.Context, playerID int64, period strin
 
 	start, end := getTimePeriodBounds(period, time.Time{})
 
-	// Query aggregated stats across all GUIDs
 	var stats domain.AggregatedStats
 	var query string
 	var args []interface{}
@@ -1600,14 +1570,12 @@ func (s *Store) getPlayerStats(ctx context.Context, playerID int64, period strin
 		return nil, err
 	}
 
-	// Calculate K/D ratio
 	if stats.Deaths > 0 {
 		stats.KDRatio = float64(stats.Frags) / float64(stats.Deaths)
 	} else if stats.Frags > 0 {
 		stats.KDRatio = float64(stats.Frags)
 	}
 
-	// Get name history
 	names, err := s.GetPlayerNames(ctx, playerID)
 	if err != nil {
 		return nil, err
@@ -1620,7 +1588,6 @@ func (s *Store) getPlayerStats(ctx context.Context, playerID int64, period strin
 		Names:  names,
 	}
 
-	// Include period bounds for non-"all" periods
 	if period != "all" {
 		response.PeriodStart = &start
 		response.PeriodEnd = &end
@@ -1644,9 +1611,8 @@ type User struct {
 	GameToken              string
 	DisplayName            string
 	Portrait               string
-	// DisabledAt non-nil = soft-deleted: every credential path rejects
-	// the account. Rows are never hard-deleted once source_audit
-	// references them — disable instead.
+	// DisabledAt set means every credential path rejects the account.
+	// Users that source_audit references are disabled, never deleted.
 	DisabledAt *time.Time
 	// TokenVersion is stamped into web JWTs at mint; a mismatch on
 	// validation means the token was revoked (password change or
@@ -1661,19 +1627,17 @@ func (s *Store) SetUserDisplayName(ctx context.Context, userID int64, displayNam
 	return err
 }
 
-// sqlQuerier abstracts *sql.DB and *sql.Tx so deriveDisplayName works
-// both inside a transaction (claim-code path) and outside one (admin
-// CreateUser path).
+// sqlQuerier is satisfied by *sql.DB and *sql.Tx, so callers work
+// inside a transaction (the claim-code path) or outside one.
 type sqlQuerier interface {
 	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
 }
 
-// deriveDisplayName returns the values to seed (display_name,
-// display_name_canonical) with at account creation or backfill. Tries
-// only the player's in-game name (VR-tag-stripped); returns empty if the
-// name is unavailable (taken by another user or reserved by a bot).
-// No username fallback — an unclaimed display name stays empty rather
-// than silently grabbing a name the user didn't choose.
+// deriveDisplayName returns the (display_name, display_name_canonical)
+// to seed at account creation or backfill. It uses only the player's
+// in-game name, VR tag stripped, and returns empty when that name is
+// taken or reserved, so an account never gets a name its user didn't
+// pick.
 func (s *Store) deriveDisplayName(ctx context.Context, q sqlQuerier, playerID *int64, excludeUserID int64) (raw, canonical string) {
 	if playerID == nil {
 		return "", ""
@@ -1700,10 +1664,9 @@ func (s *Store) deriveDisplayName(ctx context.Context, q sqlQuerier, playerID *i
 	return stripped, cano
 }
 
-// DeriveAndSetDisplayName lazily populates a user's display_name on
-// first auth when the field is still empty. playerName is the client's
-// current in-game name (available from the Greet request). Tries only
-// the in-game name; returns empty if unavailable (taken or bot-reserved).
+// DeriveAndSetDisplayName fills in an empty display_name on first
+// auth from playerName, the client's in-game name from the Greet
+// request. It returns empty when that name is taken or reserved.
 func (s *Store) DeriveAndSetDisplayName(ctx context.Context, userID int64, playerName string) (raw, canonical string) {
 	stripped := domain.StripVRTag(playerName)
 	cano := CanonicalizeDisplayName(stripped)
@@ -2042,7 +2005,6 @@ func (s *Store) attachPlayersToMatches(ctx context.Context, matches []domain.Mat
 		return matches, nil
 	}
 
-	// Build placeholders for IN clause
 	placeholders := make([]string, len(matchIDs))
 	args := make([]interface{}, len(matchIDs))
 	for i, id := range matchIDs {
@@ -2050,7 +2012,6 @@ func (s *Store) attachPlayersToMatches(ctx context.Context, matches []domain.Mat
 		args[i] = id
 	}
 
-	// Get player stats for all matches
 	playerRows, err := s.db.QueryContext(ctx, `
 		SELECT mps.match_id, p.id, COALESCE(u.display_name, pg.name), COALESCE(u.display_name_canonical, pg.clean_name), mps.frags, mps.deaths, mps.completed, p.is_bot, mps.skill, mps.score, mps.team, mps.model, mps.impressives, mps.excellents, mps.humiliations, mps.defends, mps.victories, mps.captures, mps.assists, mps.flag_returns, mps.skulls_delivered, mps.obelisks_destroyed, mps.is_vr,
 			CASE WHEN u.id IS NOT NULL THEN 1 ELSE 0 END as is_verified,
@@ -2067,7 +2028,6 @@ func (s *Store) attachPlayersToMatches(ctx context.Context, matches []domain.Mat
 	}
 	defer playerRows.Close()
 
-	// Map players to matches
 	playersByMatch := make(map[int64][]domain.MatchPlayerSummary)
 	for playerRows.Next() {
 		matchID, ps, err := scanMatchPlayerSummary(playerRows, true)
@@ -2080,7 +2040,6 @@ func (s *Store) attachPlayersToMatches(ctx context.Context, matches []domain.Mat
 		return nil, err
 	}
 
-	// Attach players to matches
 	for i := range matches {
 		matches[i].Players = playersByMatch[matches[i].ID]
 	}
@@ -2090,7 +2049,6 @@ func (s *Store) attachPlayersToMatches(ctx context.Context, matches []domain.Mat
 
 // GetRecentMatchSummaries returns recent finished matches with server and player info
 func (s *Store) GetRecentMatchSummaries(ctx context.Context, limit int) ([]domain.MatchSummary, error) {
-	// Get finished matches that have at least one player
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT DISTINCT `+matchSummaryColumns+`
 		FROM matches m
@@ -2345,7 +2303,6 @@ func (s *Store) ClaimRegister(ctx context.Context, codeID, playerID int64, usern
 	}
 	defer tx.Rollback()
 
-	// Check player isn't already claimed
 	var claimCount int
 	err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM users WHERE player_id = ?`, playerID).Scan(&claimCount)
 	if err != nil {
@@ -2355,7 +2312,6 @@ func (s *Store) ClaimRegister(ctx context.Context, codeID, playerID int64, usern
 		return 0, fmt.Errorf("player is already linked to another account")
 	}
 
-	// Create user with password_change_required = FALSE
 	var raw, cano string
 	if displayName != "" {
 		raw, cano = displayName, displayNameCanonical
@@ -2371,7 +2327,6 @@ func (s *Store) ClaimRegister(ctx context.Context, codeID, playerID int64, usern
 	}
 	userID, _ := result.LastInsertId()
 
-	// Mark claim code as used
 	res, err := tx.ExecContext(ctx, `
 		UPDATE link_codes SET used_at = CURRENT_TIMESTAMP
 		WHERE id = ? AND used_at IS NULL
@@ -2396,14 +2351,13 @@ func (s *Store) ClaimLink(ctx context.Context, codeID, claimPlayerID, userID int
 	}
 	defer tx.Rollback()
 
-	// Check player isn't already claimed by a different user
 	var existingUserID sql.NullInt64
 	err = tx.QueryRowContext(ctx, `SELECT id FROM users WHERE player_id = ?`, claimPlayerID).Scan(&existingUserID)
 	if err == nil && existingUserID.Int64 != userID {
 		return fmt.Errorf("player is already linked to another account")
 	}
 
-	// Mark claim code as used first (before any player delete that would CASCADE)
+	// Mark the code used before any player delete, which would cascade to it.
 	res, err := tx.ExecContext(ctx, `
 		UPDATE link_codes SET used_at = CURRENT_TIMESTAMP
 		WHERE id = ? AND used_at IS NULL
@@ -2416,7 +2370,6 @@ func (s *Store) ClaimLink(ctx context.Context, codeID, claimPlayerID, userID int
 		return fmt.Errorf("claim code already used or expired")
 	}
 
-	// Get the user's current player_id
 	var currentPlayerID sql.NullInt64
 	err = tx.QueryRowContext(ctx, `SELECT player_id FROM users WHERE id = ?`, userID).Scan(&currentPlayerID)
 	if err != nil {
@@ -2424,10 +2377,9 @@ func (s *Store) ClaimLink(ctx context.Context, codeID, claimPlayerID, userID int
 	}
 
 	if currentPlayerID.Valid && currentPlayerID.Int64 != claimPlayerID {
-		// User already has a different player - merge claim player into it
+		// The user already has a player: merge the claimed one into it.
 		targetPlayerID := currentPlayerID.Int64
 
-		// Move all GUIDs to target player
 		_, err = tx.ExecContext(ctx, `
 			UPDATE player_guids SET player_id = ? WHERE player_id = ?
 		`, targetPlayerID, claimPlayerID)
@@ -2435,7 +2387,6 @@ func (s *Store) ClaimLink(ctx context.Context, codeID, claimPlayerID, userID int
 			return err
 		}
 
-		// Update target player timestamps
 		_, err = tx.ExecContext(ctx, `
 			UPDATE players SET
 				first_seen = (SELECT MIN(first_seen) FROM player_guids WHERE player_id = ?),
@@ -2447,19 +2398,17 @@ func (s *Store) ClaimLink(ctx context.Context, codeID, claimPlayerID, userID int
 			return err
 		}
 
-		// Delete the source player
 		_, err = tx.ExecContext(ctx, `DELETE FROM players WHERE id = ?`, claimPlayerID)
 		if err != nil {
 			return err
 		}
 	} else if !currentPlayerID.Valid {
-		// User has no player - just set it
+		// The user has no player yet.
 		_, err = tx.ExecContext(ctx, `UPDATE users SET player_id = ? WHERE id = ?`, claimPlayerID, userID)
 		if err != nil {
 			return err
 		}
 	}
-	// else: currentPlayerID == claimPlayerID, nothing to do
 
 	return tx.Commit()
 }
@@ -2478,7 +2427,6 @@ func (s *Store) GetMatchSummaryByID(ctx context.Context, matchID int64) (*domain
 		return nil, err
 	}
 
-	// Get player stats for this match
 	playerRows, err := s.db.QueryContext(ctx, `
 		SELECT p.id, COALESCE(u.display_name, pg.name), COALESCE(u.display_name_canonical, pg.clean_name), mps.frags, mps.deaths, mps.completed, p.is_bot, mps.skill, mps.score, mps.team, mps.model, mps.impressives, mps.excellents, mps.humiliations, mps.defends, mps.victories, mps.captures, mps.assists, mps.flag_returns, mps.skulls_delivered, mps.obelisks_destroyed, mps.is_vr,
 			CASE WHEN u.id IS NOT NULL THEN 1 ELSE 0 END as is_verified,

@@ -6,8 +6,7 @@ import eslintPluginPrettierRecommended from "eslint-plugin-prettier/recommended"
 import { defineConfig, globalIgnores } from "eslint/config";
 
 export default defineConfig([
-  // public/ holds vendored engine artifacts (minified trinity.js etc.) —
-  // keep them out of both lint and Prettier's reach.
+  // public/ holds vendored engine builds.
   globalIgnores(["dist", "public"]),
   {
     files: ["**/*.{ts,tsx}"],
@@ -21,9 +20,8 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
-  // Runs Prettier as an ESLint rule, so formatting drift fails the lint
-  // gate (which `bun run build` already enforces). Must come last:
-  // eslint-config-prettier (bundled in this preset) turns off rules that
-  // would conflict with Prettier.
+  // Prettier runs as a lint rule, so formatting drift fails the build.
+  // Last, so its bundled eslint-config-prettier can turn off conflicting
+  // rules.
   eslintPluginPrettierRecommended,
 ]);

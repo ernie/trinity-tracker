@@ -1,11 +1,11 @@
 import * as THREE from "three";
 
-// Faithful port of the engine's deformVertexes autosprite/autosprite2
-// (tr_shade_calc.c). A deform surface is quads of 4 verts; each frame every
-// quad is re-oriented to the view. autosprite rebuilds a camera-facing quad
-// (fresh 0-1 UVs); autosprite2 pivots a rectangle around its long axis (the
-// line through the midpoints of its two shortest edges), keeping that axis
-// fixed and the original UVs. View axes are uniform (not per-vertex).
+// Port of the engine's deformVertexes autosprite and autosprite2
+// (tr_shade_calc.c). Each frame every 4-vertex quad turns to the view:
+// autosprite rebuilds a camera-facing quad with fresh 0–1 UVs, and
+// autosprite2 pivots a rectangle around its long axis (through the
+// midpoints of its two shortest edges), keeping its UVs. Every vertex
+// uses the same view axes.
 
 const EDGE_VERTS: [number, number][] = [
   [0, 1],

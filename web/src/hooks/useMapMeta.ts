@@ -50,9 +50,8 @@ function getSnapshot() {
 }
 
 /**
- * Returns map metadata for the given map id. Returns synchronously; while
- * maps.json is loading, returns the identity-shaped fallback (displayName ===
- * shortName). 404s on maps.json are non-fatal — callers always get usable data.
+ * Returns map metadata for the given map id, synchronously. Until maps.json
+ * loads, or if it's missing, displayName is the short name.
  */
 export function useMapMeta(mapId: string | null | undefined): MapMeta {
   const snap = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);

@@ -1,4 +1,3 @@
-// internal/livestream/relay.go
 package livestream
 
 import (
@@ -9,44 +8,43 @@ import (
 	"time"
 )
 
-// feed is a server key's succession of session Buffers. One match's stream is
-// one Buffer; across a map change the tap registers the next match's Buffer
-// under the same key. `cur` is the current session's buffer (nil during the
-// inter-match gap), `closed` marks the tap gone for good. `change` is closed and
-// replaced on every cur/closed mutation, so waiters can block then re-check.
+// feed is a server key's succession of Buffers, one per match; on a map
+// change the tap registers the next match's Buffer under the same key.
+// cur is nil between matches, and closed means the tap is gone for good.
+// change is closed and replaced whenever cur or closed changes, so
+// waiters can block on it and then re-check.
 type feed struct {
 	cur     *Buffer
 	closed  bool
-	viewers int // relay responses currently following this feed (incl. gap-parked waiters)
+	viewers int // relay responses following this feed, including ones waiting between matches
 	change  chan struct{}
 }
 
-// broadcast wakes everyone parked on the current change channel. Caller holds
-// the registry mutex.
+// broadcast wakes everyone waiting on the current change channel. The
+// caller holds the registry mutex.
 func (f *feed) broadcast() {
 	close(f.change)
 	f.change = make(chan struct{})
 }
 
-// Registry maps a live server key (e.g. "ffa") to its feed of successive
-// session Buffers. The collector's tap registers a fresh Buffer per session
-// (Set), nils it during the inter-match gap (RemoveIf), and Closes the feed when
-// the tap drops for good. A viewer's relay response follows one feed across
-// several buffer generations (see RelayServer.ServeHTTP + WaitNext).
+// Registry maps a live server key, such as "ffa", to its feed. The
+// collector's tap registers a Buffer per match (Set), clears it between
+// matches (RemoveIf), and closes the feed when the tap drops for good.
+// One viewer response follows a feed across several Buffers (see
+// RelayServer.ServeHTTP and WaitNext).
 //
-// The key is the bare server key, NOT (source, key): this registry is
-// collector-local and a collector serves exactly one source, within which
-// server keys are unique (schema: UNIQUE(source, key)). Global identity is
-// (source, key) — the hub route /tv/<source>/<key> and the hub-side
-// LiveState supply the source. Do not reuse this registry in a multi-source
-// context without re-keying, or two sources' "ffa" would collide.
+// The key is the bare server key: a collector serves one source, and
+// keys are unique within a source. The hub's /tv/<source>/<key> route
+// and LiveState supply the source. Using this registry for several
+// sources would need (source, key) keys, or two sources' "ffa" would
+// collide.
 type Registry struct {
 	mu    sync.Mutex
 	feeds map[string]*feed
 
-	// Watch hooks, wired once before the relay serves (SetWatchHooks).
-	// Invoked outside r.mu; callers may hold their own locks, so hooks
-	// must not call back into the Registry synchronously beyond Viewers.
+	// Watch hooks, set once before the relay serves (SetWatchHooks).
+	// They run outside r.mu, and callers may hold their own locks, so a
+	// hook may call back into the Registry only through Viewers.
 	viewersHook func(key string, n int)
 	sessionHook func(key string)
 }
@@ -55,9 +53,10 @@ func NewRegistry() *Registry {
 	return &Registry{feeds: make(map[string]*feed)}
 }
 
-// SetWatchHooks wires the collector's watch notifier: viewers fires on every
-// retain/release with the new count, session fires when a new session buffer
-// registers under a key (the map-change re-push point).
+// SetWatchHooks wires the collector's watch notifier: viewers runs on
+// every retain and release with the new count, and session runs when a
+// new match's Buffer registers under a key, which is when the collector
+// pushes the map change.
 func (r *Registry) SetWatchHooks(viewers func(key string, n int), session func(key string)) {
 	r.mu.Lock()
 	r.viewersHook = viewers
@@ -65,7 +64,8 @@ func (r *Registry) SetWatchHooks(viewers func(key string, n int), session func(k
 	r.mu.Unlock()
 }
 
-// feedFor returns the key's feed, creating it on first use. Caller holds r.mu.
+// feedFor returns the key's feed, creating it on first use. The caller
+// holds r.mu.
 func (r *Registry) feedFor(key string) *feed {
 	f := r.feeds[key]
 	if f == nil {
@@ -75,8 +75,8 @@ func (r *Registry) feedFor(key string) *feed {
 	return f
 }
 
-// Set registers the current session's buffer for the key, replacing any prior
-// one and reopening the feed (a key coming back live after a Close).
+// Set registers the current match's buffer for the key, replacing any
+// earlier one and reopening the feed if it was closed.
 func (r *Registry) Set(key string, b *Buffer) {
 	r.mu.Lock()
 	f := r.feedFor(key)
@@ -90,9 +90,9 @@ func (r *Registry) Set(key string, b *Buffer) {
 	}
 }
 
-// Get returns the key's current buffer, or (nil,false) when none is live (no
-// feed, or the inter-match gap). New viewers get a 503 from this; existing
-// viewers cross the gap via WaitNext instead.
+// Get returns the key's current buffer, or (nil, false) when nothing is
+// live. New viewers then get a 503; viewers already connected cross the
+// gap through WaitNext.
 func (r *Registry) Get(key string) (*Buffer, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -103,7 +103,7 @@ func (r *Registry) Get(key string) (*Buffer, bool) {
 	return f.cur, true
 }
 
-// Remove clears the key's current buffer (without closing the feed).
+// Remove clears the key's current buffer and leaves the feed open.
 func (r *Registry) Remove(key string) {
 	r.mu.Lock()
 	if f := r.feeds[key]; f != nil && f.cur != nil {
@@ -113,11 +113,10 @@ func (r *Registry) Remove(key string) {
 	r.mu.Unlock()
 }
 
-// RemoveIf clears the key's current buffer only if it still holds exactly b.
-// Identity-safe teardown: a stale tap (a discarded dial, or one whose stream
-// session ended) must not evict a newer buffer another tap has since registered
-// under the same key. Compare-and-clear closes the registry-emptying race. The
-// feed itself stays open so a mid-response viewer waits for the next session.
+// RemoveIf clears the key's current buffer only if it is still b, so a
+// stale tap (a discarded dial, or one whose session ended) can't remove
+// a newer buffer another tap registered under the same key. The feed
+// stays open so a connected viewer waits for the next match.
 func (r *Registry) RemoveIf(key string, b *Buffer) {
 	r.mu.Lock()
 	if f := r.feeds[key]; f != nil && f.cur == b {
@@ -127,8 +126,8 @@ func (r *Registry) RemoveIf(key string, b *Buffer) {
 	r.mu.Unlock()
 }
 
-// Close marks the key's feed finished (the tap dropped for good), unblocking any
-// viewers waiting in WaitNext for the next session so their response can end.
+// Close marks the key's feed finished because the tap dropped for good,
+// releasing viewers waiting in WaitNext so their responses can end.
 func (r *Registry) Close(key string) {
 	r.mu.Lock()
 	if f := r.feeds[key]; f != nil && !f.closed {
@@ -138,9 +137,9 @@ func (r *Registry) Close(key string) {
 	r.mu.Unlock()
 }
 
-// retain/release bracket one viewer's relay response under key. The count is
-// per-feed, not per-buffer, so a viewer parked in WaitNext across the
-// inter-match gap still counts — it holds a connection and will resume.
+// retain and release bracket one viewer's relay response under key. The
+// count is per feed, so a viewer waiting in WaitNext between matches
+// still counts: it holds a connection and will resume.
 func (r *Registry) retain(key string) {
 	r.mu.Lock()
 	f := r.feedFor(key)
@@ -169,8 +168,8 @@ func (r *Registry) release(key string) {
 	}
 }
 
-// Viewers returns how many relay responses are currently following key's feed.
-// The collector reports it on the registration heartbeat (live_viewers).
+// Viewers returns how many relay responses are following key's feed.
+// The collector reports it in the heartbeat as live_viewers.
 func (r *Registry) Viewers(key string) int {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -180,10 +179,10 @@ func (r *Registry) Viewers(key string) int {
 	return 0
 }
 
-// WaitNext blocks until a buffer other than prev becomes current under key (the
-// next session), the feed closes, or ctx is cancelled. Returns (buf,true) for a
-// fresh session buffer; (nil,false) on close/cancel. The relay uses it to span
-// the inter-match gap within one HTTP response.
+// WaitNext blocks until a buffer other than prev becomes current under
+// key, returning (buf, true), or until the feed closes or ctx is
+// canceled, returning (nil, false). The relay uses it to carry one HTTP
+// response across the gap between matches.
 func (r *Registry) WaitNext(ctx context.Context, key string, prev *Buffer) (*Buffer, bool) {
 	for {
 		r.mu.Lock()
@@ -211,21 +210,21 @@ func (r *Registry) WaitNext(ctx context.Context, key string, prev *Buffer) (*Buf
 	}
 }
 
-// RelayServer serves GET /tv/{key} by streaming the match's Buffer. Live is a
-// stream (TVL1), not a .tvd recording, so the path carries no demo extension.
+// RelayServer serves GET /tv/{key} by streaming the match's Buffer as a
+// TVL1 stream.
 type RelayServer struct {
 	reg  *Registry
 	tick time.Duration
 }
 
-// NewRelayServer creates a relay over reg. Viewer delay is per-Buffer, set at
-// each Buffer's creation.
+// NewRelayServer creates a relay over reg. Each Buffer sets its own
+// viewer delay.
 func NewRelayServer(reg *Registry) *RelayServer {
 	return &RelayServer{reg: reg, tick: 100 * time.Millisecond}
 }
 
-// ServeHTTP routes /tv/{key}. The key is the bare path segment — there is no
-// file and no extension; it indexes the in-memory Buffer the loopback tap fills.
+// ServeHTTP serves /tv/{key}, where key names the in-memory Buffer the
+// loopback tap fills.
 func (s *RelayServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	const prefix = "/tv/"
 	if req.Method != http.MethodGet || !strings.HasPrefix(req.URL.Path, prefix) {
@@ -234,21 +233,20 @@ func (s *RelayServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	key := strings.TrimPrefix(req.URL.Path, prefix)
 	if key == "" || strings.Contains(key, "/") {
-		// Single bare segment only (e.g. "ffa"); no nested path.
 		http.NotFound(w, req)
 		return
 	}
 	b, ok := s.reg.Get(key)
 	if !ok {
-		// No active stream for this server key — an inter-match gap. Tell the
-		// client to retry rather than treating it as a hard 404; the next
-		// match re-registers a fresh buffer under the same key.
+		// Between matches: the next match registers a new buffer under
+		// this key, so tell the client to retry.
 		w.Header().Set("Retry-After", "3")
 		http.Error(w, "not live yet", http.StatusServiceUnavailable)
 		return
 	}
 
-	// One viewer for the lifetime of this response, gap-parking included.
+	// One viewer for the life of this response, waits between matches
+	// included.
 	s.reg.retain(key)
 	defer s.reg.release(key)
 
@@ -263,27 +261,24 @@ func (s *RelayServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	// Follow the key's feed across map changes within this one response: stream a
-	// session's buffer (which emits its own TVL1 header + segments), write the
-	// TVLe boundary when it ends, then pick up the next session's buffer and
-	// continue. The browser engine reads TVLe->TVL1 as an in-place map change
-	// (no page reload). End only when the tap closes for good (true end) or the
-	// viewer disconnects.
+	// One response follows the feed across map changes: stream a match's
+	// buffer (its own TVL1 header and segments), write TVLe when it ends,
+	// then continue with the next match's buffer. The browser engine reads
+	// TVLe followed by TVL1 as an in-place map change. The response ends
+	// when the tap closes for good or the viewer disconnects.
 	ctx := req.Context()
 	cur := b
 	for {
 		if err := cur.Stream(ctx, w, flush, s.tick); err != nil {
-			return // viewer disconnected or request cancelled
+			return
 		}
-		// Session ended cleanly. Emit the end marker, then hold the response open
-		// across the inter-match gap for the next session's buffer.
 		if _, err := w.Write([]byte(endMagic)); err != nil {
 			return
 		}
 		flush()
 		next, ok := s.reg.WaitNext(ctx, key, cur)
 		if !ok {
-			return // tap closed for good (true end) or ctx cancelled
+			return
 		}
 		cur = next
 	}

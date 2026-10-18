@@ -12,12 +12,6 @@ export interface MyServersDrawerProps {
   onRefresh: () => void;
 }
 
-// MyServersDrawer is the single owner-side surface for everything
-// related to a user's sources: existing source cards (active /
-// pending / rejected / left / revoked) plus the request form for
-// adding the next one. The form is the primary content when the user
-// has no sources yet; otherwise it sits collapsed at the bottom of
-// the list and expands on demand.
 export function MyServersDrawer({
   sources,
   hasPending,
@@ -37,10 +31,10 @@ export function MyServersDrawer({
       : undefined;
 
   const heading = isEmpty
-    ? "Add Servers"
+    ? "Add servers"
     : hasPending
-      ? "Request Pending"
-      : "My Servers";
+      ? "Request pending"
+      : "My servers";
 
   return (
     <div className="drawer-overlay" onClick={onClose}>
@@ -130,7 +124,7 @@ function SourceCard({ src, onUpdated }: SourceCardProps) {
   async function leave() {
     if (
       !confirm(
-        `Leave the network for ${src.source}? Its servers come off the network. You can rejoin anytime — match history is preserved. Other sources you own are unaffected.`,
+        `Leave the network with ${src.source}? Its servers come off the network and their match history stays. You can rejoin anytime, and your other sources aren't affected.`,
       )
     ) {
       return;
@@ -150,7 +144,6 @@ function SourceCard({ src, onUpdated }: SourceCardProps) {
     }
   }
 
-  // Pending / rejected / left / revoked cards are mostly informational.
   if (src.status === "pending") {
     return (
       <section className="source-card source-card-pending">
@@ -190,8 +183,8 @@ function SourceCard({ src, onUpdated }: SourceCardProps) {
           <span className="status-pill status-left">Left network</span>
         </header>
         <p className="muted">
-          You walked away from this source. Submit a new request with this name
-          to rejoin (auto-approved).
+          You took this source off the network. Request this name again to
+          rejoin; it&rsquo;s approved automatically.
         </p>
       </section>
     );
@@ -208,7 +201,6 @@ function SourceCard({ src, onUpdated }: SourceCardProps) {
     );
   }
 
-  // Active card — full controls.
   const health = heartbeatHealth(src.last_heartbeat_at);
   return (
     <section className="source-card source-card-active">
@@ -248,9 +240,8 @@ function SourceCard({ src, onUpdated }: SourceCardProps) {
 
       <ul className="source-card-server-list">
         {(src.servers ?? []).map((s) => {
-          // active means "in the source's registered roster" — it
-          // doesn't track real-time liveness. If the source isn't
-          // heartbeating we can't claim a server is running.
+          // s.active means registered; only a heartbeating source's servers
+          // count as running.
           const live = s.active && health === "green";
           return (
             <li key={s.key} className={live ? "" : "inactive"}>
@@ -264,8 +255,7 @@ function SourceCard({ src, onUpdated }: SourceCardProps) {
         })}
         {(src.servers ?? []).length === 0 && (
           <li className="muted">
-            No servers registered yet. Start your collector to register its
-            server list.
+            No servers registered yet. They appear once your collector starts.
           </li>
         )}
       </ul>
@@ -273,8 +263,7 @@ function SourceCard({ src, onUpdated }: SourceCardProps) {
   );
 }
 
-// Naming rules mirror the server-side validator: 3-16 chars, alnum +
-// underscore + hyphen.
+// Matches the hub's source name validation.
 const NAME_PATTERN = /^[A-Za-z0-9_-]{3,16}$/;
 const MAX_PURPOSE_LEN = 200;
 
@@ -303,11 +292,11 @@ function RequestForm({
     e.preventDefault();
     setError(null);
     if (!NAME_PATTERN.test(name)) {
-      setError("Name must be 3-16 characters: letters, numbers, _ or -.");
+      setError("Name must be 3–16 characters: letters, numbers, _ or -.");
       return;
     }
     if (purpose.length > MAX_PURPOSE_LEN) {
-      setError(`Purpose is over ${MAX_PURPOSE_LEN} characters`);
+      setError(`Purpose can be at most ${MAX_PURPOSE_LEN} characters.`);
       return;
     }
     setSubmitting(true);
@@ -354,15 +343,15 @@ function RequestForm({
       {showExplainer && (
         <div className="drawer-help">
           <p>
-            A <strong>source</strong> is one machine — physical or virtual —
-            that hosts one or more Quake 3 servers and runs the Trinity
-            collector. Submit one request per machine; each gets its own
-            credential and independent rotate/leave controls.
+            A <strong>source</strong> is one machine, physical or virtual, that
+            hosts one or more Quake III Arena servers and runs the Trinity
+            collector. Submit one request per machine, since each gets its own
+            credential and its own rotate and leave controls.
           </p>
           <p>
-            Joining requires the Trinity collector and trinity-engine on the
-            host. An admin will mint credentials once they approve your request;
-            the collector loads the .creds file on startup.
+            The host needs the Trinity engine and collector. Once an admin
+            approves your request, download the .creds file here; the collector
+            loads it when it starts.
           </p>
         </div>
       )}
@@ -386,9 +375,9 @@ function RequestForm({
             required
           />
           <small>
-            3–16 characters: letters, numbers, _ or -. A name + location code
-            (e.g. <code>mygame-jfk</code>, <code>mygame-fra</code>) is a good
-            convention if you'll run hosts in multiple regions.
+            3–16 characters: letters, numbers, _ or -. If you run hosts in
+            several regions, a name plus a location code, such as{" "}
+            <code>mygame-jfk</code> or <code>mygame-fra</code>, works well.
           </small>
         </div>
         <div className="form-group">

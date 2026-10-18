@@ -38,25 +38,19 @@ type Prompter interface {
 	// for me").
 	Password(prompt string, allowEmpty bool) (string, error)
 
-	// Pause prints prompt and waits for the operator to press Enter.
-	// Used to gate work that's about to clear or scroll the screen
-	// (e.g. paging the EULA) so a lead-in message has a chance of
-	// being read first.
+	// Pause prints prompt and waits for the operator to press Enter, so
+	// a lead-in is read before something scrolls it away (such as
+	// paging the EULA).
 	Pause(prompt string) error
 }
 
 // IsTTY reports whether stdin is connected to a real terminal.
-// `trinity init` uses this to decide between interactive prompts and
-// strict-flag mode.
 func IsTTY() bool {
 	return term.IsTerminal(int(os.Stdin.Fd()))
 }
 
-// NewStdPrompter wraps stdin (line reader) and stderr (prompt
-// display) with optional masked-password support against the stdin
-// fd. Output goes to stderr so the wizard can be re-run with stdout
-// captured (for piping the rendered config etc.) without prompts
-// landing in the captured stream.
+// NewStdPrompter reads from stdin, with masked password input, and
+// prompts on stderr so stdout can be captured.
 func NewStdPrompter() Prompter {
 	return &stdPrompter{
 		in:    bufio.NewReader(os.Stdin),
@@ -194,7 +188,7 @@ func (p *stdPrompter) Choose(prompt string, options []string, def int) (int, err
 		}
 		n, err := strconv.Atoi(line)
 		if err != nil || n < 1 || n > len(options) {
-			fmt.Fprintf(p.out, "  enter 1-%d\n", len(options))
+			fmt.Fprintf(p.out, "  enter a number from 1 to %d\n", len(options))
 			continue
 		}
 		return n - 1, nil

@@ -49,44 +49,30 @@
 :root {
   --bg: #0a0a0a;
   --bg-card: #141414;
-  /* One step above --bg-card; used for placeholder/empty surfaces
-     that need to read as a quiet "above the card" plane. */
   --bg-elev: #2a2a2a;
   --text: #f0ece4;
   --text-dim: #a8a090;
   --accent: #fff8f0;
   --accent-dim: #d0c8b8;
-  /* Warm orange used for ceremonial accents (rule gradients, glows,
-     featured chips). Referenced widely; fallback hex used to be inline. */
   --ember-strong: #ff6e3c;
   --ember-light: #ffc78a;
-  /* Tinted-ember chip palette — quiet "active/primary" treatment used
-     by .admin-btn-primary, .admin-btn-warn, .generate-btn, the
-     selected-player chip, and the segmented filter active state.
-     Border on these chips is var(--ember-strong); these two tokens
-     cover the bg and text. */
   --ember-tint-bg: rgba(255, 110, 60, 0.15);
   --ember-tint-text: rgb(255, 145, 95);
   --green: #4caf50;
-  /* Team-blue. Warmed from canonical #2196f3 to a desaturated slate so
-     it sits comfortably next to the warm ember palette on both the
-     landing surface and the rest of the site, while remaining
-     unambiguously "blue" against team-red. */
   --blue: #7a96c2;
   --red: #e94560;
 
-  /* Q3 chat color codes ^0–^7 (stock palette). Driven by ColoredText.tsx;
-     these are protocol primaries, not chrome — keep raw RGB. */
-  --q3-color-0: #000000; /* black */
-  --q3-color-1: #ff0000; /* red */
-  --q3-color-2: #00ff00; /* green */
-  --q3-color-3: #ffff00; /* yellow */
-  --q3-color-4: #0000ff; /* blue */
-  --q3-color-5: #00ffff; /* cyan */
-  --q3-color-6: #ff00ff; /* magenta */
-  --q3-color-7: #ffffff; /* white */
+  /* Quake III's chat color codes ^0 to ^7, used by ColoredText.tsx. These
+     are the game's colors, so they stay raw RGB. */
+  --q3-color-0: #000000;
+  --q3-color-1: #ff0000;
+  --q3-color-2: #00ff00;
+  --q3-color-3: #ffff00;
+  --q3-color-4: #0000ff;
+  --q3-color-5: #00ffff;
+  --q3-color-6: #ff00ff;
+  --q3-color-7: #ffffff;
 
-  /* Spacing scale (4-multiple). New work uses these; legacy unchanged. */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -101,18 +87,14 @@
   --radius-lg: 10px;
   --radius-pill: 999px;
 
-  /* Warm-tinted to match the cream palette. */
   --shadow-1:
     0 1px 0 rgba(255, 248, 240, 0.04) inset, 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-2: 0 2px 8px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 248, 240, 0.06);
   --rule: 1px solid #2a2622;
   --rule-strong: 1px solid #3d3833;
 
-  /* Editorial hairline used for ceremonial transitions (drawer headers,
-     modal headers, footer top edge, end-of-page navigation). The warm
-     orange echoes the logo glow and gives the otherwise-quiet chrome a
-     small celebratory beat. Apply via a 1px ::before/::after positioned
-     across the boundary you want to mark. */
+  /* Warm hairline for drawer, modal and footer edges. Apply it as a 1px
+     ::before or ::after across the boundary. */
   --rule-gradient-h: linear-gradient(
     to right,
     transparent 0%,
@@ -129,11 +111,8 @@
   padding: 0;
 }
 
-/* Reserve scrollbar gutter even when content doesn't overflow, so route
-   transitions between scrollable (long lists, /docs) and non-scrollable
-   (short pages, modals open) layouts don't horizontally shift the page
-   by the scrollbar's width. Modern browsers (Chromium, Firefox, Safari
-   16.4+) honor this; older browsers degrade to today's behavior. */
+/* Reserve the scrollbar gutter so the page holds still between long and
+   short routes. */
 html {
   scrollbar-gutter: stable;
 }
@@ -153,7 +132,6 @@ body {
   margin: 0 auto;
 }
 
-/* Pulse used by StatusPill (and any future "live" indicators). */
 @keyframes pulse-green {
   0%,
   100% {
@@ -168,7 +146,6 @@ body {
   }
 }
 
-/* App layout — no left sidebar; main content fills the column. */
 .app-layout {
   margin-left: 0;
 }
@@ -190,14 +167,13 @@ h2 {
   margin-bottom: 10px;
 }
 
-/* Sticky-footer wrapper: page content fills the viewport so the footer
-   sits at the bottom on short pages, but flows naturally below on tall
-   ones. */
+/* Content fills the viewport so the footer sits at the bottom of short
+   pages. */
 .app-shell {
   display: flex;
   flex-direction: column;
-  /* svh keeps the footer pinned correctly when iOS Safari's URL bar
-     expands; vh is the fallback for browsers without svh support. */
+  /* svh keeps the footer in place when iOS Safari's URL bar expands; vh is
+     the fallback. */
   min-height: 100vh;
   min-height: 100svh;
 }
@@ -522,9 +498,6 @@ h2 {
   color: var(--accent-dim);
 }
 
-/* Click-to-open search trigger sitting in its own row above the
-   nav-row divider. Visually reads as a search input but is actually
-   a button that opens the command palette. */
 .cmdk-trigger {
   display: inline-flex;
   align-items: center;
@@ -580,14 +553,12 @@ h2 {
   flex-shrink: 0;
 }
 
-/* Compact variant used in the header search row. Sized to its content
-   (icon + label + kbd) since this is a button that opens the palette,
-   not an actual input field. Right-aligned via the parent. */
 .cmdk-trigger--full {
   width: auto;
 }
 
-/* Mirrors hero-pill placement (22 / 36) so it doesn't jump on nav. */
+/* Matches the hero pill's placement (22 / 36) so it holds still across
+   navigation. */
 .chrome-top-right {
   position: fixed;
   top: 22px;
@@ -625,7 +596,7 @@ h2 {
 }
 
 /* Server card */
-/* .server-card delegates background/border/levelshot/z-stacking to .card */
+/* Background, border, levelshot and stacking come from .card. */
 .server-card {
   display: flex;
   flex-direction: column;
@@ -702,10 +673,6 @@ h2 {
   margin: 0 3px;
   opacity: 0.5;
 }
-
-/* .server-state-badge rules removed — replaced by .card__state (see .card shell below) */
-
-/* .server-header / .server-limits / .server-map removed — replaced by .card__header / .card__limits / .card__map */
 
 /* Match state badges */
 .match-state-badge {
@@ -895,7 +862,7 @@ h2 {
   font-size: 1.25rem;
 }
 
-/* Flag icon component using game assets */
+/* Flag icon */
 .flag-icon {
   display: inline-flex;
   align-items: center;
@@ -922,17 +889,14 @@ h2 {
   height: 32px;
 }
 
-/* Flag status indicators in score display */
+/* Flag status indicators */
 .flag-indicator {
   display: inline-flex;
   align-items: center;
 }
 
-/* 1FCTF center-slot neutral flag. Reuses the .team-score column
- * structure so the flag-indicator inside .score-row aligns the same
- * way as red/blue flag indicators do in CTF. The team-label and
- * score-value are hidden but kept in flow as height spacers so this
- * cell matches a real score cell's vertical metrics. */
+/* One Flag CTF's center slot: the hidden label and score stay in flow as
+   spacers so the cell matches a real score cell's height. */
 .team-flag-center .team-label,
 .team-flag-center .score-value {
   visibility: hidden;
@@ -1145,7 +1109,7 @@ h2 {
   height: 32px;
 }
 
-/* VR + verified combined: colored background with VR icon overlay */
+/* VR and verified combined */
 .player-badge.vr.admin {
   background: #d4a000 url("/assets/vr/vr.png") center/contain no-repeat;
 }
@@ -1207,7 +1171,7 @@ h2 {
   margin-left: 1px;
 }
 
-/* Medal icon component using game assets */
+/* Medal icon */
 .medal-icon {
   display: inline-flex;
   align-items: center;
@@ -1244,7 +1208,7 @@ h2 {
   right: -2px;
 }
 
-/* Player portrait component using game assets */
+/* Player portrait */
 .player-portrait {
   display: inline-flex;
   align-items: center;
@@ -1254,8 +1218,8 @@ h2 {
   flex-shrink: 0;
 }
 
-/* Both <img> portraits and the inline-SVG default fallback get the
-   same sizing/chrome treatment so swapping between them is invisible. */
+/* Image and inline-SVG portraits share sizing so a swap between them is
+   invisible. */
 .player-portrait img,
 .player-portrait svg {
   border-radius: var(--radius-sm);
@@ -1286,7 +1250,7 @@ h2 {
   height: 128px;
 }
 
-/* Portrait hover preview - rendered via portal */
+/* Portrait hover preview */
 .portrait-sm,
 .portrait-md {
   cursor: pointer;
@@ -1305,11 +1269,6 @@ h2 {
   width: 128px;
   height: 128px;
   background-color: var(--bg);
-  /* Ember border at the door-hover tone so this hover popup reads as
-     part of the same UI vocabulary as the rest of the ember accents.
-     (Was `1px solid var(--rule-strong)` — invalid shorthand because
-     --rule-strong already includes "1px solid", so the browser dropped
-     the border entirely.) */
   border: 1px solid rgba(255, 110, 60, 0.55);
   border-radius: var(--radius-sm);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
@@ -1412,9 +1371,8 @@ h2 {
   z-index: 1;
 }
 
-/* Activity-feed icons + badges: 16px content + 8px internal gutter
-   (padding so the slot owns its footprint). Flag/skull silhouettes
-   sit a bit low in their PNG frames; everything else sits a bit high. */
+/* Activity icons: 16px plus an 8px gutter. Flag and skull art sits low in
+   its PNG frame; the other icons sit high. */
 .activity-message .medal-icon,
 .activity-message .flag-icon,
 .activity-message .reticle-icon,
@@ -1513,9 +1471,7 @@ h2 {
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--accent);
-  /* Stacked tight black halos give a uniform outline so the text reads
-     against any levelshot color, with a directional drop and a warm
-     orange tail layered on top for character. */
+  /* Tight black halos keep the text readable on any levelshot. */
   text-shadow:
     0 0 2px rgba(0, 0, 0, 1),
     0 0 4px rgba(0, 0, 0, 1),
@@ -1550,8 +1506,7 @@ h2 {
     0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
-/* Active players section — Cinzel small-cap title to anchor it visually
-   inside the drawer alongside the filter section headers. */
+/* Active players section */
 .active-players-section {
   padding: var(--space-3) 0;
   border-bottom: var(--rule);
@@ -1611,7 +1566,7 @@ h2 {
   padding: 10px 0;
 }
 
-/* Recent Matches */
+/* Recent matches */
 .recent-matches {
   margin-top: 20px;
 }
@@ -1636,7 +1591,7 @@ h2 {
   gap: 20px;
 }
 
-/* Match card - mirrors server-card */
+/* Match card */
 .match-card {
   background: var(--bg-card);
   border-radius: var(--radius-md);
@@ -1745,7 +1700,7 @@ h2 {
   margin-bottom: 15px;
 }
 
-/* Player list in match card - matches .player-list style */
+/* Player list in match card */
 .match-player-list {
   list-style: none;
   margin: 0;
@@ -1771,8 +1726,8 @@ h2 {
 }
 
 .match-player-row.team-blue {
-  /* Lighter slate than --blue so the 3px border reads as "team-blue
-     band" rather than a thin text-weight stroke against dark cards. */
+  /* Lighter than --blue so the 3px border reads as a team band on dark
+     cards. */
   border-left: 3px solid #9eb5d4;
   padding-left: 8px;
 }
@@ -1951,10 +1906,7 @@ h2 {
   cursor: not-allowed;
 }
 
-/* App header — two-tier console: brand row on top (with the search
-   trigger tucked into its empty right region), nav row beneath. Every
-   page-level header class shares this layout so the chrome reads
-   identically across the app. */
+/* App header */
 .app-header,
 .players-header,
 .matches-header,
@@ -1968,8 +1920,7 @@ h2 {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  /* Mounted at the app shell now (above route content), so it
-     centers itself rather than escaping a parent's padding. */
+  /* Mounted at the app shell, so it centers itself. */
   width: 100%;
   max-width: 1800px;
   margin: 0 auto var(--space-5);
@@ -1977,7 +1928,6 @@ h2 {
   box-sizing: border-box;
 }
 
-/* Warm editorial hairline at every page header's bottom edge. */
 .app-header::after,
 .players-header::after,
 .matches-header::after,
@@ -2002,12 +1952,7 @@ h2 {
   align-items: center;
   gap: var(--space-4);
   min-height: 56px; /* matches .app-logo + .hero__brand-logo height */
-  /* Reserve right-side space for the absolutely-positioned search
-     trigger so the title text doesn't run under it on narrow widths.
-     The fixed chrome cluster (StatusPill + ConnectionStatus) lives
-     above the brand row vertically (top:12px), so it doesn't need
-     horizontal reservation here — its top edge clears the search
-     button's bottom-right anchor. */
+  /* Room for the absolutely positioned search trigger. */
   padding-right: 180px;
 }
 
@@ -2020,14 +1965,8 @@ h2 {
   padding-top: var(--space-3);
 }
 
-/* Search trigger lives inside the brand row, anchored flush to its
-   bottom-right corner — i.e. just above the rule that separates header
-   from nav. The fixed chrome cluster (StatusPill + ConnectionStatus)
-   sits at the *top* of the viewport (top:12px), so anchoring search to
-   the *bottom* of the brand row keeps them vertically separated even
-   though they share the right edge horizontally. By being absolute the
-   search claims no row of its own, eliminating the empty left gutter
-   that the previous flex-row layout left under the logo. */
+/* Anchored to the brand row's bottom right so it clears the fixed status
+   cluster at the top of the viewport. */
 .app-header__search {
   position: absolute;
   bottom: 0;
@@ -2035,24 +1974,21 @@ h2 {
   z-index: 1;
 }
 
-/* ── Hamburger menu (mobile-only collapsing wrapper) ──────────────── */
+/* ── Hamburger menu ───────────────────────────────────────────────── */
 .hamburger {
   display: contents;
 }
 .hamburger__btn {
   display: none;
 }
-/* On desktop the popup acts like display: contents so its children
-   become row members. */
+/* On desktop the popup is display: contents, so its children join the
+   row. */
 .hamburger__popup {
   display: contents;
 }
 
-/* Wrapper around PageNav. display: contents on desktop (transparent),
-   becomes a real horizontal-scroll container on mobile. Lives as a
-   sibling of the hamburger so the popup escapes any overflow clipping.
-   On mobile, wrapped by .nav-scroller which hosts the edge chevron
-   affordances. */
+/* Wraps PageNav: display: contents on desktop, a horizontal scroller on
+   mobile. A sibling of the hamburger so overflow can't clip its popup. */
 .nav-scroller,
 .app-header__nav-scroll,
 .admin-sidebar__scroll,
@@ -2063,11 +1999,8 @@ h2 {
   display: none;
 }
 
-/* Filter chip scroll container — self-contained on every viewport
-   (no display: contents trick), so the segmented control always
-   establishes its own scroll context regardless of width. The
-   NavScroller wrapping it provides the chevron + bob behavior;
-   the masks below fade out content sitting under either chevron. */
+/* Its own scroll context at every width. NavScroller adds the chevrons;
+   the masks fade content under them. */
 .filter-chips__scroll {
   display: block;
   flex: 1;
@@ -2105,8 +2038,8 @@ h2 {
   );
 }
 
-/* Inner flex strip; width: max-content so scrollWidth tracks real
-   content size and chevron-detection in NavScroller fires correctly. */
+/* max-content so scrollWidth tracks the content and NavScroller sees the
+   overflow. */
 .filter-chips__strip {
   display: flex;
   flex-wrap: nowrap;
@@ -2114,11 +2047,8 @@ h2 {
   gap: 0;
 }
 
-/* Hide the ⌘K / Ctrl K hint on touch-primary devices. Phones and
-   tablets almost always have no keyboard; the few users on a Bluetooth
-   keyboard already know the convention. Width-based breakpoints would
-   miss iPad-in-landscape (>768px); modality-based queries are the
-   right tool because they describe the *input*, not the screen size. */
+/* Hide the ⌘K / Ctrl K hint on touch-primary devices, iPads in landscape
+   included. */
 @media (hover: none) and (pointer: coarse) {
   .cmdk-trigger__kbd {
     display: none;
@@ -2126,8 +2056,8 @@ h2 {
 }
 
 @media (max-width: 768px) {
-  /* Match .hero__header's mobile padding so brand position stays
-     consistent across landing → other routes on phones. */
+  /* Matches .hero__header's mobile padding so the brand holds still
+     between the landing page and other routes. */
   .app-header,
   .players-header,
   .matches-header,
@@ -2155,9 +2085,8 @@ h2 {
     align-items: center;
   }
 
-  /* On mobile the wrapper becomes the actual flex item — it owns the
-     row's flex-basis so it can host both the scrollable nav and the
-     absolutely-positioned chevron affordances at its edges. */
+  /* The flex item on mobile, so it can host the scroller and the edge
+     chevrons. */
   .nav-scroller {
     display: block;
     position: relative;
@@ -2171,10 +2100,8 @@ h2 {
     overflow-y: hidden;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
-    /* Edge fades soften the cutoff where text disappears past the
-       visible area. The mask is state-driven (set via classes on the
-       scroll container) so a fade only appears on the side that has
-       more content to reveal. */
+    /* Classes on the scroll container show a fade only on a side with
+       more to reveal. */
   }
   .app-header__nav-scroll.is-scroll-left {
     mask-image: linear-gradient(to right, transparent, black 28px);
@@ -2206,20 +2133,13 @@ h2 {
   .app-header__nav-scroll .page-nav {
     flex-wrap: nowrap;
     width: max-content;
-    /* Trailing + leading padding so the first/last nav link can scroll
-       PAST the fade zones — otherwise "Servers" / "Docs" land inside
-       the mask when fully scrolled to that edge. */
+    /* Lets the first and last links scroll clear of the fades. */
     padding-left: 4px;
     padding-right: 32px;
   }
 
-  /* Edge chevrons: small ember-tinted hints that sit in the fade zones
-     and ride above the mask (siblings of the scroll container, not
-     descendants). They appear only when there's content to reveal in
-     that direction, with a subtle horizontal bob echoing the landing
-     hero's vertical scroll-hint bob. Tapping jumps the scroll to that
-     edge — touch target is wider than the visible chevron for finger
-     comfort while staying out of the way of the nav links. */
+  /* Siblings of the scroller so they sit above its mask. The hit area is
+     wider than the chevron. */
   .nav-scroller__edge {
     display: inline-flex;
     align-items: center;
@@ -2234,9 +2154,7 @@ h2 {
     border: none;
     padding: 0;
     cursor: pointer;
-    /* Disabled-state pointer behavior: the button is always in the DOM
-       (so the bob animation can replay cleanly when scrollability
-       returns), but it can't be tapped when not shown. */
+    /* The button stays in the DOM so the bob animation replays cleanly. */
     pointer-events: none;
     opacity: 0;
     transition: opacity 0.18s ease;
@@ -2292,10 +2210,8 @@ h2 {
     }
   }
 
-  /* Hamburger sits outside the scroll container so its popup isn't
-     clipped by the scroll element's effective overflow:auto on both
-     axes. z-index above page-level elements (e.g. .server-name-badge
-     at z=10) so the popup paints over the page content. */
+  /* Outside the scroller so overflow can't clip the popup; the z-index
+     clears page content such as .server-name-badge (z 10). */
   .hamburger {
     display: inline-flex;
     align-items: center;
@@ -2338,9 +2254,6 @@ h2 {
     color: var(--accent);
   }
 
-  /* Signed-in tint — persistent ember treatment on the button so the
-     mobile chrome reads as "this is your account" without needing an
-     extra glyph or notification-style badge. */
   .hamburger--authed .hamburger__btn {
     background: rgba(255, 110, 60, 0.07);
     border-color: rgba(255, 110, 60, 0.4);
@@ -2355,8 +2268,6 @@ h2 {
     background: rgba(255, 110, 60, 0.18);
     border-color: rgba(255, 110, 60, 0.7);
   }
-  /* Admin gets the same ember body plus a soft glow so admin chrome
-     stays distinguishable from regular signed-in chrome. */
   .hamburger--admin .hamburger__btn {
     box-shadow: 0 0 8px rgba(255, 110, 60, 0.28);
   }
@@ -2366,9 +2277,6 @@ h2 {
     box-shadow: 0 0 12px rgba(255, 110, 60, 0.45);
   }
 
-  /* Popup is a real positioned panel under the button. Width sized
-     to its content (the widest child sets the width); viewport-safe
-     max-width so it never overflows on small screens. */
   .hamburger__popup {
     display: none;
     position: absolute;
@@ -2386,18 +2294,15 @@ h2 {
     flex-direction: column;
     align-items: stretch;
     gap: var(--space-3);
-    z-index: 1; /* relative within hamburger context; the context
-                   itself sits at z=50 in the document root */
+    z-index: 1; /* within the hamburger's stacking context (z 50) */
   }
 
   .hamburger--open .hamburger__popup {
     display: flex;
   }
 
-  /* Children inside the popup get full-width, vertical layout.
-     Community icons right-align (matches the hamburger button's right
-     edge above) — the base .community-cluster is inline-flex, so we
-     also need display:flex here to make justify-content take effect. */
+  /* The base .community-cluster is inline-flex; display: flex lets
+     justify-content right-align it. */
   .hamburger__popup .community-cluster {
     margin: 0;
     padding: 0 0 var(--space-2);
@@ -2434,7 +2339,7 @@ h2 {
   align-items: center;
   gap: var(--space-3);
   margin: 0;
-  margin-right: auto; /* Pushes future brand-row siblings (StatusPill, ⌘K) right. */
+  margin-right: auto;
   color: var(--accent);
   font-family: "Cinzel", serif;
   font-weight: 700;
@@ -2444,10 +2349,8 @@ h2 {
   text-transform: uppercase;
 }
 
-/* When a wordmark is present, anchor it absolutely so the h1's height
-   stays identical to a wordmark-less title — that's what keeps TRINITY
-   visually at the same Y as "Player Stats" on other pages. The
-   wordmark hangs into the lower (empty) portion of the brand row. */
+/* The wordmark is absolute so the h1 keeps the height of a plain title,
+   which holds TRINITY level with the other page titles. */
 .app-header h1:has(.app-wordmark),
 .players-header h1:has(.app-wordmark),
 .matches-header h1:has(.app-wordmark),
@@ -2486,10 +2389,8 @@ h2 {
     drop-shadow(0 0 4px rgba(255, 110, 60, 0.7));
 }
 
-/* Transparent header overlay used over the landing-page hero. The header
-   sits above the wallpaper without its solid background; type and chrome
-   pick up text-shadow for readability. The .app-header--solid class is
-   toggled on by JS once the user has scrolled past the hero (see Task 26). */
+/* Transparent header over the landing hero. JS adds .app-header--solid
+   once the page scrolls past the hero. */
 .app-header--transparent {
   background: transparent;
   border-bottom-color: transparent;
@@ -2512,8 +2413,8 @@ h2 {
   text-shadow: none;
 }
 
-/* Live-state pill — mirrors .hero__pill. Three states: live (ember
-   pulse), quiet (gray pulse), offline (gray, no pulse). */
+/* Live-state pill, matching .hero__pill: live (ember pulse), quiet (gray
+   pulse) and offline (gray, still). */
 .status-pill {
   display: inline-flex;
   align-items: center;
@@ -2521,7 +2422,7 @@ h2 {
   padding: 6px 12px;
   border-radius: var(--radius-pill);
   border: 1px solid rgba(255, 248, 240, 0.18);
-  /* Opaque base + tint — pill sits fixed over the document. */
+  /* Opaque base, since the pill is fixed over the page. */
   background-color: var(--bg-card);
   background-image: linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.35));
   color: var(--text);
@@ -2554,7 +2455,6 @@ h2 {
   animation: landing-hero-pulse 1.6s ease-in-out infinite;
 }
 
-/* Quiet: connected but nobody playing. Pulse keeps running in gray. */
 .status-pill.quiet {
   color: var(--text-dim);
 }
@@ -2564,7 +2464,6 @@ h2 {
   opacity: 1;
 }
 
-/* Offline: hub feed lost. No pulse, fully gray. */
 .status-pill.offline {
   color: var(--text-dim);
 }
@@ -2581,10 +2480,7 @@ h2 {
   }
 }
 
-/* Community cluster — Download / Discord / GitHub grouped, separated from
-   primary nav by a hairline rule on the left. All three children share
-   the same icon-button footprint (28px square, pill border). Each sets
-   its own brand-tinted hover. */
+/* Community cluster */
 .community-cluster {
   display: inline-flex;
   align-items: center;
@@ -2643,11 +2539,7 @@ h2 {
 }
 
 .nav-link {
-  /* Mirror the landing-hero nav treatment so cross-surface navigation
-     feels typographically continuous: Barlow 500 at 12px, tracked +
-     uppercase. Active state lifts to the warm accent (no more red,
-     which was the pre-redesign voice) and the tri-point glyph beside
-     it carries the "you are here" signal. */
+  /* Matches the landing hero nav. */
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2674,9 +2566,8 @@ h2 {
   text-decoration: none;
 }
 
-/* Tri-point logo glyph next to the active nav link. The placeholder
-   variant occupies the same footprint on inactive links so tabs don't
-   reflow as the active marker moves. */
+/* Inactive links hold an empty glyph slot so tabs stay put as the active
+   marker moves. */
 .nav-link__glyph {
   width: 16px;
   height: 16px;
@@ -2690,14 +2581,7 @@ h2 {
   visibility: hidden;
 }
 
-/* Auth section */
-/* ── Header action cluster ────────────────────────────────────────────
-   The auth-section / user-info / login-collapsed rows are the page's
-   only persistent action surface. They share one ghost vocabulary so
-   the row reads as a set rather than a miscellany of bordered chips:
-   transparent background, hairline border, warm-cream hover.
-   Semantic tints (pending/active/danger) overlay subtly without
-   turning the whole button into a slab. */
+/* ── Header action cluster ────────────────────────────────────────── */
 .auth-section,
 .login-collapsed,
 .user-info {
@@ -2706,8 +2590,6 @@ h2 {
   gap: var(--space-2);
 }
 
-/* Shared ghost button shape for every nav-cluster action. Composes
-   with semantic modifiers (.my-source-btn-pending, etc.) below. */
 .claim-link,
 .login-toggle,
 .logout-btn,
@@ -2745,16 +2627,12 @@ h2 {
   background: rgba(255, 248, 240, 0.04);
 }
 
-/* Logout is destructive — keep the ghost shape but warm the border to
-   a subtle red on hover so the affordance is felt without shouting. */
 .logout-btn:hover {
   border-color: rgba(233, 69, 96, 0.6);
   color: rgb(240, 130, 145);
   background: rgba(233, 69, 96, 0.06);
 }
 
-/* Login (collapsed) — "Login" is the primary entry-point CTA when not
-   authenticated, so promote it from ghost to warm-primary affordance. */
 .login-toggle {
   border-color: rgba(255, 110, 60, 0.5);
   color: var(--ember-tint-text);
@@ -2843,17 +2721,11 @@ h2 {
   font-family: "Barlow", sans-serif;
 }
 
-/* Legacy: the green inline "username" span isn't rendered today
-   (replaced by .username-link), kept for any external link still
-   referencing it. */
 .username {
   color: var(--green);
   font-size: 0.9rem;
 }
 
-/* Default ghost-style admin button. Used everywhere except destructive
-   actions and the few primary-CTA spots (Create User, Create Source,
-   Approve), which adopt .admin-btn-primary / .admin-btn-danger below. */
 .admin-btn,
 .change-pwd-btn {
   background: transparent;
@@ -2887,9 +2759,6 @@ h2 {
   cursor: not-allowed;
 }
 
-/* Warm-cream filled button for the page-level CTA (Create User, Create
-   Source, Approve, Save Filters). Used sparingly — at most one per
-   action cluster — so its visual weight stays meaningful. */
 .admin-btn-primary {
   background: var(--ember-tint-bg);
   border: 1px solid rgba(255, 110, 60, 0.5);
@@ -2920,12 +2789,6 @@ h2 {
   cursor: not-allowed;
 }
 
-/* My Servers / Add Servers / Request Pending — base shape comes from
-   the shared nav-cluster ghost rule above. The pending and active
-   variants overlay subtle semantic tints: warm-orange for "needs
-   admin attention" (pending), green for "you have provisioned
-   sources" (active). Both stay ghost-style so the row's visual
-   rhythm is preserved. */
 .my-source-btn-pending {
   border-color: rgba(255, 110, 60, 0.5);
   color: var(--ember-tint-text);
@@ -2948,7 +2811,7 @@ h2 {
   background: rgba(80, 200, 120, 0.06);
 }
 
-/* My Servers drawer (owner self-service) */
+/* My servers drawer */
 .drawer-overlay {
   position: fixed;
   inset: 0;
@@ -2960,7 +2823,8 @@ h2 {
   position: fixed;
   top: 0;
   right: 0;
-  /* svh prevents drawer overflow when iOS URL bar expands. */
+  /* svh keeps the drawer inside the viewport when iOS Safari's URL bar
+     expands. */
   height: 100vh;
   height: 100svh;
   width: min(560px, 100%);
@@ -2982,7 +2846,6 @@ h2 {
   position: relative;
 }
 
-/* Decorative rule under the header — see --rule-gradient-h. */
 .drawer-header::after {
   content: "";
   position: absolute;
@@ -3037,8 +2900,7 @@ h2 {
   font-size: 0.9rem;
 }
 
-/* Activity drawer — host the existing ActivityLog without forcing it
-   to keep its sidebar-era max-height/border treatment. */
+/* Activity drawer */
 .activity-drawer__body {
   padding: 0;
 }
@@ -3051,7 +2913,6 @@ h2 {
   padding: var(--space-4);
 }
 
-/* "Filters" disclosure that wraps the whole panel inside the drawer. */
 .activity-filters-toggle {
   margin: var(--space-4) 0 var(--space-3);
   border: var(--rule-strong);
@@ -3080,10 +2941,8 @@ h2 {
   display: none;
 }
 
-/* Disclosure caret drawn from two perpendicular borders rather than a
-   ▸ glyph so it matches the line-weight of ArrowIcon and the rest of
-   the chrome SVGs. Rotates 45° → right-pointing chevron when closed,
-   135° → down-pointing when open. */
+/* Drawn from two borders to match ArrowIcon's line weight. 45° points
+   right (closed), 135° down (open). */
 .activity-filters-toggle > summary::before {
   content: "";
   display: inline-block;
@@ -3112,9 +2971,6 @@ h2 {
   padding: var(--space-2) var(--space-4) var(--space-4);
 }
 
-/* Top-level orthogonal filter (currently just the bot toggle). Lives
-   above the categorical sections; same hairline-rule below as the
-   sections share between each other. */
 .filter-toplevel {
   display: flex;
   flex-wrap: wrap;
@@ -3340,7 +3196,7 @@ h2 {
   box-shadow: 0 0 6px rgba(255, 110, 60, 0.6);
 }
 
-/* Mixed (some children on, some off) — thumb sits midway as a visual hint. */
+/* Mixed (some children on, some off): the thumb sits midway. */
 .switch--mixed .switch__track {
   background: rgba(255, 110, 60, 0.12);
   border-color: rgba(255, 110, 60, 0.35);
@@ -3475,10 +3331,6 @@ h2 {
   color: var(--text);
 }
 
-/* Disruptive-but-recoverable action (e.g. rotate creds — invalidates
-   currently-authenticated collectors but the source itself stays
-   approved). Warm-orange separates it from neutral Download/Edit and
-   from the permanent Leave action below. */
 .source-card-actions button.warn {
   border-color: var(--ember-strong);
   color: var(--ember-strong);
@@ -3609,11 +3461,6 @@ h2 {
 }
 
 /* Admin pending requests */
-/* Pending requests panel — the page's "demands attention" surface. The
-   warm-orange hairline along the top echoes the same gesture used at
-   drawer/modal headers, footer top, and docs prev/next, telegraphing
-   "this is the celebratory beat on the page." Only renders when there
-   actually ARE pending requests, so the gradient stays meaningful. */
 .admin-pending-requests {
   position: relative;
   margin-bottom: var(--space-5);
@@ -3638,7 +3485,6 @@ h2 {
   margin-bottom: var(--space-2);
 }
 
-/* Inline reject/rename form rendered in a pending-row's actions cell. */
 .admin-pending-inline-form {
   display: flex;
   gap: var(--space-1);
@@ -3662,15 +3508,13 @@ h2 {
   border-color: var(--accent-dim);
 }
 
-/* Legacy nav-badge selector — the sidebar now uses .admin-sidebar-link__badge.
-   This rule remains only for any external linkers that may still reference it. */
 .admin-nav-badge {
   color: var(--accent);
   font-size: 0.85em;
   margin-left: var(--space-1);
 }
 
-/* Modal overlay and styles */
+/* Modal */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -3704,7 +3548,6 @@ h2 {
   position: relative;
 }
 
-/* Same warm gradient hairline as drawer headers — see --rule-gradient-h. */
 .modal-header::after {
   content: "";
   position: absolute;
@@ -3810,8 +3653,6 @@ h2 {
   border-color: var(--red);
 }
 
-/* Admin forms get the warm-cream focus instead of the legacy red,
-   matching the rest of the redesigned chrome. */
 .admin-content .form-group input:focus,
 .admin-content .form-group textarea:focus {
   outline: none;
@@ -3835,10 +3676,6 @@ h2 {
   margin-top: 20px;
 }
 
-/* Default modal/drawer submit chrome. Ember-on-dark CTA matches the
-   warm chrome palette; brightness lift on hover gives subtle response
-   without needing a darker-ember token. Admin surfaces still pick up
-   .admin-btn-primary explicitly for the tinted variant. */
 .modal button[type="submit"],
 .drawer button[type="submit"] {
   background: var(--ember-strong);
@@ -3881,7 +3718,7 @@ h2 {
   color: var(--text);
 }
 
-/* User Management specific styles */
+/* User management */
 .user-management-modal {
   max-width: 800px;
 }
@@ -3904,8 +3741,7 @@ h2 {
   background: #388e3c;
 }
 
-/* Player typeahead results popover (used in user/session/player admin
-   forms). Sits below the search input as a small dropdown card. */
+/* Player typeahead results */
 .player-results {
   list-style: none;
   padding: 0;
@@ -3937,8 +3773,6 @@ h2 {
   color: var(--accent);
 }
 
-/* Confirmed selection chip — replaces the green-callout styling with
-   a warm-orange tint matching the .admin-btn-primary palette. */
 .selected-player {
   margin-top: var(--space-1);
   padding: var(--space-2) var(--space-3);
@@ -3973,9 +3807,7 @@ h2 {
   color: var(--accent);
 }
 
-/* .users-table chrome now comes from .admin-data-table (the markup
-   carries both classes). Only the action-cluster cell needs special
-   treatment so multiple buttons sit comfortably side-by-side. */
+/* Table chrome comes from .admin-data-table. */
 .users-table td.actions {
   white-space: nowrap;
   display: flex;
@@ -3983,7 +3815,6 @@ h2 {
   gap: var(--space-1);
 }
 
-/* Inline reset-password form rendered in a user row's actions cell. */
 .reset-password-inline {
   display: flex;
   gap: var(--space-1);
@@ -4066,12 +3897,6 @@ h2 {
   gap: var(--space-1);
 }
 
-/* Per-action button styling (Save / Cancel / etc.) inside the inline
-   edit-player form is provided by .admin-btn / .admin-btn-primary on
-   the markup. The .edit-actions wrapper just lays them out. */
-
-/* RCON sidebar overlays via position:fixed; no layout reservation. */
-
 /* Selectable server cards */
 .server-card.selectable {
   cursor: pointer;
@@ -4089,15 +3914,13 @@ h2 {
   box-shadow: 0 0 10px rgba(255, 110, 60, 0.3);
 }
 
-/* Degraded = liveness offline/stale. Freeze the timer, dim the whole card. */
+/* Degraded: the server's feed is offline or stale. */
 .server-card.degraded {
   opacity: 0.7;
   filter: saturate(0.8);
 }
 
-/* RCON drawer — shares .drawer chrome with ActivityDrawer / MyServersDrawer.
-   Slightly wider (640px) than the others so the 'players' / 'status' table
-   output renders without aggressive wrapping. */
+/* Wider than the other drawers so status output wraps less. */
 .rcon-drawer {
   width: min(640px, 100%);
 }
@@ -4115,9 +3938,6 @@ h2 {
 }
 
 .rcon-drawer__server {
-  /* The server key (e.g. TRINITY-NA) sits beside the engraved RCON
-     wordmark — Barlow at body weight makes it read like a server tag,
-     not a second title. Lowercase tracking, normal case. */
   font-family: "Barlow", sans-serif;
   font-weight: 600;
   font-size: 0.95rem;
@@ -4172,8 +3992,6 @@ h2 {
 }
 
 .rcon-drawer__command {
-  /* The echoed prompt — accent color so the eye finds the boundary
-     between commands when scanning long output. */
   color: var(--accent);
   margin-bottom: var(--space-1);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -4230,8 +4048,6 @@ h2 {
 }
 
 .rcon-drawer__form button {
-  /* Cinzel uppercase Send echoes the engraved drawer-header voice and
-     ties the action chip to the rest of the redesign's chrome. */
   padding: var(--space-2) var(--space-4);
   background: rgba(255, 110, 60, 0.1);
   border: 1px solid rgba(255, 110, 60, 0.4);
@@ -4276,8 +4092,6 @@ h2 {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.72);
-  /* Subtle warm haze toward the top so the modal feels inset into the
-     overall warm-dark cinematic, not floating in pure black. */
   background-image: radial-gradient(
     ellipse at center 30%,
     rgba(255, 110, 60, 0.04),
@@ -4290,10 +4104,7 @@ h2 {
   padding: var(--space-4);
 }
 
-/* Player stats modal — quick-look profile. Same visual DNA as the full
-   /players/:id page, just compressed: warm-gradient panel, inset
-   red-tinted hairline, the hero strip, period chips, medal grid, AKA
-   chips, view-profile CTA. */
+/* Player stats modal */
 .player-stats-modal {
   background: linear-gradient(180deg, #181412 0%, var(--bg-card) 60%);
   border: var(--rule-strong);
@@ -4309,8 +4120,6 @@ h2 {
 }
 
 .player-stats-modal__close {
-  /* Pill close button matches the .drawer-header .close-btn so all
-     dismissable surfaces feel like one family. */
   position: absolute;
   top: var(--space-3);
   right: var(--space-3);
@@ -4365,7 +4174,6 @@ h2 {
   background: var(--rule-gradient-h);
 }
 
-/* "View full profile →" CTA — Cinzel-tracked, accent-toned. */
 .view-profile-link {
   display: inline-flex;
   align-items: center;
@@ -4480,8 +4288,8 @@ h2 {
   cursor: default;
 }
 
-/* width/height 100%: the hero portrait cell sizes children by
-   percentage, so the wrapper must fill it to stay layout-neutral. */
+/* The hero portrait cell sizes children by percentage, so the wrapper
+   fills it. */
 .player-hero__portrait-btn {
   display: block;
   width: 100%;
@@ -4497,18 +4305,16 @@ h2 {
   outline: none;
 }
 
-/* Brighten the frame ring, not the poster: the live head fades the poster to
-   zero opacity, taking any outline on it with it. */
+/* The live head fades the poster to zero opacity, so the hover outline goes
+   on the frame ring. */
 .player-hero__portrait:has(.player-hero__portrait-btn:hover),
 .player-hero__portrait:has(.player-hero__portrait-btn:focus-visible) {
   border-color: var(--ember-strong);
   box-shadow: 0 0 26px rgba(255, 110, 60, 0.4);
 }
 
-/* Period selector — connected segmented control hosted inside a
-   NavScroller. Buttons sit flush; first/last get the rounded outer
-   corners via the shared segmented rules below. Overflow/mask/scroll
-   live on .filter-chips__scroll. */
+/* Period selector. Overflow, mask and scroll live on
+   .filter-chips__scroll. */
 .period-selector {
   display: flex;
   align-items: center;
@@ -4549,8 +4355,8 @@ h2 {
   color: var(--accent);
 }
 
-/* PLAYER HERO — shared between modal and full profile. CSS scale comes
-   from .player-hero--modal vs .player-hero--page; markup is identical. */
+/* Player hero, shared by the modal and the profile page. The --modal and
+   --page variants set the scale. */
 .player-hero {
   position: relative;
   display: flex;
@@ -4563,11 +4369,8 @@ h2 {
   padding: var(--space-6) var(--space-5) var(--space-5);
 }
 
-/* Top row: portrait stays centered (over the name) with the featured
-   honor card offset to its right. `1fr auto 1fr` keeps the portrait
-   mathematically centered regardless of featured-card width — the two
-   1fr tracks balance, and the empty left track mirrors the right one
-   that holds the featured card. */
+/* `1fr auto 1fr` keeps the portrait centered over the name whatever the
+   featured card's width. */
 .player-hero__top {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
@@ -4585,8 +4388,6 @@ h2 {
 }
 
 .player-hero__portrait {
-  /* 96px ringed portrait — same DNA as .leaderboard-card__avatar but a
-     size up. Badge / bot-badge overlays bottom-right. */
   position: relative;
   width: 96px;
   height: 96px;
@@ -4602,10 +4403,6 @@ h2 {
     box-shadow 0.18s ease;
 }
 
-/* Featured-honor slot: bare medal alongside the portrait, sized smaller
-   than it (~75%). No circle/border chrome — just the medal silhouette
-   with the lifetime count framed in ember at the bottom edge. Width
-   tracks portrait dims via the variant modifiers below. */
 .player-hero__featured {
   position: relative;
   width: 72px;
@@ -4619,15 +4416,10 @@ h2 {
   display: block;
 }
 .player-hero__featured-count {
-  /* Count chip sitting just below the medal's bottom edge — a hair of
-     overlap so the medal silhouette stays readable. Dark fill + ember
-     text only (no hard border); the --ember-light numerals carry the
-     "value callout" signal without loud chrome around them. */
   position: absolute;
   top: 100%;
-  /* Percentage margin keeps overlap proportional across modal/page variants.
-     The parent is square (width = height), so % of parent width is the same
-     fraction of badge height — all variants get the same visual overlap. */
+  /* The parent is square, so a percentage margin gives every variant the
+     same overlap. */
   margin-top: -7%;
   left: 50%;
   transform: translateX(-50%);
@@ -4669,10 +4461,7 @@ h2 {
 }
 
 .player-hero__name {
-  /* Cinzel matches the page H1 / brand-title family — the hero name is
-     the player-profile equivalent of those page headings. No
-     text-transform since player names carry meaningful casing (and
-     color codes via ColoredText). */
+  /* Player names keep their own casing and color codes. */
   font-family: "Cinzel", serif;
   font-weight: 700;
   font-size: 26px;
@@ -4697,8 +4486,7 @@ h2 {
   color: var(--text-dim);
 }
 
-/* Bullet between meta items — collapses naturally if the playtime span
-   is omitted (no playtime data). */
+/* The bullet drops out when the playtime span is absent. */
 .player-hero__meta span + span::before {
   content: "\00b7";
   display: inline-block;
@@ -4718,8 +4506,6 @@ h2 {
   position: relative;
 }
 
-/* Gradient hairline above the headline strip — same treatment as the
-   drawer-header rule, just inverted. Centered ~76% width. */
 .player-hero__headline::before {
   content: "";
   position: absolute;
@@ -4757,8 +4543,6 @@ h2 {
   color: var(--text-dim);
 }
 
-/* Modal scale — already-compact 96px portrait stays, name/value
-   slightly tightened so the hero leaves room for medals + AKAs. */
 .player-hero--modal .player-hero__portrait {
   width: 80px;
   height: 80px;
@@ -4778,7 +4562,6 @@ h2 {
   font-size: 20px;
 }
 
-/* Page scale — bigger portrait + headline numbers, more breathing room. */
 .player-hero--page {
   padding: var(--space-7) var(--space-5) var(--space-5);
 }
@@ -4803,10 +4586,7 @@ h2 {
 .player-hero--page .headline-stat__label {
   font-size: 0.7rem;
 }
-/* Cluster the four headline stats in the middle while keeping the
-   strip itself full-width so its ::before hairline spans the full
-   hero. Content-sized columns + justify-content: center packs the
-   stats; the gap controls how spread they are. */
+/* The strip stays full width so its ::before hairline spans the hero. */
 .player-hero--page .player-hero__headline {
   grid-template-columns: repeat(4, auto);
   justify-content: center;
@@ -4818,11 +4598,7 @@ h2 {
     grid-template-columns: repeat(2, 1fr);
     gap: var(--space-3) var(--space-4);
   }
-  /* Pack portrait + featured side-by-side at narrow widths instead of
-     stacking. Strict portrait-centering is dropped here — the pair
-     centers as one unit — but both items stay on the same row, which
-     reads better than a vertical stack when there's room (modern
-     phones at 375px+ have plenty). */
+  /* On narrow screens the portrait and featured card center as a pair. */
   .player-hero__top {
     display: flex;
     justify-content: center;
@@ -4845,11 +4621,8 @@ h2 {
   }
 }
 
-/* Honors grid: flat 3x3 of the nine non-featured medals. The featured
-   honor (Victory by default; user-selectable in Phase 2) lives in the
-   hero alongside the portrait, so the grid renders exactly 9 cells —
-   no trailing gap. Three columns at every width keeps medal labels
-   (HUMILIATION, IMPRESSIVE, OBELISKS) readable. */
+/* Nine cells; the featured honor sits in the hero. Three columns at every
+   width keep the longer medal labels readable. */
 .honors-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -4858,22 +4631,13 @@ h2 {
 }
 
 .honor-cell {
-  /* Wraps a StatItem so the optional star button can anchor to the cell
-     without modifying StatItem's internals (StatItem stays shared/pure).
-     Becomes the grid item; StatItem fills it. */
+  /* Wraps StatItem so the star button can anchor to the cell. */
   position: relative;
 }
 .honor-cell > .stat-item {
-  /* StatItem already has position: relative for its bg-icon; keep it
-     filling the cell so layout stays identical to pre-Phase-2. */
   height: 100%;
 }
 .honor-feature-toggle {
-  /* Owner-only affordance: click the star to promote this honor to
-     featured. Same visual language as .card__feature-toggle on match
-     cards — transparent, no border, text-dim at rest, ember-light on
-     hover/focus. Always visible so the action is discoverable without
-     hovering. Anchored to the cell's top-right corner. */
   position: absolute;
   top: 4px;
   right: 4px;
@@ -4895,9 +4659,6 @@ h2 {
 }
 
 .stat-item {
-  /* Specialty cell — keeps the rotated background medal whisper from
-     the previous design (signature visual) but on a quieter cell with
-     finer chrome. */
   position: relative;
   overflow: hidden;
   text-align: center;
@@ -4916,9 +4677,6 @@ h2 {
 }
 
 .stat-item-bg-icon {
-  /* Rotated medal whisper at lower-right — preserved signature visual
-     from the previous design. Lower opacity now since the cells are
-     denser; we don't want the rotation to feel busy. */
   position: absolute;
   bottom: -10px;
   right: -10px;
@@ -4981,9 +4739,7 @@ h2 {
   bottom: -0.3em;
 }
 
-/* Player profile + modal panels — generic card chrome that hosts a
-   Cinzel-tracked heading and a content body (medal grid, AKA chips,
-   GUID list, etc.). Used in both PlayerStatsModal and PlayersPage. */
+/* Player panels */
 .player-panel {
   background: var(--bg-card);
   border: var(--rule);
@@ -5005,8 +4761,6 @@ h2 {
 }
 
 .player-panel__heading::after {
-  /* Same gradient hairline used under .drawer-header — ties the
-     section dividers across drawers and panels into one motif. */
   content: "";
   position: absolute;
   left: 0;
@@ -5016,7 +4770,7 @@ h2 {
   background: var(--rule-gradient-h);
 }
 
-/* Also-known-as chip cluster — used in both modal and page panels. */
+/* Also known as */
 .aka-list {
   display: flex;
   flex-wrap: wrap;
@@ -5076,10 +4830,8 @@ h2 {
   margin: 0 auto;
 }
 
-/* Two-column players layout. Left: persistent search rail. Right:
-   either the active search results (as cards), the selected player's
-   stats, or a friendly empty state. The rail stays sticky so the user
-   can keep typing while scrolling a long stats page. */
+/* The search rail is sticky so typing still works while a long stats page
+   scrolls. */
 .players-layout {
   display: grid;
   grid-template-columns: 280px 1fr;
@@ -5112,16 +4864,13 @@ h2 {
   min-width: 0; /* prevent grid blowout from long names / wide tables */
 }
 
-/* Card grid — matches leaderboard-card sizing so the two surfaces
-   read as one visual family. */
+/* Same card sizing as the leaderboard. */
 .player-cards-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 14px;
 }
 
-/* Player search / playing-now card — same vertical layout as
-   .leaderboard-card (no rank, no headline stat). */
 .player-card {
   position: relative;
   display: flex;
@@ -5153,8 +4902,6 @@ h2 {
   }
 }
 
-/* Portrait wrapper — identical to .leaderboard-card__avatar (64px
-   ringed circle, badge overlays bottom-right). */
 .player-card__avatar {
   position: relative;
   width: 64px;
@@ -5199,9 +4946,6 @@ h2 {
 }
 
 .player-card__name {
-  /* Cinzel regular — same "ceremonial headline at body size" treatment
-     as .card__map-long. Lighter than the hero's Cinzel 700 because
-     mixed-case Cinzel reads better at a lighter weight when small. */
   font-family: "Cinzel", serif;
   font-weight: 500;
   font-size: 18px;
@@ -5219,10 +4963,7 @@ h2 {
   color: var(--text-dim);
 }
 
-/* Right-pane "playing now" panel — shown when no search is active and
-   no player is selected. Reuses .player-cards-grid + .player-card so
-   the visual rhythm matches search results: only the heading and the
-   meta-line (server name vs last-seen) differ. */
+/* Playing now */
 .online-players {
   display: flex;
   flex-direction: column;
@@ -5322,34 +5063,24 @@ h2 {
   cursor: not-allowed;
 }
 
-/* Legacy full-width search-result rows have been retired in favor of
-   the .player-cards-grid + .player-card pattern (see ~line 4279). The
-   .player-last-seen meta-text utility is still used by AdminPlayers'
-   merge-result list. */
+/* Used by the AdminPlayers merge results. */
 .player-last-seen {
   color: var(--text-dim);
   font-size: 0.85rem;
 }
 
-/* Player profile layout — vertical stack of: hero card, period chips,
-   specialties panel, AKA panel, GUIDs panel (admin), sessions section
-   (admin), recent matches section. The shell itself is just a flex
-   column; each panel owns its own card chrome. */
+/* Player profile */
 .player-profile {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
 }
 
-/* Inside .player-profile the period selector hugs the right edge so
-   it reads as a control affordance, not part of the panel rhythm. */
 .player-profile > .period-selector {
   justify-content: flex-end;
   margin: 0;
 }
 
-/* Recent matches & sessions inside the profile — adopt the panel
-   chrome and Cinzel section heading to align with .player-panel. */
 .player-profile .recent-matches,
 .player-profile .player-sessions-section,
 .player-profile .player-guids-section {
@@ -5358,7 +5089,7 @@ h2 {
   background: var(--bg-card);
   border: var(--rule);
   border-radius: var(--radius-md);
-  border-top: var(--rule); /* override the dim 1px #333 from old rules */
+  border-top: var(--rule);
 }
 
 .player-profile .recent-matches h2,
@@ -5407,10 +5138,7 @@ h2 {
   margin-bottom: 12px;
 }
 
-/* GUID list rendered inside the AdminPlayers detail panel and the
-   public PlayersPage 'Linked GUIDs' section. Each item is a small
-   row-card carrying name + hash + first/last seen + (admin only) split
-   action. */
+/* GUID list */
 .guids-list {
   display: flex;
   flex-direction: column;
@@ -5462,8 +5190,6 @@ h2 {
   font-variant-numeric: tabular-nums;
 }
 
-/* .split-btn is now styled by .admin-btn-danger on the markup. */
-
 /* Player sessions section */
 .player-sessions-section {
   margin-top: 20px;
@@ -5477,8 +5203,7 @@ h2 {
   margin-bottom: 12px;
 }
 
-/* .sessions-table chrome now comes from .admin-data-table (markup
-   carries both). Only the IP-address cell needs the monospace tweak. */
+/* Table chrome comes from .admin-data-table. */
 .sessions-table .ip-address {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   color: var(--text-dim);
@@ -5556,9 +5281,7 @@ h2 {
   cursor: not-allowed;
 }
 
-/* AdminPlayers merge UI. The search input uses .admin-input chrome and
-   each candidate is a small row-card mirroring the .guid-item rhythm.
-   Merge button itself is .admin-btn-danger on the markup. */
+/* AdminPlayers merge */
 .merge-search-input {
   display: flex;
   gap: var(--space-2);
@@ -5622,12 +5345,6 @@ h2 {
   font-variant-numeric: tabular-nums;
 }
 
-/* .merge-btn is now styled by .admin-btn-danger on the markup. */
-
-/* .modal-footer / legacy .view-profile-link rules removed — the
-   redesigned PlayerStatsModal uses .player-stats-modal__footer and
-   the ember-bordered .view-profile-link rule defined further up. */
-
 /* Account page */
 .account-page {
   padding: 20px;
@@ -5682,20 +5399,13 @@ h2 {
   }
 }
 
-/* ── Account page section card ────────────────────────────────────────
-   Each section is a card carrying one functional concern (Profile,
-   Account info, Password, Game token, Link identity, etc.). Chrome
-   matches .admin-form-card so the account workspace and the admin
-   workspace share a vocabulary — the user feels they're in the same
-   product. The h2 picks up the Cinzel uppercase rhythm established
-   by .admin-section-header so cross-page section headings line up. */
+/* ── Account page section card ────────────────────────────────────── */
 .account-section {
   background: var(--bg-card);
   border: var(--rule-strong);
   border-radius: var(--radius-md);
   padding: var(--space-4);
-  /* min-width:auto would let unbreakable content (the nowrap hidden
-     game token) force the mobile 1fr track past the viewport. */
+  /* Keeps the nowrap hidden token inside the mobile 1fr track. */
   min-width: 0;
 }
 
@@ -5749,9 +5459,6 @@ h2 {
   font-size: 0.85rem;
 }
 
-/* Period selector in account page — typography/scale tweaks only.
-   The shape (segmented, no wrap, no individual radius) comes from
-   the shared rules so the connected-segments visual is uniform. */
 .account-section .period-btn {
   padding: var(--space-1) var(--space-3);
   font-size: 0.7rem;
@@ -5835,9 +5542,7 @@ h2 {
   color: rgb(255, 165, 120);
 }
 
-/* Account page GUID list — same shape as the AdminPlayers .guid-item
-   pattern for visual continuity, just without the split-action button.
-   The hash chip uses the established monospace + dark-fill treatment. */
+/* Account page GUID list */
 .account-section .guids-list {
   display: flex;
   flex-direction: column;
@@ -5912,10 +5617,7 @@ h2 {
   color: var(--text);
 }
 
-/* Link-code display — when the user generates a code they expect a
-   visually distinctive ceremonial display. The warm-orange treatment
-   (instead of green) reads as "this is the magic word" and ties to
-   the rest of the redesign's color language. */
+/* Link code display */
 .code-display {
   background: var(--bg);
   border: var(--rule-strong);
@@ -5972,9 +5674,6 @@ h2 {
   font-size: 0.85em;
 }
 
-/* Primary CTA used by Link Code generation, claim linking, game-token
-   confirm. Same warm-cream chrome as .admin-btn-primary so primary
-   actions read consistently across admin and account workspaces. */
 .generate-btn {
   padding: var(--space-2) var(--space-4);
   background: var(--ember-tint-bg);
@@ -6049,8 +5748,6 @@ h2 {
   margin-top: var(--space-1);
 }
 
-/* Submit / Change Password CTA — warm-primary affordance, same shape
-   as .admin-btn-primary / .generate-btn. */
 .password-form button[type="submit"],
 .change-password-btn {
   padding: var(--space-2) var(--space-4);
@@ -6083,9 +5780,6 @@ h2 {
   cursor: not-allowed;
 }
 
-/* "Log out everywhere" — destructive-outline affordance set off from
-   the password CTA by a hairline rule; same shape as
-   .change-password-btn, red tint per .admin-btn-danger. */
 .logout-everywhere {
   margin-top: var(--space-4);
   padding-top: var(--space-3);
@@ -6140,11 +5834,7 @@ h2 {
   background: rgba(255, 248, 240, 0.04);
 }
 
-/* ── Game token section ──────────────────────────────────────────────
-   Token is sensitive (treat like a password); display with neutral
-   text-dim rather than the previous "look at me" green so it doesn't
-   read as a status indicator. The Reveal/Copy/Rotate cluster sits
-   beside it as ghost buttons. */
+/* ── Game token section ───────────────────────────────────────────── */
 .game-token-display {
   display: flex;
   flex-direction: column;
@@ -6164,9 +5854,7 @@ h2 {
   letter-spacing: 0.02em;
 }
 
-/* Hidden state: render the full token but let CSS truncate with an
-   ellipsis at the box edge. Previously JS sliced to 8 chars regardless
-   of width, which left most of a desktop-width box empty. */
+/* Hidden: the full token, cut off with an ellipsis at the box edge. */
 .game-token-value.hidden {
   white-space: nowrap;
   overflow: hidden;
@@ -6181,9 +5869,6 @@ h2 {
   flex-wrap: wrap;
 }
 
-/* Reveal / Copy / Rotate buttons — ghost-style, override the warm
-   .generate-btn chrome since these are utility actions, not the
-   page-level primary CTA. */
 .game-token-actions .rotate-btn {
   background: transparent;
   border: 1px solid rgba(208, 200, 184, 0.25);
@@ -6239,8 +5924,6 @@ h2 {
   color: var(--accent);
 }
 
-/* Success notice — green semantic kept (success is universal), but
-   the chrome is toned down to match the rest of the warm palette. */
 .success-message {
   background: rgba(80, 200, 120, 0.08);
   border: 1px solid rgba(80, 200, 120, 0.4);
@@ -6252,10 +5935,6 @@ h2 {
   font-size: 0.85rem;
 }
 
-/* .username-link chrome is provided by the shared nav-cluster rule
-   (see ~line 2410). The selector remains as an anchor for any future
-   per-state tinting. */
-
 /* Leaderboard page */
 .leaderboard-page {
   padding: 20px;
@@ -6263,9 +5942,8 @@ h2 {
   margin: 0 auto;
 }
 
-/* Snapshot banner: shown when ?as_of=... pins a historical anchor.
-   Mirrors how the digest's footer URL works — clicking the link
-   reproduces what was posted to Discord. */
+/* Snapshot banner, shown when ?as_of= pins the leaderboard to a past
+   moment. */
 .leaderboard-snapshot-banner {
   display: flex;
   align-items: center;
@@ -6295,10 +5973,6 @@ h2 {
   text-decoration: underline;
 }
 
-/* Outer flex container that hosts a NavScroller inside. The actual
-   overflow/mask/scroll behavior lives on .filter-chips__scroll
-   (NavScroller's inner element); this wrapper just provides a
-   layout slot the chevron-bearing nav-scroller div can grow into. */
 .game-type-selector {
   display: flex;
   align-items: center;
@@ -6329,15 +6003,9 @@ h2 {
   color: var(--ember-tint-text);
 }
 
-/* ── Shared segmented-control rules ──────────────────────────────────
-   These three button classes share the connected-segments treatment:
-   first/last in the strip get rounded outer corners; adjacent siblings
-   pull together with margin-left: -1px so each shared border draws
-   once instead of twice; hover/active lift via z-index so the active
-   button's full border outline reads above its neighbors.
-   Applies to .game-type-btn (matches/leaderboard/server filters),
-   .mode-filter-btn (mode filter row), .period-btn (period
-   switcher). .category-btn opts out — its parent is a 6-col grid. */
+/* ── Shared segmented-control rules ───────────────────────────────── */
+/* Neighbors overlap by 1px so each shared border draws once; z-index
+   lifts the hovered and active buttons. */
 .game-type-btn:first-of-type,
 .mode-filter-btn:first-of-type,
 .period-btn:first-of-type {
@@ -6363,18 +6031,15 @@ h2 {
 .period-btn:focus-visible {
   z-index: 1;
 }
-/* Active wins over a hovered neighbor — without the higher z-index, the
-   neighbor's hover left-border would overlap the active button's ember
-   right-border (DOM order decides on z-index ties). */
+/* Active stacks above a hovered neighbor so its ember edge stays on top;
+   DOM order breaks z-index ties. */
 .game-type-btn.active,
 .mode-filter-btn.active,
 .period-btn.active {
   z-index: 2;
 }
 
-/* ── Leaderboard filter row: game-type left, period right on desktop;
-   stacks on mobile so the period drops below instead of cramping the
-   game-type's NavScroller. ────────────────────────────────────────── */
+/* ── Leaderboard filter row ───────────────────────────────────────── */
 .leaderboard-filters {
   display: flex;
   align-items: center;
@@ -6383,7 +6048,7 @@ h2 {
 }
 .leaderboard-filters__game-type {
   flex: 1 1 auto;
-  min-width: 0; /* lets the NavScroller's overflow:hidden actually clip */
+  min-width: 0; /* lets the NavScroller's overflow: hidden clip */
 }
 .leaderboard-filters__period {
   flex: 0 0 auto;
@@ -6399,11 +6064,9 @@ h2 {
   }
 }
 
-/* ── Category strip: thin Cinzel small-caps tabs in a horizontal scroller.
-   Active gets an ember underline marker that lands on the strip's
-   bottom hairline rule. Replaces the old .category-selector grid.
-   Same scroll/overflow recipe as .filter-chips__scroll — without it
-   the strip's max-content width pushes the whole page wider. */
+/* ── Category strip ───────────────────────────────────────────────── */
+/* Same scroll recipe as .filter-chips__scroll, so the strip's
+   max-content width stays inside the page. */
 .category-strip__scroll {
   display: block;
   min-width: 0;
@@ -6412,11 +6075,9 @@ h2 {
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
 }
-/* Category strip needs the scroller chrome on desktop too — unlike the
-   header nav (which never overflows at desktop widths), the leaderboard's
-   variable category list often pushes past the viewport at narrow
-   desktops. :has() opts this scroller out of the global display:contents
-   behavior so the chevron buttons can be absolutely positioned over it. */
+/* The category list can overflow narrow desktops, so this scroller keeps
+   its chevrons there; :has() lifts it out of the desktop display: contents
+   rule. */
 .nav-scroller:has(.category-strip__scroll) {
   display: block;
   position: relative;
@@ -6458,11 +6119,7 @@ h2 {
   outline: none;
 }
 
-/* ── Desktop layout: vertical sticky sidebar of categories alongside the
-   main content. The same DOM/markup that scrolls horizontally on mobile
-   flips to a column at >=900px, with the active tab gaining an ember
-   bar on the left and a tinted background. Sticky position keeps the
-   sidebar in view while the user scrolls through the leaderboard. ─── */
+/* ── Desktop category sidebar ─────────────────────────────────────── */
 @media (min-width: 900px) {
   .leaderboard-body {
     display: grid;
@@ -6470,20 +6127,15 @@ h2 {
     column-gap: var(--space-6);
     align-items: start;
   }
-  /* (Desktop margin-left override moved below the .leaderboard-standard
-     base rule — see the @media block at the bottom of the standard's
-     section. CSS cascade: equal-specificity rules need source-order to
-     win, and the base rule is declared later in this file.) */
   .nav-scroller:has(.category-strip__scroll) {
     position: sticky;
     top: var(--space-4);
-    /* Hide chevrons on desktop — vertical column always fits. */
   }
   .nav-scroller:has(.category-strip__scroll) .nav-scroller__edge {
     display: none;
   }
   .category-strip__scroll {
-    overflow: visible; /* no horizontal scroll needed in vertical mode */
+    overflow: visible;
   }
   .category-strip {
     flex-direction: column;
@@ -6511,7 +6163,7 @@ h2 {
     border-right-color: var(--ember-strong);
     box-shadow: 1px 0 8px rgba(255, 110, 60, 0.25);
   }
-  /* Suppress the underline marker — vertical mode uses the left bar. */
+  /* The vertical sidebar marks the active tab with its left bar. */
   .category-tab.active::after {
     display: none;
   }
@@ -6589,28 +6241,18 @@ h2 {
   box-shadow: 0 0 8px rgba(255, 110, 60, 0.6);
 }
 
-/* ── The Standard: dramatic active-category header. Wide block with a
-   medal/flag emblem on the left, eyebrow + title + tagline on the
-   right. Vertical ember ribbon on the left edge plays the "banner
-   pole" role. Soft pulsing halo behind the emblem. Hairlines top + bottom.
-   When there's no emblem (matches/K/D/frags/deaths), the text takes
-   center stage via .leaderboard-standard--no-emblem. ─────────────── */
+/* ── Active-category banner ───────────────────────────────────────── */
 .leaderboard-standard {
   position: relative;
-  /* 1fr/auto/1fr keeps the text in column 2 mathematically centered
-     regardless of whether column 1 holds an emblem — same trick as
-     .player-hero__top. The empty column 3 mirrors column 1's slack. */
+  /* 1fr auto 1fr keeps the text centered whether or not column 1 holds an
+     emblem. */
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
   column-gap: var(--space-6);
 
-  /* Right edge only: negative margin-right escapes .leaderboard-page's
-     20px padding so the banner extends to the page's right edge. Left
-     stays aligned to the page padding (mobile) or the sidebar column
-     start (desktop). Doesn't widen the readable content — the emblem +
-     text stay inside the standard's own padding; only the background
-     and border stretch. */
+  /* The negative right margin escapes .leaderboard-page's 20px padding so
+     the background reaches the page's right edge. */
   margin-top: var(--space-5);
   margin-right: -20px;
   margin-bottom: var(--space-5);
@@ -6628,11 +6270,10 @@ h2 {
     linear-gradient(180deg, rgba(20, 14, 10, 0.6), rgba(8, 6, 5, 0.6));
 
   overflow: hidden;
-  /* Reveal animation when the category remounts (key=effectiveCategory) */
+  /* Replays when the category remounts (key=effectiveCategory). */
   animation: standard-rise 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
-/* Vertical ember ribbon on the left edge — the "banner pole". */
 .leaderboard-standard__ribbon {
   position: absolute;
   top: 0;
@@ -6652,14 +6293,13 @@ h2 {
 .leaderboard-standard__emblem {
   position: relative;
   grid-column: 1;
-  justify-self: end; /* sits at the right edge of column 1, near text */
+  justify-self: end;
   width: 128px;
   height: 128px;
   display: grid;
   place-items: center;
 }
 
-/* Soft ember halo radiating from behind the emblem — slow pulse. */
 .leaderboard-standard__halo {
   position: absolute;
   inset: -25%;
@@ -6682,12 +6322,6 @@ h2 {
   object-fit: contain;
   filter: drop-shadow(0 2px 12px rgba(255, 110, 60, 0.5));
 }
-/* Crossed-banner pair: blue behind, red in front, each tilted at opposing
-   angles so the two squares read as a single composed emblem rather than
-   two icons sitting side by side. Sized to fill its container — drop
-   into a square parent for a balanced silhouette. Used by the leaderboard
-   banner's flag_returns category and by the flag_returns honor cell +
-   PlayerHero featured-medal slot. */
 .flag-pair {
   position: relative;
   display: block;
@@ -6718,7 +6352,7 @@ h2 {
   grid-column: 2;
   display: flex;
   flex-direction: column;
-  align-items: center; /* centers the inline-flex eyebrow span */
+  align-items: center;
   gap: var(--space-2);
   min-width: 0;
   text-align: center;
@@ -6726,9 +6360,6 @@ h2 {
 
 .leaderboard-standard__eyebrow {
   margin: 0;
-  /* Block-level p so the parent flex column treats it normally; the
-     inner inline-flex span renders the text + flanking hairlines
-     and shrinks to content so it picks up the parent's text-align. */
 }
 .leaderboard-standard__eyebrow > span {
   display: inline-flex;
@@ -6775,7 +6406,6 @@ h2 {
   color: var(--text-dim);
 }
 
-/* Mobile: collapse to single column, stack emblem above text. */
 @media (max-width: 720px) {
   .leaderboard-standard {
     grid-template-columns: 1fr;
@@ -6794,9 +6424,8 @@ h2 {
   }
 }
 
-/* Desktop: align the banner's top with the sidebar's top. The base
-   margin-top exists for mobile, where the horizontal category strip
-   sits above the banner and needs breathing room. */
+/* The base margin-top makes room for the mobile category strip; on
+   desktop the banner lines up with the sidebar's top. */
 @media (min-width: 900px) {
   .leaderboard-standard {
     margin-top: 0;
@@ -6831,9 +6460,6 @@ h2 {
   }
 }
 
-/* Leaderboard content — wrapper with no chrome of its own. Cards
-   inside provide the visual rhythm. Margin pushes the grid away from
-   the period selector's hairline above. */
 .leaderboard-content {
   margin-top: 24px;
 }
@@ -6847,10 +6473,6 @@ h2 {
   border-radius: var(--radius-md);
 }
 
-/* Card grid — auto-fills the available width with 220px cards.
-   Mobile collapses to a single column; widescreen packs 6+ across.
-   Same visual language as .landing-player-card on the landing page,
-   sized for full-page density. */
 .leaderboard-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -6876,9 +6498,6 @@ h2 {
   border-color: rgba(255, 110, 60, 0.5);
   transform: translateY(-2px);
 }
-/* Top 3 — each rank gets its own metal tint on the border, portrait
-   ring, rank numeral, and headline stat. Card body keeps the same
-   base background; only the border and the portrait-ring glow shift. */
 .leaderboard-card.top-1 {
   border-color: rgba(255, 215, 0, 0.55);
 }
@@ -6986,8 +6605,6 @@ h2 {
 .leaderboard-card.top-3 .leaderboard-card__stat {
   color: #cd7f32;
 }
-/* Secondary row — non-sorted core stats compressed into a single
-   line so the card carries the full picture without dominating. */
 .leaderboard-card__secondary {
   display: flex;
   gap: 10px;
@@ -7012,7 +6629,6 @@ h2 {
   color: var(--accent);
 }
 
-/* Gold / silver / bronze rank tint for top 3 cards. */
 .leaderboard-card.top-1 .leaderboard-card__rank {
   color: gold;
 }
@@ -7031,7 +6647,7 @@ h2 {
   vertical-align: baseline;
 }
 
-/* Link code display (used by Account page) */
+/* Link code display */
 .code-display {
   background: var(--bg);
   border: 1px solid var(--accent-dim);
@@ -7105,9 +6721,7 @@ h2 {
   background: rgba(76, 175, 80, 0.1);
 }
 
-/* ========================================
-   Matches Page Styles
-   ======================================== */
+/* ── Matches page ─────────────────────────────────────────────────── */
 
 .matches-page {
   padding: 20px;
@@ -7178,11 +6792,7 @@ h2 {
   color: var(--text);
 }
 
-/* Server filters — toolbar above the live server grid. Each axis renders
-   only when the visible servers contain more than one distinct value, so
-   a single-server install shows no toolbar at all. Reuses .game-type-btn
-   styling for game-type chips and .source-filter for the source dropdown
-   so the toolbar reads as one set with the matches-page filters. */
+/* Server filters */
 .server-filters {
   display: flex;
   flex-wrap: wrap;
@@ -7190,9 +6800,8 @@ h2 {
   gap: 10px;
 }
 
-/* Wraps ServerFilters + help toggle so they share a row. ServerFilters
-   nullifies itself when nothing is filterable; the help toggle stays
-   visible either way, anchored to the right via margin-left: auto. */
+/* The help toggle stays at the right even when ServerFilters renders
+   nothing. */
 .servers-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -7212,9 +6821,7 @@ h2 {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  /* Padding + font-size match .game-type-btn (the segmented toggles
-     in the same toolbar row) so the help toggle reads as the same
-     size of control, not a slimmer afterthought. */
+  /* Matches .game-type-btn in the same row. */
   padding: 6px 14px;
   background: var(--bg-card);
   border: var(--rule-strong);
@@ -7238,16 +6845,10 @@ h2 {
   color: var(--ember-tint-text);
 }
 
-/* Added by App.tsx once help mode is on AND the toggle's natural Y
-   has been measured. `top` and `right` come in via inline style so
-   the button starts at its toolbar-row position and rises with
-   scroll, pinning at HELP_TOGGLE_STICK_TOP_PX (see App.tsx) to clear
-   the status pill. z-index sits below .help-popover (1000); popovers
-   are pointer-events:none, so clicks fall through anyway.
-   `margin-left: 0` defeats the base `margin-left: auto`, which in
-   absolute positioning can otherwise resolve as fill-leftward and
-   leave the element left-anchored at its static position instead of
-   right-anchored at the inline `right` value. */
+/* App.tsx sets top and right inline and pins the toggle at
+   HELP_TOGGLE_STICK_TOP_PX. The z-index sits below .help-popover (1000).
+   margin-left: 0 keeps the inline right value in charge once the toggle
+   is absolute. */
 .servers-help-toggle.floating {
   position: fixed;
   margin-left: 0;
@@ -7262,8 +6863,6 @@ h2 {
   line-height: 1;
 }
 
-/* Outer flex container; supports an optional .server-filter-label
-   sibling at the head before the NavScroller-wrapped strip. */
 .server-filter-group {
   display: flex;
   align-items: center;
@@ -7335,9 +6934,7 @@ h2 {
   font-size: 1.1rem;
 }
 
-/* ========================================
-   Match Detail Page Styles
-   ======================================== */
+/* ── Match detail page ────────────────────────────────────────────── */
 
 .match-detail-page {
   padding: 20px;
@@ -7355,8 +6952,6 @@ h2 {
   margin: 0 auto;
 }
 
-/* Exit reason on the left, admin Feature toggle on the right — aligned
-   to the card's width below. */
 .match-detail__meta {
   display: flex;
   align-items: center;
@@ -7397,9 +6992,7 @@ h2 {
   cursor: progress;
 }
 
-/* ========================================
-   Match Card Enhancements
-   ======================================== */
+/* ── Match card header ────────────────────────────────────────────── */
 
 .match-header-right {
   display: flex;
@@ -7459,9 +7052,8 @@ h2 {
   gap: 1rem;
 }
 
-/* Toggle filter — pill-style on/off switch for boolean filters. The
-   underlying <input type=checkbox> stays for keyboard / a11y; the
-   visible thumb is a styled sibling. Off = dim, on = ember. */
+/* The checkbox stays for keyboard and screen-reader use; the visible
+   thumb is a sibling. */
 .toggle-filter {
   display: inline-flex;
   align-items: center;
@@ -7524,14 +7116,7 @@ h2 {
   outline-offset: 2px;
 }
 
-/* Admin page */
-/* ── Admin shell ──────────────────────────────────────────────────────
-   The page-level Header (.admin-header) participates in the shared
-   two-tier console pattern (brand row → rule → page-nav row); the
-   admin-specific chrome below it is a sticky-rail workspace. The warm
-   editorial hairline (--rule-gradient-h) appears once, between the
-   header and the workspace, marking entry into "admin mode." Same
-   gesture as drawer/modal/footer headers. */
+/* ── Admin shell ──────────────────────────────────────────────────── */
 .admin-page {
   padding: 20px;
   max-width: 1800px;
@@ -7542,7 +7127,7 @@ h2 {
   position: relative;
 }
 
-/* Tightens header→content gap so navbar sits 12px from both rules. */
+/* Puts the nav 12px from both rules. */
 .admin-page .admin-header {
   margin-bottom: var(--space-3);
 }
@@ -7554,10 +7139,8 @@ h2 {
   align-items: start;
 }
 
-/* Flat sticky rail mirroring the docs left tab list — no chromed box.
-   The right edge carries the rule, link labels sit flush to it, and
-   the active link grows a 2px warm-orange marker that overlaps the
-   rule, identical visual gesture to the docs page. */
+/* Matches the docs left rail: the active link's marker overlaps the
+   rail's right rule. */
 .admin-sidebar {
   display: flex;
   flex-direction: column;
@@ -7615,7 +7198,7 @@ h2 {
 }
 
 .admin-content {
-  min-width: 0; /* let flex/grid children shrink instead of overflowing */
+  min-width: 0; /* lets flex and grid children shrink */
 }
 
 @media (max-width: 768px) {
@@ -7624,17 +7207,8 @@ h2 {
     gap: var(--space-3);
   }
 
-  /* Mobile: rail flattens into a horizontal scroll strip with a bottom
-     rule, and the active marker rotates to a bottom-edge indicator. */
-  /* Outer rail flattens; the inner .admin-sidebar__scroll handles
-     horizontal scrolling and the NavScroller wrapper hosts edge
-     chevrons + fade masks. Vertical drag passes through to the page
-     because overflow-y on the scroll container is hidden.
-     min-width: 0 is critical: as a grid item of .admin-layout, the
-     default min-width: auto would let the wide tab strip below push
-     the grid column wider than the viewport, dragging the page body
-     along with it. min-width: 0 lets the column collapse to its
-     allotted 1fr and the scroll container actually clip + scroll. */
+  /* min-width: 0 lets the grid column shrink to 1fr so the tab strip
+     scrolls inside it and the page stays at viewport width. */
   .admin-sidebar {
     flex-direction: row;
     position: static;
@@ -7644,9 +7218,6 @@ h2 {
     min-width: 0;
   }
 
-  /* Outer scroll container is the overflow host; mirrors the page-nav
-     pattern (.app-header__nav-scroll wraps .page-nav). flex: 1/min-width: 0
-     let it shrink to the available room inside .nav-scroller's flex item. */
   .admin-sidebar__scroll {
     display: block;
     flex: 1;
@@ -7683,13 +7254,7 @@ h2 {
       transparent
     );
   }
-  /* width: max-content makes the strip size to its actual content so
-     scrollWidth reflects real overflow rather than the parent's
-     clientWidth. No trailing padding here (unlike .page-nav's 32px):
-     admin's 5 short tabs typically fit at iPhone widths, and any
-     trailing pad would force a tiny chevron-revealing overflow into
-     dead space. When content does overflow, the chevron tap snaps
-     scroll to the end where is-scroll-right (and its right-fade) drop. */
+  /* max-content so scrollWidth reflects the real overflow. */
   .admin-sidebar__strip {
     display: flex;
     flex-direction: row;
@@ -7713,10 +7278,7 @@ h2 {
   }
 }
 
-/* ── Section headers within an admin page ────────────────────────────
-   Cinzel uppercase title sized one tier above the structured-filter
-   section title (0.72rem), giving the page hierarchy a clear top step.
-   The hairline below uses var(--rule), echoing the page-nav rule. */
+/* ── Admin section headers ────────────────────────────────────────── */
 .admin-section-header {
   display: flex;
   justify-content: space-between;
@@ -7762,10 +7324,7 @@ h2 {
   font-style: italic;
 }
 
-/* ── Featured-matches admin section ──────────────────────────────────
-   Two MatchCard grids — currently featured, and recent matches to add —
-   reusing the public .matches-browser-list look; the card's own admin
-   star toggle does the featuring. */
+/* ── Featured-matches admin section ───────────────────────────────── */
 .admin-featured__hint {
   margin: 0 0 var(--space-4);
   color: var(--text-dim);
@@ -7791,9 +7350,8 @@ h2 {
   gap: var(--space-3);
 }
 
-/* Wrapper so a demo-missing warning can ride under a featured card.
-   Flex column keeps the card stretching to row height like the bare
-   .match-card grid items beside it. */
+/* Holds a featured card and its missing-demo warning; the flex column
+   keeps the card at row height beside bare .match-card items. */
 .admin-featured__item {
   display: flex;
   flex-direction: column;
@@ -7804,8 +7362,8 @@ h2 {
   flex: 1;
 }
 
-/* Amber caution, not alarm — the flag is set but the landing door
-   can't serve this match because its demo is gone. */
+/* The match is featured, but its demo is gone, so the landing page can't
+   play it. */
 .admin-featured__warning {
   display: flex;
   align-items: center;
@@ -7819,11 +7377,7 @@ h2 {
   font-size: 0.8rem;
 }
 
-/* ── Unified data-table treatment ────────────────────────────────────
-   Replaces the four legacy table styles (.users-table, .sessions-table,
-   .admin-table, .admin-audit-table) which each redefined borders /
-   colors / padding inconsistently. One look-and-feel; the legacy class
-   names remain on the markup so any external selectors keep working. */
+/* ── Admin data tables ────────────────────────────────────────────── */
 .admin-data-table {
   width: 100%;
   border-collapse: collapse;
@@ -7857,7 +7411,6 @@ h2 {
 }
 
 .admin-data-table tbody tr:hover {
-  /* Same warm tint as .player-card hover so the language is unified. */
   background: rgba(255, 110, 60, 0.04);
 }
 
@@ -7872,9 +7425,8 @@ h2 {
 }
 
 @media (max-width: 768px) {
-  /* Card-stack fallback for narrow viewports: hide the header row,
-     each <tr> becomes a card with data-label::before pseudos labeling
-     each cell. Components opt in by setting data-label="…" on each td. */
+  /* On narrow screens each row becomes a card, its cells labeled from the
+     data-label attribute on each td. */
   .admin-data-table {
     display: block;
   }
@@ -7921,10 +7473,7 @@ h2 {
   }
 }
 
-/* ── Filters panel wrapper ───────────────────────────────────────────
-   Container for one or more <FilterSection> elements (the structured
-   <details> recipe). Lifts admin filters into the same vocabulary as
-   the activity drawer + server toolbar. */
+/* ── Admin filters panel ──────────────────────────────────────────── */
 .admin-filters-panel {
   border: var(--rule);
   border-radius: var(--radius-md);
@@ -7933,10 +7482,6 @@ h2 {
   background: rgba(208, 200, 184, 0.015);
 }
 
-/* Filter sections inside admin gain symmetric vertical padding so the
-   rule between sections sits at equal distance from each side's content.
-   The activity drawer keeps its top-only rhythm since its sections are
-   pure switch lists and don't need the extra breathing room. */
 .admin-filters-panel .filter-section {
   padding-bottom: var(--space-3);
 }
@@ -7950,12 +7495,6 @@ h2 {
   padding-bottom: 0;
 }
 
-/* Static (non-collapsible) sections — for Player + Date range. Carry
-   the same top-rule + symmetric padding rhythm as .filter-section but
-   without the <details>/caret machinery, since neither has a meaningful
-   collapsed state. The --row variant lays two static sections side-by-
-   side with a vertical rule between them, mirroring the horizontal
-   rules between stacked sections. */
 .admin-filters-panel .static-section {
   border-top: var(--rule);
   padding: var(--space-3) 0;
@@ -7972,8 +7511,7 @@ h2 {
 }
 
 .admin-filters-panel .static-section--row > .static-section {
-  /* Children are bare static-sections nested inside .static-section--row;
-     they pick up the row's border-top, so suppress their own. */
+  /* Sections nested in a row share the row's top rule. */
   border-top: none;
   padding: 0;
   flex: 1;
@@ -8010,9 +7548,7 @@ h2 {
   padding-left: var(--space-3);
 }
 
-/* ── Pagination & date-preset chips ──────────────────────────────────
-   Pagination footer for tables; preset chips are used in the date-range
-   filter section (Sessions/Audit). */
+/* ── Pagination and date-preset chips ─────────────────────────────── */
 .admin-pagination {
   margin-top: var(--space-4);
   display: flex;
@@ -8060,7 +7596,6 @@ h2 {
   background: rgba(255, 110, 60, 0.08);
 }
 
-/* "From"/"To" datetime pair shown when the Custom preset is active. */
 .admin-custom-date-range {
   display: flex;
   flex-wrap: wrap;
@@ -8082,16 +7617,13 @@ h2 {
   min-width: 180px;
 }
 
-/* ── Inline forms (typeahead, custom date range) ─────────────────────
-   Used inside filter sections for player-typeahead and custom date
-   inputs. Match the chrome of the structured filters around them. */
+/* ── Inline forms (typeahead, custom date range) ──────────────────── */
 .player-typeahead {
   position: relative;
 }
 
-/* Inside filter panels the typeahead dropdown overlays content below
-   instead of pushing the panel taller — keeps the panel a stable height
-   regardless of how many matches the search returns. */
+/* The dropdown overlays the content below so the panel keeps a steady
+   height. */
 .admin-filters-panel .player-typeahead .player-results {
   position: absolute;
   top: calc(100% + var(--space-1));
@@ -8101,16 +7633,10 @@ h2 {
   z-index: 10;
 }
 
-/* Cap the typeahead so the input sits as a normal-width search field
-   rather than spanning the entire filter panel. Both the input and its
-   results-popover ul inherit this max-width via 100% width below. */
 .admin-filters-panel .player-typeahead {
   max-width: 360px;
 }
 
-/* Shared chrome for admin form/filter inputs. width: auto lets each
-   container choose its own footprint — the typeahead caps at 360px,
-   the custom-date fields fill their constrained label parent. */
 .admin-input,
 .admin-filters-panel input[type="text"],
 .admin-filters-panel input[type="datetime-local"],
@@ -8141,10 +7667,7 @@ h2 {
   border-color: var(--accent-dim);
 }
 
-/* ── Form card ───────────────────────────────────────────────────────
-   New chrome for create-user / create-source / similar admin forms.
-   Replaces the old gray-box .create-user-form treatment. Pairs with a
-   <details> wrapper so the form slides in below the section header. */
+/* ── Form card ────────────────────────────────────────────────────── */
 .admin-form-card {
   background: var(--bg-card);
   border: var(--rule-strong);
@@ -8201,7 +7724,7 @@ details[open] > .admin-form-toggle .admin-form-toggle__caret {
   transform: rotate(90deg);
 }
 
-/* ── Player-link button (used in users table to open PlayerStatsModal) */
+/* ── Player-link button ───────────────────────────────────────────── */
 .player-link-display .player-name-link {
   background: none;
   border: none;
@@ -8217,11 +7740,7 @@ details[open] > .admin-form-toggle .admin-form-toggle__caret {
   color: var(--accent);
 }
 
-/* ── Selected-player detail panel (AdminPlayers) ─────────────────────
-   Sits below the .player-cards-grid search results when a target is
-   chosen. Reuses .filter-section vocabulary for sub-section headers
-   (▸ caret + Cinzel uppercase title) so the visual rhyme holds across
-   admin pages. */
+/* ── Selected-player detail panel ─────────────────────────────────── */
 .admin-player-detail {
   margin-top: var(--space-5);
   padding-top: var(--space-4);
@@ -8348,11 +7867,8 @@ details[open] > .admin-form-toggle .admin-form-toggle__caret {
   color: var(--ember-strong);
 }
 
-/* CTA inside about-section needs explicit color: the .about-section a
-   rule above outranks the bare .getting-started-cta selector via
-   selector specificity, so without this override the dark-on-ember
-   CTA would render ember-on-ember (invisible). var(--bg) matches the
-   redesigned CTA's foreground. */
+/* The .about-section a rule outranks .getting-started-cta, so the CTA
+   sets its color here. */
 .about-section .getting-started-cta {
   color: var(--bg);
 }
@@ -8362,9 +7878,7 @@ details[open] > .admin-form-toggle .admin-form-toggle__caret {
   padding: 2px 6px;
   border-radius: var(--radius-sm);
   font-size: 0.9em;
-  /* Bold so cvar names, file paths, and other "exact reference"
-     bits don't get skimmed past in body prose. The CopyableCommand
-     resets this for code inside its pre block (see its rules). */
+  /* CopyableCommand resets this weight inside its pre block. */
   font-weight: 600;
   color: var(--text);
 }
@@ -8499,7 +8013,7 @@ details[open] > .admin-form-toggle .admin-form-toggle__caret {
   display: none;
 }
 
-/* Same border-chevron pattern as activity-filters-toggle; see notes there. */
+/* Same border caret as .activity-filters-toggle. */
 .about-feature summary::before {
   content: "";
   display: inline-block;
@@ -8602,9 +8116,7 @@ details[open] > .admin-form-toggle .admin-form-toggle__caret {
   margin-top: 0.35em;
   border: 1px solid rgba(255, 255, 255, 0.15);
 }
-/* Channel hues match the in-engine VoIP HUD colors. Slightly
-   desaturated from pure Q3 primaries so they read as "indicators"
-   rather than "fight palette". */
+/* Match the in-game VoIP HUD colors. */
 .voip-channel-swatch--spatial {
   background: rgb(255, 255, 51);
 }
@@ -8728,11 +8240,8 @@ details[open] > .admin-form-toggle .admin-form-toggle__caret {
     position: static;
     max-height: none;
     overflow: visible;
-    /* Default min-width on a grid item is auto (= min-content), which
-       lets a child with width: max-content (the rail's mobile-flex
-       row) expand the column past the viewport. Force min-width: 0
-       so the column respects its 1fr logical size and the rail's
-       overflow-x: auto can actually clip + scroll. */
+    /* min-width: 0 keeps the rail's max-content row inside the 1fr
+       column so the rail scrolls. */
     min-width: 0;
   }
 }
@@ -8764,10 +8273,8 @@ details[open] > .admin-form-toggle .admin-form-toggle__caret {
 }
 
 .docs-toc-rail__tab {
-  /* Asymmetric vertical padding nudges the text down 1px to
-     compensate for Cinzel's optical bias — the uppercase cap-height
-     region sits slightly above the line-box geometric center, more
-     noticeably at this small font size. */
+  /* Cinzel's capitals sit above the line box's center at this size, so
+     the padding drops the text 1px. */
   padding: calc(var(--space-2) + 1px) var(--space-1) calc(var(--space-2) - 1px)
     var(--space-3);
   font-family: "Cinzel", serif;
@@ -8868,7 +8375,7 @@ details[open] > .admin-form-toggle .admin-form-toggle__caret {
   }
 }
 
-/* ── Content typography upgrades ─────────────────────────────────── */
+/* ── Docs content typography ──────────────────────────────────────── */
 h2.docs-h2 {
   display: flex;
   align-items: baseline;
@@ -8920,16 +8427,11 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   background: rgba(255, 110, 60, 0.08);
 }
 
-/* Override the legacy .about-section h2 styling now that h2s are
-   wrapped in <DocsH2>. The disclaimer at the bottom of every docs
-   route still uses a plain <h2> — leave it as-is so it reads as a
-   "minor end-of-page note" rather than a section header. */
+/* The end-of-page disclaimer keeps a plain h2 so it reads as a note. */
 .about-section .docs-h2 {
   border-bottom: 1px solid rgba(208, 200, 184, 0.08);
 }
 
-/* Docs sections flow as continuous article content; .docs-h2 carries
-   section identity, so strip the boxy bg-card chrome here. */
 .docs-page-v2 .about-section {
   background: transparent;
   border-radius: 0;
@@ -8940,7 +8442,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   margin-top: var(--space-6);
 }
 
-/* ── Prev / next at bottom of each docs subpage ─ */
+/* ── Docs prev / next ─ */
 .docs-prev-next {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -8950,8 +8452,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   position: relative;
 }
 
-/* Editorial transition from content to navigation — same warm hairline
-   that closes drawers/modals so the docs page feels of-a-piece. */
 .docs-prev-next::before {
   content: "";
   position: absolute;
@@ -9006,8 +8506,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   color: var(--accent);
 }
 
-/* Docs mode cards — fixed 2x2 grid (Q3 / CPMA on top, Quake Live /
-   QL Turbo below). Collapses to a single column on narrow viewports. */
 .docs-modes {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -9084,21 +8582,16 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Reserve the controls-bar height so the canvas (object-fit: contain) bottoms
-     out at the bar's top edge, not under it. Must track the bar's own
-     48px + safe-area-inset-bottom (.demo-controls-bar) or the HUD hides behind
-     the bar's safe-area growth on home-indicator phones. */
+  /* Must track .demo-controls-bar's 48px plus the safe-area inset so the
+     HUD stays above the bar. */
   padding-bottom: calc(48px + env(safe-area-inset-bottom, 0px));
 }
 
 .demo-canvas {
   width: 100%;
   height: 100%;
-  /* The framebuffer is quantized to a supported aspect ratio (see useTvEngine),
-     so contain letter/pillarboxes it instead of stretching — and lets most
-     resizes be pure CSS rather than a vid_restart. Black bars read as
-     intentional against the page's #000. (Replaces the old max-height:75vw
-     portrait hack; selectAspect now yields 4:3 for portrait containers.) */
+  /* useTvEngine snaps the framebuffer to a supported aspect ratio, so
+     contain letterboxes it and most resizes need no vid_restart. */
   object-fit: contain;
   background: #000;
 }
@@ -9147,9 +8640,8 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   transition: width 0.15s ease-out;
 }
 
-/* Connection-health warning, sat just below the centered .demo-status box (whose
-   bottom padding reserves room for the progress bar above this). Amber to read as
-   caution without alarm; only shown during a loading/reconnecting overlay. */
+/* Sits below the centered .demo-status box, whose bottom padding makes room
+   for the progress bar. */
 .demo-conn-warning {
   position: fixed;
   top: calc(50% + clamp(56px, 8vw, 96px));
@@ -9234,8 +8726,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   margin-top: 1rem;
 }
 
-/* Retry on the connection-lost terminal state — a link, not a chrome button:
-   borderless, inheriting the error block's monospace, centered via auto margins. */
 .demo-retry-btn {
   margin-left: auto;
   margin-right: auto;
@@ -9246,10 +8736,8 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   text-decoration: underline;
 }
 
-/* Controls bar — grows by safe-area inset on iOS so the 48px control
-   row stays centered above the home indicator while the bar still
-   fills the screen edge. box-sizing: border-box keeps align-items:
-   center anchored to the original 48px content height. */
+/* Grows by the safe-area inset so the 48px row stays above the iOS home
+   indicator; border-box keeps the row centered in its 48px. */
 .demo-controls-bar {
   position: fixed;
   bottom: 0;
@@ -9544,9 +9032,8 @@ h2.docs-h2:focus-within .docs-h2__anchor {
 .demo-move-pad {
   display: none;
   position: fixed;
-  /* Sits above the controls bar (safe-area inset). Stacks BELOW the bar and its
-     follow-player flyout so an open flyout captures taps rather than letting them
-     fall through to the W/A/S/D buttons. */
+  /* Stacks below the controls bar so an open follow-player flyout takes
+     the taps over the W/A/S/D buttons. */
   bottom: calc(56px + env(safe-area-inset-bottom, 0px));
   left: 8px;
   grid-template-columns: repeat(3, 48px);
@@ -9930,9 +9417,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   border-top: var(--rule);
 }
 
-/* link-method h3 is rendered inside .account-section so it inherits
-   the section's Cinzel-uppercase h3 vocabulary; this rule trims the
-   margins to fit the link-method's tighter rhythm. */
 .link-method h3 {
   margin: 0 0 var(--space-2) 0;
 }
@@ -10000,8 +9484,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   gap: 0.5rem;
 }
 
-/* Same treatment as .password-form input; monospace kept on purpose so
-   ^-color codes line up with the byte counter and preview. */
+/* Monospace so color codes line up with the byte counter and preview. */
 .display-name-input {
   flex: 1;
   padding: var(--space-2) var(--space-3);
@@ -10109,10 +9592,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   margin: 0 0 20px 0;
 }
 
-/* Admin > Sources
-   Section spacing and heading style. Tables here use .admin-data-table
-   for chrome; .admin-server-list is a small inline list inside the
-   Servers cell. */
+/* Admin sources */
 .admin-sources section {
   margin-bottom: var(--space-6);
 }
@@ -10142,8 +9622,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   padding: 0;
 }
 
-/* Destructive button vocabulary. Same shape as .admin-btn but with
-   warning-red border that fills on hover. Subtler than the old slab. */
 .admin-btn-danger {
   background: transparent;
   border: 1px solid rgba(233, 69, 96, 0.5);
@@ -10174,10 +9652,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   cursor: not-allowed;
 }
 
-/* Warm-orange admin variant for disruptive-but-recoverable actions
-   (rotate creds, force-disconnect, etc.). Same shape as .admin-btn-
-   danger; warmer tint signals "this will kick existing clients" without
-   the permanence the red palette implies. */
 .admin-btn-warn {
   background: transparent;
   border: 1px solid rgba(255, 110, 60, 0.5);
@@ -10206,9 +9680,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   cursor: not-allowed;
 }
 
-/* Health badges (collector heartbeat freshness). Subdued tints carrying
-   their semantic color rather than blocky filled slabs — matches the
-   admin-audit-action chip vocabulary so admin pages read consistently. */
+/* Collector heartbeat health badges */
 .health-badge {
   display: inline-block;
   padding: 2px 8px;
@@ -10245,7 +9717,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   color: var(--text-dim);
 }
 
-/* Inline success notice (matches .error-message shape). */
+/* Inline success notice */
 .notice-message {
   background: rgba(80, 200, 120, 0.08);
   border: 1px solid rgba(80, 200, 120, 0.4);
@@ -10326,8 +9798,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   white-space: nowrap;
 }
 
-/* Owner column: a name on the left, a small Transfer button on the
-   right that swaps for an inline picker when activated. */
+/* Owner column */
 .admin-sources-owner {
   display: inline-flex;
   align-items: center;
@@ -10409,16 +9880,11 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   cursor: not-allowed;
 }
 
-/* Compact size override — used inside table-row action clusters where
-   space is tight. Composes with .admin-btn / .admin-btn-danger. */
 .admin-btn-small {
   padding: 2px 8px;
   font-size: 0.72rem;
 }
 
-/* Ghost variant — same look as default .admin-btn but slightly more
-   subdued border so it reads as "subordinate to the primary action"
-   when paired alongside Save/Cancel pairs. */
 .admin-btn-ghost {
   background: transparent;
   border-color: rgba(208, 200, 184, 0.15);
@@ -10431,9 +9897,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
 }
 
 @media (max-width: 768px) {
-  /* Mobile fallback for .admin-table (the table-stack with data-label
-     pseudos) is now provided by .admin-data-table. The wrapper-only
-     rules below stay for the actions cluster. */
   .admin-sources-actions {
     white-space: normal;
     display: flex;
@@ -10442,9 +9905,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   }
 }
 
-/* Source tag — chip rendered next to server / match titles when more
-   than one source is registered. Color is hashed from the source name
-   so each source gets a stable hue. */
+/* Source tag */
 .source-tag {
   display: inline-block;
   font-family: var(--font-monospace, ui-monospace, SFMono-Regular, monospace);
@@ -10459,10 +9920,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   white-space: nowrap;
 }
 
-/* Source filter — dropdown shown above match lists / activity log when
-   multiple sources are registered. Sizes to its content (no fixed
-   min-width) and matches the vertical metrics of the date inputs and
-   clear button beside it. */
+/* Source filter */
 .source-filter {
   flex: 0 0 auto;
   width: auto;
@@ -10473,8 +9931,8 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   color: var(--text);
   font-family: inherit;
   font-size: 0.9rem;
-  /* Native arrow can render inconsistently across engines; replace
-     with an inline SVG so it sits flush right at our padding. */
+  /* Native arrows render differently across browsers, so an inline SVG
+     draws it. */
   appearance: none;
   -webkit-appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8' fill='none' stroke='%23999' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5'/%3E%3C/svg%3E");
@@ -10488,10 +9946,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   border-color: var(--accent);
 }
 
-/* Dim treatment for content tied to a deactivated server. The server
-   row sticks around so the (source, key) reference is preserved, but
-   the UI shows it as decommissioned with reduced opacity + a small
-   "inactive" chip. */
+/* Content from a deactivated server */
 .match-card.inactive-server {
   opacity: 0.55;
   filter: saturate(0.7);
@@ -10511,11 +9966,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   vertical-align: middle;
 }
 
-/* Admin Audit page
-   The legacy form-grid filter row has been replaced by .admin-filters-panel
-   wrapping structured <details> sections. Table chrome is .admin-data-table.
-   Only the inline error banner and the semantic action chips remain
-   audit-specific. */
+/* Admin audit */
 .admin-audit-error {
   padding: var(--space-2) var(--space-3);
   margin: var(--space-2) 0 var(--space-3);
@@ -10540,8 +9991,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   font-size: 0.85em;
 }
 
-/* Action chip (approved/rejected/rotated/etc.) — semantic palette mirrors
-   the health-badge vocabulary so the two read as one family. */
 .admin-audit-action {
   display: inline-block;
   font-family: "Barlow", sans-serif;
@@ -10645,10 +10094,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   border-color: rgba(255, 255, 255, 0.1);
 }
 
-/* ── Landing hero header — bespoke marketing-page chrome ─
-   Three-zone grid (brand · nav · live-pill). Sits over the wallpaper as
-   `position: relative` and scrolls away with the hero — no sticky transition.
-   This intentionally does NOT reuse the site's <Header> component. */
+/* ── Landing hero header ─ */
 .hero__header {
   position: relative;
   z-index: 2;
@@ -10792,8 +10238,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   box-shadow: 0 0 8px var(--ember-strong);
   animation: landing-hero-pulse 1.6s ease-in-out infinite;
 }
-/* Quiet state: dim the dot and drop its glow so the pill reads as "still on,
-   but nothing happening." The label text itself dims too, mirroring StatusPill. */
 .hero__pill.quiet {
   color: var(--text-dim);
 }
@@ -10802,7 +10246,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   box-shadow: none;
 }
 
-/* Offline: hub feed lost. No pulse, slightly dimmer dot — mirrors StatusPill. */
 .hero__pill.offline {
   color: var(--text-dim);
 }
@@ -10813,10 +10256,8 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   opacity: 0.5;
 }
 
-/* Too narrow to center the nav between brand and actions. Drop the
-   grid in favor of flex so the nav sits in the gap between them via
-   auto-margins — not at viewport center, where the brand's wider
-   footprint can shove it left into the wordmark. */
+/* Too narrow to center the nav, so flex auto-margins set it in the gap
+   between brand and actions. */
 @media (max-width: 1119px) {
   .hero__header {
     display: flex;
@@ -10831,8 +10272,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   }
 }
 
-/* Too narrow for brand, nav and actions in one row. Re-enable grid
-   for the two-row layout. */
+/* Too narrow for brand, nav and actions in one row: a two-row grid. */
 @media (max-width: 999px) {
   .hero__header {
     display: grid;
@@ -10880,12 +10320,8 @@ h2.docs-h2:focus-within .docs-h2__anchor {
 /* ── Landing hero ──────────────────────────────────────── */
 .landing-hero {
   position: relative;
-  /* svh is the SMALL viewport (URL bar + chrome present), so the hero
-     never extends behind the iOS Safari bottom address bar. The vh
-     declaration is a fallback for browsers that don't grok svh —
-     listed first so the cascade promotes svh to the winner everywhere
-     else. (Reversing this order silently regresses to vh, which is
-     what was hiding the scroll-hint under the URL bar.) */
+  /* svh keeps the hero above iOS Safari's bottom address bar. The vh
+     fallback must come first so svh wins where it's supported. */
   min-height: 100vh;
   min-height: 100svh;
   width: 100%;
@@ -10898,11 +10334,8 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   position: absolute;
   inset: 0;
   z-index: -2;
-  /* Fade the wallpaper itself to transparent at the bottom so body bg
-     shows through cleanly. Multi-stop eases out (slow → fast) to avoid
-     the Mach band a single linear ramp produces over photographic
-     content. Anchored to the wrapper, not the inner <img>, so the
-     Ken-Burns scale doesn't drift the stops. */
+  /* Several stops keep a Mach band off the photo. The mask sits on the
+     wrapper so the Ken Burns zoom leaves the stops in place. */
   -webkit-mask-image: linear-gradient(
     to bottom,
     #000 0%,
@@ -10931,9 +10364,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   position: absolute;
   inset: 0;
   z-index: -1;
-  /* Top tint + corner vignette only. Bottom fade is handled by the
-     wallpaper mask above; adding a dark stop here would re-introduce
-     the linear-ramp seam over a wallpaper that's already gone. */
+  /* The wallpaper mask handles the bottom fade. */
   background:
     radial-gradient(
       ellipse 80% 70% at 50% 30%,
@@ -11100,18 +10531,12 @@ h2.docs-h2:focus-within .docs-h2__anchor {
 }
 .landing-hero__scroll-hint {
   position: absolute;
-  /* env() pads above any iOS Safari home-indicator / bottom-toolbar
-     safe-area inset so the hint clears the chrome on phones with a
-     bottom URL bar. Falls back to 0 on browsers that don't expose
-     env(), keeping the static 22px behavior on desktop. */
+  /* Clears the iOS home indicator and bottom toolbar. */
   bottom: calc(22px + env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
-  /* Flex with align-items: center pulls the inline SVG arrow's center
-     onto the cap-height center of "SCROLL" — without this the icon
-     sits on the baseline and reads as visually high. The trailing space
-     in "Scroll " plus letter-spacing supplies the gap; no explicit gap
-     value keeps spacing identical to the prior text-glyph version. */
+  /* Centers the arrow on the capitals of "SCROLL". The trailing space in
+     "Scroll " sets the gap. */
   display: inline-flex;
   align-items: center;
   font-family: "Barlow", sans-serif;
@@ -11130,10 +10555,8 @@ h2.docs-h2:focus-within .docs-h2__anchor {
     flex-direction: column;
     gap: 16px;
   }
-  /* "WELCOME BACK TO" is 15 chars with non-breaking spaces — it can't
-     wrap, so it has to fit on one line at every iPhone width. Bring
-     the clamp ceiling down to ~28 and drop the optical-centering
-     padding so the right edge isn't shoved into the wallpaper. */
+  /* "WELCOME BACK TO" uses non-breaking spaces, so it has to fit one line
+     at every iPhone width. */
   .landing-hero__headline {
     font-size: clamp(22px, 7.5vw, 34px);
     letter-spacing: 0.05em;
@@ -11151,8 +10574,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   }
 }
 
-/* Slow Ken-Burns zoom on the wallpaper. Frozen for users who set
-   prefers-reduced-motion: reduce. */
+/* Slow Ken Burns zoom, frozen under prefers-reduced-motion. */
 .landing-hero__bg img {
   animation: landing-kenburns 38s ease-in-out infinite alternate;
   will-change: transform;
@@ -11171,9 +10593,8 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   }
 }
 
-/* SVG-noise grain overlay for tactile texture. Cheap (single CSS gradient).
-   Masked with the same curve as the wallpaper so the grain stops being
-   contributed where the image is no longer there — no asymmetric seam. */
+/* Grain overlay, masked like the wallpaper so it ends where the image
+   does. */
 .landing-hero::after {
   content: "";
   position: absolute;
@@ -11201,7 +10622,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   );
 }
 
-/* Type-stack rise on load. Stagger via animation-delay; gated by reduced-motion. */
+/* Staggered with animation-delay; off under reduced motion. */
 @keyframes landing-rise {
   from {
     opacity: 0;
@@ -11252,7 +10673,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   }
 }
 
-/* Scroll-hint hover bobbing (separate animation; also gated). */
 .landing-hero__scroll-hint {
   animation:
     landing-rise 1s 1.4s ease-out forwards,
@@ -11274,11 +10694,10 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   }
 }
 
-/* Wallpaper download trigger + hover popup, bottom-right of hero. */
+/* Wallpaper download */
 .landing-hero__wallpaper {
   position: absolute;
-  /* Match the scroll-hint's safe-area dodge so the trigger never lands
-     under iOS Safari's bottom URL bar. */
+  /* Same safe-area offset as the scroll hint. */
   bottom: calc(22px + env(safe-area-inset-bottom, 0px));
   right: 28px;
   z-index: 2;
@@ -11382,14 +10801,10 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   font-variant-numeric: tabular-nums;
 }
 
-/* ── Landing sections — shared chrome ──────────────────── */
+/* ── Landing sections ──────────────────────────────────── */
 
-/* Contain rightward overflow from horizontal shelves on mobile (where
-   shelves extend past section content via negative margin-right so a
-   default 380px card fits in the snapport). overflow-x: clip is a
-   pure clip (no scroll context creation), with hidden as the legacy
-   fallback for older browsers. Scoped to .landing so other routes are
-   untouched. */
+/* Mobile shelves run past the content on purpose; clip contains them
+   without making a scroll context, and hidden is the fallback. */
 .landing {
   overflow-x: hidden;
   overflow-x: clip;
@@ -11402,7 +10817,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   margin: 0 auto;
 }
 
-/* About — centered editorial prose with Cinzel ornament. */
+/* About */
 .landing-about {
   max-width: 720px;
   padding: 96px 36px 80px;
@@ -11453,7 +10868,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   }
 }
 
-/* Section header pattern shared by Active Now / Recent Matches / Top Players. */
+/* Landing section header */
 .landing-section__head {
   display: flex;
   align-items: baseline;
@@ -11497,7 +10912,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   vertical-align: middle;
   animation: landing-hero-pulse 1.6s ease-in-out infinite;
 }
-/* "Standing by" placeholder for the Active Now shelf when no live matches. */
+/* Empty live shelf */
 .landing-quiet {
   display: flex;
   flex-direction: column;
@@ -11578,22 +10993,9 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   border-bottom-color: var(--ember-light);
 }
 
-/* Horizontal scroll-snap shelf — full-bleed within the section. Shelf
-   extends past section content to the section's outer edges (via the
-   negative margin matching section padding); scroll container has
-   matching padding + scroll-padding so cards layout in the copy area
-   and snap to copy edges. The fade mask sits in the section padding
-   zone between section edges and copy edges — empty padding at scroll
-   start/end, peek of adjacent card mid-scroll. Same pattern as the
-   mobile media query below, with 36px values instead of 20px.
-
-   The mask isn't state-driven: the faded zone always overlaps section
-   padding (never the active card's content), so there's no "shouldn't
-   fade this side" case to special-case.
-
-   The state classes (is-scroll-left / is-scroll-right) are still on
-   the scroll container — they drive the NavScroller chevron visibility,
-   even though the mask no longer needs them. */
+/* The shelf runs into the section padding. Matching padding and
+   scroll-padding snap cards to the copy edges, and the fade sits in the
+   padding zone. The is-scroll-left/right classes drive the chevrons. */
 .landing-shelf-h {
   position: relative;
   margin: 0 -36px;
@@ -11605,11 +11007,8 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   scroll-snap-type: x mandatory;
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 110, 60, 0.35) transparent;
-  /* overflow-x: auto forces overflow-y to compute as auto, so any
-     translateY(-Npx) hover lift on a child card would clip at the
-     container's top edge. Reserve a few px of headroom — matches the
-     2px transform on .landing-door / .landing-player-card / shelf
-     match-cards plus a margin so iOS box-shadows aren't clipped. */
+  /* overflow-x: auto clips vertically too; the headroom keeps the cards'
+     2px hover lift and their shadows visible. */
   padding-top: 6px;
   padding-bottom: 14px;
   padding-left: 36px;
@@ -11644,9 +11043,8 @@ h2.docs-h2:focus-within .docs-h2__anchor {
 .landing-shelf-h__scroll::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 110, 60, 0.5);
 }
-/* Slots stretch to the row's tallest card (flex default), and the card
-   fills its slot so mixed roster sizes don't render a ragged shelf —
-   .card__bottom's margin-top:auto pins each footer to the card's floor. */
+/* Slots stretch to the tallest card and cards fill them, so the shelf
+   stays even. */
 .landing-shelf-h__slot {
   flex: 0 0 380px;
   scroll-snap-align: start;
@@ -11657,9 +11055,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   flex: 1;
 }
 
-/* NavScroller chevrons inside a landing shelf — sit just inside the
-   shelf wrapper's edge (which is the screen edge on full-bleed). The
-   mask lives on the inner scroll container so chevrons aren't faded. */
+/* The mask is on the inner scroller, so the chevrons stay clear of it. */
 .landing-shelf-h .nav-scroller__edge--left {
   left: 8px;
 }
@@ -11667,13 +11063,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   right: 8px;
 }
 
-/* Mobile: section padding tightens 36 → 20px (matches landing-about)
-   for the prose. Same shelf pattern as desktop, but with 20px values
-   instead of 36px — shelf negative margin, scroll container padding,
-   scroll-padding, and mask all step down to match the smaller section
-   padding. Slot also tracks the copy area on mobile so cards fit their
-   snapport exactly (= section content width); capped at desktop's
-   380px for wide tablets. */
+/* Mobile: the same shelf with 20px values, matching .landing-about. */
 @media (max-width: 720px) {
   .landing-section {
     padding-left: 20px;
@@ -11708,14 +11098,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   }
 }
 
-/* RecentMatchesShelf renders <MatchCard> instances inside
-   .landing-shelf-h, so it shares chrome with the Active Now shelf —
-   no bespoke row styles needed. Landing-surface trims (suppressed
-   admin star, suppressed Download, warm palette overrides) live in
-   the landing-shelf palette block further down. */
-
 .landing-players-strip {
-  /* same chrome as landing-shelf-h__scroll; inherits from base class */
   gap: 14px;
 }
 .landing-player-card {
@@ -11913,7 +11296,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   gap: 8px;
   transition: color 0.25s ease;
 }
-/* Arrow lives inline as <ArrowIcon /> now; hover slides the SVG. */
 .landing-door__arrow svg {
   transition: transform 0.25s ease;
 }
@@ -11924,11 +11306,8 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   transform: translateX(4px);
 }
 
-/* Ember-shifted in-game glyph, anchored bottom-right. Echoes the
-   .stat-item-bg-icon "medal whisper" — same -20° rotation, scaled to
-   door size, layered *under* the hover bloom (::before, z-index 1)
-   so hovering feels like the icon catches fire. Image URL arrives
-   via --glyph-url on the parent door. */
+/* The image comes from --glyph-url on the door. It sits under the hover
+   bloom (::before, z-index 1). */
 .landing-door__glyph {
   position: absolute;
   bottom: -22px;
@@ -11951,8 +11330,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   position: relative;
   z-index: 2;
 }
-/* Hover delta stays constant (+0.10) regardless of per-glyph base
-   so the "catches fire" feel is the same across all doors. */
+/* Every door's hover adds the same +0.10 over its own base. */
 .landing-door:hover .landing-door__glyph {
   opacity: calc(var(--glyph-opacity, 0.22) + 0.1);
 }
@@ -11972,11 +11350,9 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   }
 }
 
-/* ── Rich chip — compound identifier ───────────────────── */
+/* ── Rich chip ─────────────────────────────────────────── */
 .rich-chip {
-  /* `position: relative` anchors any absolutely-positioned descendants
-     (e.g. .mode-icons hover popup) to the chip itself. `overflow: visible`
-     lets that popup escape below the chip on hover. */
+  /* Anchors the .mode-icons popup and lets it overflow below the chip. */
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -12011,17 +11387,14 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   gap: 6px;
 }
 
-/* Mode icons nested inside the chip drop their outer margin and tighten
-   the gap so the M/G letter labels and their icon thumbnails read as a
-   single chip segment. */
 .rich-chip__extras .mode-icons {
   margin: 0;
   gap: 3px;
 }
 
-/* ── Scoreboard (team) and Duelists (1v1) — share styles ─ */
+/* ── Scoreboard (team) and Duelists (1v1) ─ */
 .scoreboard {
-  position: relative; /* anchor for the absolutely-positioned 1FCTF `vs` */
+  position: relative; /* anchors the One Flag CTF `vs` */
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
@@ -12045,14 +11418,11 @@ h2.docs-h2:focus-within .docs-h2__anchor {
 .scoreboard__label.red {
   color: var(--red);
 }
-/* Drives off --blue so a single token controls every team-blue surface
-   (player-row score, team-row border, this label). */
 .scoreboard__label.blue {
   color: var(--blue);
 }
-/* Score sits in a 3-column grid so it's always centered under the
-   team label — the optional flag indicator lives in one of the
-   flanking 1fr tracks without nudging the score off-center. */
+/* Three columns keep the score centered under the label whichever side
+   holds the flag indicator. */
 .scoreboard__score-line {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
@@ -12064,30 +11434,24 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   grid-column: 2;
   justify-self: center;
 }
-/* `relative` + `stretch`: anchor + full-row height for the
-   absolutely-positioned obelisk HP bar (see .obelisk-hp). */
+/* Anchors .obelisk-hp and gives it the full row height. */
 .scoreboard__indicator {
   display: inline-flex;
   align-items: center;
   align-self: stretch;
 }
-/* Flag/skull glyphs visually sit slightly below the Cinzel score's
-   optical center — nudge them up to align. Scoped to the scoreboard
-   slots (team-side + 1FCTF center) so activity-feed / player-row uses
-   are unaffected. */
+/* Flag and skull glyphs sit low against the Cinzel score, so the
+   scoreboard lifts them. */
 .scoreboard__indicator .flag-icon,
 .scoreboard__center-indicator .flag-icon {
   position: relative;
   top: -2px;
 }
-/* Red: indicator goes to the right of the score (column 3),
-   anchored to the inside edge so it sits 8px off the score. */
 .scoreboard__side--red .scoreboard__indicator {
   grid-column: 3;
   justify-self: start;
   margin-left: 8px;
 }
-/* Blue: mirrored — indicator goes left of the score (column 1). */
 .scoreboard__side--blue .scoreboard__indicator {
   grid-column: 1;
   justify-self: end;
@@ -12109,28 +11473,20 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   color: #facc15;
   text-shadow: 0 0 12px rgba(250, 204, 21, 0.35);
 }
-/* Center holds `vs` (most modes) OR the neutral-flag indicator
-   (1FCTF) — never both. In 1FCTF the flag IS the connector (it
-   shows which team is carrying the objective), so `vs` becomes
-   redundant and is hidden. The column is also shifted down to align
-   the flag with the team score-line (see `:has()` rule below). */
+/* In One Flag CTF the neutral flag takes the center and shows which team
+   carries it. */
 .scoreboard__center {
   display: flex;
   align-items: center;
   justify-content: center;
   min-width: 36px;
 }
-/* 1FCTF: shift the column down so the flag's center lands at the
-   score-line region (rather than the side's geometric center which
-   sits higher between label + score). 15px = label height (10px) +
-   gap (2px) + a few extra px to push the flag's optical center down
-   onto the score numbers' visual midline (Cinzel digits read low). */
+/* 15px (label 10px, gap 2px, plus a little) brings the flag down to the
+   score digits, which read low in Cinzel. */
 .scoreboard:has(.scoreboard__center-indicator) .scoreboard__center {
   padding-top: 15px;
 }
-/* `vs` floats to the top of the entire scoreboard (label-row Y),
-   between the team labels — keeps the flourish visible without
-   pushing the flag down or being covered by it. */
+/* `vs` moves up to the label row, clear of the flag. */
 .scoreboard:has(.scoreboard__center-indicator) .scoreboard__vs {
   position: absolute;
   top: 0;
@@ -12141,9 +11497,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   display: inline-flex;
   align-items: center;
 }
-/* 1FCTF neutral flag drifts toward whichever side currently carries
-   it. Translate is on the .flag-indicator wrapper so the icon and
-   any future siblings move together. */
 .scoreboard__center-indicator .flag-indicator {
   transition: transform 0.45s ease-out;
 }
@@ -12159,16 +11512,12 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   letter-spacing: 0.3em;
   color: var(--ember-light);
   text-transform: uppercase;
-  /* inline-flex keeps the ember rules + text on one line in narrow
-     containers (default `inline` would let inline content wrap inside
-     a tight grid track). */
+  /* inline-flex keeps the rules and text on one line in a tight grid
+     track. */
   display: inline-flex;
   align-items: center;
   white-space: nowrap;
 }
-/* Small ember rules flanking the `vs` connector — typographic flourish
-   that gives it presence. TIE / NO CONTEST states keep their solid
-   block treatment without rules (already visually heavier). */
 .scoreboard__vs:not(:has(.scoreboard__state))::before,
 .scoreboard__vs:not(:has(.scoreboard__state))::after {
   content: "";
@@ -12180,11 +11529,8 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   margin: 0 6px;
   vertical-align: middle;
 }
-/* `letter-spacing: 0.3em` on `vs` adds 0.3em of trailing space after
-   the last character, so the right gap to the rule reads 0.3em wider
-   than the left gap. Pulling the right rule in by 0.3em rebalances
-   the layout — the visual center of "vs" then lands exactly between
-   the two rules and the auto-column centers symmetrically in the grid. */
+/* letter-spacing adds 0.3em after the last letter, so the right rule
+   moves in 0.3em to center "vs" between the rules. */
 .scoreboard__vs:not(:has(.scoreboard__state))::after {
   margin-left: calc(6px - 0.3em);
 }
@@ -12201,9 +11547,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   color: var(--text-dim);
 }
 
-/* Tie / no-contest banner above the duelists row — replaces the
-   inline scoreboard__state label that no longer fits between the
-   sized-up duelist columns. */
 .duelists-state {
   font-family: "Cinzel", serif;
   font-weight: 700;
@@ -12220,12 +11563,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   color: var(--text-dim);
 }
 
-/* 1v1 cards have only two players, so the body has more vertical and
-   horizontal room than FFA/team. Sized up: bigger portraits + score
-   numerals. Single-row 3-col grid: portraits + VS (same column
-   structure as the team .scoreboard). Award medals hang off the
-   inner edge of each portrait as an absolute-positioned vertical
-   stack — see .duelist-awards below. */
 .duelists {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
@@ -12234,23 +11571,20 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   margin-bottom: 18px;
   padding: 8px 0 4px;
 }
-/* Medal stack anchored to .duelist__portrait-wrap (which is already
-   position: relative for the verified/bot badge). Vertical column so
-   the 1v1 award set — humiliation/impressive/excellent/victory, max
-   four — fits flush against the portrait without crowding the score.
-   Out of flow → name/score/sub below the portrait never shift. */
+/* Out of flow so the name, score and sub line below the portrait stay
+   put. */
 .duelist-awards {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  left: calc(100% + 10px); /* just outside right edge of left portrait */
+  left: calc(100% + 10px);
   display: flex;
   flex-direction: column;
   gap: 5px;
 }
 .duelist-awards.right {
   left: auto;
-  right: calc(100% + 10px); /* mirror onto inner edge of right portrait */
+  right: calc(100% + 10px);
 }
 .duelist-awards .medal-icon {
   margin: 0;
@@ -12259,7 +11593,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   width: 18px;
   height: 18px;
 }
-/* Legacy stub-mockup color hooks — production uses MedalIcon imgs. */
 .medal-excellent {
   color: #facc15;
 }
@@ -12273,10 +11606,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   color: var(--ember-strong);
 }
 
-/* Push the duelist portraits apart by widening the VS auto-track —
-   the ember rules need horizontal breathing room and the unscoped
-   .duelists `gap: 14px` alone leaves them too close to the score
-   numerals on either side. */
+/* A wider VS track keeps the ember rules clear of the score digits. */
 .duelists .scoreboard__vs {
   margin: 0 8px;
 }
@@ -12297,7 +11627,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   border: 1px solid rgba(255, 248, 240, 0.1);
   overflow: visible; /* badge overflows */
 }
-/* Inner portrait fills the circle; badge overlaps bottom-right. */
 .duelist__portrait-wrap .player-portrait {
   margin: 0;
   width: 100%;
@@ -12367,12 +11696,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
 }
 
 /* ── FFA hero strip ─────────────────────────────────────── */
-/* "King of the hill" featured player in free-for-all. Outer grid is
-   2-col (portrait | identity); the identity column stacks name →
-   score → (medals + ping) so the name has the full width to itself
-   and doesn't get clipped at typical card widths. Re-uses
-   .duelist__portrait-wrap so the 88px framed portrait + badge
-   overlap is identical to 1v1. */
 .ffa-hero {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -12448,14 +11771,12 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   display: flex;
   gap: 8px;
 }
-/* Placeholder rendered between match-start and first-frag so the
-   strip's vertical footprint never shifts when the king appears. */
+/* Holds the strip's height until the first frag. */
 .ffa-hero--placeholder .ffa-hero__name {
   color: var(--text-dim);
   font-style: italic;
   letter-spacing: 0.08em;
-  /* Override the ellipsis rule used for real names — the caption
-     should wrap onto a second line on narrow cards rather than clip. */
+  /* The caption wraps on narrow cards. */
   white-space: normal;
   overflow: visible;
   text-overflow: clip;
@@ -12540,25 +11861,20 @@ h2.docs-h2:focus-within .docs-h2__anchor {
 .player-row .pname-cell .team-dot.red {
   background: var(--red);
 }
-/* Single team-blue source of truth — see --blue token comment. */
 .player-row .pname-cell .team-dot.blue {
   background: var(--blue);
 }
 .player-row .pname-cell .team-dot.spec {
   background: rgba(255, 248, 240, 0.2);
 }
-/* Free / FFA players still in the match — green so they read as
-   "ended connected" rather than blending into the row. */
 .player-row .pname-cell .team-dot.free {
   background: var(--green);
 }
-/* "Dropped before the match ended" — gray dot regardless of team. */
 .player-row .pname-cell .team-dot.dropped {
   background: rgba(255, 248, 240, 0.35);
 }
 .player-row .pname-cell .name {
-  /* Natural width + shrink-with-ellipsis. Don't grow — that would
-     push the flag carrier away from the name. */
+  /* Shrinks but never grows, so the flag carrier stays beside the name. */
   flex: 0 1 auto;
   white-space: nowrap;
   overflow: hidden;
@@ -12566,15 +11882,11 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   letter-spacing: 0.02em;
   min-width: 0;
 }
-/* Bots: dim only — the BotBadge icon already identifies them. */
 .player-row .pname-cell .name.bot {
   color: var(--text-dim);
 }
-/* Awards extend from the right; left edge fades into the name area
-   when the awards row overflows. justify-content: flex-end anchors
-   the medals to the right edge so excess medals overflow off the LEFT
-   (matching the mask direction), rather than off the right where the
-   mask wouldn't catch them. */
+/* flex-end sends extra medals off the left edge, where the mask fades
+   them. */
 .player-row .pname-cell .row-awards {
   display: flex;
   justify-content: flex-end;
@@ -12582,10 +11894,8 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   flex-shrink: 1;
   min-width: 0;
   padding-left: 16px;
-  /* padding-right buffers the .medal-count badge's `right: -2px`
-     overhang against the overflow:hidden clip on this container.
-     Without it, the count digit on the last medal gets a hairline
-     trim on the right. */
+  /* Room inside the clip for the last .medal-count's right: -2px
+     overhang. */
   padding-right: 4px;
   margin-left: auto;
   overflow: hidden;
@@ -12600,7 +11910,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   width: 14px;
   height: 14px;
 }
-/* CTF/1FCTF flag-carrier — sits directly right of the name. */
 .player-row .pname-cell .row-carrier {
   display: inline-flex;
   align-items: center;
@@ -12611,7 +11920,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   width: 14px;
   height: 14px;
 }
-/* Harvester skull-carry — count as corner badge (cf. .medal-count). */
 .player-row .pname-cell .row-carrier--skulls {
   position: relative;
 }
@@ -12632,8 +11940,8 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   line-height: 0;
 }
 
-/* Overload obelisk HP bar — absolute so it doesn't grow the row;
-   47px reaches from row bottom up to the "RED"/"BLUE" cap line. */
+/* Absolute so the row keeps its height; 47px reaches from the row bottom
+   to the RED/BLUE cap line. */
 .obelisk-hp {
   position: absolute;
   bottom: 0;
@@ -12662,8 +11970,8 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   bottom: 0;
   transition: height 0.4s ease-out;
 }
-/* 3px right-nudge centers the digit block (not the trailing %) on
-   the bar's axis; tabular-nums keeps it stable across 5%–100%. */
+/* The 3px nudge centers the digits on the bar, leaving the % outside;
+   tabular-nums keeps them steady from 5% to 100%. */
 .obelisk-hp__pct {
   position: absolute;
   left: 50%;
@@ -12682,7 +11990,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   display: inline-flex;
   align-items: center;
 }
-/* CloseIcon is symmetric — drop the nudge. */
+/* CloseIcon is symmetric, so it needs no nudge. */
 .obelisk-hp--destroyed .obelisk-hp__pct {
   transform: translateX(-50%);
 }
@@ -12692,9 +12000,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
 .obelisk-hp--blue .obelisk-hp__fill {
   background: #4076c8;
 }
-/* Under-attack indicator — pulsing ember ring + halo. Scoped to the
-   bar element (which only renders when an obelisk is actively being
-   attacked), so the animation only runs when needed. */
 .obelisk-hp--under-attack .obelisk-hp__bar {
   animation: obelisk-attack-pulse 1.4s ease-in-out infinite;
 }
@@ -12711,7 +12016,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
       0 0 9px 2px rgba(255, 110, 60, 0.9);
   }
 }
-/* Destroyed obelisk pulses while waiting for respawn (~10s default). */
 .obelisk-hp--destroyed .obelisk-hp__bar {
   animation: obelisk-hp-pulse 1.2s ease-in-out infinite;
 }
@@ -12733,9 +12037,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   }
 }
 
-/* Harvester skulls-in-play counter next to the team score header.
-   Icon at flag-icon-md (24px) matches CTF; count floats absolutely
-   below the icon so it doesn't inflate the score-line grid row. */
+/* The count floats below the icon so the score row keeps its height. */
 .harvester-skulls {
   position: relative;
   display: inline-flex;
@@ -12753,7 +12055,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   text-shadow: 0 0 2px #000;
   line-height: 1;
 }
-/* Per-team accents on the harvester-skulls header count. */
 .harvester-skulls--red .harvester-skulls__count {
   text-shadow:
     0 0 3px rgba(255, 80, 80, 0.9),
@@ -12765,12 +12066,11 @@ h2.docs-h2:focus-within .docs-h2__anchor {
     0 0 2px #000;
 }
 
-/* Dimmed medal — transient events that reuse a cumulative-award glyph. */
+/* One-off events that reuse a cumulative award's glyph. */
 .medal-icon--dim {
   opacity: 0.5;
   filter: saturate(0.6);
 }
-/* Clickable rows / duelists (humans only). Whole row is the target. */
 .player-row.clickable {
   cursor: pointer;
   transition: background 0.15s ease;
@@ -12803,7 +12103,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   color: var(--text-dim);
 }
 
-/* ── Card bottom row — spectator strip + optional right slot ─── */
+/* ── Card bottom row ─── */
 .card__bottom {
   display: flex;
   justify-content: space-between;
@@ -12846,9 +12146,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   color: var(--text);
   font-weight: 500;
 }
-/* Pin actions slot (e.g. Watch / Download) to the right of the bottom row even
-   when the spectator list isn't present — without this, justify-content:space-between
-   leaves a sole child at flex-start. */
+/* Keeps the actions at the right even as the row's only child. */
 .card__bottom-actions {
   margin-left: auto;
   flex-shrink: 0;
@@ -12884,10 +12182,8 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   position: relative;
   z-index: 1;
 }
-/* Topbar and header rise above body siblings so their hover popups
-   (ModeIcon panel, levelshot preview) paint over the duelists /
-   player rows below. Source order alone wouldn't do it since every
-   .card > * shares z-index:1. */
+/* Every .card > * has z-index 1, so the topbar and header go higher for
+   their hover popups to cover the rows below. */
 .card > .card__topbar {
   z-index: 3;
 }
@@ -12900,21 +12196,16 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   gap: 10px;
   margin-bottom: 10px;
 }
-/* Right-side meta pins to the far right; chip + mode-icons stay grouped left. */
 .card__topbar > .card__state,
 .card__topbar > .card__time,
 .card__topbar > .card__feature-toggle {
   margin-left: auto;
 }
-/* When the feature star is present, its auto-margin pushes it (and
-   the time chip after it) right; the time follows on a normal flex
-   gap, so they read as a paired right cluster. */
 .card__topbar > .card__feature-toggle + .card__time {
   margin-left: 0;
 }
 
-/* LIVE pill + status badge on one row so the bar height (and the map name below)
-   never shifts. margin-left:auto pins the pair right. */
+/* LIVE and the status badge share a row so the bar height holds steady. */
 .card__status-row {
   margin-left: auto;
   display: flex;
@@ -12922,8 +12213,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   gap: 6px;
 }
 
-/* Admin-only: star to feature/unfeature a demo without navigating
-   into the match detail page. Sits just left of the timestamp. */
 .card__feature-toggle {
   display: inline-flex;
   align-items: center;
@@ -12950,8 +12239,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   cursor: progress;
   opacity: 0.6;
 }
-/* Match card relative-time stacked over elapsed duration. Links to
-   the match detail page (where admins can toggle Featured). */
 .card__time {
   display: inline-flex;
   flex-direction: column;
@@ -12978,11 +12265,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   color: var(--accent);
 }
 .card__time .duration {
-  /* Barlow (not Cinzel) — duration is data, not ceremony. Cinzel is
-     reserved for ceremonial numbers (scores, ranks, totals); arbitrary
-     `mm:ss` reads cleaner in the sans data face. Differentiation from
-     the relative-time line above comes from weight + color + case, not
-     a font swap. */
   font-family: "Barlow", sans-serif;
   font-weight: 600;
   font-size: 13px;
@@ -13003,7 +12285,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   white-space: nowrap;
   flex-shrink: 0;
 }
-/* Live-spectate pill (same shape as .card__state); pulsing dot mirrors the in-viewer LIVE badge. */
 .card__watch {
   display: inline-flex;
   align-items: center;
@@ -13013,7 +12294,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   font-weight: 700;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  /* 2/7 + 1px border = the same box as .card__state's 3/8 no-border pill. */
+  /* With the 1px border, the same box as .card__state's 3px 8px padding. */
   padding: 2px 7px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: var(--radius-sm);
@@ -13041,8 +12322,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   flex-shrink: 0;
 }
 
-/* Web-viewer count, divided off from LIVE inside the pill. Rendered only
-   when > 0; hover title carries the "N watching" phrasing. */
 .card__watch-count {
   padding-left: 5px;
   border-left: 1px solid rgba(255, 255, 255, 0.2);
@@ -13104,10 +12383,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   text-transform: uppercase;
 }
 .card__map-long {
-  /* Cinzel regular treats map longnames as the card's ceremonial
-     headline rather than tabular data. Lighter than the other Cinzel
-     uses (which are 700 uppercase) because these run mixed-case at
-     body size and need to stay scannable. */
   font-family: "Cinzel", serif;
   font-weight: 400;
   font-size: 17px;
@@ -13118,7 +12393,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   text-overflow: ellipsis;
   max-width: 100%;
 }
-/* Levelshot preview on map-name hover. Reads --levelshot from the card root. */
+/* Levelshot preview on map-name hover; reads --levelshot from the card. */
 .card__map-long::after {
   content: "";
   position: absolute;
@@ -13131,8 +12406,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   background-size: cover;
   background-position: center;
   background-color: var(--bg);
-  /* Ember border — same tone as the portrait popup so the two hover
-     popups share one visual vocabulary (door-hover ember at 55%). */
   border: 1px solid rgba(255, 110, 60, 0.55);
   border-radius: var(--radius-sm);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
@@ -13158,8 +12431,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   flex-shrink: 0;
 }
 
-/* Demo actions (Watch + Download) — used by MatchCard and landing
-   Recent Matches rows. Pair sits flush-right in card__bottom or row meta. */
+/* Demo actions (Watch, Download) */
 .demo-actions {
   display: inline-flex;
   align-items: center;
@@ -13185,12 +12457,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   color: var(--ember-light);
   border-bottom-color: var(--ember-light);
 }
-/* Both demo actions render their glyphs inline (PlayIcon, ArrowIcon)
-   so they share stroke-weight / vocabulary with the rest of the chrome
-   icons. The .demo-action.download ::before pseudo-element was retired
-   when the download arrow moved into JSX. */
-
-/* Match detail page — exit reason note (lives in .match-detail__meta) */
+/* Match detail exit reason */
 .match-detail__exit {
   font-family: "Barlow", sans-serif;
   font-size: 12px;
@@ -13200,11 +12467,8 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   margin: 0;
 }
 
-/* Landing Active Now shelf — direction-aware levelshot fade.
-   Cards fade top→bottom (primary axis) plus a subtle right→left fade
-   so successive cards visually blur into one another as the viewer
-   scrolls horizontally. Layered masks in CSS:
-     mask = primary_axis ∩ secondary_axis */
+/* Shelf levelshots fade top to bottom and slightly right to left, so
+   neighboring cards blend as the shelf scrolls. */
 .landing-shelf-h__scroll .card::before {
   -webkit-mask-image:
     linear-gradient(to bottom, black 0%, transparent 100%),
@@ -13216,13 +12480,8 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   mask-composite: intersect;
 }
 
-/* Landing-shelf palette pass — applies to both .server-card and
-   .match-card when rendered inside a horizontal shelf on the landing
-   page. The landing surface vocabulary is all-ember-warm, so functional
-   greens/blues/purples that ship with the cards (canonical on /matches
-   and /servers) are remapped here to the landing's "live = ember,
-   quiet = text-dim" semantics. Scope is intentionally tight to
-   .landing-shelf-h__scroll so /matches and /servers stay unaffected. */
+/* Landing shelf palette: the cards' status colors become ember for live
+   and dim for quiet. */
 .landing-shelf-h__scroll .card__state.active {
   background: rgba(255, 110, 60, 0.18);
   color: var(--ember-light);
@@ -13241,25 +12500,17 @@ h2.docs-h2:focus-within .docs-h2__anchor {
 .landing-shelf-h__scroll .completion-dot.spectator {
   background: var(--text-dim);
 }
-/* Free / FFA "still in the match" dot — green canonically, ember
-   here to stay in the warm vocabulary. (Team-red and team-blue dots
-   are inherited unchanged via the site-wide tokens.) */
 .landing-shelf-h__scroll .player-row .pname-cell .team-dot.free {
   background: var(--ember-strong);
 }
 
-/* The site-wide rule at .card__topbar > .card__feature-toggle +
-   .card__time zeroes out the time's margin-left so the (visible)
-   star and time read as a paired right cluster. On the landing
-   shelf we display:none the star, but the adjacent-sibling selector
-   still fires — leaving the time stranded next to the chip instead
-   of in the right corner. Restore auto-margin here. */
+/* The star is hidden here, but the sibling rule still matches, so the
+   time gets its auto margin back. */
 .landing-shelf-h__scroll .card__topbar > .card__feature-toggle + .card__time {
   margin-left: auto;
 }
 
-/* Suppress admin-only and secondary affordances — landing is a public
-   entry point, the only call to action that belongs is "Watch". */
+/* Landing cards keep Watch as their only action. */
 .landing-shelf-h__scroll .card__feature-toggle {
   display: none;
 }
@@ -13267,22 +12518,15 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   display: none;
 }
 
-/* RecentMatchesShelf wraps each MatchCard in a <Link> so the whole
-   card is a single click target → demo player; ActiveNowShelf does the
-   same with live ServerCards → live viewer (.landing-watch-link, applied
-   inside ServerCard). Internal interactive elements (timestamp link,
-   Watch/LIVE links, clickable player rows when present) are neutered so
-   clicks always resolve to the outer link; the inner elements still
-   render with their styling, just non-interactive. */
+/* Each shelf card is one link, so the links and rows inside it stop
+   taking clicks. */
 .landing-match-link,
 .landing-watch-link {
   text-decoration: none;
   color: inherit;
 }
-/* .landing-match-link IS the shelf slot (display comes from
-   .landing-shelf-h__slot); .landing-watch-link is ServerCard's inner
-   whole-card anchor sitting between slot and card, so it must pass the
-   stretch through its own layer. */
+/* .landing-watch-link sits between the slot and the card, so it passes
+   the stretch through. */
 .landing-watch-link {
   display: flex;
   flex-direction: column;
@@ -13297,8 +12541,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   pointer-events: none;
 }
 
-/* Hover lift unifies the three landing shelves (server/match cards
-   here, .landing-door and .landing-player-card elsewhere). */
 .landing-shelf-h__scroll .card {
   transition:
     border-color 0.25s ease,
@@ -13310,27 +12552,15 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   transform: translateY(-2px);
 }
 
-/* Editorial subhead that orients landing visitors to a section's
-   contents (currently used by the Recent Matches shelf to set
-   expectations about the dense match cards inside). Sits between the
-   section head and the shelf so the head's ember underline still lands
-   directly beneath the title row. */
+/* Landing section lead */
 .landing-section__lead {
   font-family: "Barlow", sans-serif;
   font-size: 13px;
   letter-spacing: 0.06em;
   color: var(--text-dim);
   margin: -20px 0 28px;
-  /* 80ch keeps a readable cap while comfortably fitting the current
-     single-sentence leads on desktop without wrap. `ch` measures the
-     un-tracked advance of "0"; our 0.06em letter-spacing makes each
-     character wider, so 80ch fits ~70 visible chars — enough headroom
-     for the longest current copy. */
+  /* The letter-spacing widens each character, so 80ch holds about 70. */
   max-width: 80ch;
-  /* text-wrap: pretty avoids orphan words on the final line (e.g.
-     "required." alone), which the default greedy algorithm produces
-     at narrow viewports. Falls back gracefully to default wrapping on
-     browsers that haven't shipped it. */
   text-wrap: pretty;
 }
 @media (max-width: 720px) {
@@ -13340,8 +12570,8 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   }
 }
 
-/* Inline link in a lead: underline carries the affordance — accent-dim
-   alone doesn't read as a link against the dim prose around it. */
+/* The underline marks the link; accent-dim alone blends into the
+   prose. */
 .landing-section__lead a {
   color: var(--accent-dim);
   text-decoration: underline;
@@ -13352,10 +12582,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   color: var(--accent);
 }
 
-/* ─── Docs platform picker ────────────────────────────────────
-   First-visit blocker. Centered card on desktop, top-aligned
-   full-bleed on narrow viewports per spec.
-   ──────────────────────────────────────────────────────────── */
+/* ─── Docs platform picker ──────────────────────────────────── */
 
 .docs-platform-picker {
   position: fixed;
@@ -13447,13 +12674,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   }
 }
 
-/* ─── Docs platform tabs ──────────────────────────────────────
-   Synced segmented control sitting above platform-divergent
-   content. Visually echoes the .filter-chips__strip pattern
-   used elsewhere but with stronger active-state borders since
-   these tabs change which content is visible, not just which
-   subset is shown.
-   ──────────────────────────────────────────────────────────── */
+/* ─── Docs platform tabs ────────────────────────────────────── */
 
 .docs-platform-tabs {
   margin: 16px 0 20px;
@@ -13503,10 +12724,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   background: var(--bg-card);
 }
 
-/* ─── Docs platform note ──────────────────────────────────────
-   Ember-tinted callout for platform-specific asides. Header
-   chip names the audience; body is normal prose.
-   ──────────────────────────────────────────────────────────── */
+/* ─── Docs platform note ────────────────────────────────────── */
 
 .docs-platform-note {
   background: var(--ember-tint-bg);
@@ -13545,11 +12763,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   margin-bottom: 0;
 }
 
-/* Compact inline chip for marking content as platform-specific
-   without the full PlatformNote callout treatment — used in
-   troubleshooting summaries and other places where an item is
-   targeted at a subset of platforms but should still match the
-   surrounding visual register. */
+/* Inline platform chip */
 .docs-platform-chip {
   display: inline-block;
   margin-left: 8px;
@@ -13564,10 +12778,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   vertical-align: middle;
 }
 
-/* ─── Docs platform badge ─────────────────────────────────────
-   Compact rail-top platform indicator. Mirrors the inline-tab
-   selection state.
-   ──────────────────────────────────────────────────────────── */
+/* ─── Docs platform badge ───────────────────────────────────── */
 
 .docs-platform-badge {
   display: flex;
@@ -13624,9 +12835,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   outline-offset: 1px;
 }
 
-/* ─── Docs Welcome page ───────────────────────────────────────
-   New /docs index. Hero + three persona cards.
-   ──────────────────────────────────────────────────────────── */
+/* ─── Docs welcome page ─────────────────────────────────────── */
 
 .docs-welcome__title {
   font-family: "Cinzel", serif;
@@ -13699,11 +12908,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   color: var(--ember-tint-text);
 }
 
-/* ─── /docs/play (Player's Guide) ─────────────────────────────
-   Tour of what Trinity adds to Quake 3, organized as themed
-   sections with prose + media (videos, icons). Hero pattern
-   matches /docs/welcome's variant of .about-section.
-   ──────────────────────────────────────────────────────────── */
+/* ─── /docs/play ────────────────────────────────────────────── */
 
 .docs-play__title {
   font-family: "Cinzel", serif;
@@ -13720,10 +12925,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   max-width: 720px;
 }
 
-/* Per-feature heading inside a themed section. h3 sits on its own
-   line; the trailing inline <code> shows the cvar to enable the
-   feature, slightly dimmer than the heading text so the name reads
-   first. */
 .docs-play__feature-title {
   font-family: "Cinzel", serif;
   font-size: 1.125rem;
@@ -13740,21 +12941,14 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   color: var(--text-dim);
 }
 
-/* ─── Docs mode tabs (baseq3 / Team Arena) ────────────────────
-   Local-state segmented control — visually echoes
-   .docs-platform-tabs but each instance owns its own state.
-   Used in HUD / scoreboard sections where the relevant
-   divergence is asset folder, not the user's client.
-   ──────────────────────────────────────────────────────────── */
+/* ─── Docs mode tabs (baseq3 / Team Arena) ──────────────────── */
 
 .docs-mode-tabs {
   margin: 16px 0 20px;
   border: 1px solid var(--rule);
   border-radius: 8px;
-  /* No overflow:hidden here — it would shear off CalloutImage tooltips
-     that extend above the screenshot. Corner-clipping is done on the
-     inner strip/panel instead (7px = 8px outer radius minus the 1px
-     border that insets their padding box). */
+  /* CalloutImage tooltips extend above the screenshot, so the inner strip
+     and panel clip the corners (7px: the 8px radius less the border). */
 }
 
 .docs-mode-tabs__strip {
@@ -13801,13 +12995,9 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   border-radius: 0 0 7px 7px;
 }
 
-/* ─── Annotated screenshot figure + legend ────────────────────
-   Pattern for HUD / scoreboard walkthroughs. The screenshot is
-   pre-annotated with numbered yellow boxes; the legend below
-   uses an ordered list whose <li> indices line up with the
-   callouts on the image. Keep <li>s in callout order — the
-   browser does the numbering, so renumbering means reordering.
-   ──────────────────────────────────────────────────────────── */
+/* ─── Annotated screenshot figure and legend ────────────────── */
+/* The browser numbers the legend, so its <li> order must match the
+   numbered boxes on the screenshot. */
 
 .docs-hud-figure {
   margin: 0 0 16px;
@@ -13822,13 +13012,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   border: 1px solid var(--rule);
 }
 
-/* ─── Zoomable image (annotated screenshots) ──────────────────
-   Click-to-expand for the HUD / scoreboard walkthroughs. The
-   trigger is a button wrapping an img, so it inherits keyboard
-   accessibility for free. Overlay locks body scroll and uses
-   role=dialog with aria-modal for screen-readers; Escape and
-   click-outside both dismiss.
-   ──────────────────────────────────────────────────────────── */
+/* ─── Zoomable image ────────────────────────────────────────── */
 
 .docs-zoomable-image__trigger {
   background: none;
@@ -13914,22 +13098,15 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   }
 }
 
-/* ─── Callout image (hover/focus/tap tooltips on screenshots) ──
-   CalloutImage composes ZoomableImage with an absolutely
-   positioned overlay of invisible hotspot buttons. The overlay
-   container itself is pointer-events:none so click-to-zoom keeps
-   working everywhere except inside a hotspot.
-   ──────────────────────────────────────────────────────────── */
+/* ─── Callout image ─────────────────────────────────────────── */
+/* The hotspot overlay is pointer-events: none, so click-to-zoom works
+   everywhere outside a hotspot. */
 
 .docs-callout-image {
   position: relative;
   margin: 0;
 }
 
-/* Inline trigger — wraps the screenshot in a button so the click-
-   to-zoom affordance gets keyboard accessibility for free, mirroring
-   ZoomableImage's trigger pattern but local to CalloutImage so it
-   can host its own overlay + zoom modal. */
 .docs-callout-image__trigger {
   background: none;
   border: none;
@@ -13958,10 +13135,8 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   outline: none;
 }
 
-/* Zoom modal — full-viewport backdrop with the image centered.
-   Stage div wraps the image so the overlay can be inset:0 over it.
-   Stage stops click propagation so clicking the image area doesn't
-   dismiss the modal — only the dark backdrop or close button do. */
+/* The stage stops click propagation, so only the backdrop or the close
+   button dismisses the modal. */
 .docs-callout-image__zoom {
   position: fixed;
   inset: 0;
@@ -14075,35 +13250,26 @@ h2.docs-h2:focus-within .docs-h2__anchor {
 }
 
 .docs-callout-image__tooltip code {
-  /* The body inherits .about-section code styling (bold, dark bg);
-     scale it down inside the tooltip so it doesn't dominate the
-     smaller font-size. */
+  /* Scales the inherited .about-section code styling to the tooltip's
+     smaller text. */
   font-size: 0.85em;
   padding: 1px 5px;
 }
 
-/* HelpMode popover — consumes `data-help` attributes on descendants
-   of <HelpModeRoot>. Portaled to document.body so positioning is in
-   the viewport coordinate space (position: fixed) and escapes any
-   ancestor stacking context / overflow clipping. */
+/* Help mode */
 .help-mode-root {
-  /* No layout effect; the wrapper exists only as a delegation root
-     for event listeners. */
+  /* The wrapper is only a root for event listeners. */
   display: contents;
 }
 
-/* Signal help mode with the question-mark cursor across the whole
-   wrapped subtree. Universal selector overrides per-element cursors
-   (e.g. cursor: pointer on links / clickables) while the mode is on. */
+/* The universal selector overrides per-element cursors while help mode
+   is on. */
 .help-mode-root * {
   cursor: help;
 }
 
-/* Suppress the card's existing in-tree hover previews while in
-   HelpMode — they would visually conflict with the help popover that
-   appears on the same hover. The portrait preview is portaled (so
-   it's not a descendant of .help-mode-root); PlayerPortrait
-   suppresses that one imperatively via a closest() check. */
+/* Help mode hides the card's hover previews, which open where the popover
+   does. PlayerPortrait hides its portaled preview itself. */
 .help-mode-root .card__map-long::after {
   content: none;
 }
@@ -14127,10 +13293,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   font-size: 0.85rem;
   line-height: 1.45;
   color: var(--text);
-  /* `pre-line` honors \n line breaks from authoring while collapsing
-     runs of other whitespace. Source-line wraps inside template
-     literals become render line breaks — concatenate strings with +
-     to wrap source without affecting output. */
   white-space: pre-line;
 }
 
@@ -14142,11 +13304,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
 }
 
 .about-section ol.docs-hud-legend {
-  /* Override the default .about-section ol styling so the
-     numbers align with the callout boxes' numeric reference,
-     and the rows are roomier than a generic list. Bottom
-     margin matches the rhythm of paragraphs around it so the
-     legend doesn't jam up against any prose that follows. */
   margin: 12px 0 1em;
   padding-left: 1.8em;
   gap: 8px;
@@ -14161,14 +13318,8 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   font-weight: 700;
 }
 
-/* Collapsed-by-default disclosure that wraps a CalloutLegend.
-   Default browser <details> markers vary visually across
-   engines and don't read well against the dark surface, so the
-   default marker is hidden and a custom CSS chevron is rendered
-   in its place — right-pointing when collapsed, rotated 90°
-   down when open. The summary row gets the same card-on-tint
-   treatment as .docs-cvars and .docs-color-table for visual
-   continuity across docs reference surfaces. */
+/* Native <details> markers vary across browsers, so a CSS caret replaces
+   the marker. */
 .about-section .docs-callout-legend {
   margin: 12px 0;
 }
@@ -14190,19 +13341,13 @@ h2.docs-h2:focus-within .docs-h2__anchor {
     color 0.12s;
 }
 
-/* Older WebKit needs the vendor-prefixed marker pseudo-element
-   hidden separately for the custom chevron to take over cleanly. */
+/* Older WebKit hides its marker through the prefixed pseudo-element. */
 .about-section .docs-callout-legend > summary::-webkit-details-marker {
   display: none;
 }
 
-/* Disclosure caret matching the established convention at
-   .activity-filters-toggle::before — two perpendicular borders
-   (top + right) forming an L, rotated 45° → right-pointing
-   chevron when closed, 135° → down-pointing when open. Avoids
-   the Unicode triangle glyph (renders as color emoji on
-   iOS / Android), and matches the line-weight of ArrowIcon and
-   the rest of the chrome SVGs. */
+/* Same two-border caret as .activity-filters-toggle; a Unicode triangle
+   renders as color emoji on iOS and Android. */
 .about-section .docs-callout-legend > summary::before {
   content: "";
   display: inline-block;
@@ -14228,18 +13373,11 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   outline: none;
 }
 
-/* When open, scoot the inner ol so it doesn't crowd the
-   summary's bottom edge; when closed, the ol isn't rendered. */
 .about-section .docs-callout-legend[open] > .docs-hud-legend {
   margin-top: 10px;
 }
 
-/* Section-level collapsible — used for the optional Quake 3
-   basics primer that newcomers expand and vets skip. Same
-   custom-chevron disclosure mechanics as .docs-callout-legend
-   but heftier visual weight (full-width, larger padding,
-   normal-weight body text) so it reads as a real section
-   choice rather than a small inline detail. */
+/* Section-level collapsible, such as the Quake III basics primer. */
 .about-section .docs-collapsible {
   margin: 0;
 }
@@ -14265,7 +13403,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   display: none;
 }
 
-/* Same border-corner caret as .docs-callout-legend; see notes there. */
+/* Same caret as .docs-callout-legend. */
 .about-section .docs-collapsible > summary::before {
   content: "";
   display: inline-block;
@@ -14291,16 +13429,11 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   outline: none;
 }
 
-/* Add breathing room above the first h3 once expanded so
-   the primer reads as content, not a continuation of the
-   summary bar. */
 .about-section .docs-collapsible[open] > h3:first-of-type {
   margin-top: 18px;
 }
 
-/* ─── /credits page ───────────────────────────────────────────
-   Simple top-level credits, outside docs chrome.
-   ──────────────────────────────────────────────────────────── */
+/* ─── /credits page ─────────────────────────────────────────── */
 
 .credits-page {
   max-width: 720px;
@@ -14334,9 +13467,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   color: var(--ember-tint-text);
 }
 
-/* Legal disclaimer at the bottom of /credits — set apart from the
-   warm "thanks to" content with an extra rule, smaller text, and a
-   dimmer color so the legal-tone shift is visually obvious. */
 .credits-page__legal {
   margin-top: 48px;
   padding-top: 24px;
@@ -14357,12 +13487,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   margin: 0;
 }
 
-/* ─── Docs TOC rail scroller ──────────────────────────────────
-   On desktop the rail behaves like a flat vertical list (the
-   .docs-toc-rail__list rules are unchanged). On narrow viewports,
-   when entries would overflow, the NavScroller chevrons appear.
-   `display: contents` on desktop preserves the existing layout.
-   ──────────────────────────────────────────────────────────── */
+/* ─── Docs TOC rail scroller ────────────────────────────────── */
 
 .docs-toc-rail__scroll {
   display: contents;
@@ -14411,9 +13536,8 @@ h2.docs-h2:focus-within .docs-h2__anchor {
     );
   }
 
-  /* In the horizontal mobile layout, the desktop left-border accent
-     reads as an arbitrary vertical stripe between tabs. Swap it for
-     a bottom underline that aligns with the row's flow direction. */
+  /* Mobile tabs run in a row, so the accent moves to a bottom
+     underline. */
   .docs-toc-rail__scroll .docs-toc-rail__tab {
     border-left: none;
     border-bottom: 2px solid transparent;
@@ -14425,9 +13549,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   }
 }
 
-/* Prominent inline download link inside an install step's
-   PlatformTabs panel. Reads as a CTA without competing with the
-   surrounding prose. */
 .install-download-link {
   display: inline-block;
   padding: 8px 16px;
@@ -14449,10 +13570,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   outline: none;
 }
 
-/* Cvar reference list — used in Customize sections to enumerate
-   tunables. Each <li> is one cvar with a suggested value plus a
-   one-line description. Card-style background separates it from
-   surrounding prose without becoming a heavy table. */
+/* Docs cvar list */
 .about-section .docs-cvars {
   list-style: none;
   padding: 0;
@@ -14475,10 +13593,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   color: var(--text);
 }
 
-/* Nested value-list inside a cvar entry — used when a cvar has
-   three or more meaningful values worth enumerating (e.g.
-   cl_tvDownload's 0/1/2). The outer item keeps its card styling;
-   the nested list reads as supporting bullets without competing. */
 .about-section .docs-cvars > li ul {
   list-style: disc;
   padding-inline-start: 1.4em;
@@ -14491,9 +13605,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   color: var(--text-dim);
 }
 
-/* Team Arena role-declaration grid — pairs the in-game HUD task
-   icon with the task name. Same card treatment as .docs-cvars so
-   the reference surfaces read consistently. */
+/* Team Arena task grid */
 .about-section .docs-tasklist {
   list-style: none;
   padding: 0;
@@ -14520,30 +13632,20 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   height: 28px;
 }
 
-/* Wrapper that lets a wide reference table scroll horizontally
-   on narrow viewports instead of forcing the surrounding flex
-   parent to widen (which would shrink the docs sidebar / chrome
-   on mobile). The inner <table> stays a real table so column
-   alignment is preserved; the wrapper just contains overflow. */
+/* A wide table scrolls sideways inside this wrapper so the docs layout
+   keeps its width on mobile. */
 .docs-table-scroll {
   max-width: 100%;
   overflow-x: auto;
-  /* Smooth flick-scroll on iOS without dragging the page sideways. */
   -webkit-overflow-scrolling: touch;
-  /* Reserve the same vertical rhythm the bare table had. */
   margin: 12px 0;
 }
 
 .docs-table-scroll > .docs-color-table {
-  /* The wrapper handles the spacing; reset table margin to avoid
-     double-stacking. */
   margin: 0;
 }
 
-/* Compact reference table — used in Customize · Color codes for the
-   side-by-side digit/bits/color decoder rings. Same card-on-tint
-   visual vocabulary as .docs-cvars so the page reads as one
-   coherent reference surface, not an assortment of widgets. */
+/* Color code tables */
 .about-section .docs-color-table {
   width: auto;
   margin: 12px 0;
@@ -14582,11 +13684,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   color: var(--text);
 }
 
-/* Tiny inline icon embedded in docs prose (e.g. the VR badge
-   shown next to "Trinity puts a VR icon (•) in the handicap
-   slot"). Sized to text height + a touch, vertically aligned
-   to the cap so it sits with the line, with a small gap from
-   surrounding punctuation. */
+/* Inline icon in docs prose */
 .docs-inline-icon {
   display: inline-block;
   height: 1.4em;
@@ -14595,11 +13693,8 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   margin: 0 1px;
 }
 
-/* Hit-sound preview list — pairs a damage-range label with a
-   compact play-button + volume-slider widget. Native
-   <audio controls> is too wide for an inline preview list
-   and includes a useless progress bar for sub-second clips,
-   so HitSoundPreview renders our own minimal surface. */
+/* Native audio controls are too wide for this list and show a progress
+   bar on sub-second clips, so HitSoundPreview draws its own. */
 .about-section .docs-hitsounds {
   list-style: none;
   padding: 0;
@@ -14622,9 +13717,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   font-variant-numeric: tabular-nums;
 }
 
-/* Compact play + volume widget — 24×24 button followed by a
-   short range slider. Sits in the dark-on-dark card vocabulary
-   the rest of the docs reference surfaces use. */
 .hitsound-preview {
   display: inline-flex;
   align-items: center;
@@ -14667,12 +13759,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   accent-color: var(--ember-strong);
 }
 
-/* Tip callout — generic informational aside used in docs prose
-   for "while you're here" notes. Lighter visual treatment than
-   PlatformNote (no chip, just a left accent + tint) so it reads
-   as supporting context rather than something that needs action.
-   Pair with a leading "**Tip:**" or similar prefix for screen-
-   reader / skim accessibility. */
+/* Tip callout */
 .docs-tip {
   margin: 16px 0;
   padding: 12px 16px;
@@ -14689,9 +13776,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   margin-bottom: 0;
 }
 
-/* CopyableCommand — block-level shell command in a doc body, with a
-   copy-to-clipboard button anchored top-right. The wrapper is
-   relatively-positioned so the button can sit on top of the pre. */
+/* CopyableCommand */
 .docs-copyable-command {
   position: relative;
   margin: 16px 0;
@@ -14711,9 +13796,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
 }
 
 .docs-copyable-command pre code {
-  /* Override inline <code> chrome — this code lives inside a styled
-     pre block already. Reset font-weight too so we don't inherit
-     the body bold treatment used for cvar / path references. */
+  /* Resets the inline code chrome and weight inside the pre. */
   background: transparent;
   padding: 0;
   border: none;
@@ -14743,9 +13826,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   border-color: var(--rule-strong);
 }
 
-/* Reference page — sticky search input pinned to the top of the
-   docs content area. Filters cvar tables and glossary in real time;
-   "/" focuses it (handled in ReferenceSearch.tsx). */
+/* Reference search */
 .docs-reference-search {
   position: sticky;
   top: 0;
@@ -14795,10 +13876,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   border-color: var(--rule-strong);
 }
 
-/* Platform-filter toggle in the sticky bar — flips between "Show all
-   platforms" (currently filtered to one) and "Filter to <Platform>"
-   (currently showing all). Label always describes the action the
-   click will perform. */
 .docs-reference-search__platform-toggle {
   padding: 8px 14px;
   background: var(--bg-card);
@@ -14819,9 +13896,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   border-color: var(--rule-strong);
 }
 
-/* Context note rendered just under the sticky bar when the platform
-   filter is active. Reminds the reader they're seeing a filtered
-   view and where to widen it. */
 .docs-reference__platform-note {
   margin: 0 0 16px;
   padding: 8px 12px;
@@ -14832,25 +13906,19 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   border-radius: 6px;
 }
 
-/* Inline "(N matching)" annotation in section headings while the
-   filter is active. Dim relative to the heading text so it reads as
-   metadata, not the heading itself. */
 .docs-reference__count {
   color: var(--text-dim);
   font-weight: 400;
   font-size: 0.85em;
 }
 
-/* "No matches" placeholder shown inside an empty section when the
-   filter excludes everything in that bucket. */
 .docs-reference__empty {
   color: var(--text-dim);
   font-style: italic;
   margin: 12px 0;
 }
 
-/* Cvar list — each entry is a card with a head row (name + default
-   + platform chips) and a description body. */
+/* Reference cvar list */
 .about-section .cvar-list {
   list-style: none;
   margin: 16px 0 0;
@@ -14877,8 +13945,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
 }
 
 .cvar-entry__name {
-  /* Override the .about-section code styling — this is the cvar's
-     headline reference and deserves its own stronger treatment. */
   font-size: 1rem;
   padding: 3px 8px;
   font-weight: 700;
@@ -14908,8 +13974,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
 }
 
 .cvar-entry__values > li > code {
-  /* Tighten the inline-code chrome so the value enumeration reads
-     as a compact list rather than a stack of buttons. */
   padding: 1px 5px;
 }
 
@@ -14921,8 +13985,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   font-size: 0.85rem;
 }
 
-/* Glossary list — same card pattern as cvars but with a term head
-   and definition body. */
+/* Glossary list */
 .about-section .glossary-list {
   list-style: none;
   margin: 16px 0 0;
@@ -14952,11 +14015,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   line-height: 1.55;
 }
 
-/* "You're done" banner shown after the final install step — gives
-   the install flow a clear finish line, distinct from the auxiliary
-   reference sections that follow. Uses the same ember-tint palette
-   as PlatformNote so it lands in the docs' visual vocabulary, but
-   shaped (no chip, larger lead line) as a moment of completion. */
+/* Install complete banner */
 .install-complete {
   margin: 16px 0 0;
   padding: 16px 20px;
@@ -14978,18 +14037,11 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   font-weight: 700;
 }
 
-/* Small inline external-link icon — paired with new-tab links so
-   the open-in-new-tab behavior reads visually before the click.
-   `vertical-align` nudge lifts the glyph onto the text baseline. */
 .external-link-icon {
   margin-left: 4px;
   vertical-align: -1px;
 }
 
-/* "Need a different platform?" hint shown next to the primary
-   install-download-link CTA — small muted line that points at the
-   full release listing for users on builds outside the auto-
-   detected default. */
 .install-download-others {
   display: inline-block;
   margin: 0 0 12px;
@@ -15006,9 +14058,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   color: var(--ember-strong);
 }
 
-/* Troubleshooting list on /docs/install — collapsible details
-   items grouped under Step 5. Tight visual rhythm so scanning
-   the summary line is fast. */
+/* Install troubleshooting */
 .install-troubleshooting {
   display: flex;
   flex-direction: column;
@@ -15037,11 +14087,8 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   display: none;
 }
 
-/* Custom chevron — drawn from two borders so it tints with the
-   theme. Right-pointing when collapsed, rotates to point down when
-   open. With border-right + border-bottom, rotate(-45deg) puts the
-   corner of the L (the chevron's tip) at the right; rotate(45deg)
-   puts it at the bottom. */
+/* With border-right and border-bottom, rotate(-45deg) points the tip
+   right (closed) and rotate(45deg) points it down (open). */
 .install-trouble > summary::after {
   content: "";
   position: absolute;
@@ -15089,16 +14136,16 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   margin-bottom: 0;
 }
 
-/* Restore list marker space — the global `* { padding: 0 }` reset
-   strips padding-inline-start, which pushes ol numbers outside the
-   body's padded box. Re-add explicit indent so markers sit inside. */
+/* The global `* { padding: 0 }` reset pushes ol numbers outside the box,
+   so the indent comes back here. */
 .install-trouble__body ol,
 .install-trouble__body ul {
   padding-inline-start: 1.5em;
   margin: 8px 0;
 }
 
-/* Right-anchored (mirrors .demo-back-link) to keep clear of the engine HUD (clock/chat) on canvas. */
+/* Right-anchored, like .demo-back-link, to stay clear of the HUD's clock
+   and chat. */
 .live-badge {
   position: absolute;
   right: 12px;
@@ -15121,8 +14168,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   animation: live-pulse 2s ease-in-out infinite;
 }
 
-/* Web-viewer count (includes this viewer); same divided-chip treatment as
-   .card__watch-count on the server cards. */
+/* Includes this viewer; the same divided chip as .card__watch-count. */
 .live-badge__count {
   padding-left: 5px;
   border-left: 1px solid rgba(255, 255, 255, 0.25);

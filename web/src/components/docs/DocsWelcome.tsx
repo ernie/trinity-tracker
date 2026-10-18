@@ -9,24 +9,15 @@ import {
   pickRandomFeatured,
 } from "../../hooks/useFeaturedMatches";
 
-// New /docs index. Replaces the previous redirect to
-// /docs/getting-started. First-time visitors see this after picking
-// a platform; the persona cards route them to the right deeper
-// surface.
 export function DocsWelcome() {
   const { ids } = useFeaturedMatches();
   const live = useLiveData();
 
-  // Most-humans-first live broadcast for the "watch live right now" link;
-  // bots keep the arena on air, so this is rarely empty.
+  // Bots keep a broadcast on air, so this is rarely empty.
   const liveServer = Array.from(live.servers.values())
     .filter((s) => s.online && s.is_live)
     .sort((a, b) => (b.human_count ?? 0) - (a.human_count ?? 0))[0];
 
-  // Mirrors the landing page's "Watch a fight" door — picks a random
-  // featured match and opens its demo player. Falls back to /matches
-  // if the featured pool is empty (e.g., a fresh deploy with nothing
-  // flagged yet).
   const handleWatchFeatured = (e: React.MouseEvent) => {
     // Full-document load so the demo player's WASM engine boots fresh.
     e.preventDefault();
@@ -39,9 +30,12 @@ export function DocsWelcome() {
       <div className="about-section docs-welcome__hero">
         <h1 className="docs-welcome__title">Welcome to Trinity</h1>
         <p className="docs-welcome__lead">
-          Trinity is Quake 3 with modern conveniences — VR, voice chat, and
-          shared stats — built on top of the original game you know. It's
-          backwards-compatible with vanilla Q3 servers.
+          Trinity is Quake III Arena brought up to date. It adds widescreen
+          support, high-resolution UI, a better renderer, voice chat, the
+          grapple, and VR, with flatscreen and VR players in the same matches.
+          It fixes long-standing bugs, especially in Team Arena, and your stats
+          follow you from server to server. It still connects to standard Quake
+          III servers.
         </p>
       </div>
 
@@ -98,32 +92,30 @@ export function DocsWelcome() {
               >
                 Watch a live match right now
               </a>{" "}
-              — the arena is on air around the clock, no install required. You
+              in your browser. Bots keep a server on air around the clock. You
               can also{" "}
               <a href="/matches" onClick={handleWatchFeatured}>
                 watch a featured match
-              </a>{" "}
-              — a curated fight, replayed frame by frame.
+              </a>
+              , picked by hand and replayed frame by frame.
             </>
           ) : (
             <>
               <a href="/matches" onClick={handleWatchFeatured}>
                 Watch a featured match
               </a>{" "}
-              — replays a real Trinity match frame by frame, no install
-              required. And when a server card shows a pulsing{" "}
-              <strong>LIVE</strong> pill, you can watch a match as it happens,
-              the same way.
+              to replay a real Trinity match frame by frame in your browser.
+              When a server card shows a pulsing <strong>LIVE</strong> pill, you
+              can watch that match as it happens the same way.
             </>
           )}
         </p>
       </div>
 
       <div className="about-section">
-        <DocsH2 id="get-help">Get help, get involved</DocsH2>
+        <DocsH2 id="get-help">Get help</DocsH2>
         <p>
-          Questions and help:{" "}
-          <a href={DISCORD_INVITE_URL}>the Trinity Discord</a>.
+          Ask questions in <a href={DISCORD_INVITE_URL}>the Trinity Discord</a>.
         </p>
       </div>
     </>

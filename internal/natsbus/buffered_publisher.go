@@ -16,12 +16,12 @@ const (
 	BufferedRetryBackoff = 250 * time.Millisecond
 )
 
-// BufferedPublisher decouples the publish call site from NATS
-// availability. Publish never blocks: events go into an in-memory ring
-// and, past the high-water mark (or if spill already has entries), into
-// an on-disk JSONL queue. A background goroutine drains spill → ring
-// with retry. Only spill-file rotation counts as a drop; ring-to-spill
-// overflow is a transport decision, not a loss.
+// BufferedPublisher keeps Publish from blocking on NATS. Events go into
+// an in-memory ring, or into an on-disk JSONL spill queue past the
+// high-water mark and while the spill holds entries. A background
+// goroutine publishes the spill first, then the ring, with retries.
+// Events are lost only when the ring overflows with no spill, or when
+// a spill file rotates.
 type BufferedPublisher struct {
 	inner *Publisher
 	ch    chan domain.FactEvent

@@ -4,11 +4,8 @@ import { PlatformOnly } from "./PlatformOnly";
 import { PlatformNote } from "./PlatformNote";
 import { MODE_PROFILES } from "../ServerCard";
 
-// /docs/customize — cvar-by-cvar tunables organized by intent,
-// descriptions verified against trinity-engine (every platform) and
-// trinity (mod) sources. Descriptions are factual only — no editorial
-// recommendations or "tune if it feels X" advice; cvars do what they
-// do, the user decides.
+// Each entry states what a setting does, its default and range; the reader
+// decides how to tune it.
 export function DocsCustomize() {
   return (
     <>
@@ -21,23 +18,22 @@ export function DocsCustomize() {
         <ul>
           <li>
             <strong>
-              <code>q3config.cfg</code>
+              <code>q3config.cfg</code>:
             </strong>{" "}
-            — auto-saved on shutdown and overwritten by anything you change in
-            the in-game menus.
+            saved on shutdown, with everything you change in the in-game menus.
           </li>
           <li>
             <strong>
-              <code>autoexec.cfg</code>
+              <code>autoexec.cfg</code>:
             </strong>{" "}
-            — read after <code>q3config.cfg</code> on every launch and never
-            overwritten. This is where to put settings you want to persist:
-            Trinity feature toggles, network tuning, bindings.
+            read after <code>q3config.cfg</code> on every launch and never
+            overwritten. Put settings here that have no menu row, or that you
+            want to keep no matter what changes in the menus.
           </li>
         </ul>
         <PlatformNote platform="vr">
           <p>
-            On a PC, VR uses the same install and files as flat play. On Quest
+            On a PC, VR uses the same install and files as flatscreen. On Quest
             and PICO, both files live at <code>/sdcard/Trinity/baseq3/</code> on
             the headset's internal storage. On a Steam Frame, they live in{" "}
             <code>~/.trinity/baseq3/</code>.
@@ -54,9 +50,10 @@ export function DocsCustomize() {
             Controller buttons are bound like keys, in{" "}
             <strong>Setup → VR Options → Bindings</strong>. Each action has a{" "}
             <strong>Button</strong> and an <strong>Alt + Button</strong> column,
-            the rows show your controller's own button glyphs, and bindings
-            follow your hands — switching handedness or the thumbsticks moves
-            the glyphs, not the actions. At the console the same bindings are{" "}
+            the rows show your controller&rsquo;s own button glyphs, and
+            bindings follow your hands: switching handedness or the thumbsticks
+            moves the glyphs and keeps the actions where they are. At the
+            console the same bindings are{" "}
             <code>
               vrbind &lt;context&gt;[+alt] &lt;key&gt; &lt;command&gt;
             </code>
@@ -68,81 +65,82 @@ export function DocsCustomize() {
             <code>vrbind</code> context is <code>keyboard</code>.
           </p>
           <p>
-            The cvars below are VR-specific. Most have a menu row under{" "}
-            <strong>Setup → VR Options</strong> — <strong>Controls</strong> for
+            Most VR settings have a row under{" "}
+            <strong>Setup → VR Options</strong>: <strong>Controls</strong> for
             aiming, input, and turning, <strong>Comfort</strong> for vignette,
-            height, and haptics, <strong>HUD &amp; Display</strong> for HUD
-            placement, display, and rendering. The thumbstick response endpoints
-            are autoexec-only.
+            height, and haptics, and <strong>HUD &amp; Display</strong> for HUD
+            placement, display, and rendering. Their cvars, for{" "}
+            <code>autoexec.cfg</code>:
           </p>
           <ul className="docs-cvars">
             <li>
-              <code>vr_snapturn 0</code> — snap turn angle in degrees.
+              <code>vr_snapturn</code>: <strong>Turning Mode</strong>.{" "}
+              <code>0</code> (the default) turns smoothly, <code>1</code> snaps
+              by 45 degrees per stick flick, and any higher value snaps by that
+              many degrees. The menu offers 45 and 90.
+            </li>
+            <li>
+              <code>vr_directionMode</code>: <strong>Direction Mode</strong>,
+              what forward means when you move. <code>0</code> follows your
+              head; <code>1</code> (the default) follows your off-hand
+              controller.
+            </li>
+            <li>
+              <code>vr_twoHandedWeapons</code>:{" "}
+              <strong>Two-Handed Weapons</strong>. Hold the secondary grip to
+              stabilize the weapon.
               <ul>
                 <li>
-                  <code>0</code> smooth turn
+                  <code>0</code> off: one-handed aiming
                 </li>
                 <li>
-                  <code>N</code> (any nonzero value, e.g. <code>45</code>) snap
-                  by N degrees per stick flick
+                  <code>1</code> Basic (the default): the weapon aims along the
+                  line from your primary controller toward your secondary
+                  controller
+                </li>
+                <li>
+                  <code>2</code> VR Gun Stock: the weapon anchors near your
+                  face, like sighting along a stock
                 </li>
               </ul>
             </li>
             <li>
-              <code>vr_directionMode 0</code> / <code>1</code> — movement
-              direction reference. The two modes follow either head orientation
-              or off-hand controller orientation;{" "}
-              <strong>VR Options → Controls → Direction Mode</strong> labels
-              them explicitly.
+              <code>vr_thumbstickDeadzone</code> (default <code>0.15</code>) and{" "}
+              <code>vr_thumbstickFullDeflection</code> (default{" "}
+              <code>0.85</code>): how far you push the stick before it moves
+              you, and how far until it moves you at full speed. These have no
+              menu row.
             </li>
             <li>
-              <code>vr_twoHandedWeapons N</code> — two-handed weapon grip; hold
-              the secondary grip to stabilize the weapon. Default <code>1</code>
-              .
-              <ul>
-                <li>
-                  <code>0</code> off — one-handed aiming
-                </li>
-                <li>
-                  <code>1</code> basic — the weapon aims along the line from
-                  your primary controller toward your secondary controller
-                </li>
-                <li>
-                  <code>2</code> virtual gun stock — the weapon anchors near
-                  your face, like sighting along a stock
-                </li>
-              </ul>
-            </li>
-            <li>
-              <code>vr_thumbstickDeadzone 0.1</code> /{" "}
-              <code>vr_thumbstickFullDeflection 0.85</code> — thumbstick
-              response curve endpoints.
-            </li>
-            <li>
-              <code>vr_triggerSensitivity 0.25</code> — how light a trigger pull
+              <code>vr_triggerSensitivity</code>:{" "}
+              <strong>Trigger Sensitivity</strong>, how light a trigger pull
               fires the weapon. Higher is more sensitive, so a shorter pull
-              fires. Range <code>0.1</code>–<code>0.9</code>.
+              fires. Range <code>0.1</code> to <code>0.9</code>, default{" "}
+              <code>0.25</code>.
             </li>
             <li>
-              <code>vr_hudScale 1</code> — HUD size multiplier in VR. Default{" "}
-              <code>1</code>.
+              <code>vr_hudScale</code>: <strong>HUD Scale</strong>, a size
+              multiplier for the HUD. The menu goes from <code>0.5</code> to{" "}
+              <code>2</code>; the default is <code>1</code>.
             </li>
             <li>
-              <code>vr_hudDepth 3</code> — how far out the HUD renders in the
-              field of view (<code>0</code>–<code>5</code>).
+              <code>vr_hudDepth</code>: <strong>HUD Depth</strong>, how far away
+              the HUD sits, from <code>0</code> to <code>5</code>. Default{" "}
+              <code>3</code>.
             </li>
             <li>
-              <code>vr_refreshrate 90</code> — headset display refresh rate, in
-              Hz. The <strong>Refresh Rate</strong> row lists only the rates
-              your headset's runtime reports, lowest first; a value it can't do
-              snaps to the nearest one it can. Applies live.
+              <code>vr_refreshrate</code>: <strong>Refresh Rate</strong>, in Hz.
+              The row lists only the rates your headset&rsquo;s runtime reports,
+              lowest first, and a value it can&rsquo;t do snaps to the nearest
+              one it can. Applies live. Default <code>90</code>.
             </li>
             <li>
-              <code>vr_foveation 2</code> / <code>vr_foveationStrength 2</code>{" "}
-              — foveated rendering mode and strength, the same settings as the{" "}
-              <strong>Foveated Rendering</strong> and{" "}
-              <strong>Foveation Strength</strong> rows. See{" "}
-              <Link to="/docs/play#vr">Play › VR-specific features</Link>.
+              <code>vr_foveation</code> and <code>vr_foveationStrength</code>:{" "}
+              <strong>Foveated Rendering</strong> (<code>0</code> Off,{" "}
+              <code>1</code> Fixed, <code>2</code> Eye-Tracked, the default) and{" "}
+              <strong>Foveation Strength</strong> (<code>1</code> Low,{" "}
+              <code>2</code> Medium, the default, <code>3</code> High). See{" "}
+              <Link to="/docs/play#vr">VR-specific features</Link>.
             </li>
           </ul>
           <p>
@@ -156,17 +154,17 @@ export function DocsCustomize() {
         <DocsH2 id="trinity-features">Trinity feature toggles</DocsH2>
         <ul className="docs-cvars">
           <li>
-            <code>cg_damagePlums 0</code> — hides the floating damage numbers
-            above each hit. Default <code>1</code>.
+            <code>cg_damagePlums</code>: <strong>Damage Numbers</strong> in Game
+            Options, the floating damage numbers above each hit. <code>0</code>{" "}
+            hides them; default <code>1</code>.
           </li>
           <li>
-            <code>cg_damagePlumScale 1.5</code> — size multiplier for the damage
-            numbers, for screens where they read small. Default <code>1.0</code>
-            .
+            <code>cg_damagePlumScale</code>: a size multiplier for the damage
+            numbers. Default <code>1.0</code>; no menu row.
           </li>
           <li>
-            <code>cg_hitSounds 0</code> — <strong>Hit Sounds</strong> in Game
-            Options.
+            <code>cg_hitSounds</code>: <strong>Hit Sounds</strong> in Game
+            Options. Default <code>0</code>.
             <ul>
               <li>
                 <code>0</code> Classic: the game's own, baseq3's single beep or
@@ -181,51 +179,57 @@ export function DocsCustomize() {
             </ul>
           </li>
           <li>
-            <code>cg_damageEffect 0</code> — the classic blood blob when taking
-            damage, instead of the directional red vignette. Default{" "}
-            <code>1</code>.
+            <code>cg_damageEffect</code>: <strong>Damage Effect</strong> in Game
+            Options. <code>1</code> (the default) is the directional red
+            vignette; <code>0</code> is the classic blood blob.
           </li>
           <li>
-            <code>com_blood 2</code> — modern blood that reacts to how hard you
-            hit, with spray, lingering trails, and marks on nearby surfaces.{" "}
-            <code>1</code> is classic sprite blood, <code>0</code> off. Default{" "}
-            <code>2</code>.
+            <code>com_blood</code>: <strong>Blood</strong> in Game Options.{" "}
+            <code>2</code> (the default) is modern blood that reacts to how hard
+            you hit, with spray, lingering trails, and marks on nearby surfaces;{" "}
+            <code>1</code> is classic sprite blood; <code>0</code> is off.
           </li>
           <li>
-            <code>cg_bloodDensity 2</code> — how much modern blood is drawn:{" "}
-            <code>0</code> Light, <code>1</code> Medium, <code>2</code> Heavy.
-            Default <code>2</code> on a PC and <code>0</code> on Steam Frame,
-            Quest and PICO. Also under{" "}
-            <strong>Setup → Game Options → Blood Density</strong>, greyed out
-            unless Blood is Modern.
+            <code>cg_bloodDensity</code>: <strong>Blood Density</strong> in Game
+            Options, how much modern blood is drawn: <code>0</code> Light,{" "}
+            <code>1</code> Medium, <code>2</code> Heavy. It&rsquo;s grayed out
+            unless Blood is Modern.{" "}
+            <PlatformOnly platform="flatscreen">
+              Default <code>2</code>.
+            </PlatformOnly>
+            <PlatformOnly platform="vr">
+              Default <code>2</code> on a PC and <code>0</code> on Steam Frame,
+              Quest, and PICO.
+            </PlatformOnly>
           </li>
           <li>
-            <code>cg_drawTimer 0</code> — hides the match timer in the HUD.
-            Default <code>1</code>. Also under{" "}
-            <strong>Setup → Game Options → Show Time</strong>.
+            <code>cg_drawTimer</code>: <strong>Show Time</strong> in Game
+            Options, the match timer in the HUD. <code>0</code> hides it;
+            default <code>1</code>.
           </li>
           <li>
-            <code>cl_tvDownload 1</code> — TV demo download offer behavior at
-            end of match. The prompt appears at the start of the next match.
-            Default <code>1</code>.
+            <code>cl_tvDownload</code>: <strong>TVD Download</strong> in Game
+            Options, the offer to download the match&rsquo;s TV demo. The prompt
+            appears at the start of the next match. Default <code>1</code>.
             <ul>
               <li>
-                <code>0</code> off (no prompt)
+                <code>0</code> Off: no prompt
               </li>
               <li>
-                <code>1</code> prompt; defaults to decline if no response
+                <code>1</code> Decline: prompt, declining if you don&rsquo;t
+                answer
               </li>
               <li>
-                <code>2</code> prompt; defaults to accept if no response
+                <code>2</code> Accept: prompt, accepting if you don&rsquo;t
+                answer
               </li>
             </ul>
           </li>
           <li>
-            <code>cg_followMode</code> — which camera the follow view starts in,
-            when spectating live or watching a TV demo, flat or in VR. Toggling
-            it in-game writes back to the cvar, so this is the default you come
-            back to. Also under{" "}
-            <strong>Setup → Game Options → Follow Camera</strong>.
+            <code>cg_followMode</code>: <strong>Follow Camera</strong> in Game
+            Options, the camera the follow view starts in when you spectate live
+            or watch a TV demo, flatscreen or VR. Switching cameras in-game
+            saves the choice here. Default <code>0</code>.
             <ul>
               <li>
                 <code>0</code> first-person follow
@@ -249,7 +253,7 @@ export function DocsCustomize() {
             Trinity ships three renderers and picks one at launch with{" "}
             <code>cl_renderer</code>: <code>vulkan</code> (the default),{" "}
             <code>opengl2</code>, and <code>opengl</code> (the GL 1.1-compatible
-            legacy path, for very old hardware). It's latched — set it in{" "}
+            legacy path, for very old hardware). It has no menu row: set it in{" "}
             <code>autoexec.cfg</code>, or run <code>vid_restart</code> after
             changing it. HDR output below is Vulkan-only.
           </p>
@@ -266,9 +270,9 @@ export function DocsCustomize() {
           <h3>Direct rendering</h3>
           <p>
             <code>r_fbo 0</code> renders straight into the headset with no
-            post-processing pass. It's faster, and it costs you bloom (and, on a
-            PC, the HDR mirror, screenshots, and overbright). Anti-aliasing is
-            independent of it — the <strong>MSAA</strong> row under{" "}
+            post-processing pass. It&rsquo;s faster, and it costs you bloom
+            (and, on a PC, the HDR mirror, screenshots, and overbright). The
+            default is <code>1</code>. The <strong>MSAA</strong> row under{" "}
             <strong>Setup → System → Graphics</strong> applies either way.
           </p>
         </PlatformOnly>
@@ -304,9 +308,9 @@ export function DocsCustomize() {
         <PlatformOnly platform={["flatscreen", "vr"]}>
           <h3>HDR</h3>
           <p>
-            On an HDR display, Trinity can output true HDR instead of standard
-            dynamic range. It needs the Vulkan renderer and HDR turned on in
-            your OS display settings, and it ships off by default.
+            On an HDR display, Trinity can output HDR. It needs the Vulkan
+            renderer and HDR turned on in your OS display settings, and it is
+            off by default.
           </p>
         </PlatformOnly>
         <PlatformOnly platform="flatscreen">
@@ -314,13 +318,12 @@ export function DocsCustomize() {
             Turn it on under <strong>Setup → Display → HDR Display</strong>,
             then run <code>vid_restart</code>. Calibrate under{" "}
             <strong>Setup → Display → HDR Calibration</strong>: raise{" "}
-            <strong>Peak</strong> until the inner rectangle's edge just vanishes
-            into the outer one — that is the brightness your display actually
-            reaches. On a Mac there's no calibration screen, because macOS
-            supplies the peak itself.{" "}
-            <strong>Setup → Display → Highlight Boost</strong> sets how bright
-            the brightest highlights get. <code>r_hdrActive</code> reads{" "}
-            <code>1</code> once HDR is genuinely live.
+            <strong>Peak</strong> until the inner rectangle&rsquo;s edge just
+            disappears into the outer one; that&rsquo;s your display&rsquo;s
+            real peak brightness. A Mac has no calibration screen and needs
+            none. <strong>Setup → Display → Highlight Boost</strong> sets how
+            bright the brightest highlights get. <code>r_hdrActive</code> reads{" "}
+            <code>1</code> while HDR output is on.
           </p>
           <p>
             <strong>SDR Gamma</strong>, right under HDR Display, sets how the
@@ -334,8 +337,8 @@ export function DocsCustomize() {
             <code>r_hdrPeak</code> (your calibrated peak in nits) in{" "}
             <code>autoexec.cfg</code>. Paper-white is automatic by default;{" "}
             <code>r_hdrSaturation</code>, <code>r_hdrSaturationFull</code>, and{" "}
-            <code>r_hdrSoftKnee</code> are advanced knobs covered in the{" "}
-            <Link to="/docs/reference">reference</Link>.
+            <code>r_hdrSoftKnee</code> are advanced settings covered in{" "}
+            <Link to="/docs/reference">Reference</Link>.
           </p>
         </PlatformOnly>
         <PlatformOnly platform="vr">
@@ -350,11 +353,13 @@ export function DocsCustomize() {
             <code>vid_restart</code>.
           </p>
           <p>
-            A peak calibrated in flatscreen applies unchanged. The screen is
-            here too — <strong>Setup → Display → HDR Calibration</strong>, raise{" "}
-            <strong>Peak</strong> until the inner rectangle's edge just vanishes
-            into the outer one. The mirror isn't HDR as the headset renders it,
-            so slide the headset up and read the pattern off the monitor.
+            A peak calibrated in flatscreen applies unchanged. The calibration
+            screen is here too: in{" "}
+            <strong>Setup → Display → HDR Calibration</strong>, raise{" "}
+            <strong>Peak</strong> until the inner rectangle&rsquo;s edge just
+            disappears into the outer one. The mirror isn't HDR as the headset
+            renders it, so slide the headset up and read the pattern off the
+            monitor.
           </p>
           <p>
             Prefer the config file? Set <code>r_hdrDisplay 1</code> and{" "}
@@ -367,69 +372,69 @@ export function DocsCustomize() {
       <div className="about-section">
         <DocsH2 id="voice-chat">Voice chat</DocsH2>
         <p>
-          <code>cl_*</code> values are engine-side (recording, output volume,
-          channel mutes); <code>cg_drawVoipSpeakers</code> is cgame-side (the
-          on-HUD active-speaker list). See{" "}
-          <Link to="/docs/install#troubleshooting">
-            the Install page's troubleshooting section
-          </Link>{" "}
-          for what to do when voice isn't working.
+          The voice chat rows are in <strong>Setup → System → Sound</strong>.
+          When voice isn&rsquo;t working, see{" "}
+          <Link to="/docs/install#troubleshooting">Troubleshooting</Link> on the
+          Install page.
         </p>
         <ul className="docs-cvars">
           <li>
-            <code>cl_voip 1</code> — voice chat enabled client-side (default).
+            <code>cl_voip</code>: <strong>VOIP</strong>, voice chat on (
+            <code>1</code>, the default) or off.
           </li>
           <li>
-            <code>cl_voipVolume 1.0</code> — incoming voice playback volume,
-            independent from <code>s_volume</code> and{" "}
-            <code>s_musicvolume</code>.
+            <code>cl_voipVolume</code>: <strong>VOIP Volume</strong>, how loud
+            incoming voice plays, separate from the main and music volumes.{" "}
+            <code>0</code> to <code>2</code>, default <code>1</code>.
           </li>
           <li>
-            <code>cl_voipUseVAD 0</code> — voice transmission mode. Default{" "}
-            <code>0</code>.
+            <code>cl_voipUseVAD</code>: <strong>Activation</strong>.
             <ul>
               <li>
-                <code>0</code> push-to-talk: hold{" "}
-                <strong>VoIP PTT / Toggle</strong>
+                <code>0</code> Push to talk (the default): hold{" "}
+                <strong>VoIP PTT / Toggle</strong> to talk
               </li>
               <li>
-                <code>1</code> voice-activity detection: transmits when the mic
-                picks up sound above the threshold
+                <code>1</code> When speaking: transmits when the mic picks up
+                sound above the Threshold
               </li>
             </ul>
           </li>
           <li>
-            <code>cl_voipVADThreshold 0.1</code> — VAD activation threshold;
-            only meaningful when <code>cl_voipUseVAD 1</code>.
+            <code>cl_voipVADThreshold</code>: <strong>Threshold</strong>, the
+            mic level that counts as speaking with When speaking activation.{" "}
+            <code>0</code> to <code>1</code>, default <code>0.1</code>.
           </li>
           <li>
-            <code>cl_voipGainDuringCapture 1</code> — game volume while you
-            transmit, from <code>0.2</code> to <code>1</code> (the default);
-            lower it if your mic sends game audio. In the menus: Sound →
-            Transmit Game Volume.
+            <code>cl_voipGainDuringCapture</code>:{" "}
+            <strong>Transmit Game Volume</strong>, the game&rsquo;s volume while
+            you transmit, from <code>0.2</code> to <code>1</code> (the default).
+            Lower values keep more game audio out of your mic.
           </li>
           <li>
-            <code>cg_drawVoipSpeakers 1</code> — list of currently- speaking
-            players in the upper-right of the HUD, with channel-colored speaker
-            icons.
+            <code>cg_drawVoipSpeakers</code>: the list of players speaking right
+            now in the upper right of the HUD, with channel-colored speaker
+            icons. Default <code>1</code>; no menu row.
           </li>
           <li>
-            <code>cl_voipMuteAll</code> / <code>cl_voipMuteSpatial</code> /{" "}
-            <code>cl_voipMuteDirect</code> / <code>cl_voipMuteTeam</code> —
-            self-mute incoming voice on a per-channel basis.
+            <code>cl_voipMuteAll</code>, <code>cl_voipMuteSpatial</code>,{" "}
+            <code>cl_voipMuteDirect</code>, and <code>cl_voipMuteTeam</code>:
+            mute incoming voice per channel. No menu row.
           </li>
         </ul>
-        <p>Voice commands worth binding:</p>
+        <p>
+          The two voice bindings are in <strong>Setup → Controls</strong>:
+        </p>
         <ul className="docs-cvars">
           <li>
-            <code>+voiprecord</code>, the <strong>VoIP PTT / Toggle</strong>{" "}
-            row: hold to talk in push-to-talk, tap to mute or unmute with voice
-            activity.
+            <code>+voiprecord</code>: <strong>VoIP PTT / Toggle</strong>. Hold
+            to talk with Push to talk; tap to mute or unmute with When speaking.
           </li>
           <li>
-            <code>voiptarget [spatial|team|all]</code> — sets{" "}
-            <code>cl_voipSendTarget</code> directly, or cycles through the three
-            with no argument.
+            <code>voiptarget [spatial|team|all]</code>:{" "}
+            <strong>Voice Target</strong>. With no argument it cycles through
+            the three channels; with one it sets <code>cl_voipSendTarget</code>{" "}
+            directly.
           </li>
         </ul>
       </div>
@@ -437,17 +442,18 @@ export function DocsCustomize() {
       <div className="about-section">
         <DocsH2 id="modes-note">Game modes</DocsH2>
         <p>
-          Trinity bundles four game modes — Vanilla Q3, CPMA, Quake Live, and
-          Quake Live Turbo. Each sets movement physics and combat rules,
-          selected with the latched <code>g_mode</code> cvar (0–3, applied on{" "}
-          <code>map_restart</code>). There's no in-game menu for it; set it from
-          the console for your local single-player games.
+          Trinity has four game modes, each setting movement physics and combat
+          rules: Quake III Arena (<code>g_mode 0</code>), CPMA (<code>1</code>),
+          Quake Live (<code>2</code>), and Quake Live Turbo (<code>3</code>).
+          For your own games, pick one with the <strong>Mode</strong> selector
+          in the create-server and single-player menus, or set{" "}
+          <code>g_mode</code> at the console and run <code>map_restart</code>.
         </p>
         <p>
           In multiplayer the server picks the mode. The server browser shows
-          each server's mode as an icon to the left of its name; in-match, pull
-          up the scoreboard to see it as a small icon in the top-right of the
-          HUD.
+          each server&rsquo;s mode as an icon to the left of its name; in a
+          match, pull up the scoreboard to see it as a small icon in the top
+          right of the HUD.
         </p>
         <div className="docs-modes">
           {Object.values(MODE_PROFILES).map((m) => (
@@ -470,28 +476,28 @@ export function DocsCustomize() {
         </p>
         <ul className="docs-cvars">
           <li>
-            <code>cg_enemyModel "keel/pm"</code> — force every enemy to render
-            as this model + skin pair. Empty disables.
+            <code>cg_enemyModel "keel/pm"</code>: every enemy renders as this
+            model and skin. Empty (the default) turns it off.
           </li>
           <li>
-            <code>cg_enemyColors "333"</code> — up to five characters: head,
-            body, legs, <code>color1</code> (rail core / weapon glow),{" "}
-            <code>color2</code> (rail spiral). A 3-char string sets only the
-            model tints; positions 4 and 5 inherit the enemy's own rail colors
-            if omitted. <a href="#color-codes">Color codes</a> below has the
-            digit-to-color table.
+            <code>cg_enemyColors "333"</code>: a color string of up to five
+            digits for head, body, legs, <code>color1</code> (rail core and
+            weapon glow), and <code>color2</code> (rail spiral). Three digits
+            set only the model tints, and the enemy keeps their own rail colors.{" "}
+            <a href="#color-codes">Color codes</a> below has the digit-to-color
+            table.
           </li>
           <li>
-            <code>cg_teamModel "doom/pm"</code> — same as{" "}
-            <code>cg_enemyModel</code> but for teammates.
+            <code>cg_teamModel "doom/pm"</code>: the same as{" "}
+            <code>cg_enemyModel</code>, for teammates.
           </li>
           <li>
-            <code>cg_teamColors "222"</code> — color triplet for teammate
-            models.
+            <code>cg_teamColors "222"</code>: the same color string, for
+            teammates.
           </li>
           <li>
-            <code>cg_deadBodyDarken 1</code> — grey out dead bodies (requires
-            pm/fb skins). Default <code>1</code>.
+            <code>cg_deadBodyDarken 1</code>: gray out dead bodies (requires pm
+            or fb skins). Default <code>1</code>.
           </li>
         </ul>
       </div>
@@ -499,12 +505,11 @@ export function DocsCustomize() {
       <div className="about-section">
         <DocsH2 id="color-codes">Color codes</DocsH2>
         <p>
-          Three things in Quake 3 use single-digit color codes, and they work
-          independently — the color slider in the player-settings menu, the{" "}
-          <code>color1</code> / <code>color2</code> cvars (and the force-model
-          overrides built on them), and the <code>^N</code> chat / player-name
-          escapes. The codes look the same on the surface but disagree about
-          which digit means which color.
+          Three things in Quake III use single-digit color codes, and each has
+          its own: the color slider in the player-settings menu, the{" "}
+          <code>color1</code> / <code>color2</code> cvars (and the forced-model
+          colors built on them), and the <code>^N</code> escapes in chat and
+          player names. They disagree about which digit means which color.
         </p>
 
         <h3>The player-settings color slider</h3>
@@ -581,13 +586,13 @@ export function DocsCustomize() {
         </p>
         <p>
           By default, Trinity servers give everyone on red or blue in a team
-          game their team's <code>color1</code> — <code>4</code> on red,{" "}
-          <code>1</code> on blue — while <code>color2</code> stays each player's
-          own, and give each stock bot its own <code>color1</code> /{" "}
-          <code>color2</code> pair. Server operators can switch these off with{" "}
-          <code>g_forceTeamColors</code> and <code>g_botColors</code>. Either
-          way, the fourth and fifth digits of <code>cg_teamColors</code> recolor
-          your teammates on your screen.
+          game their team&rsquo;s <code>color1</code> (<code>4</code> on red,{" "}
+          <code>1</code> on blue), while <code>color2</code> stays each
+          player&rsquo;s own, and give each stock bot its own{" "}
+          <code>color1</code> / <code>color2</code> pair. Server operators can
+          switch these off with <code>g_forceTeamColors</code> and{" "}
+          <code>g_botColors</code>. Either way, the fourth and fifth digits of{" "}
+          <code>cg_teamColors</code> recolor your teammates on your screen.
         </p>
         <div className="docs-table-scroll">
           <table className="docs-color-table">
@@ -645,17 +650,17 @@ export function DocsCustomize() {
         </div>
         <p>
           A <code>?</code> placeholder anywhere in the string becomes the digit
-          for the player's team color at runtime — <code>'4'</code> on red,{" "}
-          <code>'1'</code> on blue, <code>'7'</code> in FFA — so one config
-          string stays team-aware across matches.
+          for the player&rsquo;s team color: <code>4</code> on red,{" "}
+          <code>1</code> on blue, <code>7</code> in FFA. One config string then
+          follows the teams from match to match.
         </p>
 
         <h3>
           Chat / name <code>^N</code> color escapes
         </h3>
         <p>
-          For text — chat, player names, frag feed, scoreboard, menus — escapes
-          like <code>^1text</code> use a different mapping entirely:
+          In text (chat, player names, the frag feed, the scoreboard, and
+          menus), escapes like <code>^1text</code> use a different mapping:
         </p>
         <div className="docs-table-scroll">
           <table className="docs-color-table">
@@ -720,13 +725,13 @@ export function DocsCustomize() {
         <p>
           Only <code>2</code> (green) and <code>7</code> (white) mean the same
           color in both this table and the cvar table above. Everything else
-          differs — most painfully, <code>1</code> and <code>4</code> swap. Chat{" "}
+          differs; most painfully, <code>1</code> and <code>4</code> swap. Chat{" "}
           <code>^1</code> is red, but <code>color1 1</code> is blue. Chat{" "}
           <code>^4</code> is blue, but <code>color1 4</code> is red.
         </p>
         <p>
           For names and chat that look the same to players on every engine, stay
-          within <code>^0</code>–<code>^7</code>.
+          within <code>^0</code> through <code>^7</code>.
         </p>
       </div>
 
@@ -738,30 +743,26 @@ export function DocsCustomize() {
         </p>
         <ul className="docs-cvars">
           <li>
-            <code>cl_packetdup 1</code> — <strong>Packet Recovery</strong>, the
-            one row in <strong>Setup → Network</strong>: <strong>Low</strong> /{" "}
-            <strong>Medium</strong> / <strong>High</strong> = <code>1</code> /{" "}
-            <code>2</code> / <code>3</code>, default Low on every platform. Each
-            packet also resends your inputs from the packets before it, so Low
-            rides out one lost packet in a row, Medium two and High three. Raise
-            it on Wi-Fi or other unreliable links; the cost is a little upload.
+            <code>cl_packetdup</code>: <strong>Packet Recovery</strong>, the one
+            row in <strong>Setup → Network</strong>. <strong>Low</strong> (
+            <code>1</code>, the default), <strong>Medium</strong> (
+            <code>2</code>), or <strong>High</strong> (<code>3</code>). Low
+            rides out one lost packet in a row, Medium two, and High three; each
+            step up costs a little more upload.
           </li>
           <li>
-            <code>rate 50000</code> — bandwidth budget for the connection, in
-            bytes per second. Console only; the default suits modern
-            connections.
+            <code>rate</code>: the connection&rsquo;s bandwidth budget, in bytes
+            per second. Default <code>50000</code>; no menu row.
           </li>
           <li>
-            <code>cl_maxpackets 125</code> — outgoing packet rate ceiling, in
-            packets per second. Console only; the default suits modern
-            connections.
+            <code>cl_maxpackets</code>: the most packets you send per second,
+            from <code>15</code> to <code>125</code> (the default). No menu row.
           </li>
           <li>
-            <code>cl_guidServerUniq 0</code> — keep your <code>qkey</code>
-            -derived identity stable across servers. <code>1</code> generates a
-            different identity per server. See{" "}
-            <Link to="/docs/account">the Account page</Link> for background on
-            identity.
+            <code>cl_guidServerUniq</code>: <code>0</code> (the default) keeps
+            the identity built from your <code>qkey</code> the same on every
+            server; <code>1</code> gives you a different identity per server.{" "}
+            <Link to="/docs/account">Account</Link> explains identity.
           </li>
         </ul>
       </div>

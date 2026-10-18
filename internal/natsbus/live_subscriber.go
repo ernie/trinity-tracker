@@ -23,9 +23,9 @@ type LiveEventEnricher interface {
 	EnrichEvent(ctx context.Context, event domain.Event) domain.Event
 }
 
-// LiveSubscriber pushes trinity.live.> envelopes (decoded + enriched)
-// onto the sink. Skips events matching selfSource so a co-located
-// collector's own events aren't duplicated.
+// LiveSubscriber decodes and enriches trinity.live.> envelopes and
+// pushes them onto the sink. It skips selfSource's events, which a
+// collector on the same box already delivers in process.
 type LiveSubscriber struct {
 	nc         *nats.Conn
 	sub        *nats.Subscription

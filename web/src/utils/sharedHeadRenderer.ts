@@ -81,7 +81,7 @@ class SharedHeadRenderer {
       await scene.load(entry.model, entry.skin);
     } catch {
       scene.dispose();
-      // A missing head bundle is expected, not an error — the poster stands in.
+      // A missing head bundle is expected; the poster stands in.
       if (entry.loadGen === gen) this.release(entry);
       return;
     }

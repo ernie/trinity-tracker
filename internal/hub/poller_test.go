@@ -17,9 +17,8 @@ func (f fakeSourceConns) ConnectedClientIPs(userPubKey string) []netip.Addr {
 	return f[userPubKey]
 }
 
-// seedOwnerID inserts an "owner" user into store and returns its id
-// as a *int64. Used to satisfy CreateSource's remote-source
-// requirement that owner_user_id reference a real users row.
+// seedOwnerID inserts an owner user and returns its ID, since a remote
+// source needs a real owner_user_id.
 func seedOwnerID(t *testing.T, store *storage.Store) *int64 {
 	t.Helper()
 	if err := store.CreateUser(context.Background(), "owner", "x", false, nil); err != nil {
@@ -54,7 +53,6 @@ func TestRemotePollerPollsRegisteredServers(t *testing.T) {
 	_, store := newTestWriter(t)
 	ctx := context.Background()
 
-	// Seed a provisioned remote source + its server roster.
 	reg := domain.Registration{
 		Source:  "remote",
 		Servers: []domain.RegdServer{{LocalID: 1, Key: "r1", Address: "r.example:27960"}},
@@ -65,8 +63,7 @@ func TestRemotePollerPollsRegisteredServers(t *testing.T) {
 	if err := store.UpsertRemoteServers(ctx, reg); err != nil {
 		t.Fatalf("upsert roster: %v", err)
 	}
-	// ListPollableServers requires handshake_required=1; mark the test
-	// server enforcing so the poller treats it as live.
+	// ListPollableServers lists only servers with handshake_required set.
 	for _, s := range reg.Servers {
 		id, _ := store.ResolveServerIDForSource(ctx, reg.Source, s.LocalID)
 		if err := store.SetServerHandshakeRequired(ctx, id, true); err != nil {
@@ -87,7 +84,6 @@ func TestRemotePollerPollsRegisteredServers(t *testing.T) {
 	poller.Start(pctx)
 	defer poller.Stop()
 
-	// Wait for at least one poll.
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
 		if len(poller.GetAllStatuses()) > 0 {
@@ -113,8 +109,6 @@ func TestRemotePollerPollsRegisteredServers(t *testing.T) {
 	}
 }
 
-// TestPollerStampsIsLive verifies the online path stamps ServerStatus.IsLive
-// from the shared LiveState holder, keyed by the server's (source, key).
 func TestPollerStampsIsLive(t *testing.T) {
 	_, store := newTestWriter(t)
 	ctx := context.Background()
@@ -171,9 +165,6 @@ func TestPollerStampsIsLive(t *testing.T) {
 	}
 }
 
-// TestPollerClearsLiveDelayWhenOffline pins that the offline branch resets
-// LiveDelaySeconds along with IsLive. Leaving a stale delay behind is an
-// inconsistent snapshot (a non-live server reporting a viewer delay).
 func TestPollerClearsLiveDelayWhenOffline(t *testing.T) {
 	_, store := newTestWriter(t)
 	ctx := context.Background()
@@ -210,7 +201,6 @@ func TestPollerClearsLiveDelayWhenOffline(t *testing.T) {
 	poller.Start(pctx)
 	defer poller.Stop()
 
-	// Online first: the delay must get stamped.
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
 		if st := poller.GetServerStatus(serverID); st != nil && st.Online && st.LiveDelaySeconds == 5 {
@@ -222,7 +212,6 @@ func TestPollerClearsLiveDelayWhenOffline(t *testing.T) {
 		t.Fatalf("precondition not met: live delay not stamped while online: %+v", st)
 	}
 
-	// Server goes unreachable.
 	q.mu.Lock()
 	q.responses = map[string]*domain.ServerStatus{}
 	q.mu.Unlock()
@@ -283,12 +272,6 @@ func TestRemotePollerUnreachableMarksOffline(t *testing.T) {
 	}
 }
 
-// TestRemotePollerSubstitutesConnIP verifies that for is_remote=1 rows
-// the poller targets the live NATS-connection IP, not the (possibly
-// stale) DNS resolution of r.Address. This is what keeps cards live
-// across a dynamic-DNS IP rotation: the kernel knows the current IP
-// the moment the collector reconnects, so we don't sit on the old IP
-// for the DNS TTL.
 func TestRemotePollerSubstitutesConnIP(t *testing.T) {
 	_, store := newTestWriter(t)
 	ctx := context.Background()
@@ -309,11 +292,8 @@ func TestRemotePollerSubstitutesConnIP(t *testing.T) {
 		}
 	}
 
-	// The fake answers only on the live IP; if the poller hit the
-	// hostname we'd get nil and Online would stay false.
-	// MintUserCreds isn't wired in this test, so seed user_pubkey
-	// directly. Real flow: AuthStore.MintUserCreds populates this on
-	// admin approval; ListPollableServers JOINs it onto the row.
+	// The fake answers only on the live IP. MintUserCreds isn't wired
+	// here, so user_pubkey is seeded directly.
 	const remotePub = "UABCDEFREMOTE1234567890PUBKEY"
 	if err := store.SetSourceUserPubKey(ctx, reg.Source, remotePub); err != nil {
 		t.Fatalf("SetSourceUserPubKey: %v", err)
@@ -343,8 +323,7 @@ func TestRemotePollerSubstitutesConnIP(t *testing.T) {
 	if len(statuses) != 1 || !statuses[0].Online {
 		t.Fatalf("expected one online status, got %+v", statuses)
 	}
-	// Display address must keep the friendly hostname, not the IP we
-	// poll. The UI shows hostnames; the IP swap is a transport detail.
+	// The displayed address keeps the hostname.
 	if statuses[0].Address != "pi.example:27960" {
 		t.Errorf("Address = %q, want %q (display should keep hostname)", statuses[0].Address, "pi.example:27960")
 	}
@@ -353,16 +332,11 @@ func TestRemotePollerSubstitutesConnIP(t *testing.T) {
 	q.mu.Unlock()
 	for _, c := range calls {
 		if c == "pi.example:27960" {
-			t.Errorf("poller hit hostname %q — expected only IP-form calls", c)
+			t.Errorf("poller hit hostname %q; expected only IP-form calls", c)
 		}
 	}
 }
 
-// TestRemotePollerOfflineWhenSourceUnconnected verifies that a remote
-// row whose collector is currently disconnected is marked offline
-// without ever calling QueryStatus — there's no IP we can trust to
-// poll, and DNS would just give us the stale answer we're trying to
-// avoid.
 func TestRemotePollerOfflineWhenSourceUnconnected(t *testing.T) {
 	_, store := newTestWriter(t)
 	ctx := context.Background()
@@ -406,12 +380,6 @@ func TestRemotePollerOfflineWhenSourceUnconnected(t *testing.T) {
 	}
 }
 
-// TestRemotePollerPicksFreshestConn pins the SourceConns ordering
-// contract: ips[0] is the most-recently-active connection, and the
-// poller must target it. During a reconnect overlap the older session
-// is still authenticated but on its way out — polling it would time
-// out (the peer may have rebooted or rotated its WAN IP) until the
-// keepalive collapses the dead conn.
 func TestRemotePollerPicksFreshestConn(t *testing.T) {
 	_, store := newTestWriter(t)
 	ctx := context.Background()
@@ -436,9 +404,7 @@ func TestRemotePollerPicksFreshestConn(t *testing.T) {
 		t.Fatalf("SetSourceUserPubKey: %v", err)
 	}
 
-	// The fake answers only on the freshest IP. Order is freshest-first
-	// per the SourceConns contract; the stale IP is here to prove the
-	// poller doesn't fall back to it.
+	// The fake answers only on the freshest IP.
 	freshIP := "198.51.100.50"
 	staleIP := "203.0.113.99"
 	conns := fakeSourceConns{remotePub: {
@@ -474,15 +440,11 @@ func TestRemotePollerPicksFreshestConn(t *testing.T) {
 	q.mu.Unlock()
 	for _, c := range calls {
 		if c == staleIP+":27960" {
-			t.Errorf("poller hit stale IP %q — must target freshest (ips[0])", c)
+			t.Errorf("poller hit stale IP %q; it must target the freshest (ips[0])", c)
 		}
 	}
 }
 
-// TestRemotePollerHidesNonTrinityEngine verifies that a server which
-// answers getstatus but does not advertise the trinity-engine fork is
-// kept out of live status (Online=false). Stock ioquake3 has no
-// `engine` infostring field, so its absence is enough to fail.
 func TestRemotePollerHidesNonTrinityEngine(t *testing.T) {
 	cases := []struct {
 		name   string

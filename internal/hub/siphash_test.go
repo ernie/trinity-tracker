@@ -4,12 +4,9 @@ import (
 	"testing"
 )
 
-// TestSipHashHexCrossValidation validates that the Go sipHashHex produces
-// the same output as the C BG_HashKeyed implementation in the QVM.
-// If these tests fail, the C and Go implementations have diverged.
+// The expected values come from BG_HashKeyed in the QVM; a change to
+// either implementation must change both.
 func TestSipHashHexCrossValidation(t *testing.T) {
-	// These expected values must match the C BG_HashKeyed implementation exactly.
-	// If either implementation changes, update both tests simultaneously.
 	tests := []struct {
 		key, message, expected string
 	}{
@@ -27,14 +24,12 @@ func TestSipHashHexCrossValidation(t *testing.T) {
 }
 
 func TestSipHashHexDifferentInputs(t *testing.T) {
-	// Different keys with same message must produce different hashes
 	h1 := sipHashHex("key1", "nonce")
 	h2 := sipHashHex("key2", "nonce")
 	if h1 == h2 {
 		t.Error("Different keys produced same hash")
 	}
 
-	// Same key with different messages must produce different hashes
 	h3 := sipHashHex("key", "nonce1")
 	h4 := sipHashHex("key", "nonce2")
 	if h3 == h4 {
@@ -43,14 +38,12 @@ func TestSipHashHexDifferentInputs(t *testing.T) {
 }
 
 func TestDeriveKey(t *testing.T) {
-	// Verify key derivation is deterministic
 	k0a, k1a := deriveKey("testtoken")
 	k0b, k1b := deriveKey("testtoken")
 	if k0a != k0b || k1a != k1b {
 		t.Error("deriveKey is not deterministic")
 	}
 
-	// Different tokens must produce different keys
 	k0c, k1c := deriveKey("othertoken")
 	if k0a == k0c && k1a == k1c {
 		t.Error("Different tokens produced same key")

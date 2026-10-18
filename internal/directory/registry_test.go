@@ -102,7 +102,7 @@ func TestDecideRestoreFreshSnapshot(t *testing.T) {
 func TestDecideRestoreStaleSnapshotClears(t *testing.T) {
 	now := time.Unix(1_700_000_000, 0).UTC()
 	rows := []storage.DirectoryRegistration{
-		// Newest row is 10 minutes old — beyond the 5-minute window.
+		// The newest row is 10 minutes old, past the 5-minute window.
 		makeRow("10.0.0.1:27960", now.Add(-10*time.Minute), now.Add(5*time.Minute)),
 		makeRow("10.0.0.2:27961", now.Add(-12*time.Minute), now.Add(3*time.Minute)),
 	}

@@ -5,8 +5,6 @@ import (
 	"testing"
 )
 
-// Default-on hub answers omit Discord — ToConfig must not emit a
-// discord block, and Validate must accept the absence.
 func TestToConfig_HubMode_NoDiscordWhenDisabled(t *testing.T) {
 	a := validHubOnlyAnswers()
 	if a.DiscordEnabled {
@@ -45,14 +43,12 @@ func TestToConfig_HubMode_EmitsDiscordWhenEnabled(t *testing.T) {
 	}
 }
 
-// Collector-only mode should never emit a discord block, even if the
-// fields are set somehow (e.g. a test fixture mistake).
 func TestToConfig_CollectorOnly_DropsDiscord(t *testing.T) {
 	a := &Answers{
 		Mode: ModeCollector, ServiceUser: "quake", ListenAddr: "127.0.0.1", HTTPPort: 8080,
 		Quake3Dir: "/usr/lib/quake3", HubHost: "trinity.run",
 		PublicURL: "https://q3.example.com", AdminEmail: "ops@example.com", SourceID: "mygame", CredsFile: "/tmp/mygame.creds",
-		DiscordEnabled:    true, // shouldn't matter
+		DiscordEnabled:    true,
 		DiscordWebhookURL: "https://discord.com/api/webhooks/12345/aBcDeF",
 		DiscordSchedule:   "Mon 00:00",
 		Servers: []ServerAnswers{
@@ -92,9 +88,6 @@ func TestAnswersValidate_DiscordRequiresWebhookAndSchedule(t *testing.T) {
 	}
 }
 
-// validateDiscordWebhookURL is the per-prompt validator used in the
-// wizard. Mirrors internal/config's regex so the operator gets the
-// same accept/reject judgment at prompt time as at config-load time.
 func TestValidateDiscordWebhookURL(t *testing.T) {
 	good := []string{
 		"https://discord.com/api/webhooks/123/abcDEF-_xyz",
@@ -106,10 +99,10 @@ func TestValidateDiscordWebhookURL(t *testing.T) {
 		}
 	}
 	bad := []string{
-		"http://discord.com/api/webhooks/1/x",      // wrong scheme
-		"https://discordapp.com/api/webhooks/1/x",  // wrong host
-		"https://discord.com/api/webhooks/abc/xyz", // non-numeric id
-		"https://discord.com/api/webhooks/1/",      // empty token
+		"http://discord.com/api/webhooks/1/x",
+		"https://discordapp.com/api/webhooks/1/x",
+		"https://discord.com/api/webhooks/abc/xyz",
+		"https://discord.com/api/webhooks/1/",
 		"",
 	}
 	for _, s := range bad {

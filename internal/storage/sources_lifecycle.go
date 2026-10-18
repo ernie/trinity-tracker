@@ -9,8 +9,7 @@ import (
 	"time"
 )
 
-// Lifecycle errors. Handlers map these to specific HTTP statuses
-// (typically 409 Conflict for taken/duplicate, 404 for not-pending).
+// Lifecycle errors, which handlers map to HTTP statuses.
 var (
 	ErrPendingRequestExists = errors.New("user already has a pending source request")
 	ErrSourceNameTaken      = errors.New("source name is taken")
@@ -18,9 +17,9 @@ var (
 	ErrSourceNotActive      = errors.New("source is not active")
 )
 
-// CreateSourceRequestArgs captures the user-facing fields of a new
-// source request. The collector's reachable URL is reported via
-// registration heartbeats — no need for the operator to type it in.
+// CreateSourceRequestArgs holds the fields a user fills in for a new
+// source request. The collector's URL arrives later, in its
+// registration heartbeats.
 type CreateSourceRequestArgs struct {
 	Source           string
 	OwnerUserID      int64
@@ -28,22 +27,21 @@ type CreateSourceRequestArgs struct {
 }
 
 // CreateSourceRequest inserts a 'pending' source row owned by
-// OwnerUserID. The owner may hold multiple actives concurrently
-// (one-source-per-host deployment pattern), but only one *pending*
-// request at a time — keeps the admin queue tidy and prevents a
-// runaway loop from queueing dozens.
+// OwnerUserID. An owner may hold several active sources (one per
+// host) but only one pending request, which keeps the admin queue
+// short and stops a runaway client from queueing dozens.
 //
-// Three branching cases:
+// Three cases:
 //
-//  1. Caller already has a 'pending' row → ErrPendingRequestExists.
+//  1. The caller already has a 'pending' row: ErrPendingRequestExists.
 //
-//  2. Caller owns a 'left' row with the requested name → reuse it,
-//     auto-approve to 'active' (they were already trusted), refresh
-//     the purpose. The handler then re-mints creds.
+//  2. The caller owns a 'left' row with the requested name: reuse it,
+//     approve it straight to 'active' (they were already trusted) and
+//     refresh the purpose. The handler then mints new creds.
 //
-//  3. Fresh request: name must not be taken by anyone else (any
-//     status except 'left'+different owner — left rows still hold
-//     ownership of the name). Insert a new row.
+//  3. A new request: the name must not be taken by anyone else,
+//     including a 'left' row, whose owner keeps the name. Insert a
+//     new row.
 func (s *Store) CreateSourceRequest(ctx context.Context, a CreateSourceRequestArgs) error {
 	if err := ValidateSource(a.Source); err != nil {
 		return fmt.Errorf("storage.CreateSourceRequest: %w", err)
@@ -57,9 +55,7 @@ func (s *Store) CreateSourceRequest(ctx context.Context, a CreateSourceRequestAr
 	}
 	defer tx.Rollback()
 
-	// 1. Block second pending while one is already in flight. Multiple
-	// 'active' rows are fine — one source per host is the intended
-	// deployment pattern.
+	// 1. One pending request at a time.
 	var existingStatus string
 	err = tx.QueryRowContext(ctx, `
 		SELECT status FROM sources
@@ -72,7 +68,7 @@ func (s *Store) CreateSourceRequest(ctx context.Context, a CreateSourceRequestAr
 		return fmt.Errorf("storage.CreateSourceRequest: lookup own: %w", err)
 	}
 
-	// 2. Rejoin path: same caller, same name, status='left' → reuse.
+	// 2. Rejoin: same caller, same name, status='left'.
 	var leftSource string
 	err = tx.QueryRowContext(ctx, `
 		SELECT source FROM sources
@@ -93,7 +89,7 @@ func (s *Store) CreateSourceRequest(ctx context.Context, a CreateSourceRequestAr
 		return fmt.Errorf("storage.CreateSourceRequest: lookup rejoin: %w", err)
 	}
 
-	// 3. Fresh request: name must be free (left rows still claim it).
+	// 3. New request: the name must be free.
 	var taken int
 	if err := tx.QueryRowContext(ctx, `
 		SELECT COUNT(*) FROM sources
@@ -104,8 +100,7 @@ func (s *Store) CreateSourceRequest(ctx context.Context, a CreateSourceRequestAr
 	if taken > 0 {
 		return ErrSourceNameTaken
 	}
-	// A 'left' row owned by a *different* user blocks the name too:
-	// the original owner can come back even after walking away.
+	// Another user's 'left' row holds the name so its owner can rejoin.
 	var leftByOther int
 	if err := tx.QueryRowContext(ctx, `
 		SELECT COUNT(*) FROM sources
@@ -128,9 +123,7 @@ func (s *Store) CreateSourceRequest(ctx context.Context, a CreateSourceRequestAr
 	return tx.Commit()
 }
 
-// scanFullSource decodes a row carrying every column of the modern
-// sources table into a Source struct. Used by ListSourcesByOwner and
-// GetSourceByName.
+// scanFullSource decodes a row of sourceSelectColumns into a Source.
 func scanFullSource(row scannable) (*Source, error) {
 	var s Source
 	var (
@@ -160,8 +153,7 @@ func scanFullSource(row scannable) (*Source, error) {
 	return &s, nil
 }
 
-// scannable abstracts *sql.Row vs *sql.Rows so the same scanner is
-// reused for single-row and multi-row queries.
+// scannable is satisfied by both *sql.Row and *sql.Rows.
 type scannable interface {
 	Scan(dest ...any) error
 }
@@ -172,10 +164,9 @@ const sourceSelectColumns = `
 	status_changed_at, created_at
 `
 
-// ListSourcesByOwner returns every source owned by ownerUserID,
-// ordered with active rows first, then pending, then the rest by
-// recency. Used by GET /api/sources/mine to drive the My Servers
-// drawer (which renders one card per source).
+// ListSourcesByOwner returns every source owned by ownerUserID: active
+// rows first, then pending, then the rest newest first. The My servers
+// drawer shows one card per row.
 func (s *Store) ListSourcesByOwner(ctx context.Context, ownerUserID int64) ([]Source, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT `+sourceSelectColumns+`
@@ -205,9 +196,7 @@ func (s *Store) ListSourcesByOwner(ctx context.Context, ownerUserID int64) ([]So
 	return out, rows.Err()
 }
 
-// GetSourceByName returns the source row for a given name. Used by
-// admin handlers (approve/reject) and by handlers that already know
-// the source token (rotate/leave) to look up status + ownership.
+// GetSourceByName returns the source row for a given name.
 func (s *Store) GetSourceByName(ctx context.Context, source string) (*Source, error) {
 	row := s.db.QueryRowContext(ctx, `
 		SELECT `+sourceSelectColumns+`
@@ -223,9 +212,8 @@ func (s *Store) GetSourceByName(ctx context.Context, source string) (*Source, er
 	return src, nil
 }
 
-// ApproveSource flips a 'pending' row to 'active' (active=1). Returns
-// ErrSourceNotPending if the row doesn't exist or isn't pending — the
-// admin endpoint maps that to 404/409.
+// ApproveSource moves a 'pending' row to 'active' (active=1). It
+// returns ErrSourceNotPending if the row is missing or not pending.
 func (s *Store) ApproveSource(ctx context.Context, source string) error {
 	res, err := s.db.ExecContext(ctx, `
 		UPDATE sources
@@ -241,8 +229,8 @@ func (s *Store) ApproveSource(ctx context.Context, source string) error {
 	return nil
 }
 
-// RejectSource sets status='rejected' and stores a non-empty reason.
-// Empty reason is a programming error (the API handler validates).
+// RejectSource sets status='rejected' and stores the reason, which the
+// API handler has already checked is non-empty.
 func (s *Store) RejectSource(ctx context.Context, source, reason string) error {
 	if strings.TrimSpace(reason) == "" {
 		return errors.New("storage.RejectSource: reason is required")
@@ -262,9 +250,8 @@ func (s *Store) RejectSource(ctx context.Context, source, reason string) error {
 	return nil
 }
 
-// LeaveSource sets status='left' (active=0). Allowed from 'active'
-// only (idempotent on already-left). Cascades server rows inactive
-// to mirror DeactivateSource's behavior.
+// LeaveSource sets status='left' (active=0) on an active or already
+// left source and marks its servers inactive, as DeactivateSource does.
 func (s *Store) LeaveSource(ctx context.Context, source string) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -290,15 +277,12 @@ func (s *Store) LeaveSource(ctx context.Context, source string) error {
 	return tx.Commit()
 }
 
-// RenamePendingSource changes a pending source's name (admin
-// privilege). Allowed only while status='pending' so we don't have
-// to deal with a minted JWT scoped to the old name or a connected
-// collector. Returns ErrSourceNotPending if the row isn't pending,
-// ErrSourceNameTaken if newName collides with any non-'left' row.
-//
-// The new name must pass ValidateSource AND the user-facing 3-char
-// floor (the request modal enforces this on entry; admins renaming
-// should respect the same convention).
+// RenamePendingSource changes a pending source's name (an admin
+// action). Only pending sources can be renamed, since no JWT is scoped
+// to the old name and no collector is connected yet. It returns
+// ErrSourceNotPending if the row isn't pending and ErrSourceNameTaken
+// if newName collides with any non-'left' row. The new name must pass
+// ValidateSource and the 3-character minimum the request form uses.
 func (s *Store) RenamePendingSource(ctx context.Context, oldName, newName string) error {
 	if err := ValidateSource(newName); err != nil {
 		return fmt.Errorf("storage.RenamePendingSource: %w", err)
@@ -315,15 +299,12 @@ func (s *Store) RenamePendingSource(ctx context.Context, oldName, newName string
 	}
 	defer tx.Rollback()
 
-	// FK enforcement is on (PRAGMA foreign_keys=ON in sqlite.go);
-	// updating sources.source would transiently orphan source_audit
-	// rows pointing at the old name. Defer FK checks to COMMIT so the
-	// parent + children update in one consistent shot.
+	// Foreign keys are enforced, and renaming sources.source briefly
+	// orphans the source_audit rows, so the checks wait for COMMIT.
 	if _, err := tx.ExecContext(ctx, "PRAGMA defer_foreign_keys = ON"); err != nil {
 		return fmt.Errorf("storage.RenamePendingSource: defer fks: %w", err)
 	}
 
-	// Confirm the row is pending.
 	var status string
 	if err := tx.QueryRowContext(ctx,
 		"SELECT status FROM sources WHERE source = ?", oldName,
@@ -337,7 +318,6 @@ func (s *Store) RenamePendingSource(ctx context.Context, oldName, newName string
 		return ErrSourceNotPending
 	}
 
-	// New name must not collide with any non-left source.
 	var taken int
 	if err := tx.QueryRowContext(ctx,
 		"SELECT COUNT(*) FROM sources WHERE source = ? AND status != 'left'", newName,
@@ -348,10 +328,8 @@ func (s *Store) RenamePendingSource(ctx context.Context, oldName, newName string
 		return ErrSourceNameTaken
 	}
 
-	// Update the row + every child table that references source by
-	// name. Pending rows shouldn't have servers/source_progress yet,
-	// but the audit table will have at least the 'requested' entry —
-	// keep the trail under the new name and write a 'renamed' marker.
+	// Every table that names the source follows the rename, so the
+	// audit trail (at least the 'requested' row) moves with it.
 	if _, err := tx.ExecContext(ctx,
 		"UPDATE sources SET source = ? WHERE source = ?", newName, oldName,
 	); err != nil {
@@ -375,9 +353,9 @@ func (s *Store) RenamePendingSource(ctx context.Context, oldName, newName string
 	return tx.Commit()
 }
 
-// RevokeSourceStatus sets status='revoked' (admin punitive). Idempotent.
-// The cascade to servers is handled by the existing DeactivateSource
-// call path; this only updates the status column for audit/UI clarity.
+// RevokeSourceStatus sets status='revoked', the admin's punitive state,
+// which the owner can't rejoin from. Idempotent. DeactivateSource
+// handles active and the servers.
 func (s *Store) RevokeSourceStatus(ctx context.Context, source string) error {
 	_, err := s.db.ExecContext(ctx, `
 		UPDATE sources
@@ -390,8 +368,7 @@ func (s *Store) RevokeSourceStatus(ctx context.Context, source string) error {
 	return nil
 }
 
-// PendingRequest is the admin-pending-list row: source name, owner,
-// what they asked for, and when they submitted.
+// PendingRequest is one row of the admin's pending list.
 type PendingRequest struct {
 	Source           string
 	OwnerUserID      int64
@@ -400,9 +377,8 @@ type PendingRequest struct {
 	StatusChangedAt  time.Time
 }
 
-// ListPendingRequests returns every status='pending' row, joined to
-// users to expose the owner's username for the admin UI. Oldest-first
-// so admins triage in submission order.
+// ListPendingRequests returns every pending row with its owner's
+// username, oldest first so admins review in submission order.
 func (s *Store) ListPendingRequests(ctx context.Context) ([]PendingRequest, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT s.source, s.owner_user_id, u.username,
@@ -435,18 +411,16 @@ func (s *Store) ListPendingRequests(ctx context.Context) ([]PendingRequest, erro
 	return out, rows.Err()
 }
 
-// SourceServer is a lightweight view of a servers row used by the
-// owner-side My Servers drawer. Mirrors ApprovedSourceServer but
-// trimmed of fields the drawer doesn't render.
+// SourceServer is the servers row view the owner's My servers drawer
+// shows.
 type SourceServer struct {
 	Key     string
 	Address string
 	Active  bool
 }
 
-// ListServersForSource returns the server roster for one source.
-// Empty slice if the source exists but has no registered servers yet
-// (e.g. just-approved, collector hasn't connected).
+// ListServersForSource returns one source's servers, empty until its
+// collector first registers.
 func (s *Store) ListServersForSource(ctx context.Context, source string) ([]SourceServer, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT key, address, active
@@ -473,10 +447,9 @@ func (s *Store) ListServersForSource(ctx context.Context, source string) ([]Sour
 	return out, rows.Err()
 }
 
-// SourceOwners returns source -> owner_user_id for every source with a
-// non-NULL owner. Local (admin-minted) sources have no owner row in
-// this map. Used by the live-server endpoint to compute manageable_by_me
-// without N+1 queries.
+// SourceOwners maps source to owner_user_id for every source with an
+// owner (the hub's local source has none), so the live-server endpoint
+// computes manageable_by_me in one query.
 func (s *Store) SourceOwners(ctx context.Context) (map[string]int64, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT source, owner_user_id FROM sources WHERE owner_user_id IS NOT NULL

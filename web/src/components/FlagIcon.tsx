@@ -13,8 +13,6 @@ export function FlagIcon({
   className = "",
   title,
 }: FlagIconProps) {
-  // Use different icons based on status
-  // base = flag silhouette, taken = person running, dropped = question mark
   const iconBase =
     status === "base"
       ? "flag_in_base"

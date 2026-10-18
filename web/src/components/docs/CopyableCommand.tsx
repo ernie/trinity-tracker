@@ -1,17 +1,9 @@
 import { useState } from "react";
 
 interface CopyableCommandProps {
-  /**
-   * The shell command to render and copy. Plain string only — pre/code
-   * formatting is handled by the component, the caller just supplies
-   * the text.
-   */
   children: string;
 }
 
-// Block-level shell command with a copy-to-clipboard button. Mirrors
-// the DocsH2 anchor and AccountPage token-copy patterns: writeText →
-// flip a 'copied' flag → revert after 1500ms.
 export function CopyableCommand({ children }: CopyableCommandProps) {
   const [copied, setCopied] = useState(false);
 
@@ -22,7 +14,7 @@ export function CopyableCommand({ children }: CopyableCommandProps) {
         setTimeout(() => setCopied(false), 1500);
       },
       () => {
-        /* older browsers without clipboard API — silent no-op */
+        /* clipboard unavailable */
       },
     );
   };

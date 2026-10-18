@@ -26,7 +26,6 @@ export function PlayersPage() {
   const { servers, showPlayer, drillInVersion } = useLiveData();
   const { hasMultiple: hasMultipleSources } = useSources();
 
-  // Live search (includes GUID search if admin) — fires automatically as the user types.
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<PlayerProfile[]>([]);
   const debouncedSearchQuery = useDebouncedValue(searchQuery, 200);
@@ -37,9 +36,6 @@ export function PlayersPage() {
     period,
   );
 
-  // Currently-online humans across all live servers, with their host
-  // server's display name. Drives the right pane's "playing now" panel
-  // shown when there's no active search and no selected player.
   const onlinePlayers = useMemo(() => {
     const list: Array<{
       key: string;
@@ -75,16 +71,13 @@ export function PlayersPage() {
         });
       }
     }
-    // Sort alphabetically by clean name so the panel's order is stable
-    // across renders (raw map iteration order is by server id).
+    // Map iteration follows server id, so sort by name for a steady order.
     list.sort((a, b) => a.cleanName.localeCompare(b.cleanName));
     return list;
   }, [servers, hasMultipleSources]);
 
   useEffect(() => {
-    // Don't fetch for short queries; `displayResults` (below) gates
-    // visibility, so leaving stale results in state is safe — a fresh
-    // fetch will overwrite when the query grows back to ≥ 2 chars.
+    // Short queries skip the fetch; `isSearching` hides the stale results.
     if (debouncedSearchQuery.trim().length < 2) return;
     const ctrl = new AbortController();
     fetch(
@@ -101,11 +94,8 @@ export function PlayersPage() {
     return () => ctrl.abort();
   }, [debouncedSearchQuery, auth.isAuthenticated]);
 
-  // Drill-in clears the search rail. Two signals: URL `id` change
-  // covers nav/back/cross-player; `drillInVersion` covers the same-id
-  // case where the modal CTA points at the URL we're already on (no
-  // router event). Adjusting state during render — no extra commit:
-  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  // Drill-in clears the search rail. `drillInVersion` covers the modal's
+  // link to the profile already open, which fires no router event.
   const [prevId, setPrevId] = useState(id);
   const [prevDrillIn, setPrevDrillIn] = useState(drillInVersion);
   if (id !== prevId) {
@@ -121,8 +111,6 @@ export function PlayersPage() {
     setSearchQuery("");
   }
 
-  // Hint text under the search input describes the current state so
-  // the right pane never feels like it changed silently.
   const trimmed = searchQuery.trim();
   let searchHint: string;
   if (trimmed.length === 0) {
@@ -137,9 +125,8 @@ export function PlayersPage() {
     searchHint = `${searchResults.length} match${searchResults.length === 1 ? "" : "es"}`;
   }
 
-  // Priority gates on `searchQuery`, not `searchResults` — a stale
-  // in-flight fetch resolving after drill-in mustn't re-occlude the
-  // profile pane.
+  // Gated on the query so a fetch landing after drill-in can't cover the
+  // profile.
   const isSearching = trimmed.length >= 2;
   const showResults = isSearching && searchResults.length > 0;
   const showStats = !showResults && !!id;
@@ -252,7 +239,7 @@ export function PlayersPage() {
                                 <ColoredText text={guid.name} />
                                 <span className="guid-hash">{guid.guid}</span>
                                 <span className="guid-dates">
-                                  {formatDate(guid.first_seen)} -{" "}
+                                  {formatDate(guid.first_seen)} –{" "}
                                   {formatDate(guid.last_seen)}
                                 </span>
                               </div>
@@ -312,8 +299,8 @@ export function PlayersPage() {
           ) : (
             <div className="players-empty">
               <p>
-                No humans playing right now. Search by name to view a player's
-                statistics.
+                No humans are playing right now. Search by name to see a
+                player&rsquo;s stats.
               </p>
             </div>
           )}

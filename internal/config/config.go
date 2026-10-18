@@ -12,25 +12,19 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// idPattern: lowercase alnum + underscore + hyphen. Used to validate
-// q3_servers[].key (and source IDs in tests). Lowercase-only so the
-// hub identity matches the filesystem paths (which are always
-// lowercased). Kept here to avoid pulling storage into config's
-// import graph.
+// idPattern validates q3_servers[].key. Keys are lowercase so the hub
+// identity matches the always-lowercase file paths. It lives here so
+// config needn't import storage.
 var idPattern = regexp.MustCompile(`^[a-z0-9_-]+$`)
 
 // Config holds the application configuration.
 //
-// Tracker is always populated after Load: if the YAML omits the block
-// entirely, Load fills it with a hub+local-collector default. A
-// private single-server install just listens on 127.0.0.1; the
-// distinction between "standalone" and "distributed" is no longer
-// modeled at the config layer.
+// Tracker is always set after Load: with no tracker block in the YAML,
+// Load fills in a hub plus local collector.
 type Config struct {
 	Server ServerConfig `yaml:"server"`
-	// Database / Auth are pointers so collector-only configs can omit
-	// the blocks entirely. config.Load fills hub-mode defaults; read
-	// sites must nil-check.
+	// Database and Auth are pointers so collector-only configs can
+	// omit them. Load fills hub defaults; readers must nil-check.
 	Database  *DatabaseConfig `yaml:"database,omitempty"`
 	Auth      *AuthConfig     `yaml:"auth,omitempty"`
 	Discord   *DiscordConfig  `yaml:"discord,omitempty"`
@@ -70,7 +64,6 @@ func parseDuration(s string) (time.Duration, error) {
 	if s == "" {
 		return 0, fmt.Errorf("empty duration")
 	}
-	// Accept a trailing "d" by converting it to hours before handing off to stdlib.
 	if strings.HasSuffix(s, "d") {
 		n, err := strconv.ParseInt(strings.TrimSuffix(s, "d"), 10, 64)
 		if err != nil {
@@ -81,14 +74,12 @@ func parseDuration(s string) (time.Duration, error) {
 	return time.ParseDuration(s)
 }
 
-// TrackerConfig selects the role(s) this process takes. Presence of
-// Hub / Collector picks between:
+// TrackerConfig selects this process's roles by which of Hub and
+// Collector are set:
 //
-//   - Hub + local collector (both set) — single-machine default.
-//   - Hub-only (Hub set, Collector nil) — community hub that only
-//     accepts remote collectors.
-//   - Collector-only (Collector set, Hub nil) — remote log parser
-//     feeding a hub over NATS.
+//   - Both: hub plus local collector, the single-machine default.
+//   - Hub only: a hub that accepts only remote collectors.
+//   - Collector only: a remote collector feeding a hub over NATS.
 type TrackerConfig struct {
 	NATS      NATSConfig       `yaml:"nats"`
 	Hub       *HubConfig       `yaml:"hub,omitempty"`
@@ -99,10 +90,10 @@ type TrackerConfig struct {
 // of the embedded server; for a remote collector it is the URL of the hub
 // to connect to.
 //
-// CertFile and KeyFile, if both set, enable TLS on the embedded
-// server. They are ignored in collector-only mode (clients learn TLS
-// is required from the server's INFO message and upgrade
-// transparently, validating the server cert against system roots).
+// CertFile and KeyFile, both set, enable TLS on the embedded server.
+// A collector ignores them: it learns from the server's INFO message
+// that TLS is required and upgrades, checking the server certificate
+// against the system roots.
 type NATSConfig struct {
 	URL             string `yaml:"url"`
 	CredentialsFile string `yaml:"credentials_file,omitempty"`
@@ -117,11 +108,10 @@ type HubConfig struct {
 	Directory   *DirectoryConfig `yaml:"directory,omitempty"`
 }
 
-// DirectoryConfig configures the optional Quake 3 directory (a.k.a.
-// master) server. Off by default: even when the block is present,
-// Enabled must be true before the hub binds UDP. Heartbeats are gated
-// by membership in the servers table — only servers whose stored
-// address resolves to the heartbeat's source IP:port are admitted.
+// DirectoryConfig configures the optional Quake III directory (master)
+// server. The hub binds UDP only when Enabled is true. It admits a
+// heartbeat only from a server in the servers table whose stored
+// address resolves to the heartbeat's source IP:port.
 type DirectoryConfig struct {
 	Enabled          bool     `yaml:"enabled"`
 	ListenAddr       string   `yaml:"listen_addr,omitempty"`
@@ -130,28 +120,25 @@ type DirectoryConfig struct {
 	ChallengeTimeout Duration `yaml:"challenge_timeout,omitempty"`
 	GateRefresh      Duration `yaml:"gate_refresh,omitempty"`
 	MaxServers       int      `yaml:"max_servers,omitempty"`
-	// PersistedFreshness gates restoration of the registry on
-	// startup: if the persisted snapshot's newest validated_at is
-	// older than this, it's treated as a crash artifact and
-	// discarded. Tune up if your deploys take longer than the
+	// PersistedFreshness is how old the saved registry's newest
+	// validated_at can be for it to be restored at startup; an older
+	// snapshot is discarded. Raise it if deploys take longer than the
 	// default 5 minutes.
 	PersistedFreshness Duration `yaml:"persisted_freshness,omitempty"`
 }
 
-// CollectorConfig configures the log-parser / publisher role.
+// CollectorConfig configures the collector role.
 //
-// PublicURL is the publicly-reachable URL for this collector's host
-// (e.g. https://nil.ernie.io). The hub stores it as the source's
-// demo download base, used for cross-host asset fallback. Required.
+// PublicURL (required) is the collector host's public URL, such as
+// https://q3.example.com. The hub uses it as the source's base URL for
+// demos and other assets.
 //
-// HubHost is the bare hostname of the trinity hub this collector
-// reports to; in collector-only mode it supplies the default
-// nats.url (nats://<hub_host>:4222). Required.
+// HubHost (required) is the bare hostname of the hub; in collector-only
+// mode it gives the default nats.url, nats://<hub_host>:4222.
 //
-// Each q3_servers[].address should hold the publicly-reachable
-// host:port for that server (i.e. matching PublicURL's hostname plus
-// the q3 net_port). The collector uses that address for rcon and the
-// hub uses it for UDP getstatus polling.
+// Each q3_servers[].address should be the server's public host:port
+// (PublicURL's hostname plus the server's net_port). The collector
+// sends rcon to it and the hub polls it over UDP.
 type CollectorConfig struct {
 	SourceID          string   `yaml:"source_id"`
 	DataDir           string   `yaml:"data_dir"`
@@ -159,17 +146,12 @@ type CollectorConfig struct {
 	PublicURL         string   `yaml:"public_url"`
 	HubHost           string   `yaml:"hub_host"`
 
-	// LiveRelayAddr is the host:port the collector's live-spectating relay
-	// listens on (e.g. "127.0.0.1:8081"). Empty disables the relay.
+	// LiveRelayAddr is where the live relay listens, such as
+	// "127.0.0.1:8081". Empty disables the relay.
 	LiveRelayAddr string `yaml:"live_relay_addr,omitempty"`
-	// LiveDelay is the TARGET server-side viewer delay — how far behind real
-	// game-time the bytes the relay releases should be (encode latency + relay
-	// holdback). Defaults to 5s. The relay subtracts the keyframe interval it
-	// observes on the wire (the encode latency the target already accounts for)
-	// to get the actual per-segment holdback, floored at 0. So it's safe to set
-	// this near the keyframe interval (sv_tvLiveKeyframeMsec): when the target is
-	// at or below the interval the holdback clamps to 0 and the realized delay is
-	// ~one interval — the relay logs once rather than hitching.
+	// LiveDelay is how far behind the game live viewers should be,
+	// default 5s. A value at or below the keyframe interval
+	// (sv_tvLiveKeyframeMsec) gives a delay of about one interval.
 	LiveDelay Duration `yaml:"live_delay,omitempty"`
 }
 
@@ -179,78 +161,56 @@ type AuthConfig struct {
 	TokenDuration time.Duration `yaml:"token_duration"`
 }
 
-// DiscordConfig groups the optional Discord integrations. Each
-// sub-block is independent — operators can configure one without the
-// other. Webhook URLs are credentials in their own right (Discord
-// auths the request entirely by URL), so the file should stay 0640.
+// DiscordConfig groups the optional Discord integrations; either block
+// works alone. A webhook URL is a credential by itself, so the file
+// should stay 0640.
 //
-// The block is read in two contexts:
-//   - `trinity discord-digest` (cron/systemd timer) reads Digest for
-//     the weekly leaderboard embed.
-//   - `trinity serve` reads Activity to spin up the server-activity
-//     notifier that fires when a Q3 server's human-player count
-//     crosses 0↔1.
+// `trinity discord-digest`, run by the systemd timer, reads Digest.
+// `trinity serve` reads Activity for the notifier that posts when a
+// server's human count goes from zero to one or back.
 type DiscordConfig struct {
 	Digest   *DigestConfig   `yaml:"digest,omitempty"`
 	Activity *ActivityConfig `yaml:"activity,omitempty"`
 
-	// Legacy fields kept solely so the validator can emit a clear
-	// migration error pointing operators at the new sub-block names.
-	// Yaml's default unmarshal is lenient about unknown keys, so
-	// without these we'd silently ignore an older config and the
-	// digest would mysteriously stop posting.
+	// Old key names, read only so the validator can point at their
+	// replacements; YAML ignores unknown keys, so an old config would
+	// otherwise stop posting with no error.
 	LegacyWebhookURL       string   `yaml:"webhook_url,omitempty"`
 	LegacyDigestCategories []string `yaml:"digest_categories,omitempty"`
 }
 
-// DigestConfig drives the weekly leaderboard digest.
+// DigestConfig drives the leaderboard digest.
 //
 // WebhookURL is the full https://discord.com/api/webhooks/{id}/{token}
-// URL. Categories optionally overrides the 9 default leaderboard
-// categories rendered in the embed; each entry must be one of the
-// categories accepted by /api/stats/leaderboard.
+// URL. Categories optionally replaces the default categories; each must
+// be one /api/stats/leaderboard accepts.
 type DigestConfig struct {
 	WebhookURL string   `yaml:"webhook_url"`
 	Categories []string `yaml:"categories,omitempty"`
 }
 
-// ActivityConfig drives the server-activity notifier.
+// ActivityConfig drives the server activity notifier.
 //
-// WebhookURL is the full Discord webhook URL the notifier POSTs to.
-//
-// ActiveDelaySeconds is how long the notifier waits between "first
-// human joined" and the going-active POST. The delay gives the
-// poller time to capture the new player on a subsequent UDP probe
-// (so the embed roster isn't stale) and rules out connect-and-drop
-// noise. Defaults to DefaultActiveDelaySeconds.
-//
-// InactiveDebounceSeconds is how long the notifier waits with zero
-// humans on a server before declaring it idle. Short flaps below
-// this threshold produce no message at all. Defaults to
-// DefaultInactiveDebounceSeconds.
+// ActiveDelaySeconds is the wait between the first human joining and
+// the "active" post; InactiveDebounceSeconds is how long a server must
+// stay empty before the "idle" post. A player who leaves and returns
+// within either window produces no message.
 type ActivityConfig struct {
 	WebhookURL              string `yaml:"webhook_url"`
 	ActiveDelaySeconds      int    `yaml:"active_delay_seconds,omitempty"`
 	InactiveDebounceSeconds int    `yaml:"inactive_debounce_seconds,omitempty"`
 }
 
-// DefaultActiveDelaySeconds is the fallback going-active delay
-// when the config doesn't override it.
 const DefaultActiveDelaySeconds = 30
 
-// DefaultInactiveDebounceSeconds is the fallback debounce when the
-// config doesn't override it. 60s comfortably absorbs typical
-// reconnect lag without delaying a real "everyone left" notification.
 const DefaultInactiveDebounceSeconds = 60
 
-// discordWebhookURLPattern matches Discord's webhook URL shape. We
-// don't try to verify the token is "real" — Discord will reject bad
-// ones at POST time — but a typo'd URL fails fast at config load.
+// discordWebhookURLPattern catches a mistyped URL at load; Discord
+// itself checks the token when a post is sent.
 var discordWebhookURLPattern = regexp.MustCompile(`^https://discord\.com/api/webhooks/\d+/[A-Za-z0-9_-]+$`)
 
-// validDigestCategories mirrors internal/api.validCategories. Kept here
-// (and not imported) to keep config out of api's dependency graph.
-// If you add a category there, add it here too.
+// validDigestCategories must match internal/api.validCategories; it's
+// copied so config needn't import api.
 var validDigestCategories = map[string]bool{
 	"frags": true, "deaths": true, "kd_ratio": true, "matches": true,
 	"captures": true, "flag_returns": true, "assists": true,
@@ -264,7 +224,7 @@ func validateDiscord(d *DiscordConfig) error {
 		return nil
 	}
 	if d.LegacyWebhookURL != "" || len(d.LegacyDigestCategories) > 0 {
-		return fmt.Errorf("discord.webhook_url / discord.digest_categories were moved to discord.digest.webhook_url / discord.digest.categories — update your config.yml")
+		return fmt.Errorf("discord.webhook_url / discord.digest_categories were moved to discord.digest.webhook_url / discord.digest.categories; update your config.yml")
 	}
 	if d.Digest != nil {
 		if d.Digest.WebhookURL != "" && !discordWebhookURLPattern.MatchString(d.Digest.WebhookURL) {
@@ -306,16 +266,12 @@ type DatabaseConfig struct {
 	Path string `yaml:"path"`
 }
 
-// Q3Server represents a Quake 3 server to monitor. Key is the stable
-// identifier shown in the UI as "<source> / <key>"; same character
-// restrictions as a source name (alnum/underscore/hyphen).
+// Q3Server is a game server to monitor. Key is its stable identifier,
+// shown in the UI as "<source> / <key>": lowercase letters, digits, _
+// and -.
 //
-// AllowHubAdminRcon opts this server in to admin delegation: when
-// true, hub admins (is_admin=1 users on the hub this collector
-// reports to) are allowed to RCON the server even though they don't
-// own this collector's source. Owners of the source can RCON
-// regardless of this flag. Default false — operators must explicitly
-// hand the keys over.
+// AllowHubAdminRcon, off by default, lets the hub's admins use RCON on
+// this server. The source's owners can always use RCON.
 type Q3Server struct {
 	Key               string `yaml:"key"`
 	Address           string `yaml:"address"`
@@ -346,14 +302,14 @@ func Load(path string) (*Config, error) {
 	if cfg.Server.PollInterval == 0 {
 		cfg.Server.PollInterval = 5 * time.Second
 	}
-	// Note: StaticDir intentionally has no default - empty means don't serve static files
+	// An empty StaticDir serves no static files.
 	if cfg.Server.Quake3Dir == "" {
 		cfg.Server.Quake3Dir = "/usr/lib/quake3"
 	}
 
 	applyTrackerDefaults(&cfg)
 
-	// Hub-only defaults: Database/Auth stay nil for collector-only.
+	// Database and Auth stay nil for a collector-only config.
 	hasHub := cfg.Tracker == nil || cfg.Tracker.Hub != nil
 	if hasHub {
 		if cfg.Database == nil {
@@ -365,9 +321,8 @@ func Load(path string) (*Config, error) {
 		if cfg.Auth == nil {
 			cfg.Auth = &AuthConfig{}
 		}
-		// No TokenDuration default: absent means no JWT expiry — web
-		// session lifetime is governed by users.token_version. Setting
-		// a duration is belt-and-suspenders for operators who want it.
+		// An unset TokenDuration means JWTs never expire; users.token_version
+		// ends web sessions, and a duration is an optional extra limit.
 	}
 	if err := validateTracker(cfg.Tracker); err != nil {
 		return nil, err
@@ -393,51 +348,46 @@ func Load(path string) (*Config, error) {
 	return &cfg, nil
 }
 
-// validateNoPlaceholders refuses configs where the operator forgot to
-// edit literal "REPLACE-ME" placeholders. The wizard never writes
-// these — but a hand-rolled config or one carried over from an
-// example may still contain them, and without this guard the
-// collector would silently publish against a bogus source name or
-// rcon with the literal string "REPLACE-ME".
+// validateNoPlaceholders refuses a config that still has a literal
+// "REPLACE-ME", as a hand-written or copied example config might. The
+// wizard never writes one.
 func validateNoPlaceholders(cfg *Config) error {
 	const placeholder = "REPLACE-ME"
 	if cfg.Tracker != nil && cfg.Tracker.Collector != nil {
 		c := cfg.Tracker.Collector
 		if strings.Contains(c.SourceID, placeholder) {
-			return fmt.Errorf("tracker.collector.source_id is still %q — edit your config.yml", c.SourceID)
+			return fmt.Errorf("tracker.collector.source_id is still %q; edit your config.yml", c.SourceID)
 		}
 		if strings.Contains(c.PublicURL, placeholder) {
-			return fmt.Errorf("tracker.collector.public_url is still %q — edit your config.yml", c.PublicURL)
+			return fmt.Errorf("tracker.collector.public_url is still %q; edit your config.yml", c.PublicURL)
 		}
 	}
 	for i, srv := range cfg.Q3Servers {
 		if strings.Contains(srv.Address, placeholder) {
-			return fmt.Errorf("q3_servers[%d].address is still %q — edit your config.yml", i, srv.Address)
+			return fmt.Errorf("q3_servers[%d].address is still %q; edit your config.yml", i, srv.Address)
 		}
 		if strings.Contains(srv.RconPassword, placeholder) {
-			return fmt.Errorf("q3_servers[%d].rcon_password is still %q — edit your config.yml", i, srv.RconPassword)
+			return fmt.Errorf("q3_servers[%d].rcon_password is still %q; edit your config.yml", i, srv.RconPassword)
 		}
 	}
 	if cfg.Discord != nil {
 		if cfg.Discord.Digest != nil && strings.Contains(cfg.Discord.Digest.WebhookURL, placeholder) {
-			return fmt.Errorf("discord.digest.webhook_url is still %q — edit your config.yml", cfg.Discord.Digest.WebhookURL)
+			return fmt.Errorf("discord.digest.webhook_url is still %q; edit your config.yml", cfg.Discord.Digest.WebhookURL)
 		}
 		if cfg.Discord.Activity != nil && strings.Contains(cfg.Discord.Activity.WebhookURL, placeholder) {
-			return fmt.Errorf("discord.activity.webhook_url is still %q — edit your config.yml", cfg.Discord.Activity.WebhookURL)
+			return fmt.Errorf("discord.activity.webhook_url is still %q; edit your config.yml", cfg.Discord.Activity.WebhookURL)
 		}
 	}
 	return nil
 }
 
-// applyTrackerDefaults populates cfg.Tracker if absent (single-machine
-// hub+collector) and fills in per-role defaults. After this call
-// cfg.Tracker is always non-nil.
+// applyTrackerDefaults sets cfg.Tracker when absent and fills in each
+// role's defaults, so cfg.Tracker is never nil afterward.
 func applyTrackerDefaults(cfg *Config) {
 	if cfg.Tracker == nil {
-		// Implicit single-host install with no tracker block: default to
-		// hub+local-collector with the loopback advertised. Operators
-		// who write an explicit collector block must set public_url and
-		// hub_host themselves.
+		// With no tracker block, run a hub and local collector on the
+		// loopback. An explicit collector block must set public_url and
+		// hub_host itself.
 		cfg.Tracker = &TrackerConfig{
 			Hub: &HubConfig{},
 			Collector: &CollectorConfig{
@@ -484,8 +434,8 @@ func applyTrackerDefaults(cfg *Config) {
 			t.Collector.LiveDelay = Duration(5 * time.Second)
 		}
 		if t.Collector.DataDir == "" {
-			// Default alongside the SQLite DB; main.go already creates
-			// this dir on hub deployments.
+			// Next to the SQLite database, a directory main.go creates
+			// on a hub.
 			if cfg.Database != nil && cfg.Database.Path != "" {
 				t.Collector.DataDir = dirOf(cfg.Database.Path)
 			} else {
@@ -493,17 +443,13 @@ func applyTrackerDefaults(cfg *Config) {
 			}
 		}
 		if t.Collector.SourceID == "" && t.Hub != nil {
-			// Hub+local-collector: the local source is created/upserted
-			// at startup, so source_id is internal metadata. Remote
-			// collectors (no Hub set) must still supply it explicitly —
-			// it's whatever name the hub approved (self-service request
-			// or admin-direct create).
+			// The hub upserts its local source at startup. A remote
+			// collector must set source_id to its approved name.
 			t.Collector.SourceID = "local"
 		}
 	}
-	// NATS URL: embedded hub or in-process collector use localhost;
-	// collector-only mode derives from HubHost. Explicit nats.url in
-	// the YAML always wins.
+	// A hub uses localhost and a collector-only config uses HubHost,
+	// unless the YAML sets nats.url.
 	if t.NATS.URL == "" {
 		if t.Hub != nil {
 			t.NATS.URL = "nats://localhost:4222"
@@ -527,7 +473,7 @@ func dirOf(path string) string {
 
 func validateTracker(t *TrackerConfig) error {
 	if t == nil {
-		return fmt.Errorf("tracker: internal — applyTrackerDefaults must run first")
+		return fmt.Errorf("tracker: internal error: applyTrackerDefaults must run first")
 	}
 	if t.Hub == nil && t.Collector == nil {
 		return fmt.Errorf("tracker: must set at least one of hub or collector")
@@ -553,11 +499,9 @@ func validateTracker(t *TrackerConfig) error {
 	return nil
 }
 
-// ValidateForSave runs every validator that Load applies (defaults +
-// tracker validation + placeholder check) against an in-memory
-// *Config. The wizard uses this to check the config it built before
-// writing /etc/trinity/config.yml — round-tripping through Load would
-// fail because the file doesn't exist yet.
+// ValidateForSave runs Load's defaults and validators on an in-memory
+// Config, so the wizard can check what it built before
+// /etc/trinity/config.yml exists.
 func ValidateForSave(cfg *Config) error {
 	applyTrackerDefaults(cfg)
 	if err := validateTracker(cfg.Tracker); err != nil {
@@ -574,9 +518,8 @@ func ValidateForSave(cfg *Config) error {
 	return validateNoPlaceholders(cfg)
 }
 
-// Save writes the configuration to a YAML file, backing up the original first
+// Save writes the configuration to a YAML file, backing up the original first.
 func Save(path string, cfg *Config) error {
-	// Back up existing file
 	if _, err := os.Stat(path); err == nil {
 		data, err := os.ReadFile(path)
 		if err != nil {

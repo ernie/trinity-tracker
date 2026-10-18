@@ -45,9 +45,8 @@ func TestPresenceEmptyGUIDIsNoop(t *testing.T) {
 	}
 }
 
-// Two bots with the same clean name (and thus the same synthetic
-// BOT:<name> GUID) can coexist on the same server at different slots.
-// Leave on one slot must not clobber the other.
+// Bots that share a clean name share a synthetic BOT:<name> GUID; a
+// leave on one slot keeps the other.
 func TestPresenceDuplicateGUIDAcrossSlots(t *testing.T) {
 	p := hub.NewPresence()
 	p.RecordJoin(1, 0, entry("BOT:Sarge"))

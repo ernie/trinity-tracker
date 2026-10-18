@@ -52,7 +52,7 @@ func stockBaseline(quake3Dir string, games []string) (map[string]uint32, error) 
 		}
 	}
 	if len(stockPaks) == 0 {
-		return nil, fmt.Errorf("no official pak[0-9].pk3 found under %s for games %v — refusing to run", quake3Dir, games)
+		return nil, fmt.Errorf("no official pak[0-9].pk3 found under %s for games %v, so not running", quake3Dir, games)
 	}
 
 	crc := make(map[string]uint32)
@@ -201,7 +201,8 @@ func SplitMapPack(opts SplitOptions) (*SplitReport, error) {
 	return report, nil
 }
 
-// Refs absent from both the sources and stock — the engine can never load them.
+// missingAudio lists refs in neither the sources nor stock, which the
+// engine can never load.
 func missingAudio(refs []string, source, stock map[string]string) []string {
 	seen := make(map[string]bool)
 	var out []string

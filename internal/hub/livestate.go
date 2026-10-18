@@ -2,13 +2,11 @@ package hub
 
 import "sync"
 
-// LiveState tracks which (source, key) servers currently have an active
-// live-stream tap, as reported by collectors on the registration heartbeat.
-// It is intentionally in-memory and ephemeral: live-watchability is transient
-// match state, not roster config, so it never touches the DB. A collector that
-// dies without sending a final "not live" heartbeat leaves a stale true here,
-// but the frontend gates the live badge on the source's heartbeat liveness, so
-// a dead collector's badge is suppressed regardless.
+// LiveState tracks which (source, key) servers have an active live-stream
+// tap, as collectors report on each heartbeat. It lives in memory because
+// liveness is transient match state. A collector that dies without a final
+// "not live" heartbeat leaves a stale true, which is harmless: the frontend
+// gates the live badge on the source's heartbeat.
 type LiveState struct {
 	mu      sync.RWMutex
 	m       map[string]bool
@@ -50,8 +48,8 @@ func (s *LiveState) Get(source, key string) bool {
 	return live
 }
 
-// SetDelay records the collector's viewer delay. Unlike liveness it's config, not
-// transient state, so it's kept regardless of whether the server is currently live.
+// SetDelay records the collector's viewer delay. It's config, so it's kept
+// whether or not the server is live.
 func (s *LiveState) SetDelay(source, key string, seconds int) {
 	k := liveKey(source, key)
 	s.mu.Lock()
@@ -71,8 +69,8 @@ func (s *LiveState) GetDelay(source, key string) int {
 }
 
 // SetViewers records the relay's current web-viewer count for the server.
-// Transient like liveness, but kept as its own map: a count can be non-zero
-// while not live (viewers parked across the inter-match gap).
+// It has its own map because viewers can wait through the gap between
+// matches while the server isn't live.
 func (s *LiveState) SetViewers(source, key string, n int) {
 	k := liveKey(source, key)
 	s.mu.Lock()

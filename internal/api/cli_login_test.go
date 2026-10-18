@@ -59,12 +59,12 @@ func (tr *testRouter) authCheck(t *testing.T, token string) map[string]any {
 
 func TestCLILoginMintsUsablePAT(t *testing.T) {
 	tr := newTestRouter(t)
-	tr.cliUser(t, "ernie", true)
+	tr.cliUser(t, "alice", true)
 
-	token := tr.cliLogin(t, "ernie")
+	token := tr.cliLogin(t, "alice")
 
 	check := tr.authCheck(t, token)
-	if check["authenticated"] != true || check["username"] != "ernie" || check["is_admin"] != true {
+	if check["authenticated"] != true || check["username"] != "alice" || check["is_admin"] != true {
 		t.Errorf("PAT did not resolve to its user: %v", check)
 	}
 
@@ -73,16 +73,16 @@ func TestCLILoginMintsUsablePAT(t *testing.T) {
 		t.Errorf("hash lookup failed: %v", err)
 	}
 	if _, err := tr.store.LookupPATByHash(context.Background(), token); err == nil {
-		t.Error("plaintext stored as hash — must never happen")
+		t.Error("plaintext stored as the hash")
 	}
 }
 
 func TestCLILoginRejectsBadPassword(t *testing.T) {
 	tr := newTestRouter(t)
-	tr.cliUser(t, "ernie", true)
+	tr.cliUser(t, "alice", true)
 
 	w := tr.do("POST", "/api/auth/cli-login",
-		`{"username":"ernie","password":"wrong","name":"x"}`, "")
+		`{"username":"alice","password":"wrong","name":"x"}`, "")
 	if w.Code != http.StatusUnauthorized {
 		t.Fatalf("want 401, got %d", w.Code)
 	}
@@ -102,8 +102,8 @@ func TestCLILoginRejectsPendingPasswordChange(t *testing.T) {
 
 func TestCLILogoutRevokes(t *testing.T) {
 	tr := newTestRouter(t)
-	tr.cliUser(t, "ernie", true)
-	token := tr.cliLogin(t, "ernie")
+	tr.cliUser(t, "alice", true)
+	token := tr.cliLogin(t, "alice")
 
 	w := tr.do("DELETE", "/api/auth/cli-login", "", token)
 	if w.Code != http.StatusOK {
@@ -136,14 +136,14 @@ func TestCLILogoutRequiresPAT(t *testing.T) {
 
 func TestPATClaimsAreLive(t *testing.T) {
 	tr := newTestRouter(t)
-	userID := tr.cliUser(t, "ernie", true)
-	token := tr.cliLogin(t, "ernie")
+	userID := tr.cliUser(t, "alice", true)
+	token := tr.cliLogin(t, "alice")
 
 	if check := tr.authCheck(t, token); check["is_admin"] != true {
 		t.Fatalf("precondition: expected admin, got %v", check)
 	}
 
-	// Demote in the DB — the very next request must see it.
+	// The very next request must see the demotion.
 	if err := tr.store.UpdateUserAdmin(context.Background(), userID, false); err != nil {
 		t.Fatalf("UpdateUserAdmin: %v", err)
 	}
@@ -154,10 +154,10 @@ func TestPATClaimsAreLive(t *testing.T) {
 
 func TestDisabledUserBlockedEverywhere(t *testing.T) {
 	tr := newTestRouter(t)
-	tr.cliUser(t, "ernie", true)
-	pat := tr.cliLogin(t, "ernie")
+	tr.cliUser(t, "alice", true)
+	pat := tr.cliLogin(t, "alice")
 
-	if err := tr.store.SetUserDisabled(context.Background(), "ernie", true); err != nil {
+	if err := tr.store.SetUserDisabled(context.Background(), "alice", true); err != nil {
 		t.Fatalf("SetUserDisabled: %v", err)
 	}
 
@@ -168,27 +168,27 @@ func TestDisabledUserBlockedEverywhere(t *testing.T) {
 
 	// Web login: 403 account disabled (password is correct).
 	w := tr.do("POST", "/api/auth/login",
-		`{"username":"ernie","password":"password123"}`, "")
+		`{"username":"alice","password":"password123"}`, "")
 	if w.Code != http.StatusForbidden {
 		t.Errorf("web login while disabled: want 403, got %d", w.Code)
 	}
 
 	// CLI login: same.
 	w = tr.do("POST", "/api/auth/cli-login",
-		`{"username":"ernie","password":"password123","name":"x"}`, "")
+		`{"username":"alice","password":"password123","name":"x"}`, "")
 	if w.Code != http.StatusForbidden {
 		t.Errorf("cli login while disabled: want 403, got %d", w.Code)
 	}
 
 	// Game login: same.
 	w = tr.do("POST", "/api/auth/game-login",
-		`{"username":"ernie","password":"password123"}`, "")
+		`{"username":"alice","password":"password123"}`, "")
 	if w.Code != http.StatusForbidden {
 		t.Errorf("game login while disabled: want 403, got %d", w.Code)
 	}
 
 	// Re-enable: the un-revoked PAT works again.
-	if err := tr.store.SetUserDisabled(context.Background(), "ernie", false); err != nil {
+	if err := tr.store.SetUserDisabled(context.Background(), "alice", false); err != nil {
 		t.Fatalf("SetUserDisabled(enable): %v", err)
 	}
 	if check := tr.authCheck(t, pat); check["authenticated"] != true {
@@ -198,9 +198,9 @@ func TestDisabledUserBlockedEverywhere(t *testing.T) {
 
 func TestPATSurvivesTokenVersionBump(t *testing.T) {
 	tr := newTestRouter(t)
-	userID := tr.cliUser(t, "ernie", true)
-	pat := tr.cliLogin(t, "ernie")
-	cookie := tr.loginWeb(t, "ernie")
+	userID := tr.cliUser(t, "alice", true)
+	pat := tr.cliLogin(t, "alice")
+	cookie := tr.loginWeb(t, "alice")
 
 	// "Log out everywhere" kills the web session but never the CLI:
 	// PATs carry no version and are individually revoked instead.
@@ -217,8 +217,8 @@ func TestPATSurvivesTokenVersionBump(t *testing.T) {
 
 func TestPATAndJWTParityThroughMiddleware(t *testing.T) {
 	tr := newTestRouter(t)
-	tr.cliUser(t, "ernie", true)
-	pat := tr.cliLogin(t, "ernie")
+	tr.cliUser(t, "alice", true)
+	pat := tr.cliLogin(t, "alice")
 	jwt, _ := tr.loginAs(t, "other-admin", true)
 
 	probe := func(token string) int {

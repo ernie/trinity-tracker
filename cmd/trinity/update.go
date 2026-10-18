@@ -18,22 +18,17 @@ import (
 
 const updateLockPath = "/var/lib/trinity/.update.lock"
 
-// cmdHelper is the privilege-dropped child re-exec'd by trinity init
-// and trinity update so write-side work happens with the service
-// user's credentials. Hidden from --help; only invoked via Plan's
-// WriteFileAs / CopyTreeAs / DownloadAs / UnzipAs.
-//
-// Verbs:
+// cmdHelper is the child that trinity init and trinity update re-exec as
+// the service user for writes, through Plan's WriteFileAs, CopyTreeAs,
+// DownloadAs and UnzipAs. It's hidden from --help.
 //
 //	_helper write    <path> <mode>             (reads stdin)
 //	_helper copy     <src> <dst>
 //	_helper download <url> <dest>
 //	_helper unzip    <zip> <dest> <strip-components>
 //
-// Pure Go inside the child — no shelling to coreutils — so we share
-// one error-handling style and one set of tests across both
-// privileged and dropped paths. Re-exec target is /proc/self/exe, so
-// the binary swap mid-update is invisible to in-flight helpers.
+// It re-execs /proc/self/exe, so swapping the binary mid-update doesn't
+// affect a running helper.
 func cmdHelper(args []string) {
 	if len(args) < 1 {
 		fmt.Fprintln(os.Stderr, "usage: trinity _helper <verb> [args]")
@@ -74,8 +69,7 @@ func helperWrite(args []string) {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	// Force mode explicitly — OpenFile honors umask, which the
-	// caller can't predict.
+	// OpenFile applies the umask, so set the mode explicitly.
 	if err := os.Chmod(args[0], os.FileMode(mode)); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -120,31 +114,26 @@ func helperUnzip(args []string) {
 	}
 }
 
-// cmdUpdate refreshes the tracker binary, hub web bundle, engine, and
-// mod against the latest GitHub releases. Each component is checked
-// against its currently-installed version and skipped when already
-// current; the whole thing is a no-op (no service restart) when
-// nothing is behind.
-//
-// Steps run in this order, all gated on a flock so a second invocation
-// bails cleanly: pre-flight + checksum-verify everything, confirm,
-// stop services, atomic-rename binary, web overlay, engine extract,
-// mod overlay (if still behind after engine), start services.
+// cmdUpdate brings the tracker binary, web bundle, engine and mod up to
+// their latest GitHub releases, skipping any that are current; with
+// nothing behind, it restarts nothing. Under a flock it downloads and
+// verifies everything, asks, stops services, swaps the binary, overlays
+// the web bundle, extracts the engine, overlays the mod if it's still
+// behind, and starts services.
 func cmdUpdate(args []string) {
 	fs := flag.NewFlagSet("update", flag.ExitOnError)
 	configPath := fs.String("config", defaultConfigPath, "path to config file")
 	check := fs.Bool("check", false, "print versions and exit (0 if all current, 1 if any behind)")
-	dryRun := fs.Bool("dry-run", false, "stage and verify downloads, print plan, no install / no service restart")
+	dryRun := fs.Bool("dry-run", false, "stage and verify downloads and print the plan, without installing or restarting services")
 	yes := fs.Bool("yes", false, "skip the apply confirmation prompt")
-	noRestart := fs.Bool("no-restart", false, "install bits but don't touch systemd")
+	noRestart := fs.Bool("no-restart", false, "install the files but leave systemd alone")
 	force := fs.Bool("force", false, "re-install even when current matches latest (no silent downgrade)")
 	trackerTag := fs.String("tracker-tag", "", "pin a specific trinity-tracker tag (default: latest)")
 	engineTag := fs.String("engine-tag", "", "pin a specific trinity-engine tag (default: latest)")
 	modTag := fs.String("mod-tag", "", "pin a specific trinity (mod) tag (default: latest)")
 	fs.Parse(args)
 
-	// Dry-run is a preview; everything else needs root for writing
-	// /usr/local/bin/trinity, the static dir, and Quake3Dir.
+	// Writing /usr/local/bin/trinity, the static dir and Quake3Dir needs root.
 	if !*dryRun && !*check && os.Getuid() != 0 {
 		fmt.Fprintln(os.Stderr, "Error: trinity update must be run as root (or use --dry-run / --check).")
 		os.Exit(1)
@@ -156,9 +145,7 @@ func cmdUpdate(args []string) {
 		os.Exit(1)
 	}
 
-	// Lock first — concurrent updates corrupt state. Print the path
-	// so the operator can clear a stale lock if a previous invocation
-	// crashed without releasing.
+	// Concurrent updates corrupt the install.
 	if !*check {
 		release, err := acquireUpdateLock()
 		if err != nil {
@@ -170,7 +157,6 @@ func cmdUpdate(args []string) {
 		defer release()
 	}
 
-	// Detect roles + relevant paths from the config.
 	hasHub := cfg.Tracker != nil && cfg.Tracker.Hub != nil
 	hasLocalServers := len(cfg.Q3Servers) > 0
 	staticDir := cfg.Server.StaticDir
@@ -188,7 +174,6 @@ func cmdUpdate(args []string) {
 		uid, gid = u.uid, u.gid
 	}
 
-	// Resolve target tags.
 	targetTracker := *trackerTag
 	if targetTracker == "" {
 		t, err := setup.ResolveLatestTag("ernie/trinity-tracker")
@@ -222,7 +207,6 @@ func cmdUpdate(args []string) {
 		}
 	}
 
-	// Detect current versions.
 	currentTracker := version
 	var currentEngine, currentBaseq3, currentMissionpack string
 	var announcerExpected string
@@ -240,8 +224,7 @@ func cmdUpdate(args []string) {
 		}
 	}
 
-	// Build the displayed table — mod is shown per subdir + announcer
-	// so the operator sees per-component state.
+	// The mod gets a row per subdir, plus the announcer.
 	var rows []row
 	rows = append(rows, makeRow("tracker", currentTracker, targetTracker, *force))
 	if hasLocalServers {
@@ -259,11 +242,6 @@ func cmdUpdate(args []string) {
 	}
 	printDecisionTable(rows)
 
-	// Decisions are coarser than rows: tracker, engine, mod. Mod is
-	// one release that lays down both paks, so baseq3/missionpack
-	// share a single approval. We pick the most-divergent state of
-	// the two for the prompt's default (StateDiverged > StateBehind >
-	// StateUnknown > StateCurrent in "needs operator attention" terms).
 	decisions := []decision{rowToDecision(rows[0])}
 	if hasLocalServers {
 		decisions = append(decisions, rowToDecision(rows[1])) // engine
@@ -285,16 +263,13 @@ func cmdUpdate(args []string) {
 		os.Exit(0)
 	}
 	if !anyActionable {
-		fmt.Fprintln(os.Stderr, "Everything up to date — nothing to do.")
+		fmt.Fprintln(os.Stderr, "Everything is up to date. Nothing to do.")
 		return
 	}
 
-	// Per-decision approval. --yes accepts all; --dry-run also
-	// implicitly approves all so the staging step exercises every
-	// download path. Without either, we prompt per decision with the
-	// state-derived default (StateBehind → Y; StateDiverged/StateUnknown
-	// → N, so press-enter-through doesn't silently overwrite a custom
-	// build).
+	// --dry-run approves everything so staging exercises every download.
+	// A custom build's prompt defaults to no, so pressing Enter never
+	// overwrites it.
 	if !*yes && !*dryRun {
 		fmt.Fprintln(os.Stderr)
 		fmt.Fprintln(os.Stderr, "Each component below can be applied or skipped independently.")
@@ -315,7 +290,7 @@ func cmdUpdate(args []string) {
 		}
 		ok, err := prompter.YesNo(d.prompt, d.defaultYes)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Read confirm: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Couldn't read your answer: %v\n", err)
 			os.Exit(1)
 		}
 		approve[d.name] = ok
@@ -330,7 +305,7 @@ func cmdUpdate(args []string) {
 		}
 	}
 	if !approvedAny {
-		fmt.Fprintln(os.Stderr, "Nothing approved — no changes made.")
+		fmt.Fprintln(os.Stderr, "Nothing approved, so nothing changed.")
 		return
 	}
 
@@ -340,10 +315,9 @@ func cmdUpdate(args []string) {
 		Out:        os.Stderr,
 	}
 
-	// Stage everything before touching services. If any download or
-	// checksum fails we abort with the install untouched. mktemp -d
-	// defaults to mode 0700 — open it up to 0755 so the service-user
-	// AsUser cp -rT for the web overlay can traverse and read.
+	// Stage and verify everything before touching services, so a failed
+	// download leaves the install untouched. The service user copies the
+	// web overlay out of here, so the 0700 temp dir is opened to 0755.
 	stageDir, err := os.MkdirTemp("", "trinity-update-*")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating staging dir: %v\n", err)
@@ -357,7 +331,7 @@ func cmdUpdate(args []string) {
 
 	var trackerStage *setup.TrackerStage
 	if approve["tracker"] {
-		fmt.Fprintln(os.Stderr, "Staging tracker release ...")
+		fmt.Fprintln(os.Stderr, "Staging the tracker release…")
 		trackerStage, err = setup.DownloadTrackerRelease(targetTracker, stageDir)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error staging tracker: %v\n", err)
@@ -367,27 +341,24 @@ func cmdUpdate(args []string) {
 
 	if *dryRun {
 		fmt.Fprintln(os.Stderr)
-		fmt.Fprintln(os.Stderr, "Dry run complete — staged + verified downloads, no install performed.")
+		fmt.Fprintln(os.Stderr, "Dry run complete: downloads staged and verified, nothing installed.")
 		return
 	}
 
-	// Apply phase. trinity.service runs the tracker binary; restart
-	// it iff the binary or web bundle (both gated on approve["tracker"])
-	// is changing. quake3-servers.target runs trinity.ded + the mod
-	// pk3s; restart it iff engine or mod is changing. From here on,
-	// partial failure leaves the affected services stopped; operator
-	// re-runs `trinity update` after fixing the underlying issue.
+	// trinity.service restarts when the binary or web bundle changes,
+	// quake3-servers.target when the engine or mod does. A failure from
+	// here leaves the affected services stopped until the next run.
 	restartTrinity := !*noRestart && approve["tracker"]
 	restartQ3 := !*noRestart && hasLocalServers && (approve["engine"] || approve["mod"])
 	if restartQ3 {
-		plan.Say("Stopping quake3-servers.target ...")
+		plan.Say("Stopping quake3-servers.target…")
 		if err := plan.Systemctl("stop", "quake3-servers.target"); err != nil {
-			fmt.Fprintf(os.Stderr, "Error stopping q3 servers: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Error stopping the Quake III servers: %v\n", err)
 			os.Exit(1)
 		}
 	}
 	if restartTrinity {
-		plan.Say("Stopping trinity.service ...")
+		plan.Say("Stopping trinity.service…")
 		if err := plan.Systemctl("stop", "trinity.service"); err != nil {
 			fmt.Fprintf(os.Stderr, "Error stopping trinity.service: %v\n", err)
 			os.Exit(1)
@@ -402,7 +373,7 @@ func cmdUpdate(args []string) {
 		plan.Say("Installed /usr/local/bin/trinity (%s)", trackerStage.ResolvedTag)
 
 		if hasHub && staticDir != "" && trackerStage.WebDir != "" {
-			plan.Say("Overlaying web bundle into %s as %s ...", staticDir, svcUser)
+			plan.Say("Overlaying the web bundle into %s as %s…", staticDir, svcUser)
 			if err := plan.CopyTreeAs(uid, gid, trackerStage.WebDir, staticDir); err != nil {
 				fmt.Fprintf(os.Stderr, "Error overlaying web bundle: %v\n", err)
 				os.Exit(1)
@@ -411,17 +382,14 @@ func cmdUpdate(args []string) {
 	}
 
 	if hasLocalServers && approve["engine"] {
-		plan.Say("Installing trinity-engine %s ...", targetEngine)
+		plan.Say("Installing trinity-engine %s…", targetEngine)
 		if _, err := setup.InstallEngine(plan, targetEngine, quake3Dir, "/var/log/quake3", staticDir, uid, gid); err != nil {
 			fmt.Fprintf(os.Stderr, "Error installing engine: %v\n", err)
 			os.Exit(1)
 		}
 	}
 
-	// After engine install the bundled mod may already satisfy the
-	// mod check. Re-detect to avoid re-fetching when the bundle
-	// covers it. Only runs when mod was explicitly approved — an
-	// engine-only upgrade leaves the mod alone.
+	// The engine bundle may already carry a current mod.
 	if hasLocalServers && approve["mod"] {
 		nowBaseq3, _ := setup.DetectModVersion(quake3Dir, "baseq3")
 		nowMissionpack, _ := setup.DetectModVersion(quake3Dir, "missionpack")
@@ -430,27 +398,27 @@ func cmdUpdate(args []string) {
 		announcerPath := filepath.Join(quake3Dir, "baseq3", "zzz-trinity-announcer.pk3")
 		nowAnnouncerState, _ := setup.CheckAnnouncerState(announcerPath, announcerExpected)
 		if (baseq3State != setup.StateCurrent || mpState != setup.StateCurrent || nowAnnouncerState != setup.StateCurrent) || *force {
-			plan.Say("Installing trinity mod %s ...", targetMod)
+			plan.Say("Installing the trinity mod %s…", targetMod)
 			if _, err := setup.InstallMod(plan, targetMod, quake3Dir, uid, gid); err != nil {
 				fmt.Fprintf(os.Stderr, "Error installing mod: %v\n", err)
 				os.Exit(1)
 			}
 		} else {
-			plan.Say("Engine bundle already satisfies mod %s — skipping mod overlay.", targetMod)
+			plan.Say("The engine bundle already includes mod %s, so the mod overlay is skipped.", targetMod)
 		}
 	}
 
 	if restartTrinity {
-		plan.Say("Starting trinity.service ...")
+		plan.Say("Starting trinity.service…")
 		if err := plan.Systemctl("start", "trinity.service"); err != nil {
 			fmt.Fprintf(os.Stderr, "Error starting trinity.service: %v\n", err)
 			os.Exit(1)
 		}
 	}
 	if restartQ3 {
-		plan.Say("Starting quake3-servers.target ...")
+		plan.Say("Starting quake3-servers.target…")
 		if err := plan.Systemctl("start", "quake3-servers.target"); err != nil {
-			fmt.Fprintf(os.Stderr, "Error starting q3 servers: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Error starting the Quake III servers: %v\n", err)
 			os.Exit(1)
 		}
 	}
@@ -459,11 +427,9 @@ func cmdUpdate(args []string) {
 	fmt.Fprintln(os.Stderr, "Update complete.")
 }
 
-// installTrackerBinary atomically swaps /usr/local/bin/trinity. cp /
-// install would hit ETXTBSY because we (the running update process)
-// hold the binary as our own executable; rename swaps the inode while
-// our process keeps the old one until exit, and the next systemctl
-// start picks up the new inode.
+// installTrackerBinary renames the new binary into place: writing over
+// the running executable fails with ETXTBSY, while a rename leaves this
+// process on the old inode and the next start on the new one.
 func installTrackerBinary(srcBin string) error {
 	const dest = "/usr/local/bin/trinity"
 	stage := filepath.Join(filepath.Dir(dest), ".trinity.new")
@@ -496,11 +462,7 @@ func installTrackerBinary(srcBin string) error {
 	return nil
 }
 
-// row is a display entry in the decision table — one line per
-// detectable component (mod is split into baseq3 / missionpack so the
-// operator sees per-subdir state). state and defaultYes drive the
-// per-decision prompt; the prompt itself is owned by the coarser
-// `decision` type so two display rows can share one approval (mod).
+// row is one line of the update table. Several rows can share one decision.
 type row struct {
 	name       string
 	current    string
@@ -510,9 +472,8 @@ type row struct {
 	defaultYes bool
 }
 
-// decision is one approval the operator makes per component. tracker
-// and engine map 1:1 with rows; mod merges the baseq3 + missionpack
-// rows because InstallMod lays down both paks as a single release.
+// decision is one approval. The mod's rows share one, since InstallMod
+// lays down every pak from a single release.
 type decision struct {
 	name       string // "tracker" / "engine" / "mod"
 	prompt     string
@@ -520,11 +481,6 @@ type decision struct {
 	defaultYes bool
 }
 
-// makeRow builds a display row for a single (current, latest) pair.
-// State drives the action label and the default for the eventual
-// prompt: Behind → "upgrade" / default Y; Diverged → "diverged" /
-// default N; Unknown → "missing" / default N. --force flips Current
-// to "reinstall" with default Y.
 func makeRow(name, current, latest string, force bool) row {
 	state := setup.CompareVersions(current, latest)
 	r := row{
@@ -588,23 +544,17 @@ func makeAnnouncerRow(state setup.VersionState, current, latest string, force bo
 	return r
 }
 
-// rowToDecision lifts a single display row into a decision (used for
-// tracker and engine; mod uses mergeModDecision instead).
 func rowToDecision(r row) decision {
 	return decision{
 		name:       strings.SplitN(r.name, " ", 2)[0], // "tracker" / "engine"
-		prompt:     fmt.Sprintf("%s: %s → %s — %s?", r.name, r.current, r.latest, r.action),
+		prompt:     fmt.Sprintf("%s: %s → %s; %s?", r.name, r.current, r.latest, r.action),
 		action:     r.action,
 		defaultYes: r.defaultYes,
 	}
 }
 
-// mergeModDecision collapses the mod display rows (baseq3,
-// missionpack, and optionally announcer) into a single mod decision.
-// We pick whichever component most needs attention (Diverged > Behind >
-// Unknown > Current) so the operator sees the "worst case" in the
-// prompt; the mod release lays down all paks regardless of which one
-// was the trigger.
+// mergeModDecision prompts with the mod component that most needs
+// attention.
 func mergeModDecision(modRows []row, latest string, force bool) decision {
 	worst := modRows[0]
 	for _, r := range modRows[1:] {
@@ -626,14 +576,13 @@ func mergeModDecision(modRows []row, latest string, force bool) decision {
 		short := strings.TrimSuffix(strings.TrimPrefix(r.name, "mod ("), ")")
 		parts = append(parts, fmt.Sprintf("%s %s", short, r.current))
 	}
-	d.prompt = fmt.Sprintf("mod: %s → %s — %s?",
+	d.prompt = fmt.Sprintf("mod: %s → %s; %s?",
 		strings.Join(parts, ", "), latest, d.action)
 	return d
 }
 
-// modPriority orders states by "needs operator attention". Diverged
-// (custom build) is the loudest signal, then Behind (clean upgrade),
-// then Unknown (missing pak), then Current.
+// modPriority ranks a custom build (Diverged) above an upgrade, then a
+// missing pak, then Current.
 func modPriority(s setup.VersionState) int {
 	switch s {
 	case setup.StateDiverged:
@@ -663,10 +612,8 @@ func printDecisionTable(rows []row) {
 	tw.Flush()
 }
 
-// acquireUpdateLock takes an exclusive flock on updateLockPath,
-// returning a release func. EWOULDBLOCK means another update is
-// running (or the lock leaked); the caller surfaces the path so the
-// operator can clear it manually if needed.
+// acquireUpdateLock fails with EWOULDBLOCK while another update holds
+// the lock or a crashed one left it.
 func acquireUpdateLock() (release func(), err error) {
 	if err := os.MkdirAll(filepath.Dir(updateLockPath), 0755); err != nil {
 		return nil, err

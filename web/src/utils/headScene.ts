@@ -124,10 +124,10 @@ export class HeadScene {
       manifest.skins[Object.keys(manifest.skins)[0]] ??
       {};
 
-    // Framing ported from CG_DrawHead: centre by the head bounds and pull the
+    // Framing ported from CG_DrawHead: center on the head bounds and pull the
     // camera back len/0.268 (~30° FOV), plus the model's animation.cfg
-    // headoffset — the artist's per-model HUD-icon correction (forward = zoom,
-    // up = vertical). Deform sprites (beams/lasers) are excluded from bounds.
+    // headoffset, the artist's per-model HUD-icon correction (forward zooms,
+    // up moves vertically). Deform sprites (beams, lasers) stay out of bounds.
     const lo = [Infinity, Infinity, Infinity];
     const hi = [-Infinity, -Infinity, -Infinity];
     let solid = false;
@@ -263,9 +263,10 @@ export class HeadScene {
         material.alphaTest = d.alphaTest;
         material.side = d.doubleSided ? THREE.DoubleSide : THREE.FrontSide;
         if (d.blending === "additive") {
-          // Q3 add is GL_ONE GL_ONE. The beam texture has no usable alpha, so
-          // canvas alpha comes from luminance (see onBeforeCompile): black → 0
-          // (transparent over the page), bright → visible even off the head.
+          // The game's add blend is GL_ONE GL_ONE. The beam texture has no
+          // usable alpha, so canvas alpha comes from luminance (see
+          // onBeforeCompile): black is transparent over the page, and bright
+          // stays visible even off the head.
           material.blending = THREE.CustomBlending;
           material.blendEquation = THREE.AddEquation;
           material.blendSrc = THREE.OneFactor;
@@ -321,14 +322,14 @@ export class HeadScene {
   }
 
   // headAngles in degrees: yaw about Z (up), pitch about Y. Base yaw 180
-  // faces the camera, so subtract it to keep the idle drift centred.
+  // faces the camera, so subtract it to keep the idle drift centered.
   update(yawDeg: number, pitchDeg: number, timeMs = 0): void {
     this.headGroup.rotation.z = THREE.MathUtils.degToRad(yawDeg - 180);
     this.headGroup.rotation.y = THREE.MathUtils.degToRad(pitchDeg);
     if (this.billboards.length > 0) {
-      // Camera view axes (world) transformed into the rotating head's local
-      // space — the engine's GlobalVectorToLocal. Camera sits on +X looking
-      // toward the origin, up +Z.
+      // Camera view axes (world) in the rotating head's local space, as the
+      // engine's GlobalVectorToLocal computes them. The camera sits on +X
+      // looking toward the origin, up +Z.
       const inv = this.headGroup.quaternion.clone().invert();
       this.fwd.set(-1, 0, 0).applyQuaternion(inv);
       this.lft.set(0, -1, 0).applyQuaternion(inv);

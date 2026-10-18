@@ -26,8 +26,7 @@ type Plan struct {
 }
 
 // Say prints a status line through Plan, prefixed with "[DRY] " in
-// dry-run mode. Use this rather than fmt.Fprintln so callers from
-// outside the package get the same dry-run treatment.
+// dry-run mode.
 func (p *Plan) Say(format string, args ...any) {
 	prefix := ""
 	if p.DryRun {
@@ -37,9 +36,8 @@ func (p *Plan) Say(format string, args ...any) {
 }
 
 // EnsureUser creates a system user if it doesn't exist, returning the
-// resolved (uid, gid). In dry-run mode the user is *not* created; if
-// it already exists we report its real ids, otherwise we return (0, 0)
-// and a placeholder so the rest of the dry run can proceed.
+// resolved (uid, gid). A dry run reports an existing user's ids, or
+// (0, 0) for a user it would create, so the rest of the run can proceed.
 func (p *Plan) EnsureUser(name string) (uid, gid int, err error) {
 	if u, lookupErr := user.Lookup(name); lookupErr == nil {
 		p.Say("Service user '%s' already exists.", name)
@@ -51,7 +49,7 @@ func (p *Plan) EnsureUser(name string) (uid, gid int, err error) {
 		p.Say("would useradd -r -m -d /home/%s -s /bin/bash %s", name, name)
 		return 0, 0, nil
 	}
-	fmt.Fprintf(p.Out, "Creating service user '%s' ...\n", name)
+	fmt.Fprintf(p.Out, "Creating service user '%s'…\n", name)
 	cmd := exec.Command("useradd", "-r", "-m", "-d", "/home/"+name, "-s", "/bin/bash", name)
 	cmd.Stdout = p.Out
 	cmd.Stderr = p.Out
@@ -108,16 +106,15 @@ func (p *Plan) WriteFile(path string, data []byte, mode os.FileMode) error {
 	if err := os.WriteFile(path, data, mode); err != nil {
 		return fmt.Errorf("writing %s: %w", path, err)
 	}
-	// os.WriteFile only applies perm on creation. Re-runs over an
-	// existing file (e.g. trinity init after a manual chmod) would
-	// otherwise leave stale modes on rconpassword-bearing cfgs.
+	// os.WriteFile applies perm only on creation, and a rerun must
+	// re-tighten the cfgs that hold the rconpassword.
 	if err := os.Chmod(path, mode); err != nil {
 		return fmt.Errorf("chmod %s: %w", path, err)
 	}
 	return nil
 }
 
-// MkdirChown is the common idiom: ensure a dir exists, chown it.
+// MkdirChown ensures a directory exists and chowns it.
 func (p *Plan) MkdirChown(path string, mode os.FileMode, uid, gid int) error {
 	if err := p.MkdirAll(path, mode); err != nil {
 		return err
@@ -180,8 +177,7 @@ func (p *Plan) Systemctl(args ...string) error {
 }
 
 // asUserCmd builds an exec.Cmd that will run with uid/gid credentials
-// when started. Stdout/stderr default to plan.Out — caller may
-// override (e.g. WriteFileAs sends helper stdout to /dev/null).
+// when started, with stdout and stderr going to plan.Out.
 func (p *Plan) asUserCmd(uid, gid int, name string, args ...string) *exec.Cmd {
 	cmd := exec.Command(name, args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{
@@ -198,10 +194,8 @@ func (p *Plan) asUserCmd(uid, gid int, name string, args ...string) *exec.Cmd {
 // been atomically renamed onto a new inode.
 const helperPath = "/proc/self/exe"
 
-// runHelper re-execs trinity as uid/gid with `_helper <verb> args...`.
-// This is how privileged-dropped operations (write file, copy tree,
-// download URL, unzip archive) actually run their work in pure Go
-// inside a child that doesn't have root's authority.
+// runHelper re-execs trinity as uid/gid with `_helper <verb> args...`,
+// so writes, copies, downloads and unzips run without root.
 func (p *Plan) runHelper(uid, gid int, stdin []byte, verb string, args ...string) error {
 	full := append([]string{"_helper", verb}, args...)
 	if p.DryRun {
@@ -229,8 +223,8 @@ func (p *Plan) WriteFileAs(uid, gid int, path string, data []byte, mode os.FileM
 	return p.runHelper(uid, gid, data, "write", path, fmt.Sprintf("%#o", mode))
 }
 
-// CopyTreeAs mirrors src into dst as the service user. Existing files
-// in dst are overwritten; nothing is removed (overlay semantics).
+// CopyTreeAs mirrors src into dst as the service user, with CopyTree's
+// overlay rules.
 func (p *Plan) CopyTreeAs(uid, gid int, src, dst string) error {
 	if p.DryRun {
 		p.Say("would copy tree %s → %s as %d:%d", src, dst, uid, gid)
@@ -241,7 +235,7 @@ func (p *Plan) CopyTreeAs(uid, gid int, src, dst string) error {
 
 // DownloadAs HTTPS-GETs url and writes the body to dest as the
 // service user. dest's parent directory must already be writable by
-// uid/gid (caller's responsibility — typically via MkdirChown).
+// uid/gid, usually through MkdirChown.
 func (p *Plan) DownloadAs(uid, gid int, url, dest string) error {
 	if p.DryRun {
 		p.Say("would download %s → %s as %d:%d", url, dest, uid, gid)
@@ -251,8 +245,7 @@ func (p *Plan) DownloadAs(uid, gid int, url, dest string) error {
 }
 
 // UnzipAs extracts src into dest as the service user, dropping
-// stripComponents leading path segments. Replaces the previous
-// _unzip-helper subcommand with a unified verb.
+// stripComponents leading path segments.
 func (p *Plan) UnzipAs(uid, gid int, src, dest string, stripComponents int) error {
 	if p.DryRun {
 		p.Say("would unzip %s → %s (strip=%d) as %d:%d", src, dest, stripComponents, uid, gid)
@@ -262,9 +255,7 @@ func (p *Plan) UnzipAs(uid, gid int, src, dest string, stripComponents int) erro
 }
 
 // Setfacl runs `setfacl` with the given args. In dry-run mode prints
-// what it would run. Used by installNATSTLSSymlinks to grant the
-// service user read access to /etc/letsencrypt without changing
-// certbot's default ownership / mode.
+// what it would run.
 func (p *Plan) Setfacl(args ...string) error {
 	if p.DryRun {
 		p.Say("would setfacl %s", strings.Join(args, " "))

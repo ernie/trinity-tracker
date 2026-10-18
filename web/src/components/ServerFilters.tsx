@@ -53,18 +53,13 @@ interface ServerFiltersProps {
   onChange: (next: ServerFilterState) => void;
 }
 
-// ServerFilters renders a toolbar above the live server grid. Each
-// filter axis auto-hides when fewer than two distinct values appear
-// across the live cards — so a single-source / single-mode install
-// doesn't render a row of useless controls. Persisted to localStorage
-// via loadServerFilters; pruning of stale values happens here once the
-// data arrives, mirroring ActivityLog's pattern.
+// Each filter row shows only when the live cards carry two or more values
+// for it.
 export function ServerFilters({
   servers,
   filters,
   onChange,
 }: ServerFiltersProps) {
-  // Derive the distinct values for each axis from the current server list.
   const { gameTypes, modes } = useMemo(() => {
     const gt = new Set<string>();
     const md = new Set<string>();
@@ -78,16 +73,14 @@ export function ServerFilters({
     };
   }, [servers]);
 
-  // Persist on change. Done in an effect (rather than the setter) so
-  // an initial render with stored values doesn't double-write.
+  // In an effect so an initial render with stored values writes once.
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(filters));
   }, [filters]);
 
-  // Drop a persisted filter value once we know the live list doesn't
-  // contain it — otherwise the user sees an empty grid with no signal
-  // as to why. Server-list axis (source) is validated by SourceFilter
-  // itself via /api/sources.
+  // A stored value missing from the live list would leave an empty grid
+  // with no explanation. SourceFilter checks the source against
+  // /api/sources itself.
   useEffect(() => {
     const next: Partial<ServerFilterState> = {};
     if (
@@ -110,11 +103,9 @@ export function ServerFilters({
 
   const hasActive = !!filters.source || !!filters.gameType || !!filters.mode;
 
-  // Hide the whole toolbar when nothing is filterable (single source,
-  // single mode, single game type — e.g., a fresh single-server install).
+  // SourceFilter renders nothing for a single source, so with no other
+  // rows there's nothing to show.
   if (!showGameType && !showMode && !hasActive) {
-    // SourceFilter renders nothing on single-source installs; if there
-    // are no other axes either, skip the whole toolbar.
     return null;
   }
 

@@ -8,10 +8,8 @@ import (
 	"github.com/ernie/trinity-tracker/internal/domain"
 )
 
-// TestCutoffForUsesPerServerWhenPresent covers the Bug 1 fix: each
-// tailer's cutoff comes from the publisher's per-RemoteServerID
-// entry, not from a single global value that any other server's
-// activity could advance.
+// Each tailer's cutoff comes from the publisher's per-RemoteServerID
+// entry, so another server's activity can't advance it.
 func TestCutoffForUsesPerServerWhenPresent(t *testing.T) {
 	perServerTS := time.Date(2026, 5, 11, 17, 11, 58, 0, time.UTC)
 
@@ -26,12 +24,9 @@ func TestCutoffForUsesPerServerWhenPresent(t *testing.T) {
 	}
 }
 
-// TestCutoffForFallsBackToLastMatchEndedAt covers the "no
-// publisher-side entry for this server yet" case: a newly added
-// server, or one with no published activity since the last
-// watermark write. Falling through to the hub-side per-server
-// LastMatchEndedAt is correct: it's the same answer the hub gives
-// during normal operation, just sourced from the matches table.
+// A server with no publisher entry yet (newly added, or idle since the
+// last watermark write) falls back to its LastMatchEndedAt, the same
+// answer the hub gives in normal operation.
 func TestCutoffForFallsBackToLastMatchEndedAt(t *testing.T) {
 	lastEnd := time.Date(2026, 5, 11, 16, 0, 0, 0, time.UTC)
 	m := &ServerManager{} // no per-server entries

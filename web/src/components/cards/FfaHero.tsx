@@ -10,9 +10,8 @@ import { SCORE_HELP } from "./PlayerRows";
 import { stripVRPrefix } from "../../utils";
 
 export interface FfaHeroPlayer {
-  /** Stable identity within the data source — live uses client_num,
-   *  finished uses player_id. Names aren't unique (Q3 allows
-   *  duplicates), so we never key on them. */
+  /** client_num on live cards, player_id on finished ones; two players
+   *  can share a name. */
   key: string | number;
   name: string;
   cleanName?: string;
@@ -23,21 +22,16 @@ export interface FfaHeroPlayer {
   isVerified?: boolean;
   isAdmin?: boolean;
   score: number;
-  /** Bottom-right secondary text. Caller decides what fits the
-   *  context — live cards pass `{ping} ping`, finished cards pass
-   *  `{frags} K · {deaths} D`. */
+  /** Secondary text: `{ping} ping` live, `{frags} K · {deaths} D` finished. */
   sub?: React.ReactNode;
   awards?: AwardEntry[];
   playerId?: number;
 }
 
 interface FfaHeroProps {
-  /** Featured player. Null shows the pre-first-frag placeholder so
-   *  the strip's height stays stable across the match lifecycle. */
+  /** Null shows a placeholder of the same height until the first frag. */
   player: FfaHeroPlayer | null;
-  /** Gild the winner: gold + glow on the portrait frame and score.
-   *  Caller controls this so finished-but-tied matches don't get
-   *  mis-gilded. */
+  /** Gold portrait frame and score; the caller decides, since a tie has no winner. */
   gildScore?: boolean;
   onPlayerClick?: (
     playerName: string,
@@ -133,14 +127,10 @@ export function FfaHero({ player, gildScore, onPlayerClick }: FfaHeroProps) {
   );
 }
 
-/** King-of-the-hill: the first player to reach each new high score
- *  holds the hero slot until *strictly* surpassed. Ties cannot dethrone
- *  the incumbent. Returns null until the first frag of the match — the
- *  caller renders a placeholder for that pre-first-frag window.
- *
- *  If the incumbent disconnects mid-match, we lose their ordering claim
- *  and seed a new king from the current top scorer (no way to know
- *  whether they got to that score first or second). */
+/** The first player to reach each new high score holds the hero slot
+ *  until someone passes them; a tie keeps the incumbent. Returns null
+ *  until the first frag. If the incumbent leaves, the current top scorer
+ *  takes over, since who reached that score first is unknown. */
 export function useFfaHero<P extends FfaHeroPlayer>(players: P[]): P | null {
   const [incumbent, setIncumbent] = useState<{
     key: string | number;
@@ -163,9 +153,7 @@ export function useFfaHero<P extends FfaHeroPlayer>(players: P[]): P | null {
     }
   }
 
-  // In-render reconciliation: only call setState when the tracked
-  // identity-or-score actually changed, so we don't loop. Same idiom
-  // MatchCard uses for `prevSync` resync.
+  // Set during render only on a change, so the render settles.
   const nextKey = hero ? hero.key : null;
   const nextScore = hero?.score ?? 0;
   const changed =

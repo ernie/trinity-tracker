@@ -11,27 +11,22 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
-// RCON request-reply runs hub → collector. The hub holds the JWT-
-// validated identity and decides who is allowed to ask; the collector
-// holds the rcon password and re-validates the request against the
-// per-server allow_hub_admin_rcon flag in its own config. Two checks
-// instead of one is intentional: a misconfigured hub can't grant
-// itself rcon, and a compromised collector still can't dispatch rcon
-// without a corresponding hub-side authenticated request.
+// RCON requests run from hub to collector. The hub checks the caller's
+// identity and decides who may ask; the collector holds the rcon
+// password and rechecks hub-admin requests against its per-server
+// allow_hub_admin_rcon flag, so a misconfigured hub can't grant rcon on
+// its own.
 //
-// Subject layout: trinity.rcon.exec.<source>. The collector's
-// permissions allow Sub on this subject and Pub on _INBOX.> for the
-// reply (standard NATS request-reply pattern with random reply tokens).
+// Requests go to trinity.rcon.exec.<source>; the collector may
+// subscribe there and publish replies on _INBOX.>.
 const (
 	RconExecSubjectPrefix = "trinity.rcon.exec."
 	defaultRconTimeout    = 5 * time.Second
 )
 
-// RconRole + role constants live in internal/hub so the policy
-// decision (hub.AuthorizeUserForRcon) can be shared between the HTTP
-// rcon-exec path and the handshake-time rcon-autoset path. Re-exported
-// here as type aliases to keep the wire format and existing callers
-// unchanged.
+// RconRole and its constants live in internal/hub, where
+// AuthorizeUserForRcon serves both the HTTP rcon path and the
+// handshake's rcon-autoset.
 type RconRole = hub.RconRole
 
 const (
@@ -48,25 +43,22 @@ type RconExecRequest struct {
 	Role      RconRole `json:"role"`
 }
 
-// RconExecReply carries the rcon output OR a non-empty Error string.
-// Empty Error + empty Output is a valid q3 response (rcon commands
-// often produce no output).
+// RconExecReply carries the rcon output or an Error. Both empty is a
+// valid reply, since many rcon commands print nothing.
 type RconExecReply struct {
 	Output string `json:"output,omitempty"`
 	Error  string `json:"error,omitempty"`
 }
 
-// RconClient is the hub-side request issuer. Bind once per source the
-// hub may target, or pass source to Exec each call — the latter avoids
-// a client-per-source map at the call site.
+// RconClient sends RCON requests from the hub; Exec takes the source on
+// each call.
 type RconClient struct {
 	nc      *nats.Conn
 	timeout time.Duration
 }
 
-// NewRconClient builds a hub-side RCON proxy client. timeout <= 0
-// uses the package default (5s — generous because q3 servers are
-// occasionally slow under load).
+// NewRconClient builds a hub-side RCON proxy client. timeout <= 0 uses
+// 5s, which allows for a busy game server.
 func NewRconClient(nc *nats.Conn, timeout time.Duration) (*RconClient, error) {
 	if nc == nil {
 		return nil, fmt.Errorf("natsbus.NewRconClient: NATS connection is required")
@@ -77,10 +69,9 @@ func NewRconClient(nc *nats.Conn, timeout time.Duration) (*RconClient, error) {
 	return &RconClient{nc: nc, timeout: timeout}, nil
 }
 
-// Exec dispatches an RCON request to the given source's collector and
-// returns its output. A non-empty reply.Error becomes a Go error so
-// callers can write the same code path for transport and command-side
-// failures.
+// Exec sends an RCON request to the source's collector and returns its
+// output. A reply.Error becomes a Go error, so transport and command
+// failures share one path.
 func (c *RconClient) Exec(ctx context.Context, source string, req RconExecRequest) (string, error) {
 	if source == "" {
 		return "", fmt.Errorf("natsbus.RconClient.Exec: source is required")
@@ -105,9 +96,9 @@ func (c *RconClient) Exec(ctx context.Context, source string, req RconExecReques
 	return reply.Output, nil
 }
 
-// RconHandler is the collector-side contract. Implementations look up
-// the server by key, re-validate the request against per-server cfg,
-// and execute via their q3 client.
+// RconHandler is the collector side. Implementations look up the server
+// by key, recheck the request against its config and run it on the game
+// server.
 type RconHandler interface {
 	HandleRcon(ctx context.Context, req RconExecRequest) RconExecReply
 }
@@ -118,11 +109,9 @@ type RconServer struct {
 	sub *nats.Subscription
 }
 
-// RegisterRconHandler subscribes the collector to its RCON proxy
-// subject (trinity.rcon.exec.<source>). One handler per collector
-// process — the source argument scopes the subscription so two
-// collectors on the same NATS won't double-handle each other's
-// requests.
+// RegisterRconHandler subscribes the collector to
+// trinity.rcon.exec.<source>. Scoping by source keeps collectors on one
+// NATS server from handling each other's requests.
 func RegisterRconHandler(nc *nats.Conn, source string, h RconHandler) (*RconServer, error) {
 	if nc == nil {
 		return nil, fmt.Errorf("natsbus.RegisterRconHandler: NATS connection is required")

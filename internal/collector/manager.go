@@ -18,7 +18,7 @@ import (
 	"github.com/ernie/trinity-tracker/internal/livestream"
 )
 
-// ServerManager orchestrates log parsing for all configured Q3 servers.
+// ServerManager orchestrates log parsing for every configured game server.
 type ServerManager struct {
 	cfg     *config.Config
 	server  hub.ServerClient
@@ -34,14 +34,10 @@ type ServerManager struct {
 
 	events chan domain.Event
 
-	// replayCutoffs holds the per-RemoteServerID replay/live boundary.
-	// Set from the publisher's persisted Watermark.PerServer on
-	// startup so each tailer compares its log events against the
-	// last event published for THAT server — not the latest event
-	// published for any server (which censored same-second cross-
-	// server events on next-boot recovery, per Bug 1). For servers
-	// without a per-server entry (newly added, or no prior activity)
-	// cutoffFor falls through to fullSrv.LastMatchEndedAt.
+	// replayCutoffs holds each server's replay/live boundary, loaded from
+	// the publisher's Watermark.PerServer at startup, so a tailer compares
+	// its log against the last event published for that server. Servers
+	// without an entry fall back to LastMatchEndedAt (see cutoffFor).
 	replayCutoffs map[int64]time.Time
 
 	mu              sync.RWMutex
@@ -59,20 +55,18 @@ type ServerManager struct {
 	// Zero means defaultLiveTapRedialBase; tests shrink it.
 	liveTapRedialBase time.Duration
 
-	// inflightDials holds connected-but-not-yet-stored live-tap conns (parked in
-	// the header parse). Stop() closes them so a parked read unblocks at once
-	// instead of waiting out the read deadline. Guarded by mu.
+	// inflightDials holds connected live-tap conns not yet stored (parked in
+	// the header parse). Stop() closes them so a parked read unblocks at once.
+	// Guarded by mu.
 	inflightDials map[net.Conn]struct{}
 }
 
 type serverState struct {
 	server domain.Server
 	match  *domain.Match
-	// handshakeRequired tracks g_trinityHandshake for the current
-	// match. When true, greeting waits for the TrinityHandshake event
-	// (so any auth proof carried in the handshake can be applied to
-	// the welcome), and match_start is refused for any server not
-	// setting the cvar.
+	// handshakeRequired tracks g_trinityHandshake for the current match.
+	// When true, greeting waits for the TrinityHandshake event so its auth
+	// proof can apply to the welcome.
 	handshakeRequired bool
 	clients           map[int]*clientState    // client ID -> client state
 	previousClients   map[string]*clientState // GUID -> accumulated stats from previous stints
@@ -89,22 +83,22 @@ type serverState struct {
 	// GUIDs the collector knows have an open session on this server.
 	// Mirrors the hub's sessions table for live, on-server players;
 	// persists across InitGame so a map-change ClientBegin can be told
-	// apart from a fresh connect (Q3 re-emits userinfo+Begin for every
-	// persistent client at each map change). When set, the Begin is a
-	// continuation: emit FactPresenceSnapshot, no greet. When unset,
-	// it's a genuine join: emit FactPlayerJoin and greet.
+	// apart from a fresh connect (the game re-emits userinfo and Begin for
+	// every connected client at each map change). When set, the Begin is a
+	// continuation: emit FactPresenceSnapshot and skip the greeting. When
+	// unset, it's a join: emit FactPlayerJoin and greet.
 	openSessions map[string]bool
 
 	liveTap        *liveTap // persistent live-stream tap for this server, if open
 	liveTapDialing bool     // a tap dial is in flight; guards against a second
-	// concurrent dial racing on the registry (e.g. two InitGames in quick succession)
+	// concurrent dial racing on the registry (two InitGames in quick succession)
 
 	// Trinity handshake state
 	trinityNonces    map[int]string           // map[clientNum]nonce
 	pendingGreetings map[int]*pendingGreeting // map[clientNum]greeting awaiting handshake
 }
 
-// gauntletVictim tracks victim info for humiliation awards
+// gauntletVictim is the last gauntlet victim, named in the humiliation award.
 type gauntletVictim struct {
 	name string
 	guid string
@@ -117,7 +111,7 @@ type clientState struct {
 	name               string
 	cleanName          string
 	guid               string
-	model              string // player model (e.g., "sarge/krusade")
+	model              string // player model, such as "sarge/krusade"
 	isBot              bool
 	isVR               bool
 	vrSeen             bool // ran VR at any point in this stint
@@ -158,15 +152,15 @@ func NewServerManager(cfg *config.Config, server hub.ServerClient, rpc hub.RPCCl
 	}
 }
 
-// SetLivePublisher enables teeing live events onto NATS. Used in
-// collector-only mode; unset in hub+collector to avoid a self-loop.
+// SetLivePublisher tees live events onto NATS in collector-only mode. A
+// combined hub and collector leaves it unset to avoid a self-loop.
 func (m *ServerManager) SetLivePublisher(p hub.LiveEventPublisher) {
 	m.livePub = p
 }
 
 // SetLiveRegistry injects the live-stream relay registry. When set, the
-// collector opens a tap to each co-located game server on match-go-live and
-// registers the resulting Buffer so the relay can serve it.
+// collector opens a tap to each co-located game server when a match goes live
+// and registers the resulting Buffer so the relay can serve it.
 func (m *ServerManager) SetLiveRegistry(r *livestream.Registry) {
 	m.liveReg = r
 }
@@ -178,23 +172,22 @@ func (m *ServerManager) SetConsoleRegistry(r *console.Registry) {
 }
 
 // SetRegistrarKick wires the heartbeat registrar's Kick so the manager can
-// request an immediate is_live re-publish when a live tap opens or closes.
-// The setter writes under m.mu because the openLiveTap dial goroutine reads
-// kickRegistrar under the same lock. The callback must be non-blocking and
-// must not re-acquire m.mu (registrar.Kick is a non-blocking channel send).
-// Optional; nil until wired (the periodic heartbeat still carries is_live).
+// request an immediate is_live republish when a live tap opens or closes. It
+// writes under m.mu because the dial goroutine reads kickRegistrar under that
+// lock, so the callback must not block or take m.mu (registrar.Kick is a
+// non-blocking channel send). Until it's wired, the periodic heartbeat carries
+// is_live.
 func (m *ServerManager) SetRegistrarKick(fn func()) {
 	m.mu.Lock()
 	m.kickRegistrar = fn
 	m.mu.Unlock()
 }
 
-// openLiveTap ensures a persistent live-stream tap is open for the server (if the
-// live registry is configured). Idempotent and a no-op once a tap is open or a
-// dial is in flight — the in-flight guard makes two InitGames in quick succession
-// safe (no second concurrent dial racing on the registry). Best-effort: a server
-// without sv_tvLive refuses the connection and we log+move on. Dials in a goroutine
-// so a slow/refused connect never stalls log processing. Callers (handleLogEvent) hold m.mu.
+// openLiveTap opens a persistent live-stream tap for the server when the live
+// registry is configured. Once a tap is open or a dial is in flight it does
+// nothing, so two quick InitGames dial once. A server without sv_tvLive refuses
+// the connection, which is only logged. The dial runs in a goroutine so a slow
+// connect never stalls log processing. Callers (handleLogEvent) hold m.mu.
 func (m *ServerManager) openLiveTap(state *serverState) {
 	if m.liveReg == nil || state.match == nil || state.match.UUID == "" {
 		return
@@ -207,10 +200,9 @@ func (m *ServerManager) openLiveTap(state *serverState) {
 		log.Printf("collector: live tap: bad server address %q: %v", state.server.Address, err)
 		return
 	}
-	// Don't start a dial during/after shutdown. Stop() closes m.done before it
-	// waits on m.wg; the caller holds m.mu here, so checking m.done and calling
-	// wg.Add(1) under the lock orders the Add before Stop()'s closeLiveTap-loop
-	// lock (and thus before wg.Wait()), so the dial is always awaited.
+	// Stop() closes m.done before it waits on m.wg. Checking m.done and calling
+	// wg.Add(1) under m.mu orders the Add before Stop()'s wg.Wait, so the dial
+	// is always awaited.
 	select {
 	case <-m.done:
 		return
@@ -226,10 +218,9 @@ func (m *ServerManager) openLiveTap(state *serverState) {
 		hdrTimeout = defaultLiveTapHeaderTimeout
 	}
 
-	// Connect off the lock; on success, store the handle back under the lock,
-	// then start the consume loop (so its onClose can't fire before the handle
-	// is observable). Tracked by m.wg so Stop() can't report "shutdown complete"
-	// while a dial is still parked in the header read.
+	// Connect off the lock, then store the handle under it before starting the
+	// consume loop, so onClose can't fire before the handle is visible. m.wg
+	// tracks the dial so Stop() waits for one parked in the header read.
 	m.wg.Add(1)
 	go func() {
 		defer m.wg.Done()
@@ -237,12 +228,11 @@ func (m *ServerManager) openLiveTap(state *serverState) {
 	}()
 }
 
-// dialStoreStart performs one live-tap dial off the lock. On success it stores
-// the handle and starts the consume loop under the lock, returning true; on any
-// failure (dial/header error, shutdown raced the dial, server removed) it stops
-// the late tap and returns false. It clears state.liveTapDialing under the lock
-// on every path, so a caller that set the in-flight guard before dialing has it
-// released exactly once here. Runs OFF m.mu.
+// dialStoreStart performs one live-tap dial. On success it stores the handle
+// and starts the consume loop under the lock and returns true. On any failure
+// (dial or header error, shutdown during the dial, server removed) it stops the
+// late tap and returns false. Every path clears state.liveTapDialing exactly
+// once. Runs off m.mu.
 func (m *ServerManager) dialStoreStart(state *serverState, addr, key string, serverID int64, hdrTimeout, delay time.Duration) bool {
 	conn, err := dialLiveTap(addr)
 	if err != nil {
@@ -252,9 +242,8 @@ func (m *ServerManager) dialStoreStart(state *serverState, addr, key string, ser
 		log.Printf("collector: live tap to %s for key=%s not available: %v", addr, key, err)
 		return false
 	}
-	// Register the in-flight conn so Stop() can close it to interrupt a parked
-	// header read immediately, rather than waiting out the read deadline. Bail
-	// now if shutdown already began.
+	// Stop() closes registered conns to interrupt a parked header read. Bail if
+	// shutdown already began.
 	m.mu.Lock()
 	select {
 	case <-m.done:
@@ -280,8 +269,8 @@ func (m *ServerManager) dialStoreStart(state *serverState, addr, key string, ser
 		log.Printf("collector: live tap to %s for key=%s not available: %v", addr, key, err)
 		return false
 	}
-	// Shutdown raced the dial: bail and stop the late tap before it can register
-	// a buffer or spawn a consume goroutine past Stop().
+	// Shutdown came during the dial: stop the late tap before it registers a
+	// buffer or starts a consumer.
 	select {
 	case <-m.done:
 		m.mu.Unlock()
@@ -297,10 +286,9 @@ func (m *ServerManager) dialStoreStart(state *serverState, addr, key string, ser
 	}
 	state.liveTap = tap
 	kick := m.kickRegistrar // capture under the lock; call after unlock
-	// Track the consume goroutine so Stop() waits for its teardown (RemoveIf +
-	// onClose) instead of reporting "shutdown complete" microseconds early. The
-	// Add is ordered before Stop()'s wg.Wait: the dial goroutine that runs this
-	// is itself still in m.wg here, so the counter can't have hit zero.
+	// m.wg tracks the consume goroutine so Stop() waits for its teardown
+	// (RemoveIf and onClose). The dial goroutine running this is still counted
+	// in m.wg, so the counter can't have reached zero.
 	m.wg.Add(1)
 	m.mu.Unlock()
 	tap.start(func(closed *liveTap) {
@@ -318,19 +306,17 @@ const (
 	// defaultLiveTapRedialBase is the first redial backoff after a mid-match tap
 	// drop; it doubles each failed attempt up to liveTapRedialMaxBackoff.
 	defaultLiveTapRedialBase = 250 * time.Millisecond
-	// liveTapRedialMaxBackoff caps the redial interval. The redial persists for the
-	// LIFE OF THE MATCH rather than giving up after a fixed count, so a longer
-	// same-match outage still recovers. It stops when the match ends, the tap
-	// returns, another dialer takes over, or the collector shuts down.
+	// liveTapRedialMaxBackoff caps the redial interval. Redials continue for the
+	// life of the match and stop when the match ends, the tap returns, another
+	// dialer takes over, or the collector shuts down.
 	liveTapRedialMaxBackoff = 30 * time.Second
 )
 
-// onLiveTapClosed is invoked once by a liveTap's run loop when its connection
-// drops. Clear the handle and re-publish is_live. Identity-checked so a stale
-// tap can't clear a newer one a redial may have already installed. If the match
-// is still active and we're not shutting down, the drop was an unsolicited
-// mid-match loss, not an end-of-match teardown — kick off a persistent
-// capped-backoff redial so live doesn't stay black for the rest of the match.
+// onLiveTapClosed runs once when a tap's connection drops. It clears the
+// handle, only if it still holds this tap since a redial may have installed a
+// newer one, and republishes is_live. If the match is still active and the
+// collector isn't shutting down, the drop happened mid-match, so it starts a
+// capped-backoff redial.
 func (m *ServerManager) onLiveTapClosed(state *serverState, closed *liveTap) {
 	m.mu.Lock()
 	if state.liveTap != closed {
@@ -339,10 +325,9 @@ func (m *ServerManager) onLiveTapClosed(state *serverState, closed *liveTap) {
 	}
 	state.liveTap = nil
 	kick := m.kickRegistrar
-	// Decide redial under the lock. The m.done check + wg.Add here order the Add
-	// before Stop()'s wg.Wait the same way openLiveTap does. Don't claim
-	// liveTapDialing yet — the loop claims it per-attempt, so a racing InitGame
-	// openLiveTap during a backoff sleep can take over and the loop then yields.
+	// The m.done check and wg.Add order the Add before Stop()'s wg.Wait, as in
+	// openLiveTap. The loop claims liveTapDialing per attempt, so an InitGame
+	// during a backoff sleep can take over and the loop yields.
 	redial := false
 	if state.match != nil && state.match.UUID != "" && !m.isShuttingDown() {
 		redial = true
@@ -357,12 +342,10 @@ func (m *ServerManager) onLiveTapClosed(state *serverState, closed *liveTap) {
 	}
 }
 
-// redialLiveTap re-opens a dropped mid-match tap with capped exponential
-// backoff, persisting until the match ends rather than giving up after a fixed
-// count (so a longer same-match outage still recovers). Each attempt claims the
-// in-flight guard under the lock (yielding if the match ended, a tap already
-// returned, another dial is in flight, or we're shutting down), then dials; on
-// success the loop exits, on failure it backs off (doubling, capped) and retries.
+// redialLiveTap reopens a tap dropped mid-match, with capped exponential
+// backoff, until the match ends. Each attempt claims the in-flight guard under
+// the lock, yielding if the match ended, a tap is back, another dial is in
+// flight, or the collector is shutting down.
 func (m *ServerManager) redialLiveTap(state *serverState) {
 	defer m.wg.Done()
 	backoff := m.liveTapRedialBase
@@ -419,11 +402,10 @@ func (m *ServerManager) isShuttingDown() bool {
 	}
 }
 
-// closeLiveTap tears down the server's persistent live tap. This is for genuine
-// teardown (collector shutdown or server removal), NOT map rotation — the tap
-// persists across matches and re-keys itself. The run loop deregisters its
-// buffer when the connection closes; clearing the handle here flips is_live
-// immediately. Callers hold m.mu.
+// closeLiveTap tears down the server's live tap at collector shutdown or server
+// removal; the tap itself persists across map rotation. The run loop
+// deregisters its buffer when the connection closes, and clearing the handle
+// here flips is_live at once. Callers hold m.mu.
 func (m *ServerManager) closeLiveTap(state *serverState) {
 	if state.liveTap != nil {
 		state.liveTap.stop()
@@ -434,12 +416,7 @@ func (m *ServerManager) closeLiveTap(state *serverState) {
 	}
 }
 
-// SetReplayCutoffs pins per-server replay/live boundaries. Each
-// tailer compares its log events against the cutoff for its own
-// RemoteServerID, so an event published on server A at second T
-// can't censor a not-yet-published same-second event on server B
-// during next-boot recovery. Servers absent from perServer fall
-// through to fullSrv.LastMatchEndedAt in cutoffFor.
+// SetReplayCutoffs sets the per-server replay/live boundaries; see cutoffFor.
 func (m *ServerManager) SetReplayCutoffs(perServer map[int64]time.Time) {
 	cuts := make(map[int64]time.Time, len(perServer))
 	for id, ts := range perServer {
@@ -448,12 +425,12 @@ func (m *ServerManager) SetReplayCutoffs(perServer map[int64]time.Time) {
 	m.replayCutoffs = cuts
 }
 
-// Events returns the event channel for WebSocket broadcasting
+// Events returns the event channel for WebSocket broadcasting.
 func (m *ServerManager) Events() <-chan domain.Event {
 	return m.events
 }
 
-// Start initializes all servers and begins polling
+// Start initializes all servers and begins polling.
 func (m *ServerManager) Start(ctx context.Context) error {
 	source := ""
 	if m.cfg.Tracker != nil && m.cfg.Tracker.Collector != nil {
@@ -491,11 +468,9 @@ func (m *ServerManager) Start(ctx context.Context) error {
 			startAfter := m.cutoffFor(&srv, fullSrv)
 			serverID := fullSrv.ID
 			if !m.attachTailer(ctx, srv.Key, srv.LogPath, serverID, startAfter) {
-				// Log file isn't there yet — common race when
-				// trinity.service starts before quake3-server@.service
-				// has had a chance to create the file. Poll for it in
-				// the background; the tailer attaches as soon as it
-				// shows up.
+				// trinity.service can start before quake3-server@.service
+				// creates the log, so poll for it in the background and
+				// attach when it appears.
 				log.Printf("Log file for %s not yet available (%s); retrying in background", srv.Key, srv.LogPath)
 				m.wg.Add(1)
 				go m.tailWhenReady(ctx, srv.Key, srv.LogPath, serverID, startAfter)
@@ -511,23 +486,20 @@ func (m *ServerManager) Start(ctx context.Context) error {
 	return nil
 }
 
-// freshLogThreshold separates "just-created" logs (replay everything as
-// live) from "retrofit on a long-running q3 server" logs (skip history).
-// /etc/logrotate.d/quake3 caps the active file at ~24h of activity, so
-// any log over 10 MB is from a server that's been running long enough
-// that we shouldn't backfill it on the hub.
+// freshLogThreshold separates new logs (replay everything as live) from the
+// log of a long-running server the collector was just added to (skip
+// history). /etc/logrotate.d/quake3 caps the active file at about a day of
+// activity, so a log over 10 MB comes from a server that has run too long
+// to backfill on the hub.
 const freshLogThreshold = 10 << 20 // 10 MB
 
-// cutoffFor picks the replay cutoff for one server. Precedence:
-//  1. Per-server m.replayCutoffs[id] — what the publisher's
-//     watermark says was last published FOR THIS SERVER.
-//     Authoritative because it can't be moved forward by activity
-//     on another server (the Bug 1 censoring path).
-//  2. fullSrv.LastMatchEndedAt — hub-side per-server watermark.
-//     Used when this server has no publisher-side entry (newly
-//     added since the last watermark write, or no activity since).
-//  3. File-size heuristic: small log = fresh, replay everything;
-//     large log = retrofit, skip history (cutoff = now()).
+// cutoffFor picks the replay cutoff for one server, in order:
+//  1. m.replayCutoffs[id], the last event the publisher sent for this
+//     server. Another server's activity can't move it.
+//  2. fullSrv.LastMatchEndedAt, the hub's per-server watermark, when the
+//     publisher has no entry (newly added, or idle since the last write).
+//  3. The log's size: a small log replays everything; a large one skips
+//     history (cutoff = now).
 func (m *ServerManager) cutoffFor(srvCfg *config.Q3Server, fullSrv *domain.Server) time.Time {
 	if ts, ok := m.replayCutoffs[fullSrv.ID]; ok && !ts.IsZero() {
 		return ts
@@ -538,18 +510,14 @@ func (m *ServerManager) cutoffFor(srvCfg *config.Q3Server, fullSrv *domain.Serve
 	if info, err := os.Stat(srvCfg.LogPath); err == nil && info.Size() >= freshLogThreshold {
 		return time.Now().UTC()
 	}
-	return time.Time{} // epoch — replay everything as live
+	return time.Time{} // epoch: replay everything as live
 }
 
-// bootstrapServerPresence publishes a PresenceSnapshot for every
-// currently-tracked, began client on one server. Called from
-// attachTailer after replay completes — by then state.clients is
-// populated. Idempotent on the hub: handlePresenceSnapshot overwrites
-// the bySlot entry, no session work.
-//
-// Snapshots under the lock then publishes unlocked. Holding the lock
-// across m.pub.Publish would block any concurrent writer (Stop, retry
-// goroutines) on every NATS publish.
+// bootstrapServerPresence publishes a PresenceSnapshot for every client on
+// one server that has begun, once replay has filled state.clients. The hub
+// overwrites the slot entry, so repeats are harmless. It snapshots under the
+// lock and publishes unlocked, so a NATS publish never holds up Stop or the
+// retry goroutines.
 func (m *ServerManager) bootstrapServerPresence(serverID int64) {
 	m.mu.RLock()
 	state, ok := m.servers[serverID]
@@ -602,15 +570,12 @@ func (m *ServerManager) bootstrapServerPresence(serverID int64) {
 	log.Printf("collector: presence bootstrap server=%d published=%d skipped=%d", serverID, len(pending), skipped)
 }
 
-// BootstrapAll republishes presence snapshots for every tracked
-// server. Called after a NATS reconnect — when our connection drops
-// and re-establishes, the hub on the other side has almost certainly
-// just restarted (its embedded NATS goes down with it), and its
-// in-memory presence map is empty. Re-bootstrapping rebuilds it
-// without waiting for the next organic player_join.
+// BootstrapAll republishes presence snapshots for every tracked server. It
+// runs after a NATS reconnect, which almost always means the hub restarted
+// (its embedded NATS goes down with it) with an empty presence map.
 //
-// IDs are snapshotted under the lock then iterated unlocked, because
-// bootstrapServerPresence acquires m.mu.RLock itself.
+// IDs are snapshotted under the lock and iterated unlocked, because
+// bootstrapServerPresence takes m.mu.RLock itself.
 func (m *ServerManager) BootstrapAll() {
 	m.mu.RLock()
 	ids := make([]int64, 0, len(m.servers))
@@ -623,12 +588,11 @@ func (m *ServerManager) BootstrapAll() {
 	}
 }
 
-// Stop stops all polling and log watching
+// Stop stops all polling and log watching.
 func (m *ServerManager) Stop() {
 	log.Println("ServerManager: stopping...")
 	close(m.done)
-	// Snapshot under lock — tailWhenReady may write to m.tailers
-	// concurrently and Go panics on concurrent map iteration + write.
+	// tailWhenReady may write m.tailers concurrently.
 	m.mu.RLock()
 	tailers := make([]*LogTailer, 0, len(m.tailers))
 	for _, t := range m.tailers {
@@ -638,9 +602,8 @@ func (m *ServerManager) Stop() {
 	for _, tailer := range tailers {
 		tailer.Stop()
 	}
-	// Tear down persistent live taps (they otherwise live until the conn drops).
-	// Also close any in-flight dial conns so a goroutine parked in the header
-	// parse unblocks immediately instead of waiting out its read deadline.
+	// Close in-flight dial conns too, so a goroutine parked in the header parse
+	// unblocks at once.
 	m.mu.Lock()
 	for _, state := range m.servers {
 		m.closeLiveTap(state)
@@ -653,18 +616,13 @@ func (m *ServerManager) Stop() {
 	log.Println("ServerManager: shutdown complete")
 }
 
-// attachTailer opens the log file, replays from startAfter, publishes
-// a presence bootstrap snapshot for everything that ended up in
-// state.clients, and starts the live tail. Returns false if the log
-// file can't be opened (caller can decide to schedule a retry); returns
-// true after the tail goroutine is running. Errors past the OpenFile
-// stage are logged and swallowed — they aren't grounds for tearing
-// down the manager.
+// attachTailer opens the log, replays from startAfter, publishes a presence
+// snapshot for the replayed clients, and starts the live tail. It returns
+// false if the log can't be opened, so the caller can retry. Later errors are
+// only logged.
 //
-// Bootstrap order is *after* replay but *before* spawning the live
-// processLogEvents goroutine. That places the snapshot ahead of any
-// new live events on the wire, so the hub sees a consistent slot
-// state before live updates start arriving.
+// The snapshot goes out after replay and before the live tail starts, so the
+// hub sees a consistent slot state before live updates arrive.
 func (m *ServerManager) attachTailer(ctx context.Context, key, path string, serverID int64, startAfter time.Time) bool {
 	tailer := NewLogTailer(path, nil)
 	if _, err := tailer.OpenFile(); err != nil {
@@ -683,9 +641,8 @@ func (m *ServerManager) attachTailer(ctx context.Context, key, path string, serv
 		return true // we tried; don't ask the caller to retry forever
 	}
 	m.mu.Lock()
-	// If Stop() ran in the window between Start() above and this lock,
-	// m.done is already closed and Stop()'s tailer snapshot has missed
-	// us. Bail and stop the tailer ourselves.
+	// Stop() may have run since Start() above, and its tailer snapshot
+	// missed this one.
 	select {
 	case <-m.done:
 		m.mu.Unlock()
@@ -694,12 +651,11 @@ func (m *ServerManager) attachTailer(ctx context.Context, key, path string, serv
 	default:
 	}
 	m.tailers[serverID] = tailer
-	// If the replayed log shows a match already in progress — the collector
-	// restarted while the game server kept running — tap it now instead of
-	// waiting for the next InitGame (next map). The engine streams header +
-	// keyframe to a mid-joining consumer, so a viewer reconnects within the
-	// delay window rather than staying black for the rest of the match.
-	// openLiveTap is a no-op when there's no active match or no relay configured.
+	// If the replayed log shows a match in progress (the collector restarted
+	// while the game server kept running), tap it now. The engine sends the
+	// header and a keyframe to a consumer that joins mid-match, so viewers
+	// reconnect within the delay window. openLiveTap does nothing without an
+	// active match or a relay.
 	if st, ok := m.servers[serverID]; ok {
 		m.openLiveTap(st)
 	}
@@ -709,10 +665,8 @@ func (m *ServerManager) attachTailer(ctx context.Context, key, path string, serv
 	return true
 }
 
-// tailWhenReady polls for the log file and attaches the tailer as soon
-// as the q3 server creates it. Most operators see this fire only on
-// fresh installs where trinity.service starts before quake3-server@
-// has written its first log line.
+// tailWhenReady polls for the log file and attaches the tailer as soon as
+// the game server creates it.
 func (m *ServerManager) tailWhenReady(ctx context.Context, key, path string, serverID int64, startAfter time.Time) {
 	defer m.wg.Done()
 	const interval = 3 * time.Second
@@ -732,8 +686,7 @@ func (m *ServerManager) tailWhenReady(ctx context.Context, key, path string, ser
 	}
 }
 
-// GetServerStatus returns the current status for a server
-// ExecuteRcon sends an RCON command to a server and returns the response
+// ExecuteRcon sends an rcon command to a server and returns the reply.
 func (m *ServerManager) ExecuteRcon(serverID int64, command string) (string, error) {
 	m.mu.RLock()
 	state, ok := m.servers[serverID]
@@ -743,7 +696,6 @@ func (m *ServerManager) ExecuteRcon(serverID int64, command string) (string, err
 		return "", fmt.Errorf("server not found")
 	}
 
-	// Find RCON password from config
 	var rconPassword string
 	for _, srv := range m.cfg.Q3Servers {
 		if srv.Address == state.server.Address {
@@ -759,7 +711,7 @@ func (m *ServerManager) ExecuteRcon(serverID int64, command string) (string, err
 	return m.q3client.RconCommand(state.server.Address, rconPassword, command)
 }
 
-// HasRconAccess checks if a server has RCON configured
+// HasRconAccess reports whether a server has an rcon password configured.
 func (m *ServerManager) HasRconAccess(serverID int64) bool {
 	m.mu.RLock()
 	state, ok := m.servers[serverID]
@@ -777,10 +729,9 @@ func (m *ServerManager) HasRconAccess(serverID int64) bool {
 	return false
 }
 
-// ExecuteRconByKey runs an RCON command against the server identified
-// by its per-collector key (not the hub's global server ID). Used by
-// the NATS RCON proxy handler — the hub forwards (key, command) and
-// the collector resolves locally.
+// ExecuteRconByKey runs an rcon command on the server with this
+// collector-local key. The NATS rcon proxy forwards the key and command
+// from the hub.
 func (m *ServerManager) ExecuteRconByKey(key, command string) (string, error) {
 	m.mu.RLock()
 	var address string
@@ -807,10 +758,8 @@ func (m *ServerManager) ExecuteRconByKey(key, command string) (string, error) {
 	return m.q3client.RconCommand(address, rconPassword, command)
 }
 
-// AdminDelegationFor returns whether the operator opted this server
-// (by key) in to hub-admin RCON delegation. Match is case-insensitive
-// on key. Used by the collector-side RCON handler to re-validate hub
-// admin requests against current config.
+// AdminDelegationFor reports whether the operator opted the server with this
+// key (case-insensitive) in to hub-admin rcon delegation.
 func (m *ServerManager) AdminDelegationFor(key string) bool {
 	m.mu.RLock()
 	var address string
@@ -832,24 +781,21 @@ func (m *ServerManager) AdminDelegationFor(key string) bool {
 	return false
 }
 
-// Roster returns the current list of registered servers as RegdServer
-// entries. Used by the distributed-tracking Registrar to broadcast the
-// collector's roster on heartbeat. AdminDelegationEnabled mirrors the
-// per-server config flag so the hub UI can decide whether a hub admin
-// gets the click-to-RCON affordance.
+// Roster returns the registered servers for the Registrar's heartbeat.
+// AdminDelegationEnabled mirrors the per-server config flag so the hub UI
+// knows whether to offer a hub admin rcon.
 func (m *ServerManager) Roster() []domain.RegdServer {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	// Resolve cfg flag by address (cfg.Q3Servers and m.servers both key
-	// off Address; see ExecuteRcon below for the same lookup pattern).
+	// cfg.Q3Servers and m.servers share Address as their key.
 	delegationByAddress := make(map[string]bool, len(m.cfg.Q3Servers))
 	for _, srv := range m.cfg.Q3Servers {
 		delegationByAddress[srv.Address] = srv.AllowHubAdminRcon
 	}
-	// Collector-wide target viewer delay (encode + holdback), stamped on every
-	// server so the hub can surface it per (source, key) to the live player. This
-	// is the target, which already includes the encode latency the per-match
-	// holdback is derived against — so it's the honest end-to-end-ish number.
+	// The collector-wide target viewer delay (encode plus holdback), stamped on
+	// every server so the live player can show it. The target already includes
+	// the encode latency the holdback is derived from, so it's close to the
+	// end-to-end delay.
 	delaySec := 0
 	if m.cfg.Tracker != nil && m.cfg.Tracker.Collector != nil {
 		delaySec = int(m.cfg.Tracker.Collector.LiveDelay.D().Seconds())
@@ -874,7 +820,6 @@ func (m *ServerManager) Roster() []domain.RegdServer {
 	return out
 }
 
-// processLogEvents handles events from a log tailer
 func (m *ServerManager) processLogEvents(ctx context.Context, serverID int64, tailer *LogTailer) {
 	defer m.wg.Done()
 
@@ -890,9 +835,9 @@ func (m *ServerManager) processLogEvents(ctx context.Context, serverID int64, ta
 	}
 }
 
-// handleLogEvent processes a single log event.
-// When replayMode is true, only in-memory state is updated (no DB writes, no event emission).
-// This is used during startup to rebuild client state from already-processed log entries.
+// handleLogEvent processes one log event. In replayMode, used at startup to
+// rebuild client state from already-published lines, it updates only
+// in-memory state.
 func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, event LogEvent, replayMode bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -906,10 +851,8 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 	case EventTypeInitGame:
 		data := event.Data.(InitGameData)
 		m.handleMatchChange(ctx, state, data.MapName, data.GameType, data.UUID, data.Settings["g_mode"], data.Settings["g_trinityhandshake"] == "1", event.Timestamp, replayMode)
-		// Ensure the server's persistent tap is open so warmup streams live — the
-		// engine streams from spawn (sv_tvLive), decoupled from .tvd recording.
-		// Idempotent and in-flight-guarded, so two InitGames in quick succession
-		// still open exactly one tap; it then re-keys across rotations on its own.
+		// Open the tap at InitGame so warmup streams too: the engine streams from
+		// spawn (sv_tvLive), separately from .tvd recording.
 		if !replayMode && state.match != nil && state.match.UUID != "" {
 			m.openLiveTap(state)
 		}
@@ -924,15 +867,12 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 					// the hub's existing (pre-watermark) match row.
 					state.matchStarted = true
 				case !replayMode:
-					// Publish match_start regardless of g_trinityHandshake so
-					// the hub's handshake_required column tracks the cvar in
-					// both directions. The hub still gates persistence on
-					// HandshakeRequired, so non-handshake matches don't
-					// produce stats — but the server's UI visibility flips
-					// off without manual intervention. matchStarted gates
-					// match_end below; we only set it when the hub created
-					// a match row, so we don't fire match_end against a
-					// UUID the hub never persisted.
+					// match_start goes out whatever g_trinityHandshake is, so
+					// the hub's handshake_required column follows the cvar both
+					// ways and the server's visibility updates by itself. The
+					// hub keeps stats only from handshake matches. matchStarted
+					// is set only when the hub created a match row, so match_end
+					// always names a match the hub has.
 					m.pub.Publish(domain.FactEvent{
 						Type:      domain.FactMatchStart,
 						ServerID:  state.server.ID,
@@ -949,13 +889,12 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 					if state.handshakeRequired {
 						state.matchStarted = true
 					} else {
-						log.Printf("collector: match_start for %s on server %s/%s with g_trinityHandshake not enabled — hub will reject stats and downgrade the server", state.match.UUID, state.server.Source, state.server.Key)
+						log.Printf("collector: match_start for %s on server %s/%s with g_trinityHandshake not enabled; the hub will reject its stats and downgrade the server", state.match.UUID, state.server.Source, state.server.Key)
 					}
 				}
 			}
 		}
 		state.matchState = "active"
-		// (live tap already opened at InitGame so warmup streams; nothing to do here)
 
 	case EventTypeWarmup:
 		data := event.Data.(WarmupData)
@@ -969,12 +908,9 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 			state.warmupDuration = data.Duration
 		}
 
-		// Intermission = match is over. Flush all stats and end match.
-		// matchStarted gate matches the shutdown path: if match_start was
-		// never published (e.g. non-handshake server), the hub has no
-		// match row to attach match_end to. Skip in replay mode — any
-		// match_end for a pre-watermark match was already sent on its
-		// original run; republishing would flood the hub.
+		// Intermission ends the match. As on the shutdown path, match_end needs
+		// a match row from match_start. Replayed matches already sent their
+		// match_end.
 		if data.State == "intermission" && !replayMode && state.pendingExit != nil &&
 			state.match != nil && state.match.UUID != "" &&
 			state.matchStarted && !state.matchFlushed && state.match.EndedAt == nil {
@@ -993,11 +929,10 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 				},
 			})
 			state.matchFlushed = true
-			// Stats are final at intermission, but the live stream must NOT end
-			// here: the intermission scoreboard is part of the match (it's in the
-			// .tvd VOD), so live viewers must see it too. The persistent tap's
-			// buffer ends when the engine sends TVLe at the next map's spawn —
-			// after the scoreboard plus the delayed tail have streamed.
+			// The live stream keeps running: the intermission scoreboard is part
+			// of the match, as in the recorded demo. The tap's buffer ends at the
+			// engine's TVLe on the next map's spawn, after the scoreboard and the
+			// delayed tail have streamed.
 		}
 
 	case EventTypeClientConnect:
@@ -1037,17 +972,17 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 		client.team = data.Team
 		client.model = data.Model
 
-		// Canonical GUID: bots use synthetic "BOT:<cleanName>"; humans use
-		// the literal GUID from the log. Empty until identity is known.
+		// Bots get a synthetic "BOT:<cleanName>" GUID; humans use the GUID
+		// from the log. Empty until identity is known.
 		if data.IsBot {
 			client.guid = "BOT:" + client.cleanName
 		} else {
 			client.guid = data.GUID
 		}
 
-		// If the client is already in the game and a userinfo field
-		// the hub tracks changed, forward the change so the live card
-		// reflects the new portrait / VR flag without faking a rejoin.
+		// For a client already in the game, forward changes to userinfo
+		// fields the hub tracks so the live card shows the new portrait or
+		// VR flag.
 		if !replayMode && wasBegan && client.guid != "" &&
 			(prevModel != client.model || prevIsVR != client.isVR) {
 			m.emitEvent(domain.Event{
@@ -1062,7 +997,7 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 				},
 			})
 		}
-		// a switch into VR after joining; the join already recorded the starting mode
+		// A switch into VR after joining; the join recorded the starting mode.
 		if !replayMode && wasBegan && client.guid != "" && !client.isBot && client.isVR && !prevIsVR {
 			m.pub.Publish(domain.FactEvent{
 				Type:      domain.FactPlayerVR,
@@ -1072,17 +1007,11 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 			})
 		}
 
-		// Resolve identity through the hub writer. In replay mode we
-		// skip the RPC entirely — the return value isn't used (the
-		// hub-side presence tracker answers PlayerID / verified /
-		// admin now), and blasting hundreds of bot+human upserts at
-		// the hub during log replay dominates collector startup time.
-		// New identities introduced post-watermark hit the live path
-		// below. The edge case (bot GUID that only appeared
-		// pre-watermark and isn't in the hub DB yet) results in its
-		// match_end stats being dropped hub-side with a log message;
-		// acceptable since that bot will be re-upserted the next time
-		// it joins.
+		// Replay skips the identity RPC: the hub's presence tracker answers
+		// PlayerID, verified and admin, and hundreds of upserts would
+		// dominate collector startup. A bot seen only before the watermark
+		// and missing from the hub DB has its match_end stats dropped, with a
+		// log line; it's upserted again the next time it joins.
 		if client.guid != "" && !replayMode {
 			var identity hub.PlayerIdentity
 			var err error
@@ -1111,11 +1040,9 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 		if client, ok := state.clients[data.ClientID]; ok {
 			client.began = true
 
-			// A Begin is either a genuine fresh join or a map-change
-			// continuation. The collector mirrors the hub's session
-			// table in state.openSessions so it can tell them apart
-			// without round-tripping; the publish type and the greet
-			// both branch off the same answer.
+			// A Begin is either a join or a map-change continuation;
+			// state.openSessions mirrors the hub's sessions to tell them
+			// apart, and the published fact and the greeting both follow.
 			if client.guid != "" && !replayMode {
 				if state.openSessions[client.guid] {
 					m.pub.Publish(domain.FactEvent{
@@ -1171,12 +1098,10 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 							ClientNum: data.ClientID,
 						},
 					})
-					// Greet only humans; bots' synthetic GUID passes
-					// guid != "" but they shouldn't get a welcome.
+					// Bots have a synthetic GUID; greet only humans.
 					if !client.isBot && m.startupComplete {
 						if m.handshakeRequired(state) {
-							// Delay greeting until handshake completes (or warn on timeout).
-							// The handshake handler calls performGreet with auth bundled in.
+							// The handshake handler greets with the auth proof.
 							m.scheduleGreetingAfterHandshake(ctx, state, serverID, data.ClientID, client.guid, client.name, client.cleanName, client.isVR, client.isTrinityEngine)
 						} else {
 							go m.performGreet(ctx, serverID, data.ClientID, client.guid, client.name, client.cleanName, client.isVR, client.isTrinityEngine, nil)
@@ -1227,8 +1152,7 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 				})
 			}
 
-			// Preserve stats for match-end flush (unless match already flushed)
-			// Skip clients that never began (connected but never spawned)
+			// Keep the leaving client's stats for the match-end flush.
 			if !state.matchFlushed && client.began && client.guid != "" &&
 				(state.matchState == "active" || state.matchState == "overtime") &&
 				(client.team != 3 || client.frags > 0 || client.deaths > 0) {
@@ -1264,20 +1188,17 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 	case EventTypeFrag:
 		data := event.Data.(FragEventData)
 
-		// Only track frags/deaths during active gameplay (not warmup/waiting/intermission)
-		// Note: We track stats even during replay so we can flush them if match wasn't completed
+		// Replay counts too, so an unfinished match can still be flushed.
 		if state.matchState == "active" || state.matchState == "overtime" {
-			// Increment in-memory frag count for fragger (human or bot)
 			if fragger, ok := state.clients[data.FraggerID]; ok {
 				fragger.frags++
 			}
 
-			// Increment in-memory death count for victim (human or bot)
 			if victim, ok := state.clients[data.VictimID]; ok {
 				victim.deaths++
 			}
 
-			// Track gauntlet frag victim for humiliation award (MOD_GAUNTLET = 2)
+			// MOD_GAUNTLET is 2; the victim pairs with the humiliation award.
 			if data.WeaponID == 2 {
 				if fragger, ok := state.clients[data.FraggerID]; ok {
 					var victimGUID string
@@ -1315,7 +1236,7 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 		}
 
 	case EventTypeScore:
-		// Capture score and team at match end (score events fire during Exit sequence)
+		// Score events arrive during the Exit sequence with final scores and teams.
 		data := event.Data.(ScoreEventData)
 		if client, ok := state.clients[data.ClientID]; ok {
 			score := data.Score
@@ -1326,8 +1247,8 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 	case EventTypeExit:
 		data := event.Data.(ExitEventData)
 		if state.match != nil {
-			// Defer stats flush until ShutdownGame to capture score events that follow Exit
-			// Score events are emitted AFTER Exit but BEFORE ShutdownGame
+			// Score events come after Exit and before ShutdownGame, so the
+			// stats flush waits for ShutdownGame.
 			reason := data.Reason
 			state.pendingExit = &reason
 			state.pendingExitAt = event.Timestamp
@@ -1354,9 +1275,8 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 
 		if state.match != nil {
 			if state.matchFlushed || replayMode {
-				// already flushed or pre-watermark replay; hub dedup
-				// via source_progress.consumed_seq handles any
-				// boundary duplicates.
+				// Already flushed, or a replayed match. The hub drops
+				// boundary duplicates by source_progress.consumed_seq.
 			} else if state.matchStarted && state.match.UUID != "" && state.match.EndedAt == nil {
 				if state.pendingExit != nil {
 					m.pub.Publish(domain.FactEvent{
@@ -1387,11 +1307,11 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 					})
 				}
 			} else if !state.matchStarted {
-				// Match never reached active play (no WarmupEnd) - discard without persisting
+				// The match never left warmup.
 				log.Printf("Discarding match %s: never reached active play", state.match.UUID)
 			}
 		}
-		// Tap NOT closed here — it persists across the rotation and re-keys itself (see liveTap).
+		// The live tap stays open across the rotation (see liveTap).
 		state.match = nil
 		state.matchStarted = false
 		state.matchFlushed = false
@@ -1403,7 +1323,6 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 
 	case EventTypeFlagCapture:
 		data := event.Data.(FlagCaptureData)
-		// Track capture in memory for real-time display
 		if client, ok := state.clients[data.ClientID]; ok {
 			client.captures++
 		}
@@ -1427,7 +1346,6 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 
 	case EventTypeFlagTaken:
 		data := event.Data.(FlagTakenData)
-		// Skip events in replay mode
 		if !replayMode {
 			var guid string
 			if client, ok := state.clients[data.ClientID]; ok {
@@ -1448,7 +1366,7 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 
 	case EventTypeFlagReturn:
 		data := event.Data.(FlagReturnData)
-		// Track flag return in memory for stats (only player-initiated returns, not auto-returns)
+		// Automatic returns have ClientID -1; only player returns count.
 		if data.ClientID >= 0 {
 			if client, ok := state.clients[data.ClientID]; ok {
 				client.flagReturns++
@@ -1456,7 +1374,6 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 		}
 		if !replayMode {
 			var guid string
-			// Auto-returns have ClientID == -1 and no player associated
 			if data.ClientID >= 0 {
 				if client, ok := state.clients[data.ClientID]; ok {
 					guid = client.guid
@@ -1477,7 +1394,6 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 
 	case EventTypeFlagDrop:
 		data := event.Data.(FlagDropData)
-		// Skip events in replay mode
 		if !replayMode {
 			var guid string
 			if client, ok := state.clients[data.ClientID]; ok {
@@ -1498,7 +1414,7 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 
 	case EventTypeObeliskDestroy:
 		data := event.Data.(ObeliskDestroyData)
-		// Skip world/self destructs (no player to credit).
+		// World and self destructs have no player to credit.
 		if data.AttackerID >= 0 {
 			if client, ok := state.clients[data.AttackerID]; ok {
 				client.obelisksDestroyed++
@@ -1525,7 +1441,7 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 
 	case EventTypeObeliskDamage:
 		data := event.Data.(ObeliskDamageData)
-		// Mod-side coalescing: one Start, one Stop per attack burst.
+		// The mod sends one Start and one Stop per attack burst.
 		if replayMode || data.AttackerID < 0 {
 			break
 		}
@@ -1548,7 +1464,7 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 
 	case EventTypeSkullPickup:
 		data := event.Data.(SkullPickupData)
-		// data.Count is the running post-pickup total, not a delta.
+		// data.Count is the running total after the pickup.
 		if client, ok := state.clients[data.ClientID]; ok {
 			client.skullsCarrying = data.Count
 		}
@@ -1573,7 +1489,8 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 
 	case EventTypeSkullScore:
 		data := event.Data.(SkullScoreData)
-		// data.Skulls = tokens delivered in this trip; clears live carry.
+		// data.Skulls is the count delivered on this trip; delivery clears the
+		// live carry count.
 		if client, ok := state.clients[data.ClientID]; ok {
 			client.skullsDelivered += data.Skulls
 			client.skullsCarrying = 0
@@ -1601,13 +1518,13 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 		if client, ok := state.clients[data.ClientID]; ok {
 			oldTeam := client.team
 
-			// When leaving a playing team, preserve stats for match-end flush
+			// Leaving a playing team keeps the stats for the match-end flush.
 			if oldTeam != 3 && oldTeam != data.NewTeam && client.guid != "" {
 				if state.matchStarted &&
 					(state.matchState == "active" || state.matchState == "overtime") {
 					state.savePreviousClient(client)
 
-					// Create fresh clientState for new team, carrying forward identity
+					// A fresh clientState for the new team, with the same identity.
 					initialScore := 0
 					state.clients[data.ClientID] = &clientState{
 						clientID:  client.clientID,
@@ -1626,12 +1543,11 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 						score:     &initialScore,
 					}
 				} else {
-					// No active match — just update team
 					client.team = data.NewTeam
 				}
 			} else {
 				client.team = data.NewTeam
-				// Update joinedAt when entering a playing team from spectator
+				// joinedAt restarts when a spectator joins a team.
 				if data.NewTeam != 3 && oldTeam == 3 {
 					client.joinedAt = event.Timestamp
 				}
@@ -1698,7 +1614,7 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 			}
 
 			if !replayMode {
-				// Map gauntlet to humiliation for frontend
+				// The site calls the gauntlet award humiliation.
 				awardType := data.AwardType
 				if awardType == "gauntlet" {
 					awardType = "humiliation"
@@ -1712,11 +1628,9 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 					GUID:       client.guid,
 				}
 
-				// Include victim info for humiliation awards
 				if data.AwardType == "gauntlet" && client.lastGauntletVictim != nil {
 					awardEvent.VictimName = client.lastGauntletVictim.name
 					awardEvent.VictimGUID = client.lastGauntletVictim.guid
-					// Clear victim after using it
 					client.lastGauntletVictim = nil
 				}
 
@@ -1731,14 +1645,13 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 
 	case EventTypeCommand:
 		data := event.Data.(CommandData)
-		// Only process commands after startup is complete (skip during log replay)
+		// Commands are ignored during replay and until startup completes.
 		if !replayMode && m.startupComplete {
 			m.handleCommand(ctx, serverID, state, data.ClientID, data.Command)
 		}
 
 	case EventTypeSay:
 		data := event.Data.(SayData)
-		// Skip events in replay mode
 		if !replayMode {
 			var guid string
 			if client, ok := state.clients[data.ClientID]; ok {
@@ -1759,7 +1672,6 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 
 	case EventTypeSayTeam:
 		data := event.Data.(SayTeamData)
-		// Skip events in replay mode
 		if !replayMode {
 			var guid string
 			if client, ok := state.clients[data.ClientID]; ok {
@@ -1780,7 +1692,6 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 
 	case EventTypeTell:
 		data := event.Data.(TellData)
-		// Skip events in replay mode
 		if !replayMode {
 			var fromGUID, toGUID string
 			if client, ok := state.clients[data.FromClientID]; ok {
@@ -1807,7 +1718,6 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 
 	case EventTypeSayRcon:
 		data := event.Data.(SayRconData)
-		// Skip events in replay mode
 		if !replayMode {
 			m.emitEvent(domain.Event{
 				Type:      domain.EventSayRcon,
@@ -1856,14 +1766,13 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 		}
 
 	case EventTypeDemoDiscarded:
-		// No fact emitted — absence of FactDemoFinalized for the match
-		// is the same signal hub-side. Logged for replay/debug.
+		// No fact: to the hub, a missing FactDemoFinalized means the same
+		// thing. Logged for review.
 
 	case EventTypeRconExec:
 		data := event.Data.(RconExecData)
-		// Defense-in-depth: the engine already filters trinity_rconset
-		// (the autoset path is audited as rcon.autoset hub-side); if a
-		// future code path produces one anyway, drop it here too.
+		// The engine already filters trinity_rconset, and the hub audits the
+		// autoset path as rcon.autoset; drop any that gets through.
 		if strings.HasPrefix(data.Command, "sv_cmd trinity_rconset") {
 			break
 		}
@@ -1920,10 +1829,10 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 	}
 }
 
-// handleMapChange handles a new map starting
+// handleMatchChange starts tracking the match an InitGame begins.
 func (m *ServerManager) handleMatchChange(ctx context.Context, state *serverState, mapName string, gameType int, uuid string, mode string, handshakeEnabled bool, ts time.Time, replayMode bool) {
 	state.handshakeRequired = handshakeEnabled
-	// Skip duplicate InitGame at same timestamp (Q3 sometimes logs it twice on server restart)
+	// The game can log InitGame twice at one timestamp when a server restarts.
 	if ts.Equal(state.lastInitGame) {
 		return
 	}
@@ -1931,13 +1840,13 @@ func (m *ServerManager) handleMatchChange(ctx context.Context, state *serverStat
 
 	gameTypeStr := domain.GameTypeFromInt(gameType)
 
-	// Replay just rebuilds in-memory state; duplicate publishes are
-	// deduped on the hub via consumed_seq / the publish watermark.
+	// Replay only rebuilds in-memory state; the hub drops duplicate
+	// publishes by consumed_seq and the publish watermark.
 	if replayMode {
 		prevMatch := state.match
 
 		// Emit match_crashed for a prior match that started but never
-		// ended. Hub-side handler is idempotent.
+		// ended. The hub's handler is idempotent.
 		if prevMatch != nil && prevMatch.UUID != "" &&
 			prevMatch.UUID != uuid && prevMatch.EndedAt == nil &&
 			state.matchStarted {
@@ -1980,11 +1889,8 @@ func (m *ServerManager) handleMatchChange(ctx context.Context, state *serverStat
 		})
 	}
 
-	// The live tap is left open across the match change: it's per-server and
-	// re-keys onto the new map itself (see closeLiveTap).
-
-	// Defer DB persistence until WarmupEnd so warmup-only matches
-	// don't create orphaned rows.
+	// The match is persisted at WarmupEnd, so a warmup-only match leaves no
+	// row.
 	match := &domain.Match{
 		UUID:      uuid,
 		ServerID:  state.server.ID,
@@ -1999,10 +1905,9 @@ func (m *ServerManager) handleMatchChange(ctx context.Context, state *serverStat
 	state.clients = make(map[int]*clientState)
 	state.previousClients = make(map[string]*clientState)
 	state.matchFlushed = false
-	state.matchState = "" // will be set by MatchState event if warmup enabled
+	state.matchState = "" // set by the MatchState event when warmup is on
 	state.warmupDuration = 0
 
-	// Emit match start event
 	m.emitEvent(domain.Event{
 		Type:      domain.EventMatchStart,
 		ServerID:  state.server.ID,
@@ -2096,7 +2001,7 @@ func (m *ServerManager) buildMatchEndPlayers(state *serverState, computeVictory 
 		})
 	}
 
-	// Connected players last (completed=true)
+	// Connected players last (completed=true).
 	for clientID, client := range state.clients {
 		if client.guid == "" || !client.began {
 			continue
@@ -2142,7 +2047,8 @@ func (m *ServerManager) buildMatchEndPlayers(state *serverState, computeVictory 
 	return players
 }
 
-// computeWinningTeam returns the winning team (1=red, 2=blue) or 0 for tie/unknown
+// computeWinningTeam returns 1 for red, 2 for blue, or 0 for a tie or missing
+// scores.
 func computeWinningTeam(redScore, blueScore *int) int {
 	if redScore != nil && blueScore != nil {
 		if *redScore > *blueScore {
@@ -2154,8 +2060,8 @@ func computeWinningTeam(redScore, blueScore *int) int {
 	return 0 // Tie or unknown
 }
 
-// computeMaxScore returns the maximum score among all completed clients (for FFA victory)
-// Returns (maxScore, found) where found indicates at least one eligible client existed
+// computeMaxScore returns the highest score among completed clients, for the
+// FFA victory, and whether any client had a score.
 func computeMaxScore(clients map[int]*clientState) (int, bool) {
 	found := false
 	maxScore := 0
@@ -2170,7 +2076,7 @@ func computeMaxScore(clients map[int]*clientState) (int, bool) {
 	return maxScore, found
 }
 
-// isMatchWinner determines if a client won the match based on game type and scores
+// isMatchWinner reports whether a client won the match.
 func isMatchWinner(client *clientState, state *serverState, maxFFAScore int, hasFFAScores bool) bool {
 	if state.match == nil || state.pendingExit == nil {
 		return false // No victory for abnormal shutdown
@@ -2186,9 +2092,8 @@ func isMatchWinner(client *clientState, state *serverState, maxFFAScore int, has
 		if winningTeam == 0 || client.team != winningTeam {
 			return false
 		}
-		// Require the winning team's score to be positive — matches where both
-		// teams went net-negative (e.g. TDM with bots falling off the map) don't
-		// earn anyone a victory.
+		// A team victory needs a positive winning score; when both teams
+		// finish below zero (TDM bots falling off the map, say), nobody wins.
 		winningScore := state.pendingRedScore
 		if winningTeam == 2 {
 			winningScore = state.pendingBlueScore
@@ -2196,19 +2101,19 @@ func isMatchWinner(client *clientState, state *serverState, maxFFAScore int, has
 		return winningScore != nil && *winningScore > 0
 	}
 
-	// FFA/Tournament: highest score wins, but only if someone actually scored.
-	// Every connecting client is initialized to score=0, so a "no contest" match
-	// (e.g. instant rotation) leaves everyone tied at 0 — nobody wins.
+	// FFA and Tournament: the top score wins only if it's above zero. Every
+	// client starts at 0, so in a match nobody scored in (an instant rotation,
+	// say) nobody wins.
 	return hasFFAScores && maxFFAScore > 0 && client.score != nil && *client.score == maxFFAScore
 }
 
-// emitEvent delivers to the local channel and, if livePub is set,
-// tees onto the NATS live-event subject (collector-only deployments).
+// emitEvent delivers to the local channel and, when livePub is set
+// (collector-only), tees onto the NATS live-event subject.
 func (m *ServerManager) emitEvent(event domain.Event) {
 	select {
 	case m.events <- event:
 	default:
-		// Channel full, drop event
+		// The channel is full; drop the event.
 	}
 	if m.livePub != nil {
 		if err := m.livePub.PublishLive(event); err != nil {
@@ -2217,7 +2122,7 @@ func (m *ServerManager) emitEvent(event domain.Event) {
 	}
 }
 
-// handleCommand dispatches a command to the appropriate handler
+// handleCommand dispatches a player's chat command.
 func (m *ServerManager) handleCommand(ctx context.Context, serverID int64, state *serverState, clientID int, command string) {
 	cmd, args := parseCommand(command)
 
@@ -2235,16 +2140,14 @@ func (m *ServerManager) handleCommand(ctx context.Context, serverID int64, state
 	}
 }
 
-// handleHelpCommand shows available commands to a player
 func (m *ServerManager) handleHelpCommand(serverID int64, clientID int) {
 	go func() {
 		m.sendPrintSync(serverID, clientID, "^3Available commands:")
-		m.sendPrintSync(serverID, clientID, "^3!claim ^7- Link your identity to an account")
-		m.sendPrintSync(serverID, clientID, "^3!link <code> ^7- Link current identity to your account")
+		m.sendPrintSync(serverID, clientID, "^3!claim^7: link this identity to an account")
+		m.sendPrintSync(serverID, clientID, "^3!link <code>^7: link this identity to your account with a code from your Account page")
 	}()
 }
 
-// handleLinkCommand processes a link command from a player
 func (m *ServerManager) handleLinkCommand(ctx context.Context, serverID int64, state *serverState, clientID int, args string) {
 	client, ok := state.clients[clientID]
 	if !ok {
@@ -2254,36 +2157,35 @@ func (m *ServerManager) handleLinkCommand(ctx context.Context, serverID int64, s
 
 	code := trimSpace(args)
 	if client.guid == "" {
-		m.sendPrint(serverID, clientID, "^1Error: Current identity unknown. Try reconnecting.")
+		m.sendPrint(serverID, clientID, "^1Couldn't identify this player. Reconnect and try again.")
 		return
 	}
 
 	reply, err := m.rpc.Link(ctx, hub.LinkRequest{GUID: client.guid, Code: code})
 	if err != nil {
 		log.Printf("link RPC error: %v", err)
-		m.sendPrint(serverID, clientID, "^1Error linking account. Please try again.")
+		m.sendPrint(serverID, clientID, "^1Couldn't link this identity. Try again.")
 		return
 	}
 
 	switch reply.Status {
 	case hub.LinkOK:
-		m.sendPrint(serverID, clientID, "^2Link successful! ^7This identity has been linked to your account.")
+		m.sendPrint(serverID, clientID, "^2This identity is now linked to your account.")
 		log.Printf("Link successful: GUID %s via code %s", client.guid, code)
 	case hub.LinkInvalidFormat:
 		m.sendPrint(serverID, clientID, "^3Usage: ^7!link <6-digit-code>")
 	case hub.LinkInvalidCode:
-		m.sendPrint(serverID, clientID, "^1Invalid or expired link code.")
+		m.sendPrint(serverID, clientID, "^1That link code is wrong or has expired.")
 	case hub.LinkAlreadyLinked:
 		m.sendPrint(serverID, clientID, "^3This identity is already linked to your account.")
 	case hub.LinkUnknownGUID:
-		m.sendPrint(serverID, clientID, "^1Error: Could not find player record for this identity.")
+		m.sendPrint(serverID, clientID, "^1Couldn't find a player record for this identity.")
 	default:
 		log.Printf("link RPC error for GUID %s: %s", client.guid, reply.Message)
-		m.sendPrint(serverID, clientID, "^1Error linking account. Please contact admin.")
+		m.sendPrint(serverID, clientID, "^1Couldn't link this identity. Ask for help in the Trinity Discord.")
 	}
 }
 
-// handleClaimCommand processes a claim command from a player
 func (m *ServerManager) handleClaimCommand(ctx context.Context, serverID int64, state *serverState, clientID int) {
 	client, ok := state.clients[clientID]
 	if !ok {
@@ -2292,14 +2194,14 @@ func (m *ServerManager) handleClaimCommand(ctx context.Context, serverID int64, 
 	}
 
 	if client.guid == "" {
-		m.sendPrint(serverID, clientID, "^1Error: Current identity unknown. Try reconnecting.")
+		m.sendPrint(serverID, clientID, "^1Couldn't identify this player. Reconnect and try again.")
 		return
 	}
 
 	reply, err := m.rpc.Claim(ctx, hub.ClaimRequest{GUID: client.guid})
 	if err != nil {
 		log.Printf("claim RPC error for GUID %s: %v", client.guid, err)
-		m.sendPrint(serverID, clientID, "^1Error generating claim code. Please try again.")
+		m.sendPrint(serverID, clientID, "^1Couldn't create a claim code. Try again.")
 		return
 	}
 
@@ -2309,15 +2211,15 @@ func (m *ServerManager) handleClaimCommand(ctx context.Context, serverID int64, 
 	}
 	switch reply.Status {
 	case hub.ClaimOK:
-		m.sendPrint(serverID, clientID, fmt.Sprintf("Your claim code is: ^3%s^7 - Visit ^5%s ^7to claim this identity. Expires in 30 minutes.", reply.Code, hubHost))
+		m.sendPrint(serverID, clientID, fmt.Sprintf("Your claim code is: ^3%s^7. Visit ^5%s ^7to claim this identity. Expires in 30 minutes.", reply.Code, hubHost))
 		log.Printf("Claim code %s generated for GUID %s on server %d", reply.Code, client.guid, serverID)
 	case hub.ClaimAlreadyClaimed:
 		m.sendPrint(serverID, clientID, "^3This identity is already linked to an account.")
 	case hub.ClaimUnknownPlayer:
-		m.sendPrint(serverID, clientID, "^1Error: Could not identify your player record. Try reconnecting.")
+		m.sendPrint(serverID, clientID, "^1Couldn't find your player record. Reconnect and try again.")
 	default:
 		log.Printf("claim RPC error: %s", reply.Message)
-		m.sendPrint(serverID, clientID, "^1Error generating claim code. Please try again.")
+		m.sendPrint(serverID, clientID, "^1Couldn't create a claim code. Try again.")
 	}
 }
 
@@ -2335,7 +2237,7 @@ func (m *ServerManager) sendPrintSync(serverID int64, clientID int, message stri
 }
 
 func (m *ServerManager) sendCenterPrint(serverID int64, clientID int, message string) {
-	// Literal \n so RCON transport doesn't eat the newlines.
+	// A literal \n survives the rcon transport.
 	escaped := strings.ReplaceAll(message, "\n", "\\n")
 	cmd := fmt.Sprintf("sv_cmd cp %d ^7%s", clientID, escaped)
 	if _, err := m.ExecuteRcon(serverID, cmd); err != nil {
@@ -2343,11 +2245,10 @@ func (m *ServerManager) sendCenterPrint(serverID int64, clientID int, message st
 	}
 }
 
-// performGreet issues the greet RPC and applies the reply with a
-// formatted welcome. auth is nil when the client sent no Trinity
-// handshake auth info. On AuthFailed we still greet — the GUID
-// already binds to a known player and can't be rebound — but follow
-// up with a prominent re-login notice.
+// performGreet issues the greet RPC and sends the welcome. auth is nil when
+// the handshake carried no login. When auth fails the player is still
+// greeted, since the GUID already belongs to a known player, followed by a
+// prominent notice to log in again.
 func (m *ServerManager) performGreet(ctx context.Context, serverID int64, clientID int, guid, playerName, cleanName string, isVR, isTrinityEngine bool, auth *hub.AuthProof) {
 	req := hub.GreetRequest{
 		ServerID:   serverID,
@@ -2377,11 +2278,8 @@ func (m *ServerManager) performGreet(ctx context.Context, serverID int64, client
 		m.sendTrinityNameConflict(serverID, clientID)
 	}
 
-	// Encrypted rcon-autoset: hub flags the user as authorized to RCON
-	// this server, we encrypt the local rcon password under a
-	// per-handshake key derived from the user's Trinity token, and push
-	// it to the connected client. Fires concurrently with the welcome
-	// flow — no need to block on it.
+	// When the hub says the user may rcon this server, the encrypted password
+	// goes out alongside the welcome.
 	if reply.RconStuff != nil {
 		m.sendRconAutoset(serverID, clientID, reply.RconStuff)
 	}
@@ -2390,21 +2288,21 @@ func (m *ServerManager) performGreet(ctx context.Context, serverID int64, client
 	hasStats := reply.CompletedMatches > 0
 	switch {
 	case reply.Claimed && hasStats:
-		message = fmt.Sprintf("Welcome back, %s^7! K/D: ^3%.2f ^7| Matches: ^3%d ^7(^3!help ^7for help)",
+		message = fmt.Sprintf("Welcome back, %s^7! K/D: ^3%.2f ^7| Matches: ^3%d ^7(^3!help ^7for commands)",
 			playerName, reply.KDRatio, reply.CompletedMatches)
-		cpMessage = fmt.Sprintf("Welcome back, %s^7!\nK/D: ^3%.2f ^7| Matches: ^3%d\n^3!help ^7for help",
+		cpMessage = fmt.Sprintf("Welcome back, %s^7!\nK/D: ^3%.2f ^7| Matches: ^3%d\n^3!help ^7for commands",
 			playerName, reply.KDRatio, reply.CompletedMatches)
 	case reply.Claimed:
-		message = fmt.Sprintf("Welcome back, %s^7! (^3!help ^7for help)", playerName)
-		cpMessage = fmt.Sprintf("Welcome back, %s^7!\n^3!help ^7for help", playerName)
+		message = fmt.Sprintf("Welcome back, %s^7! (^3!help ^7for commands)", playerName)
+		cpMessage = fmt.Sprintf("Welcome back, %s^7!\n^3!help ^7for commands", playerName)
 	case hasStats:
-		message = fmt.Sprintf("Welcome, %s^7! K/D: ^3%.2f ^7| Matches: ^3%d ^7- ^3!claim ^7to link your identity! (^3!help ^7for help)",
+		message = fmt.Sprintf("Welcome, %s^7! K/D: ^3%.2f ^7| Matches: ^3%d^7. Type ^3!claim ^7to link this identity to an account. (^3!help ^7for commands)",
 			playerName, reply.KDRatio, reply.CompletedMatches)
-		cpMessage = fmt.Sprintf("Welcome, %s^7!\nK/D: ^3%.2f ^7| Matches: ^3%d\n^3!claim ^7to link your identity!",
+		cpMessage = fmt.Sprintf("Welcome, %s^7!\nK/D: ^3%.2f ^7| Matches: ^3%d\nType ^3!claim ^7to link this identity to an account.",
 			playerName, reply.KDRatio, reply.CompletedMatches)
 	default:
-		message = fmt.Sprintf("Welcome, %s^7! ^3!claim ^7to link your identity! (^3!help ^7for help)", playerName)
-		cpMessage = fmt.Sprintf("Welcome, %s^7!\n^3!claim ^7to link your identity!", playerName)
+		message = fmt.Sprintf("Welcome, %s^7! Type ^3!claim ^7to link this identity to an account. (^3!help ^7for commands)", playerName)
+		cpMessage = fmt.Sprintf("Welcome, %s^7!\nType ^3!claim ^7to link this identity to an account.", playerName)
 	}
 
 	time.Sleep(3 * time.Second)
@@ -2413,20 +2311,20 @@ func (m *ServerManager) performGreet(ctx context.Context, serverID int64, client
 
 	if reply.GUIDLinked {
 		time.Sleep(2 * time.Second)
-		m.sendPrint(serverID, clientID, "^2This identity has been linked to your account.")
+		m.sendPrint(serverID, clientID, "^2This identity is now linked to your account.")
 	}
 
 	if !isVR {
 		var upgradeMsg, upgradeCpMsg string
 		if strings.Contains(cleanName, "[VR]") {
-			upgradeMsg = "Your VR client is outdated. Upgrade to enjoy all Trinity features! More info at ^5trinity.run/docs"
-			upgradeCpMsg = "Your VR client is outdated.\nUpgrade to enjoy all Trinity features!\n^5trinity.run/docs"
+			upgradeMsg = "Your VR client is out of date. Get the current Trinity at ^5trinity.run/docs ^7for every feature this server has."
+			upgradeCpMsg = "Your VR client is out of date.\nGet the current Trinity at\n^5trinity.run/docs"
 		} else if !isTrinityEngine {
-			upgradeMsg = "It looks like you're missing out on Trinity-specific features on this server. Go to ^5trinity.run/docs ^7to upgrade."
-			upgradeCpMsg = "Get Trinity for the best experience!\n^5trinity.run/docs"
+			upgradeMsg = "This server has Trinity features your client can't show. Get Trinity at ^5trinity.run/docs^7."
+			upgradeCpMsg = "This server runs Trinity.\nGet the client at\n^5trinity.run/docs"
 		} else {
-			upgradeMsg = "Haven't tried Quake 3 in VR yet? It's a whole new dimension (literally). Visit ^5trinity.run/docs ^7to learn more."
-			upgradeCpMsg = "Do you play VR?\nGet the VR client!\n^5trinity.run/docs"
+			upgradeMsg = "Haven't tried Quake III in VR yet? It's a whole new dimension (literally). See ^5trinity.run/docs^7."
+			upgradeCpMsg = "Have a VR headset?\nTrinity plays in VR too.\n^5trinity.run/docs"
 		}
 		time.Sleep(3 * time.Second)
 		m.sendPrintSync(serverID, clientID, upgradeMsg)
@@ -2435,8 +2333,8 @@ func (m *ServerManager) performGreet(ctx context.Context, serverID int64, client
 
 	if reply.AuthResult == hub.AuthFailed {
 		time.Sleep(3 * time.Second)
-		m.sendPrintSync(serverID, clientID, "^1Trinity authentication failed. ^7Your saved credentials are invalid — log in again from the main menu to verify your identity.")
-		m.sendCenterPrint(serverID, clientID, "^1Authentication failed\n^7Log in again from the main menu")
+		m.sendPrintSync(serverID, clientID, "^1Trinity login failed. ^7Your saved login is no longer valid. Log in again from Account on the main menu.")
+		m.sendCenterPrint(serverID, clientID, "^1Login failed\n^7Log in again from the main menu")
 	}
 }
 
@@ -2450,8 +2348,8 @@ func isNumeric(s string) bool {
 }
 
 // parseCommand splits a raw chat command into its verb and arguments. The mod
-// appends a trailing ^7 to the logged command, so color codes are stripped
-// first or no-arg commands like "claim" never match their handler.
+// appends ^7 to the logged command, so color codes are stripped before
+// matching.
 func parseCommand(command string) (cmd, args string) {
 	command = domain.CleanQ3Name(command)
 	cmd = command

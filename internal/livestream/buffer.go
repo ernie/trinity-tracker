@@ -1,4 +1,3 @@
-// internal/livestream/buffer.go
 package livestream
 
 import (
@@ -25,35 +24,34 @@ type bufSegment struct {
 	arrival time.Time // wall-clock arrival; drives the delay
 }
 
-// defaultStreamTick guards against a busy-spin on a zero/negative tick.
+// defaultStreamTick replaces a zero or negative tick, which would busy-spin.
 const defaultStreamTick = 100 * time.Millisecond
 
-// defaultEvictMargin is slack beyond the delay window before front-eviction,
-// covering a briefly-stalled writer. Generous: over-retention is cheap, but
-// evicting a still-needed segment costs a viewer a skip.
+// defaultEvictMargin is how long a segment outlives the delay window,
+// covering a briefly stalled writer. Keeping segments longer is cheap;
+// evicting one a viewer still needs makes that viewer skip.
 const defaultEvictMargin = 30 * time.Second
 
-// Keyframe-interval measurement bounds (segment KeyframeServerTime deltas).
-// Deltas below kfMinPlausibleMs are the engine's forced early keyframes
-// (baseline reset) or synthetic/degenerate streams; deltas above kfMaxPlausibleMs
-// are stalls or serverTime jumps. We track the MAX plausible delta because forced
-// keyframes only ever undercut the nominal sv_tvLiveKeyframeMsec cadence, so the
-// max converges to the true interval and never overestimates (which would shrink
-// the holdback too far and risk hitching).
+// Bounds on the keyframe interval measured from KeyframeServerTime
+// deltas. Shorter deltas are the engine's forced early keyframes
+// (baseline resets) or degenerate streams; longer ones are stalls or
+// serverTime jumps. The buffer keeps the largest plausible delta:
+// forced keyframes only come early, so the maximum converges on the
+// real sv_tvLiveKeyframeMsec cadence, and an overestimate would cut the
+// holdback too far and cause hitching.
 const (
 	kfMinPlausibleMs = 250
 	kfMaxPlausibleMs = 10000
 	kfDefaultMs      = 1000 // sv_tvLiveKeyframeMsec default; used until measured
 )
 
-// Buffer ingests a live stream's segments and serves each viewer a delayed,
-// paced, fanned-out copy. Safe for one writer (the source) and many readers.
+// Buffer takes in a live stream's segments and serves each viewer its
+// own delayed, paced copy. It's safe for one writer (the source) and
+// many readers.
 //
-// Segments are addressed by a monotonic absolute ID that never resets for the
-// life of the buffer. The backing slice is front-evicted once a segment ages
-// out (see evictLocked), so segs[0] is segment `base`, and absolute ID `id`
-// lives at segs[id-base]. Indexing through base keeps viewer cursors stable
-// across evictions.
+// Segments have absolute IDs that never reset. Aged-out segments are
+// evicted from the front, so segs[0] is segment base and ID id lives at
+// segs[id-base], which keeps viewer cursors valid across evictions.
 type Buffer struct {
 	clk        clock
 	target     time.Duration // target server-side viewer delay (encode + holdback)
@@ -70,9 +68,9 @@ type Buffer struct {
 	clampWarned  bool  // the one-shot "target below keyframe interval" warning has fired
 }
 
-// NewBuffer creates a Buffer for a stream with an already-parsed header. target
-// is the desired server-side viewer delay (encode latency + holdback); the actual
-// per-segment holdback is derived from the measured keyframe interval — see holdback.
+// NewBuffer creates a Buffer for a stream whose header is already
+// parsed. target is the viewer delay to aim for (encode latency plus
+// holdback); holdback derives the per-segment wait from it.
 func NewBuffer(header []byte, target time.Duration) *Buffer {
 	return &Buffer{
 		clk:        realClock{},
@@ -82,20 +80,19 @@ func NewBuffer(header []byte, target time.Duration) *Buffer {
 	}
 }
 
-// holdback returns the per-segment release delay: the target minus the keyframe
-// interval, which is the encode latency the target already accounts for (a
-// segment for game-time [T, T+ki] isn't finalized until T+ki). Floored at 0:
-// when the target is at or below the interval, the encode latency alone already
-// meets it, so the relay releases each segment as it arrives — you can't be live
-// sooner than the encoder produces. When the target sits below the interval the
-// realized delay is ~ki (> target); warn once.
+// holdback returns how long each segment waits before release: the
+// target minus the keyframe interval, since a segment covering game
+// time [T, T+ki] is only finished at T+ki. With a target at or below
+// the interval, the encode latency alone meets it, so segments go out
+// as they arrive, the real delay is about one interval, and a warning
+// is logged once.
 func (b *Buffer) holdback() time.Duration {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.holdbackLocked()
 }
 
-// holdbackLocked is holdback without taking b.mu. Caller holds it.
+// holdbackLocked is holdback for a caller that holds b.mu.
 func (b *Buffer) holdbackLocked() time.Duration {
 	kfMs := b.kfIntervalMs
 	if kfMs == 0 {
@@ -112,10 +109,10 @@ func (b *Buffer) holdbackLocked() time.Duration {
 	return 0
 }
 
-// observeKeyframeLocked refines the measured keyframe interval from a segment's
-// KeyframeServerTime. Caller holds b.mu. Tracks the MAX plausible delta (see the
-// kfMinPlausibleMs/kfMaxPlausibleMs rationale); starts unmeasured at 0 so a real
-// interval shorter than the default is still captured.
+// observeKeyframeLocked updates the measured keyframe interval from a
+// segment's KeyframeServerTime. The caller holds b.mu. The measurement
+// starts at 0 so a real interval shorter than the default still
+// registers.
 func (b *Buffer) observeKeyframeLocked(kfTime int32) {
 	if b.haveLastKf {
 		delta := int(kfTime - b.lastKfTime)
@@ -127,7 +124,7 @@ func (b *Buffer) observeKeyframeLocked(kfTime int32) {
 	b.haveLastKf = true
 }
 
-// Append records a segment and reclaims any that have aged out. Implements segmentSink.
+// Append records a segment and evicts any that have aged out.
 func (b *Buffer) Append(s Segment) {
 	raw := s.Marshal()
 	b.mu.Lock()
@@ -138,8 +135,9 @@ func (b *Buffer) Append(s Segment) {
 	b.mu.Unlock()
 }
 
-// evictLocked drops aged-out front segments. Survivors are recopied so evicted
-// payloads become GC-able. Caller holds b.mu.
+// evictLocked drops aged-out front segments. The survivors are copied
+// to a new slice so the evicted payloads can be collected. The caller
+// holds b.mu.
 func (b *Buffer) evictLocked(now time.Time) {
 	n := 0
 	for n < len(b.segs) && now.Sub(b.segs[n].arrival) >= b.evictAfter {
@@ -152,7 +150,7 @@ func (b *Buffer) evictLocked(now time.Time) {
 	b.base += n
 }
 
-// End marks the stream finished. Implements segmentSink.
+// End marks the stream finished.
 func (b *Buffer) End() {
 	b.mu.Lock()
 	b.ended = true
@@ -207,15 +205,14 @@ func (b *Buffer) lastIndex() (int, bool) {
 	return b.base + len(b.segs) - 1, b.ended
 }
 
-// Stream writes the header, the entry segment (newest one already aged past the
-// holdback), then each subsequent segment as it ages past the holdback. Returns
-// at end-of-stream or ctx cancel. tick is the poll interval.
+// Stream writes the header, then the newest segment already past the
+// holdback, then each later segment as it passes the holdback, until
+// the stream ends or ctx is canceled. tick is the poll interval.
 func (b *Buffer) Stream(ctx context.Context, w io.Writer, flush func(), tick time.Duration) error {
 	if tick <= 0 {
 		tick = defaultStreamTick
 	}
 
-	// 1. Wait for an entry point (newest releasable segment).
 	var entry int
 	for {
 		if err := ctx.Err(); err != nil {
@@ -225,14 +222,14 @@ func (b *Buffer) Stream(ctx context.Context, w io.Writer, flush func(), tick tim
 		if entry >= 0 {
 			break
 		}
-		// If the stream ended before anything aged out (match shorter than the
-		// holdback), fall back to the newest segment so the viewer sees something.
+		// A match shorter than the holdback ends before anything ages
+		// out; start from its newest segment so the viewer sees something.
 		if last, ended := b.lastIndex(); ended {
 			if last >= 0 {
 				entry = last
 				break
 			}
-			return nil // ended with zero segments
+			return nil
 		}
 		b.clk.Sleep(tick)
 	}
@@ -246,7 +243,6 @@ func (b *Buffer) Stream(ctx context.Context, w io.Writer, flush func(), tick tim
 	}
 	flush()
 
-	// 2. Release subsequent segments as they age past the holdback.
 	hold := b.holdback()
 	for idx := entry + 1; ; idx++ {
 		for {
@@ -255,16 +251,13 @@ func (b *Buffer) Stream(ctx context.Context, w io.Writer, flush func(), tick tim
 			}
 			raw, arrival, exists, evicted, ended := b.segAt(idx)
 			if evicted {
-				// This viewer fell far enough behind that segment idx was
-				// reclaimed before it could be sent. Skip forward to the oldest
-				// still-buffered segment so the connection survives; each
-				// segment is independently keyframed, so the gap self-heals on
-				// the next decode.
+				// The viewer fell behind and idx was evicted. Jump to the
+				// oldest buffered segment to keep the connection; every
+				// segment starts with a keyframe, so playback recovers.
 				if first, ok := b.firstID(); ok {
 					idx = first
 					continue
 				}
-				// Nothing buffered yet — fall through and wait/drain below.
 			}
 			if exists {
 				if b.clk.Now().Sub(arrival) >= hold {

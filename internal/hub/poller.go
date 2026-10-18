@@ -15,14 +15,12 @@ import (
 	"github.com/ernie/trinity-tracker/internal/storage"
 )
 
-// trinityEnginePrefix is what the trinity-engine fork advertises in
-// the `engine` infostring field (com_engine cvar). Servers without this
-// prefix are treated as offline by the poller — they don't appear in
-// live UI even if their address is reachable. Stock ioquake3 has no
-// `engine` field at all, so its absence is enough to fail the check.
+// trinityEnginePrefix starts the `engine` infostring field (com_engine)
+// a Trinity server reports. The poller treats servers without it as
+// offline, so they stay out of the live UI.
 const trinityEnginePrefix = "trinity-engine/"
 
-// StatusQuerier answers a Q3 server's getstatus.
+// StatusQuerier answers a game server's getstatus.
 type StatusQuerier interface {
 	QueryStatus(address string) (*domain.ServerStatus, error)
 }
@@ -32,14 +30,12 @@ type IdentityResolver interface {
 	ResolveIdentity(ctx context.Context, guid string) (playerID int64, verified, admin, ok bool)
 }
 
-// SourceConns reports the IPs of every NATS connection currently
-// authenticated as userPubKey, ordered most-recently-active first.
-// Empty slice means no live collector. Used by the poller to bypass
-// DNS for is_remote=1 rows — the kernel-recorded remote address
-// updates the moment a collector reconnects from a new public IP, so
-// dynamic-DNS hosts don't sit offline for the DNS TTL. Index 0 is the
-// freshest session, which matters during reconnect overlap when a
-// stale connection briefly coexists with the new one.
+// SourceConns reports the IPs of the NATS connections authenticated as
+// userPubKey, most recently active first; empty means no collector is
+// connected. The poller queries remote servers at these IPs, so a
+// collector that reconnects from a new IP is reachable at once rather
+// than after a DNS TTL. Index 0 matters while a stale connection
+// overlaps the new one.
 type SourceConns interface {
 	ConnectedClientIPs(userPubKey string) []netip.Addr
 }
@@ -58,10 +54,8 @@ type RemotePoller struct {
 	statuses  map[int64]*domain.ServerStatus
 	sink      LiveEventSink
 	liveState *LiveState
-	// warnedNonTrinity tracks server IDs we've already logged a
-	// non-trinity-engine warning for. Without this dedup the poll loop
-	// would spam the log every poll_interval for every misconfigured
-	// server.
+	// warnedNonTrinity holds the engine string already logged per
+	// server, so each mismatch logs once.
 	warnedNonTrinity map[int64]string
 
 	stopOnce sync.Once
@@ -69,11 +63,9 @@ type RemotePoller struct {
 	doneCh   chan struct{}
 }
 
-// NewRemotePoller constructs a poller. interval <= 0 falls back to 10s.
-// presence, identity, and conns are all optional. When conns is nil, the
-// poller falls back to using r.Address verbatim (which goes through the
-// OS resolver for hostnames — fine for tests; production should pass
-// the embedded NATS server).
+// NewRemotePoller constructs a poller. interval <= 0 means 10s.
+// presence, identity and conns are optional; with no conns, every row
+// polls r.Address as given.
 func NewRemotePoller(store *storage.Store, q StatusQuerier, interval time.Duration, presence *Presence, identity IdentityResolver, conns SourceConns) *RemotePoller {
 	if interval <= 0 {
 		interval = 10 * time.Second
@@ -92,13 +84,10 @@ func NewRemotePoller(store *storage.Store, q StatusQuerier, interval time.Durati
 	}
 }
 
-// pollTarget returns the address the poller should UDP-query for r.
-// Local rows poll r.Address verbatim. Remote rows substitute the live
-// NATS-connection IP for the host portion (port stays from r.Address);
-// when more than one connection is open (reconnect overlap), the
-// freshest is picked — that's ips[0] per the SourceConns contract.
-// Returns "" when a remote row has no minted creds or no connected
-// collector — the poll then falls into the standard offline path.
+// pollTarget returns the address to query for r. Local rows use
+// r.Address. Remote rows use the IP of the source's freshest NATS
+// connection with r.Address's port. It returns "" when a remote row has
+// no credentials or no connected collector, which polls as offline.
 func (p *RemotePoller) pollTarget(r storage.RemoteServer) string {
 	if !r.IsRemote || p.conns == nil {
 		return r.Address
@@ -125,9 +114,8 @@ func (p *RemotePoller) SetSink(sink LiveEventSink) {
 	p.mu.Unlock()
 }
 
-// SetLiveState attaches the shared live-stream state holder so polled
-// statuses carry the per-server is_live flag. Optional; LiveState.Get is
-// nil-safe. Safe to call before or after Start (write guarded by p.mu).
+// SetLiveState attaches the live-stream state so polled statuses carry
+// is_live. It's optional and safe to call before or after Start.
 func (p *RemotePoller) SetLiveState(ls *LiveState) {
 	p.mu.Lock()
 	p.liveState = ls
@@ -211,12 +199,12 @@ func (p *RemotePoller) pollAll(ctx context.Context) {
 			}
 			existing.Source = r.Source
 			existing.Online = false
-			existing.IsLive = false       // an unreachable server is never live-watchable
-			existing.LiveDelaySeconds = 0 // and carries no viewer delay — clear the stale value
+			existing.IsLive = false
+			existing.LiveDelaySeconds = 0
 			existing.LiveViewers = 0
 			existing.LastUpdated = now
-			// Preserve LastSeenAt — it represents the last successful
-			// UDP query, used to compute offline duration.
+			// LastSeenAt keeps the last successful query, for the
+			// offline duration.
 			snapshot := *existing
 			sink := p.sink
 			p.mu.Unlock()
@@ -228,11 +216,6 @@ func (p *RemotePoller) pollAll(ctx context.Context) {
 		status.Source = r.Source
 		status.Address = r.Address
 		status.LastUpdated = now
-		// Engine fingerprint gate: trinity-engine self-identifies via the
-		// `engine` infostring field (added to SVC_Info / SVC_Status by
-		// the fork). Stock ioquake3 has no such field. Anything that
-		// fails the prefix check is treated as offline so it never lands
-		// in live UI.
 		engine := status.ServerVars["engine"]
 		if !strings.HasPrefix(engine, trinityEnginePrefix) {
 			p.noteNonTrinity(r.ID, r.Source, r.Key, engine)
@@ -245,7 +228,7 @@ func (p *RemotePoller) pollAll(ctx context.Context) {
 			existing.Source = r.Source
 			existing.Online = false
 			existing.IsLive = false
-			existing.LiveDelaySeconds = 0 // non-trinity → not live-watchable; clear stale delay
+			existing.LiveDelaySeconds = 0
 			existing.LiveViewers = 0
 			existing.LastUpdated = now
 			snapshot := *existing
@@ -254,8 +237,7 @@ func (p *RemotePoller) pollAll(ctx context.Context) {
 			p.broadcast(sink, snapshot)
 			continue
 		}
-		// Once a server is verified, clear any prior warning so a future
-		// regression re-logs.
+		// Cleared so a later mismatch logs again.
 		p.mu.Lock()
 		delete(p.warnedNonTrinity, r.ID)
 		p.mu.Unlock()
@@ -278,9 +260,8 @@ func (p *RemotePoller) pollAll(ctx context.Context) {
 	}
 }
 
-// noteNonTrinity logs the first time we see a non-trinity engine
-// signature for a server (or when the signature changes). Subsequent
-// polls of the same server with the same signature are silent.
+// noteNonTrinity logs a server's engine mismatch once per distinct
+// engine string.
 func (p *RemotePoller) noteNonTrinity(serverID int64, source, key, engine string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -289,10 +270,10 @@ func (p *RemotePoller) noteNonTrinity(serverID int64, source, key, engine string
 	}
 	p.warnedNonTrinity[serverID] = engine
 	if engine == "" {
-		log.Printf("hub.RemotePoller: %s/%s (id=%d) reports no engine field — hiding from live status",
+		log.Printf("hub.RemotePoller: %s/%s (id=%d) reports no engine field; hiding it from live status",
 			source, key, serverID)
 	} else {
-		log.Printf("hub.RemotePoller: %s/%s (id=%d) engine=%q does not match %q — hiding from live status",
+		log.Printf("hub.RemotePoller: %s/%s (id=%d) engine=%q does not match %q; hiding it from live status",
 			source, key, serverID, engine, trinityEnginePrefix)
 	}
 }
@@ -309,9 +290,8 @@ func (p *RemotePoller) broadcast(sink LiveEventSink, status domain.ServerStatus)
 	})
 }
 
-// enrichPlayers fills in identity + metadata on each PlayerStatus.
-// Slots without a presence entry default to IsBot=true so unknown
-// clients don't count as humans until their GUID is observed.
+// enrichPlayers fills in identity and metadata on each PlayerStatus.
+// A slot with no presence entry counts as a bot until its GUID is seen.
 func (p *RemotePoller) enrichPlayers(ctx context.Context, serverID int64, humanCount, botCount *int, players []domain.PlayerStatus) {
 	for i := range players {
 		ps := &players[i]

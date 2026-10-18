@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-// LogEvent represents a parsed event from the log
+// LogEvent is one parsed log line.
 type LogEvent struct {
 	Timestamp time.Time
 	Type      string
@@ -66,10 +66,9 @@ const (
 	EventTypeRconDenied = "rcon_denied"
 )
 
-// DemoSavedData carries the structured payload from a trinity-engine
-// "DemoSaved:" log line. MatchUUID is the engine's g_matchUUID cvar at
-// finalization time; the optional fields surface what the engine knows
-// about the recording.
+// DemoSavedData is the payload of the engine's "DemoSaved:" log line.
+// MatchUUID is g_matchUUID when the demo was finalized; the optional
+// fields describe the recording.
 type DemoSavedData struct {
 	MatchUUID  string
 	Frames     int
@@ -77,14 +76,12 @@ type DemoSavedData struct {
 	Bytes      uint64
 }
 
-// DemoDiscardedData is the discard counterpart. The collector logs it
-// for visibility but doesn't emit a fact (the absence of a saved fact
-// is the same signal hub-side).
+// DemoDiscardedData is the discard counterpart. The collector only logs
+// it; to the hub, a missing saved fact carries the same meaning.
 type DemoDiscardedData struct {
 	MatchUUID string
 }
 
-// Event data structures
 type InitGameData struct {
 	MapName  string
 	GameType int
@@ -94,7 +91,7 @@ type InitGameData struct {
 
 type ClientConnectData struct {
 	ClientID  int
-	IPAddress string // IP:port or empty for old logs
+	IPAddress string // IP:port, or empty when the line has none
 }
 
 type ClientUserinfoData struct {
@@ -223,7 +220,7 @@ type TeamChangeData struct {
 type AssistData struct {
 	ClientID   int
 	Team       int
-	AssistType string // mod assist token: return|frag|skull|obelisk|carry|damage
+	AssistType string // mod assist token: return|frag|skull|obelisk|carry
 	Name       string
 }
 
@@ -293,8 +290,8 @@ type RconExecData struct {
 	Command    string
 }
 
-// RconDeniedData represents one rejected /rcon attempt. Source address
-// only — the attempted password is not propagated.
+// RconDeniedData represents one rejected /rcon attempt. It carries only
+// the source address, never the attempted password.
 type RconDeniedData struct {
 	ClientAddr string
 }
@@ -324,8 +321,8 @@ var (
 	flagReturnRegex       = regexp.MustCompile(`^FlagReturn: (-?\d+) (\d+): (.*)$`)
 	flagDropRegex         = regexp.MustCompile(`^FlagDrop: (\d+) (\d+): (.*)$`)
 	obeliskDestroyRegex   = regexp.MustCompile(`^ObeliskDestroy: (\d+) (-?\d+): (.*)$`)
-	// Mod emits Start on off→on transition, Stop after a quiet window
-	// (Team_CheckObeliskAttacks in g_team.c). One log line per transition.
+	// The mod logs Start when an obelisk starts taking damage and Stop
+	// after a quiet window (Team_CheckObeliskAttacks in g_team.c).
 	obeliskDamageRegex = regexp.MustCompile(`^ObeliskDamage(Start|Stop): (\d+) (\d+): (.*)$`)
 	skullPickupRegex   = regexp.MustCompile(`^SkullPickup: (\d+) (\d+) (\d+): (.+)$`)
 	skullScoreRegex    = regexp.MustCompile(`^SkullScore: (\d+) (\d+) (\d+): (.+)$`)
@@ -344,9 +341,8 @@ var (
 	trinityChallengeRegex     = regexp.MustCompile(`^TrinityChallenge: (\d+) (\S+) (\S+)$`)
 	trinityHandshakeAuthRegex = regexp.MustCompile(`^TrinityHandshake: (\d+) (\d+) (\S+) (\S+) (\S+) (\S+) (\S+)$`)
 	trinityHandshakeRegex     = regexp.MustCompile(`^TrinityHandshake: (\d+) (\d+) (\S+) (\S+) (\S+)$`)
-	// Demo lifecycle (emitted by trinity-engine sv_tv.c). Only the
-	// "saved" path produces a fact; the discard line is a no-op marker
-	// for log review.
+	// Demo lifecycle lines from the engine (sv_tv.c). Only "saved"
+	// produces a fact; the discard line is parsed for log review.
 	demoSavedRegex     = regexp.MustCompile(`^DemoSaved: (\S+)(?: frames=(\d+))?(?: duration_ms=(\d+))?(?: bytes=(\d+))?$`)
 	demoDiscardedRegex = regexp.MustCompile(`^DemoDiscarded: (\S+)`)
 	// addr is "ip:port" (NET_AdrToString); guid is 32 hex chars or "-";
@@ -366,7 +362,7 @@ type LogTailer struct {
 	startAfter *time.Time // if set, replay events after this timestamp on start
 }
 
-// NewLogTailer creates a new log tailer
+// NewLogTailer returns a tailer for the log at path.
 func NewLogTailer(path string, startAfter *time.Time) *LogTailer {
 	return &LogTailer{
 		path:       path,
@@ -377,7 +373,7 @@ func NewLogTailer(path string, startAfter *time.Time) *LogTailer {
 	}
 }
 
-// OpenFile opens the log file for reading (used before ReplayFromTimestamp)
+// OpenFile opens the log file; call it before ReplayFromTimestamp.
 func (t *LogTailer) OpenFile() (*os.File, error) {
 	file, err := os.Open(t.path)
 	if err != nil {
@@ -387,9 +383,8 @@ func (t *LogTailer) OpenFile() (*os.File, error) {
 	return file, nil
 }
 
-// Start begins tailing the log file from current position
+// Start tails the log from the current position.
 func (t *LogTailer) Start() error {
-	// Open file if not already open
 	if t.file == nil {
 		file, err := os.Open(t.path)
 		if err != nil {
@@ -398,8 +393,8 @@ func (t *LogTailer) Start() error {
 		t.file = file
 	}
 
-	// Only seek to end if no replay was done (position is 0)
-	// If replay was done, continue from where it left off
+	// A replay leaves the position where it stopped; otherwise start at
+	// the end.
 	if t.position == 0 {
 		pos, err := t.file.Seek(0, io.SeekEnd)
 		if err != nil {
@@ -413,10 +408,10 @@ func (t *LogTailer) Start() error {
 	return nil
 }
 
-// ReplayFromTimestamp reads the file from the beginning and calls handler for each event.
-// Events with timestamp <= after are passed with replayMode=true (state rebuild only, no DB/events).
-// Events with timestamp > after are passed with replayMode=false (full processing).
-// This processes events synchronously to avoid database lock contention during startup.
+// ReplayFromTimestamp reads the file from the beginning and calls handler for
+// each event. Events at or before after get replayMode=true (rebuild state
+// only); later events get full processing. It runs synchronously to avoid
+// database lock contention at startup.
 func (t *LogTailer) ReplayFromTimestamp(after time.Time, handler func(LogEvent, bool)) error {
 	reader := bufio.NewReader(t.file)
 	for {
@@ -435,20 +430,17 @@ func (t *LogTailer) ReplayFromTimestamp(after time.Time, handler func(LogEvent, 
 
 		event, err := ParseLine(line)
 		if err == nil && event != nil {
-			// replayMode=true for events we've already processed (state rebuild only)
-			// replayMode=false for new events (full processing with DB/events)
 			replayMode := !event.Timestamp.After(after)
 			handler(*event, replayMode)
 		}
 	}
 
-	// Update position to current location (end of file after replay)
 	pos, _ := t.file.Seek(0, io.SeekCurrent)
 	t.position = pos
 	return nil
 }
 
-// Stop stops the tailer
+// Stop stops the tailer.
 func (t *LogTailer) Stop() {
 	close(t.done)
 	if t.file != nil {
@@ -456,7 +448,6 @@ func (t *LogTailer) Stop() {
 	}
 }
 
-// tailLoop continuously reads new content from the log
 func (t *LogTailer) tailLoop() {
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
@@ -476,14 +467,13 @@ func (t *LogTailer) tailLoop() {
 	}
 }
 
-// readNewContent reads any new content since last read
 func (t *LogTailer) readNewContent() error {
 	stat, err := t.file.Stat()
 	if err != nil {
 		return fmt.Errorf("stat file: %w", err)
 	}
 
-	// Handle copytruncate: file size smaller than position
+	// copytruncate leaves the file shorter than our position.
 	if stat.Size() < t.position {
 		t.position = 0
 		if _, err := t.file.Seek(0, io.SeekStart); err != nil {
@@ -491,17 +481,14 @@ func (t *LogTailer) readNewContent() error {
 		}
 	}
 
-	// No new content
 	if stat.Size() == t.position {
 		return nil
 	}
 
-	// Read new content
 	reader := bufio.NewReader(t.file)
 	for {
 		line, err := reader.ReadString('\n')
 		if err == io.EOF {
-			// Partial line - don't advance position past it
 			break
 		}
 		if err != nil {
@@ -518,29 +505,26 @@ func (t *LogTailer) readNewContent() error {
 			select {
 			case t.Events <- *event:
 			default:
-				// Channel full, drop event
+				// The channel is full; drop the event.
 			}
 		}
 	}
 
-	// Update position
 	pos, _ := t.file.Seek(0, io.SeekCurrent)
 	t.position = pos
 
 	return nil
 }
 
-// ParseLine parses a single log line into an event
+// ParseLine parses one log line into an event.
 func ParseLine(line string) (*LogEvent, error) {
 	var timestamp time.Time
 	content := line
 
-	// Try to extract ISO 8601 timestamp
 	if match := timestampRegex.FindStringSubmatch(line); match != nil {
-		// Try parsing with timezone, then without
 		ts, err := time.Parse(time.RFC3339Nano, match[1])
 		if err != nil {
-			// Try without timezone (local time format: 2006-01-02T15:04:05)
+			// A timestamp without a zone is local time.
 			ts, err = time.ParseInLocation("2006-01-02T15:04:05", match[1], time.Local)
 		}
 		if err == nil {
@@ -549,12 +533,10 @@ func ParseLine(line string) (*LogEvent, error) {
 		}
 	}
 
-	// If no timestamp, use current time
 	if timestamp.IsZero() {
 		timestamp = time.Now().UTC()
 	}
 
-	// Try to match event patterns
 	event := &LogEvent{Timestamp: timestamp}
 
 	if match := initGameRegex.FindStringSubmatch(content); match != nil {
@@ -622,21 +604,20 @@ func ParseLine(line string) (*LogEvent, error) {
 			team, _ = strconv.Atoi(t)
 		}
 
-		// Bot detection: presence of "skill" field
+		// Only bots carry a "skill" field.
 		skillStr, isBot := userinfo["skill"]
 		var skill float64
 		if isBot {
 			skill, _ = strconv.ParseFloat(skillStr, 64)
 		}
 
-		// Use hmodel (head model) for portraits if available, otherwise fall back to model
-		// In Team Arena, hmodel can be different from model (e.g., model=janet, hmodel=*gammy)
+		// Portraits use the head model, which can differ from model in Team
+		// Arena (model=janet, hmodel=*gammy).
 		model := userinfo["hmodel"]
 		if model == "" {
 			model = userinfo["model"]
 		}
 
-		// VR client detection: presence of "vr" field with value "1"
 		isVR := userinfo["vr"] == "1"
 		isTrinityEngine := userinfo["te"] == "1"
 		trinityUserType, _ := strconv.Atoi(userinfo["tu"])
@@ -693,10 +674,9 @@ func ParseLine(line string) (*LogEvent, error) {
 	}
 
 	if match := exitRegex.FindStringSubmatch(content); match != nil {
-		// Parse Exit: <reason> \g_matchUUID\<uuid>[\g_redScore\<red>\g_blueScore\<blue>]
-		// Key case in the log tracks the server's cvar registration
-		// order, so detect the kv-boundary and read the map
-		// case-insensitively.
+		// Exit: <reason> \g_matchUUID\<uuid>[\g_redScore\<red>\g_blueScore\<blue>]
+		// Key case follows the server's cvar registration order, so find
+		// the key/value boundary and read keys case-insensitively.
 		exitContent := match[1]
 		reason := exitContent
 		uuid := ""
@@ -741,7 +721,7 @@ func ParseLine(line string) (*LogEvent, error) {
 	}
 
 	if match := shutdownRegex.FindStringSubmatch(content); match != nil {
-		// Parse ShutdownGame: \g_matchUUID\<uuid> (or empty for legacy logs)
+		// ShutdownGame: \g_matchUUID\<uuid>, which can be absent.
 		uuid := ""
 		if len(match) > 1 {
 			shutdownContent := strings.TrimSpace(match[1])
@@ -1065,28 +1045,21 @@ func ParseLine(line string) (*LogEvent, error) {
 		return event, nil
 	}
 
-	// Unknown event type
 	return nil, fmt.Errorf("unknown event: %s", content)
 }
 
-// parseInfoString parses a Q3 backslash-separated info string of the
-// form \key\value\key\value. Used for userinfo (client connection
-// metadata: n, g, model, skill, vr, te, t, …), serverinfo (InitGame:
-// mapname, g_gametype, g_trinityhandshake, …), and the kv tail on
-// Exit / ShutdownGame log lines (g_matchUUID, g_redScore, g_blueScore).
+// parseInfoString parses a Q3 info string, \key\value\key\value, as used in
+// userinfo, serverinfo (InitGame) and the key/value tail of Exit and
+// ShutdownGame lines.
 //
-// Keys are lowercased on insertion. Q3 cvar names are case-insensitive
-// in practice (Cvar_FindVar uses Q_stricmp), and the case that ends up
-// in the serverinfo string depends on registration order — a cvar
-// first created by a user-typed `set g_trinityhandshake 1` keeps the
-// lowercase spelling even after the mod calls Cvar_Get with
-// "g_trinityHandshake". Canonicalizing to lowercase here gives every
-// lookup a single stable form.
+// Keys are lowercased. Cvar names are case-insensitive, but the case in
+// serverinfo depends on which spelling created the cvar first: a typed
+// `set g_trinityhandshake 1` stays lowercase after the mod registers
+// "g_trinityHandshake".
 func parseInfoString(info string) map[string]string {
 	result := make(map[string]string)
 	parts := strings.Split(info, "\\")
 
-	// Skip empty first element if string starts with backslash
 	start := 0
 	if len(parts) > 0 && parts[0] == "" {
 		start = 1

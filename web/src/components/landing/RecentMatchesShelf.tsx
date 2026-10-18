@@ -5,9 +5,7 @@ import { ArrowIcon } from "../ArrowIcon";
 import { NavScroller } from "../NavScroller";
 import type { MatchSummary } from "../../types";
 
-// How many cards we want on the shelf. Fetch wider than this so we can
-// filter down to demo-available matches and still hit the target slot
-// count when some recent matches don't have a demo URL yet.
+// Fetch wider than the shelf so filtering to matches with demos still fills it.
 const SHELF_SIZE = 5;
 const FETCH_LIMIT = 20;
 
@@ -44,17 +42,13 @@ export function RecentMatchesShelf() {
         </Link>
       </header>
       <p className="landing-section__lead">
-        Recently played. Click any to watch in your browser — no install
-        required.
+        Recently played. Click any to watch it in your browser.
       </p>
       <div className="landing-shelf-h">
         <NavScroller scrollClassName="landing-shelf-h__scroll">
           {matches.map((m) => (
-            // Whole-card link to the demo. The lead text promises "click
-            // any to watch" — internal links (timestamp, Watch button)
-            // and player rows are pointer-events: none'd via the
-            // .landing-match-link selector so every pixel of the card
-            // resolves to this single action.
+            // .landing-match-link turns off pointer events on the card's own
+            // links and player rows, so a click anywhere opens the demo.
             <Link
               key={m.id}
               to={`/matches/${m.id}/demo`}

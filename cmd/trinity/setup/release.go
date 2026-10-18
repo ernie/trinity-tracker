@@ -11,8 +11,8 @@ import (
 )
 
 // ResolveLatestTag returns the tag GitHub's `releases/latest` redirect
-// resolves to (e.g. "v0.10.1"). HEAD-only — we don't follow the
-// redirect, just read the Location header. Works without auth.
+// resolves to (e.g. "v0.10.1"), read from the Location header of a
+// HEAD request, which needs no auth.
 func ResolveLatestTag(repo string) (string, error) {
 	url := fmt.Sprintf("https://github.com/%s/releases/latest", repo)
 	req, err := http.NewRequest(http.MethodHead, url, nil)
@@ -40,7 +40,7 @@ func ResolveLatestTag(repo string) (string, error) {
 	return loc[i+len("/tag/"):], nil
 }
 
-// ReleaseAssetURL returns the canonical browser URL for a release asset.
+// ReleaseAssetURL returns the browser download URL for a release asset.
 // Pass tag = "" to mean latest.
 func ReleaseAssetURL(repo, tag, asset string) string {
 	if tag == "" {
@@ -50,21 +50,17 @@ func ReleaseAssetURL(repo, tag, asset string) string {
 }
 
 // DownloadReleaseAsset fetches an asset by tag (or "latest") to dest
-// over HTTPS. Pure net/http — no shell-out, no gh dependency. Used
-// directly when the destination is root-owned (e.g. tracker tarball
-// staging), and indirectly via `_helper download` when the file
-// needs to be service-user-owned.
+// over HTTPS.
 func DownloadReleaseAsset(repo, tag, asset, dest string) error {
 	url := ReleaseAssetURL(repo, tag, asset)
 	return DownloadURL(url, dest)
 }
 
-// DownloadURL HTTPS-GETs url and writes the body to dest. Caller's
-// process credential (and umask) determine ownership / mode of the
-// created file — this is what makes the in-Go re-exec approach
-// (`_helper download` running as the service user) drop-privs-clean.
+// DownloadURL HTTPS-GETs url and writes the body to dest. The file's
+// owner and mode come from the calling process and its umask, so
+// `_helper download` runs it as the service user for service-owned files.
 func DownloadURL(url, dest string) error {
-	fmt.Printf("Downloading %s ...\n", url)
+	fmt.Printf("Downloading %s…\n", url)
 	resp, err := http.Get(url)
 	if err != nil {
 		return fmt.Errorf("downloading %s: %w", url, err)
@@ -86,18 +82,17 @@ func DownloadURL(url, dest string) error {
 
 // VerifyReleaseChecksum fetches the release's sha256sums.txt and
 // confirms localPath's hash matches the manifest's entry for asset.
-// Hard-fails if the manifest is absent (operator must upgrade to a
-// release that publishes one) or if the hash mismatches.
+// It fails when the manifest is missing or the hash differs.
 func VerifyReleaseChecksum(repo, tag, asset, localPath string) error {
 	url := ReleaseAssetURL(repo, tag, "sha256sums.txt")
-	fmt.Printf("Verifying checksum against %s ...\n", url)
+	fmt.Printf("Verifying checksum against %s…\n", url)
 	resp, err := http.Get(url)
 	if err != nil {
 		return fmt.Errorf("fetching %s: %w", url, err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusNotFound {
-		return fmt.Errorf("%s release does not publish sha256sums.txt — pin a newer --*-tag", repo)
+		return fmt.Errorf("%s release does not publish sha256sums.txt; pin a newer --*-tag", repo)
 	}
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("fetching %s: HTTP %d", url, resp.StatusCode)
@@ -108,7 +103,7 @@ func VerifyReleaseChecksum(repo, tag, asset, localPath string) error {
 	}
 	expected := lookupChecksum(string(body), asset)
 	if expected == "" {
-		return fmt.Errorf("%s not listed in sha256sums.txt — release shape may have changed", asset)
+		return fmt.Errorf("%s not listed in sha256sums.txt; the release layout may have changed", asset)
 	}
 	f, err := os.Open(localPath)
 	if err != nil {

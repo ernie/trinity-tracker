@@ -1,5 +1,4 @@
-// Bespoke landing hero header — brand · sparse nav · download + live pill.
-// Replaces the standard <Header> over the wallpaper.
+// The landing page uses this over the wallpaper in place of <Header>.
 import { Link } from "react-router-dom";
 import { useLiveData } from "../../contexts/LiveDataContext";
 import { useInstallerDownload } from "../../hooks/useInstallerDownload";
@@ -11,9 +10,8 @@ export function HeroHeader() {
   const { activeHumanPlayersCount, connectionStatus } = useLiveData();
   const installer = useInstallerDownload();
   // Shared with StatusPill: live (humans fragging), quiet (hub up or still
-  // connecting, arena empty), offline (the feed is genuinely unreachable).
-  // Class name `quiet` is kept as an internal CSS hook even though the
-  // visible label is "STANDING BY".
+  // connecting, nobody playing; labeled "STANDING BY"), offline (feed
+  // unreachable).
   const { stateClass, label } = derivePillState(
     connectionStatus,
     activeHumanPlayersCount,

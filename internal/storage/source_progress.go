@@ -8,17 +8,16 @@ import (
 	"time"
 )
 
-// SourceProgress is the hub's per-source dedup watermark. The
-// (LastConsumedTS, ConsumedSeq) tuple is monotonic: a future advance
-// must strictly follow it or be ignored.
+// SourceProgress is the hub's per-source dedup watermark. ConsumedSeq
+// only moves forward; LastConsumedTS is the timestamp seen at it.
 type SourceProgress struct {
 	ConsumedSeq    uint64
 	LastConsumedTS time.Time
 }
 
 // GetSourceProgress returns the watermark for the given source, or a
-// zero value (epoch TS, seq 0) when the source has no row yet — the
-// envelope handler treats that as "everything is forward progress."
+// zero value (epoch TS, seq 0) when the source has no row yet, which
+// the envelope handler treats as all forward progress.
 func (s *Store) GetSourceProgress(ctx context.Context, source string) (SourceProgress, error) {
 	var sp SourceProgress
 	var tsStr string
@@ -41,10 +40,9 @@ func (s *Store) GetSourceProgress(ctx context.Context, source string) (SourcePro
 }
 
 // AdvanceSourceProgress upserts the watermark monotonically on seq:
-// the row is updated only when seq strictly follows the stored value.
-// last_consumed_ts is recorded alongside as forward-progress telemetry
-// (seen TS at the new high-water seq) but is not consulted by the
-// envelope dedup check.
+// the row changes only when seq strictly follows the stored value.
+// last_consumed_ts records the timestamp at the new seq for
+// monitoring; envelope dedup uses only the seq.
 func (s *Store) AdvanceSourceProgress(ctx context.Context, source string, seq uint64, ts time.Time) error {
 	tsStr := formatTimestamp(ts)
 	_, err := s.db.ExecContext(ctx, `

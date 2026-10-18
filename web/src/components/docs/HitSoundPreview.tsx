@@ -1,17 +1,8 @@
 import { useRef, useState } from "react";
 import { PlayIcon } from "../PlayIcon";
 
-// Compact preview widget for a single hit sound — used in the
-// /docs/play Hit Sounds entry to let readers audition each
-// damage-tier tone without the full native <audio controls>
-// surface (which is wider, includes a progress bar that's
-// pointless for sub-second clips, and starts at 100% volume).
-//
-// Defaults to 50% volume because the source wavs are short
-// and punchy enough that 100% is uncomfortable on headphones.
-// Slider is uncontrolled (defaultValue) so React doesn't
-// re-render mid-drag; volume state is tracked separately so
-// onPlay can read the latest value.
+// Starts at 50% volume: the clips are loud at full volume on
+// headphones.
 export function HitSoundPreview({ src }: { src: string }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [volume, setVolume] = useState(0.5);

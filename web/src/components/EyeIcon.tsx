@@ -1,5 +1,3 @@
-// Small Lucide-style eye glyph used by spectator/queue chrome on cards.
-// 14px default; stroke uses currentColor so callers control color via CSS.
 export function EyeIcon({
   size = 14,
   className,

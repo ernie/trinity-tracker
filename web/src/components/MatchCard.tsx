@@ -75,12 +75,9 @@ function isSpectator(player: MatchPlayerSummary): boolean {
   return player.team === 3 && player.frags === 0 && player.deaths === 0;
 }
 
-// Sort active players. Team modes group by team (red, blue, others)
-// then by score within. Non-team keeps API order (already score desc).
-// In every section, players who didn't finish (completed === false)
-// float to the bottom — interleaving them with finishers reads as a
-// scoreboard glitch. Array.sort is stable in ES2019+, so connected
-// players retain their incoming order.
+// Team modes order red, blue, then the rest, by score. Players who didn't
+// finish sink to the bottom of each section; the stable sort keeps the
+// API's score order for everyone else.
 function sortMatchPlayers(
   players: MatchPlayerSummary[],
   isTeam: boolean,
@@ -108,7 +105,6 @@ function demoFilename(match: MatchSummary): string {
   return `${date}_${time}_${match.map_name}.tvd`;
 }
 
-// DuelistData from a finished match. Awards come from per-match counters.
 function duelistFromMatchPlayer(
   p: MatchPlayerSummary | undefined,
 ): DuelistData {
@@ -152,16 +148,13 @@ export function MatchCard({
   match,
   onPlayerClick,
   onFeatureChange,
-  // TODO: wire highlightPlayerId / showPermalink through the card primitives.
 }: MatchCardProps) {
   const { hasMultiple: hasMultipleSources } = useSources();
   const meta = useMapMeta(match.map_name);
   const { auth } = useAuth();
 
-  // Optimistic featured state — admins can toggle from the card without
-  // navigating to the detail page. Resyncs to the prop when the match
-  // changes (new match, or parent refetch with updated value) via
-  // during-render adjustment so there's no extra commit cycle.
+  // Optimistic so admins can feature a demo from the card. Resyncs to the
+  // prop during render when the match or its featured value changes.
   const [isFeatured, setIsFeatured] = useState(match.is_featured ?? false);
   const [featurePending, setFeaturePending] = useState(false);
   const [prevSync, setPrevSync] = useState({
@@ -201,10 +194,8 @@ export function MatchCard({
     players.filter((p) => !isSpectator(p)),
     isTeam,
   );
-  // FFA hero: top scorer on this finished match. Gild only if the
-  // top scorer is unique (no tie at the top). Key on player_id —
-  // the match-summary primary key, which is unique even when two
-  // players share an identical name.
+  // Only a sole top scorer is gilded. Rows key on player_id because two
+  // players can share a name.
   const ffaPlayerData: FfaHeroPlayer[] = activeTeams.map((p) => ({
     key: p.player_id,
     name: p.name,
@@ -257,9 +248,8 @@ export function MatchCard({
         download={demoFilename(match)}
         className="demo-action download"
       >
-        {/* size 14 here vs PlayIcon's 10: the download glyph has more
-            internal whitespace than the play triangle, so a size bump
-            brings their visual mass to parity. */}
+        {/* The download glyph has more internal whitespace than the play
+            triangle, so it draws larger to look the same size. */}
         <DownloadIcon size={14} />
         Download
       </a>
@@ -322,7 +312,7 @@ export function MatchCard({
           <Link
             to={`/matches/${match.id}`}
             className="card__time"
-            title={`${new Date(match.ended_at).toLocaleString()} — open match details`}
+            title={`Ended ${new Date(match.ended_at).toLocaleString()}. Click for match details.`}
           >
             {formatTimeAgo(match.ended_at)}
             <span className="duration">
@@ -334,11 +324,8 @@ export function MatchCard({
 
       <div className="card__header">
         <div className="card__map">
-          {/* Both rows always render even when displayName falls back to
-              the short id — the small tracked-uppercase code label and
-              the Cinzel headline are visually distinct, and keeping the
-              slot present makes cards line up across the grid regardless
-              of whether maps.json has a longname entry. */}
+          {/* Both rows render even when displayName falls back to the
+              short id, so cards line up across the grid. */}
           <span className="card__map-short">{meta.shortName}</span>
           <span className="card__map-long">{meta.displayName}</span>
         </div>

@@ -1,26 +1,22 @@
 import type React from "react";
 import type { ScoreState } from "./format";
 
-// Scoreboard tooltip — appears on every team-mode card (TDM, CTF,
-// 1FCTF, Overload, Harvester). Mode-agnostic phrasing; per-mode
-// indicators in the slots get their own data-help on the slot
-// elements (added in their respective ServerCard render branches).
-const SCOREBOARD_HELP = `Team scoreboard. Each side shows the team's current score.
-Score meaning depends on mode — frags (TDM), captures (CTF, 1FCTF), obelisks destroyed (Overload), or skulls delivered (Harvester).`;
+const SCOREBOARD_HELP = `Team scores.
+What scores depends on the game type: frags in TDM, captures in CTF and One Flag CTF, obelisks destroyed in Overload, skulls delivered in Harvester.`;
 
 interface ScoreboardProps {
   redLabel: string;
   redScore: number;
   blueLabel: string;
   blueScore: number;
-  state: ScoreState; // 'left' | 'right' | 'tie' | 'no_contest'
-  /** Live: always `vs`, no winner/loser dimming. */
+  state: ScoreState;
+  /** Live: always `vs`, with no winner or loser styling. */
   live?: boolean;
-  /** Slot next to red score — CTF flag indicator. */
+  /** Beside the red score, such as the CTF flag status. */
   redIndicator?: React.ReactNode;
-  /** Slot next to blue score — CTF flag indicator. */
+  /** Beside the blue score, such as the CTF flag status. */
   blueIndicator?: React.ReactNode;
-  /** Slot below `vs` — 1FCTF neutral flag drift. */
+  /** Below `vs`, such as the One Flag CTF neutral flag. */
   centerIndicator?: React.ReactNode;
 }
 
@@ -35,7 +31,6 @@ export function Scoreboard({
   blueIndicator,
   centerIndicator,
 }: ScoreboardProps) {
-  // Live cards skip winner/loser hooks — outcome isn't decided.
   const redClass =
     !live && state === "left"
       ? "winner"

@@ -17,9 +17,8 @@ type ServerClient interface {
 
 	IsNameReserved(ctx context.Context, rawName string, excludePlayerID int64) (bool, error)
 
-	// GetSourceProgress reports the hub's per-source dedup watermark
-	// so a fresh-install collector can seed its publisher seq above
-	// the prior instance's stored consumed_seq.
+	// GetSourceProgress returns the hub's dedup watermark for source, so
+	// a reinstalled collector starts its publisher seq above it.
 	GetSourceProgress(ctx context.Context, source string) (SourceProgressReply, error)
 }
 
@@ -33,9 +32,9 @@ type SourceProgressReply struct {
 	Error          string    `json:"error,omitempty"`
 }
 
-// RegisterServerRequest / Reply carry the RegisterServer RPC payload.
-// The hub tags the upserted row with (source, local_id=servers.id) so
-// envelopes resolve.
+// RegisterServerRequest carries the RegisterServer RPC payload. The hub
+// tags the upserted row with (source, local_id=servers.id) so envelopes
+// resolve to it.
 type RegisterServerRequest struct {
 	Source  string `json:"source"`
 	Key     string `json:"key"`

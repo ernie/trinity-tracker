@@ -27,7 +27,7 @@ func CollectGamePk3s(quake3Dir string) map[string][]string {
 	return result
 }
 
-// collectPk3FilesFromDir collects pk3 files from a directory in Quake 3 load order:
+// collectPk3FilesFromDir collects pk3 files from a directory in Quake III load order:
 // pak0-9 first (numerically), then other pk3s alphabetically.
 func collectPk3FilesFromDir(dir string) []string {
 	var pakFiles []string

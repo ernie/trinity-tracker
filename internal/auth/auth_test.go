@@ -10,7 +10,7 @@ const testSecret = "test-secret-do-not-ship"
 func TestNoExpiryTokenValidates(t *testing.T) {
 	s := NewService(testSecret, 0)
 
-	tok, err := s.GenerateToken(1, "ernie", true, nil, false, 3)
+	tok, err := s.GenerateToken(1, "alice", true, nil, false, 3)
 	if err != nil {
 		t.Fatalf("GenerateToken: %v", err)
 	}
@@ -24,15 +24,14 @@ func TestNoExpiryTokenValidates(t *testing.T) {
 	if claims.TokenVersion != 3 {
 		t.Errorf("TokenVersion: want 3, got %d", claims.TokenVersion)
 	}
-	if claims.Username != "ernie" || claims.UserID != 1 || !claims.IsAdmin {
+	if claims.Username != "alice" || claims.UserID != 1 || !claims.IsAdmin {
 		t.Errorf("identity claims mangled: %+v", claims)
 	}
 }
 
 func TestExplicitDurationStillExpires(t *testing.T) {
-	// Positive duration: stamped and valid while fresh.
 	s := NewService(testSecret, time.Hour)
-	tok, err := s.GenerateToken(1, "ernie", false, nil, false, 1)
+	tok, err := s.GenerateToken(1, "alice", false, nil, false, 1)
 	if err != nil {
 		t.Fatalf("GenerateToken: %v", err)
 	}
@@ -44,9 +43,8 @@ func TestExplicitDurationStillExpires(t *testing.T) {
 		t.Fatal("positive duration must stamp an expiry")
 	}
 
-	// A token that has outlived its duration is rejected.
 	s = NewService(testSecret, time.Millisecond)
-	tok, err = s.GenerateToken(1, "ernie", false, nil, false, 1)
+	tok, err = s.GenerateToken(1, "alice", false, nil, false, 1)
 	if err != nil {
 		t.Fatalf("GenerateToken: %v", err)
 	}

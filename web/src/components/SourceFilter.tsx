@@ -6,9 +6,7 @@ interface SourceFilterProps {
   className?: string;
 }
 
-// Renders a <select> populated from /api/sources. Hidden when only one
-// source exists. Inactive sources show "(inactive)" in the option label
-// so users can still filter historical matches by them.
+// Inactive sources stay listed so older matches can still be filtered by them.
 export function SourceFilter({
   value,
   onChange,

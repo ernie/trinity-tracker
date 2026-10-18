@@ -12,8 +12,8 @@ func TestParseTrinityHandshakePlatform(t *testing.T) {
 			TrinityHandshakeData{ClientNum: 3, Proto: 1, Version: "v1.1.0", Engine: "Trinity_Engine_v1.1.0", Platform: "quest"},
 		},
 		{
-			"2026-10-09T10:00:00 TrinityHandshake: 5 1 v1.1.0 Trinity_Engine_v1.1.0 windows ernie 0123abcd",
-			TrinityHandshakeData{ClientNum: 5, Proto: 1, Version: "v1.1.0", Engine: "Trinity_Engine_v1.1.0", Platform: "windows", Username: "ernie", TokenHash: "0123abcd"},
+			"2026-10-09T10:00:00 TrinityHandshake: 5 1 v1.1.0 Trinity_Engine_v1.1.0 windows alice 0123abcd",
+			TrinityHandshakeData{ClientNum: 5, Proto: 1, Version: "v1.1.0", Engine: "Trinity_Engine_v1.1.0", Platform: "windows", Username: "alice", TokenHash: "0123abcd"},
 		},
 	}
 	for _, c := range cases {

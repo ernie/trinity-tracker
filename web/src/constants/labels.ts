@@ -1,12 +1,8 @@
 import type { TimePeriod } from "../types";
 
-// Tight chip labels for the segmented period control. These name the
-// rolling window, not a calendar boundary — the backend computes
-// "asOf - 24h / -7d / -30d / -365d" (storage/sqlite.go getTimePeriodBounds),
-// so "Day" means past day, never "since midnight". The banner tagline
-// spells that out explicitly ("PAST 24 HOURS" etc.) via PERIOD_DISPLAY.
+// The periods are rolling windows, so "Day" means the past 24 hours.
 export const PERIOD_LABELS: Record<TimePeriod, string> = {
-  all: "All Time",
+  all: "All time",
   day: "Day",
   week: "Week",
   month: "Month",

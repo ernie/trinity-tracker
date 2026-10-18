@@ -1,20 +1,17 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { WSEvent } from "./types";
 
-// "connecting" — initial load, or a drop we expect to recover from
-//   (idle-killed background tab, first couple of visible retries).
-// "open" — socket is up.
-// "down" — the network is known-offline, or 3 consecutive visible
-//   reconnect attempts failed. Still retrying; this only drives honest
-//   OFFLINE labeling, not behavior.
+// "connecting": the first load, or a drop expected to recover (a background
+//   tab's socket closed for idling, the first visible retries).
+// "open": the socket is up.
+// "down": the browser reports no network, or 3 visible reconnects in a row
+//   failed. Retrying goes on; this only sets the OFFLINE label.
 export type ConnectionStatus = "connecting" | "open" | "down";
 
-// Visible-tab close count before we admit the hub is unreachable.
 const OFFLINE_AFTER_FAILURES = 3;
 
 export interface WebSocketHandle {
   status: ConnectionStatus;
-  /** Convenience: status === "open". */
   isConnected: boolean;
   send: (payload: object) => void;
 }
@@ -26,19 +23,15 @@ export function useWebSocket(
   const [status, setStatus] = useState<ConnectionStatus>("connecting");
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
-  // Consecutive visible-tab closes without an intervening open.
+  // Visible-tab closes since the last open.
   const failuresRef = useRef(0);
   const onEventRef = useRef(onEvent);
-  // Cache the most recent subscribe payload so we can replay it after a
-  // reconnect — otherwise the server would revert the new socket to
-  // its default {server, activity} subs and the drawer-closed client
-  // would silently start receiving activity events again.
+  // Sent again on every open: a new socket starts on the server's default
+  // subscriptions, which include activity events a closed drawer doesn't want.
   const lastSubscribeRef = useRef<object | null>(null);
-  // Held in a ref so the reconnect setTimeout always invokes the latest
-  // closure (e.g. after url changes), not the one captured at construction.
+  // In a ref so the reconnect timer calls the current closure after url changes.
   const connectRef = useRef<() => void>(() => {});
 
-  // Keep callback ref up to date
   useEffect(() => {
     onEventRef.current = onEvent;
   }, [onEvent]);
@@ -61,8 +54,6 @@ export function useWebSocket(
       failuresRef.current = 0;
       setStatus("open");
       console.log("WebSocket connected");
-      // Replay the most recent subscribe so server-side subs reflect the
-      // client's current intent (drawer open vs closed).
       if (lastSubscribeRef.current) {
         try {
           ws.send(JSON.stringify(lastSubscribeRef.current));
@@ -74,9 +65,8 @@ export function useWebSocket(
 
     ws.onclose = () => {
       if (document.hidden) {
-        // Idle/throttle kill in a background tab — not a failure. Park
-        // (timers are throttled while hidden anyway); the visibilitychange
-        // handler reconnects the moment the tab returns.
+        // Browsers close idle sockets in background tabs. The
+        // visibilitychange handler reconnects when the tab returns.
         setStatus((s) => (s === "down" ? s : "connecting"));
         console.log("WebSocket closed in background, waiting for tab focus");
         return;
@@ -97,7 +87,7 @@ export function useWebSocket(
     };
 
     ws.onmessage = (event) => {
-      // Handle multiple JSON messages separated by newlines
+      // One message can carry several newline-separated JSON events.
       const lines = event.data.split("\n");
       for (const line of lines) {
         if (!line.trim()) continue;
@@ -124,8 +114,6 @@ export function useWebSocket(
     };
   }, [connect, clearReconnectTimer]);
 
-  // Returning tab: reconnect immediately instead of waiting out (or having
-  // parked) the retry timer. Counts as a fresh start, not a failure streak.
   useEffect(() => {
     const onVisibilityChange = () => {
       if (document.visibilityState !== "visible") return;
@@ -139,7 +127,7 @@ export function useWebSocket(
       document.removeEventListener("visibilitychange", onVisibilityChange);
   }, [clearReconnectTimer]);
 
-  // The browser knows when the network itself is gone — trust it both ways.
+  // The browser's online and offline events outrank the failure count.
   useEffect(() => {
     const onOffline = () => setStatus("down");
     const onOnline = () => {
@@ -159,7 +147,6 @@ export function useWebSocket(
   }, [clearReconnectTimer]);
 
   const send = useCallback((payload: object) => {
-    // Cache subscribe payloads so reconnects can replay them.
     if ((payload as { type?: string }).type === "subscribe") {
       lastSubscribeRef.current = payload;
     }
@@ -171,8 +158,6 @@ export function useWebSocket(
         /* ignore */
       }
     }
-    // If the socket isn't open yet, the cached payload above will be
-    // replayed in onopen; no queueing needed.
   }, []);
 
   return { status, isConnected: status === "open", send };

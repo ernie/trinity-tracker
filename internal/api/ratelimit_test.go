@@ -40,9 +40,6 @@ func TestRateLimit_BucketsByForwardedClientIP(t *testing.T) {
 	}
 }
 
-// X-Forwarded-For is client-controllable in our nginx setup, so
-// getClientIP must ignore it — otherwise an attacker can rotate the
-// header to dodge the rate limit.
 func TestRateLimit_IgnoresSpoofableForwardedFor(t *testing.T) {
 	r := &Router{}
 	rl := newRateLimiter(time.Minute, 1)
@@ -106,7 +103,6 @@ func TestRotationLimiter_RefillsAfterWindow(t *testing.T) {
 }
 
 func TestRotationLimiter_DeniedCallsDoNotConsume(t *testing.T) {
-	// Once at cap, repeated denied calls shouldn't extend the cooldown.
 	rl := newRotationLimiter(1, 50*time.Millisecond)
 	if !rl.allow("a") {
 		t.Fatal("first call should pass")

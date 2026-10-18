@@ -13,22 +13,8 @@ import {
 } from "../../data/cvars";
 import { GLOSSARY, type GlossaryEntry } from "../../data/glossary";
 
-// Comprehensive lookup page — Trinity-introduced cvars + glossary,
-// kept separate from the task-shaped tabs so newcomers don't think
-// they need to read it. The page hoists two filter knobs:
-//   1. a search string (matches name + description + default)
-//   2. a "show all platforms" toggle — defaults to false, so each
-//      reader sees only cvars relevant to their current platform.
-//      Clicking the toggle in the sticky bar widens the view.
-//
-// Per-section counts annotate the headings while the search is
-// active. Sections that contain no entries due to the platform
-// filter (no search active) are hidden entirely so a Flatscreen
-// reader doesn't see an empty VR CVars heading.
-//
-// Cvar inventory drawn from web/src/data/cvars.ts (verified against
-// trinity-engine and trinity sources). Glossary
-// drawn from web/src/data/glossary.ts.
+// A section the platform filter empties is hidden while no search is
+// active, so a flatscreen reader never sees an empty VR CVars heading.
 export function DocsReference() {
   const { platform } = usePlatform();
   const location = useLocation();
@@ -101,10 +87,7 @@ export function DocsReference() {
             filtering={searching}
           />
         </DocsH2>
-        <p>
-          Definitions of Trinity- and Quake-specific terms that come up across
-          the docs.
-        </p>
+        <p>Terms from Trinity and Quake III, and what they mean here.</p>
         <GlossaryList entries={filteredGlossary} />
       </div>
 
@@ -118,7 +101,8 @@ export function DocsReference() {
             />
           </DocsH2>
           <p>
-            Trinity-introduced client-side cvars — cgame, UI, and Trinity login.
+            Trinity&rsquo;s client cvars: the game display, the menus, and the
+            Trinity login.
           </p>
           <CvarTable
             entries={filteredPlayer}
@@ -137,12 +121,11 @@ export function DocsReference() {
             />
           </DocsH2>
           <p>
-            VR comfort, control, and rendering cvars, on a PC, a Steam Frame,
+            VR comfort, control, and rendering cvars, for a PC, a Steam Frame,
             Quest, or PICO. Buttons are bound in{" "}
-            <strong>Setup → VR Options → Bindings</strong> rather than through
-            cvars, and the per-weapon offset strings (
-            <code>vr_weapon_adjustment_N</code>) are written by the in-game
-            weapon adjust, so neither is listed here.
+            <strong>Setup → VR Options → Bindings</strong>, and the in-game
+            weapon adjust writes the per-weapon offsets (
+            <code>vr_weapon_adjustment_N</code>).
           </p>
           <CvarTable entries={filteredVr} hidePlatforms={!showAllPlatforms} />
         </div>
@@ -160,11 +143,8 @@ export function DocsReference() {
           Server-side cvars: gameplay rules (<code>g_*</code>) plus
           Trinity-specific engine cvars (<code>sv_*</code>) for TV recording and
           HTTP downloads. The collector install script sets the required ones
-          for you (see{" "}
-          <a href="/docs/admin#required-server-cvars">
-            Server Admin · Required server cvars
-          </a>
-          ).
+          for you; see{" "}
+          <a href="/docs/admin#required-server-cvars">Required server cvars</a>.
         </p>
         <CvarTable entries={filteredServer} hidePlatforms />
       </div>
@@ -178,8 +158,6 @@ interface SectionHeaderProps {
   filtering: boolean;
 }
 
-// Section heading content — the label on its own when no filter is
-// active; "Label (N matching)" when the search filter is on.
 function SectionHeader({ label, count, filtering }: SectionHeaderProps) {
   if (!filtering) return <>{label}</>;
   return (
@@ -189,8 +167,6 @@ function SectionHeader({ label, count, filtering }: SectionHeaderProps) {
   );
 }
 
-// Case-insensitive substring match on cvar name + description +
-// default. Empty filter matches everything.
 function matchCvar(entry: CvarEntry, filterLower: string): boolean {
   if (!filterLower) return true;
   return (

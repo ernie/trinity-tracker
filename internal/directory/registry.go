@@ -10,9 +10,8 @@ import (
 	"github.com/ernie/trinity-tracker/internal/storage"
 )
 
-// regEntry is one validated server in the directory's in-memory list.
-// expiresAt advances every time we see a fresh infoResponse for this
-// addr; the sweep removes entries whose deadline has passed.
+// regEntry is one validated server. Each new infoResponse pushes
+// expiresAt forward; the sweep removes entries past it.
 type regEntry struct {
 	addr        netip.AddrPort
 	protocol    int
@@ -26,10 +25,8 @@ type regEntry struct {
 	serverID    int64 // hub's servers.id, kept for logging
 }
 
-// registry holds every validated server. Reads (getservers) snapshot
-// under RLock; writes (Upsert/sweep) take a Lock. The map size is
-// bounded by maxServers — beyond that, new addrs are refused but
-// existing ones still refresh.
+// registry holds every validated server. At maxServers it refuses new
+// addresses but still refreshes existing ones.
 type registry struct {
 	mu         sync.RWMutex
 	now        func() time.Time
@@ -50,9 +47,8 @@ func newRegistry(expiry time.Duration, maxServers int, now func() time.Time) *re
 	}
 }
 
-// Upsert records or refreshes a validated entry. Returns false if the
-// registry is at capacity AND the addr is new (existing entries always
-// refresh, even if we're at the cap).
+// Upsert records or refreshes a validated entry. It returns false only
+// for a new address when the registry is full.
 func (r *registry) Upsert(addr netip.AddrPort, info map[string]string, serverID int64) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -79,8 +75,7 @@ func (r *registry) Upsert(addr netip.AddrPort, info map[string]string, serverID 
 	return true
 }
 
-// Snapshot returns a copy of the live registry suitable for filtering
-// outside the lock.
+// Snapshot returns a copy of the registry to filter outside the lock.
 func (r *registry) Snapshot() []regEntry {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -106,17 +101,15 @@ func (r *registry) Sweep() int {
 	return removed
 }
 
-// Len returns the current registry size. For metrics/tests.
+// Len returns the number of registered servers.
 func (r *registry) Len() int {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return len(r.entries)
 }
 
-// Load replaces the registry's contents with the supplied entries.
-// Used at startup to seed from a persisted snapshot. The caller is
-// responsible for any freshness or membership filtering — see
-// decideRestore.
+// Load replaces the registry's contents, to restore a saved snapshot at
+// startup. The caller filters the entries first (decideRestore).
 func (r *registry) Load(entries []regEntry) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -127,26 +120,17 @@ func (r *registry) Load(entries []regEntry) {
 	}
 }
 
-// decideRestore filters a persisted snapshot for restoration.
+// decideRestore filters a saved snapshot for restoring.
 //
-// Top-level freshness gate: if the most recent validated_at across
-// rows is older than freshness, the whole snapshot is rejected
-// (clearAll=true) — the hub was down longer than we'd trust as a
-// routine restart, so we'd rather show an empty list than stale data.
+// If the newest validated_at is older than freshness, the hub was down
+// longer than a routine restart, and the whole snapshot is dropped
+// (clearAll) to show an empty list over stale data. Otherwise rows past
+// their own expires_at are dropped.
 //
-// Per-row filter: rows whose own expires_at has already passed are
-// dropped.
-//
-// We intentionally do NOT gate-filter restored entries by current
-// membership. Remote collectors take seconds to detect a NATS
-// disconnect and reconnect after a hub restart, so the gate is
-// briefly empty for remote sources at restore time — filtering here
-// would silently drop every remote registration on every restart.
-// Worst case for skipping the check: an admin deprovisioned a
-// source within the freshness window, so we briefly advertise an
-// addr whose underlying row is gone. The entry will expire on its
-// own at the original expires_at (or sooner via sweep), exactly
-// matching the in-memory behavior during normal operation.
+// Restored entries skip the membership gate: after a hub restart,
+// remote collectors take seconds to reconnect, so the gate is briefly
+// empty for them. A source deprovisioned within the freshness window
+// stays listed only until its entry expires, as it would in memory.
 func decideRestore(
 	rows []storage.DirectoryRegistration,
 	freshness time.Duration,
@@ -189,8 +173,7 @@ func decideRestore(
 	return keep, false
 }
 
-// toPersisted converts the registry's current entries to the form
-// the storage layer accepts. Called once at graceful shutdown.
+// toPersisted converts the entries for storage at graceful shutdown.
 func (r *registry) toPersisted() []storage.DirectoryRegistration {
 	snap := r.Snapshot()
 	if len(snap) == 0 {
@@ -215,10 +198,9 @@ func (r *registry) toPersisted() []storage.DirectoryRegistration {
 }
 
 // matchGamename compares an entry's gamename to the requested filter.
-// Q3 servers without an `fs_game` cvar set advertise no gamename in
-// infoResponse, in which case dpmaster treats it as the default
-// gamename "Quake3Arena". We do the same so vanilla servers still
-// answer getserversExt Quake3Arena queries.
+// A server without fs_game sends no gamename, which counts as
+// "Quake3Arena", as in dpmaster, so stock servers answer getserversExt
+// Quake3Arena queries.
 func (e regEntry) matchGamename(want string) bool {
 	if want == "" {
 		return true

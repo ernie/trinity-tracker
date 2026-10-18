@@ -9,12 +9,8 @@ import { useLiveData } from "../../contexts/LiveDataContext";
 import { ArrowIcon } from "../ArrowIcon";
 import { DISCORD_INVITE_URL } from "../../constants/discord";
 
-// Each door wears a faded, rotated in-game glyph at its bottom-right —
-// echoes the "medal whisper" pattern on .stat-item, ember-shifted to
-// blend into the door's hover bloom. Rotation is the same -20° as
-// the player-page convention so the two pages share one signature.
-// Optional `opacity` overrides the 0.22 default for delicate glyphs
-// (the medal laurel is line-art and reads dimmer than the others).
+// `opacity` overrides the 0.22 default for line-art glyphs, which read
+// dimmer than the others.
 type GlyphStyle = React.CSSProperties & {
   "--glyph-url"?: string;
   "--glyph-opacity"?: string;
@@ -65,9 +61,7 @@ export function DoorsSection() {
         >
           <span className="landing-door__glyph" aria-hidden="true" />
           <h3 className="landing-door__title">Find a fight</h3>
-          <p className="landing-door__desc">
-            Live servers, current scores, who&rsquo;s on.
-          </p>
+          <p className="landing-door__desc">See who&rsquo;s playing where.</p>
           <span className="landing-door__arrow">
             All servers <ArrowIcon direction="right" />
           </span>
@@ -98,7 +92,7 @@ export function DoorsSection() {
           <span className="landing-door__glyph" aria-hidden="true" />
           <h3 className="landing-door__title">Pay respects</h3>
           <p className="landing-door__desc">
-            Weekly rankings, all-time legends, every mode.
+            Where do you stand among the greats?
           </p>
           <span className="landing-door__arrow">
             Leaderboard <ArrowIcon direction="right" />

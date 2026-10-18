@@ -12,9 +12,8 @@ export function ActiveNowShelf() {
   const live = useLiveData();
   const allServers = Array.from(live.servers.values());
   const activeServers = allServers.filter((s) => s.online && s.human_count > 0);
-  // No humans anywhere: offer a few bot matches that are on air instead of
-  // an empty shelf. Fixed hub picks across the distinct card layouts — FFA
-  // (hero strip), 1v1 (duelists), CTF/1FCTF (flag status), Overload (obelisk).
+  // With no humans online, show one bot match per card layout: FFA (hero
+  // strip), 1v1, CTF/1FCTF (flag status), Overload (obelisk).
   const botLiveServers =
     activeServers.length === 0
       ? FEATURED_BOT_KEYS.flatMap((key) =>
@@ -41,7 +40,7 @@ export function ActiveNowShelf() {
         <>
           {activeServers.some((s) => s.is_live) && (
             <p className="landing-section__lead">
-              Click a LIVE card to watch — the players will know the Vadrigar
+              Click a LIVE card to watch. The players will know the Vadrigar
               have arrived.
             </p>
           )}
@@ -49,8 +48,6 @@ export function ActiveNowShelf() {
             <NavScroller scrollClassName="landing-shelf-h__scroll">
               {activeServers.map((server) => (
                 <div key={server.server_id} className="landing-shelf-h__slot">
-                  {/* landingCard captures the whole card as one click target;
-                      no onPlayerClick — profile drill-ins live off-landing. */}
                   <ServerCard
                     server={server}
                     liveness={live.liveness.get(server.server_id)}
@@ -64,8 +61,9 @@ export function ActiveNowShelf() {
       ) : botLiveServers.length > 0 ? (
         <>
           <p className="landing-section__lead">
-            No humans fighting right now. The bots didn't get the memo &mdash;
-            click a card to watch, or <Link to="/docs">join the fray</Link>.
+            No humans fighting right now, but the bots didn&rsquo;t get the
+            memo. Click a card to watch them, or{" "}
+            <Link to="/docs">join the fray</Link>.
           </p>
           <div className="landing-shelf-h">
             <NavScroller scrollClassName="landing-shelf-h__scroll">
@@ -86,9 +84,9 @@ export function ActiveNowShelf() {
           <span className="landing-quiet__dot" aria-hidden />
           <p className="landing-quiet__title">STANDING BY</p>
           <p className="landing-quiet__sub">
-            No live matches right now — the arena is yours if you want it.
+            No live matches right now. Pick a server and start one.
             {totalOnline > 0
-              ? ` ${totalOnline} server${totalOnline === 1 ? "" : "s"} standing by.`
+              ? ` ${totalOnline} server${totalOnline === 1 ? " is" : "s are"} online.`
               : ""}
           </p>
           <Link to="/servers" className="landing-quiet__cta">

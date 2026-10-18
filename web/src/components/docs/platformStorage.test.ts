@@ -5,8 +5,7 @@ import {
   PLATFORM_STORAGE_KEY,
 } from "./platformStorage";
 
-// Bun's test runtime doesn't include localStorage out of the box —
-// a minimal in-memory shim is enough for these unit tests.
+// Bun's test runtime has no localStorage.
 const store: Record<string, string> = {};
 (globalThis as { localStorage?: Storage }).localStorage = {
   getItem: (k: string) => (k in store ? store[k] : null),

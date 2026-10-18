@@ -7,12 +7,8 @@ interface PlatformOnlyProps {
   children: ReactNode;
 }
 
-// Transparent platform filter — renders children only when the
-// active platform matches, with no chrome of its own. Use when a
-// piece of content should adopt the visual style of its surroundings
-// (e.g., a troubleshooting <details> in a list of generic ones)
-// rather than being called out as a styled aside. Pair with
-// PlatformNote when you want the ember-tinted callout treatment.
+// Shows children only on the listed platforms, with no styling of its
+// own; PlatformNote is the styled aside.
 export function PlatformOnly({ platform, children }: PlatformOnlyProps) {
   const { platform: active } = usePlatform();
   const platforms = Array.isArray(platform) ? platform : [platform];

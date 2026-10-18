@@ -3,20 +3,17 @@ export function formatNumber(n: number): string {
   return n.toLocaleString();
 }
 
-// Strip the "[VR]" decoration from a player name, at either the
-// start or end. Handles surrounding color codes — "^7[VR] Name" or
-// "Name [VR]^7". Mirrors internal/discord/name.go:StripVRTag; keep
-// the two regexes in sync.
+// Strip a leading or trailing "[VR]" tag and the color codes around it
+// ("^7[VR] Name", "Name [VR]^7"). Keep the regexes in step with
+// internal/discord/name.go:StripVRTag.
 export function stripVRPrefix(name: string): string {
   return name
     .replace(/^(\^[0-9])*\[VR\]\s*/i, "")
     .replace(/\s*\[VR\](\^[0-9])*$/i, "");
 }
 
-// Canonical display name for a player record. Strips the [VR] prefix
-// when the player is VR (the badge already conveys it). Anywhere a
-// player's name is rendered alongside its badges, prefer this over
-// inlining the ternary.
+// A VR player's name drops the [VR] tag, since the badge shows it. Use this
+// wherever a name renders beside its badges.
 export function displayPlayerName(player: {
   name: string;
   is_vr?: boolean;
@@ -24,9 +21,8 @@ export function displayPlayerName(player: {
   return player.is_vr ? stripVRPrefix(player.name) : player.name;
 }
 
-// serverDisplay composes the canonical UI string for a server from
-// its (source, key) identity. Single-source installs see just the
-// key; multi-source see "<source> / <key>".
+// A server's name in the UI: "<source> / <key>", or just the key when
+// there's only one source.
 export function serverDisplay(
   source: string | undefined,
   key: string | undefined,
@@ -70,9 +66,9 @@ export function formatTimeParam(secs: number): string {
   return `${m}m${r}s`;
 }
 
-// Mirrors internal/storage/displayname.go:CleanQ3DisplayName. Strips
-// forbidden chars (\, ", ;), black color codes (colorIdx 0 via & 7),
-// non-printable, leading whitespace, >2 consecutive spaces, 31-byte limit.
+// Mirrors internal/storage/displayname.go:CleanQ3DisplayName: drops \, " and
+// ;, black color codes (index 0 after & 7), non-printables, leading
+// whitespace and runs of more than 2 spaces, and stops at 31 bytes.
 export function cleanQ3DisplayName(raw: string): string {
   const maxBytes = 31;
   const buf: string[] = [];
@@ -132,8 +128,8 @@ export function cleanQ3DisplayName(raw: string): string {
   return buf.join("");
 }
 
-// Strips [VR] prefix, color codes, and normalizes whitespace for
-// stable identity matching across client-reported name variants.
+// Lowercased, with the [VR] tag, color codes and extra whitespace removed, so
+// the same name from different clients matches.
 export function canonicalizeDisplayName(raw: string): string {
   let s = stripVRPrefix(raw);
   s = s.replace(/\^[0-9]/g, "");

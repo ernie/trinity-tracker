@@ -32,13 +32,11 @@ func ParseBSP(r io.ReaderAt, size int64) (*BSPAssets, error) {
 		return nil, fmt.Errorf("BSP too small: %d bytes", size)
 	}
 
-	// Read header
 	header := make([]byte, bspHeaderSize)
 	if _, err := r.ReadAt(header, 0); err != nil {
 		return nil, fmt.Errorf("read BSP header: %w", err)
 	}
 
-	// Verify magic and version
 	if string(header[0:4]) != bspMagic {
 		return nil, fmt.Errorf("invalid BSP magic: %q", header[0:4])
 	}
@@ -49,7 +47,6 @@ func ParseBSP(r io.ReaderAt, size int64) (*BSPAssets, error) {
 
 	assets := &BSPAssets{}
 
-	// Parse entities lump
 	entOffset := int64(binary.LittleEndian.Uint32(header[8+bspLumpEntities*8:]))
 	entLength := int64(binary.LittleEndian.Uint32(header[8+bspLumpEntities*8+4:]))
 	if entLength > 0 {
@@ -60,7 +57,6 @@ func ParseBSP(r io.ReaderAt, size int64) (*BSPAssets, error) {
 		parseEntities(string(entData), assets)
 	}
 
-	// Parse shaders lump
 	shaderOffset := int64(binary.LittleEndian.Uint32(header[8+bspLumpShaders*8:]))
 	shaderLength := int64(binary.LittleEndian.Uint32(header[8+bspLumpShaders*8+4:]))
 	numShaders := shaderLength / bspShaderSize
@@ -129,19 +125,17 @@ func parseEntities(text string, assets *BSPAssets) {
 			continue
 		}
 
-		// Parse key-value pair: "key" "value"
 		key, value := parseEntityKV(line)
 		if key == "" {
 			continue
 		}
 
-		// Normalize Windows backslashes to forward slashes
 		value = strings.ReplaceAll(value, "\\", "/")
 
 		switch strings.ToLower(key) {
 		case "classname":
-			// SP_func_plat hardcodes these in game code — no entity key
-			// names them, and no official pak ships them.
+			// SP_func_plat hardcodes these in the game code; no entity
+			// key names them and no official pak ships them.
 			if value == "func_plat" {
 				assets.Sounds = append(assets.Sounds,
 					"sound/movers/plats/pt1_strt.wav",
@@ -175,7 +169,6 @@ func parseEntities(text string, assets *BSPAssets) {
 
 // parseEntityKV parses a "key" "value" line from entity data.
 func parseEntityKV(line string) (string, string) {
-	// Find first quoted string
 	i := strings.IndexByte(line, '"')
 	if i < 0 {
 		return "", ""
@@ -186,7 +179,6 @@ func parseEntityKV(line string) (string, string) {
 	}
 	key := line[i+1 : i+1+j]
 
-	// Find second quoted string
 	rest := line[i+1+j+1:]
 	i = strings.IndexByte(rest, '"')
 	if i < 0 {

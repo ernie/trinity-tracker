@@ -7,8 +7,6 @@ import (
 	"github.com/ernie/trinity-tracker/internal/domain"
 )
 
-// Null scanner helpers - reduce repetitive nil-checking code
-
 func scanNullString(ns sql.NullString) *string {
 	if ns.Valid {
 		return &ns.String
@@ -57,7 +55,6 @@ type scanner interface {
 	Scan(dest ...any) error
 }
 
-// scanUser scans a user row from the database
 func scanUser(s scanner) (*User, error) {
 	var user User
 	var lastLogin sql.NullTime
@@ -78,14 +75,12 @@ func scanUser(s scanner) (*User, error) {
 	return &user, nil
 }
 
-// matchSummaryColumns is the SELECT column list paired with scanMatchSummaryRow.
-// Keep these two in sync — one line in the SELECT corresponds to one Scan target
-// in the row scanner.
+// matchSummaryColumns is the SELECT column list for scanMatchSummaryRow;
+// each column maps to one Scan target there, so change them together.
 const matchSummaryColumns = `m.id, m.uuid, m.server_id, s.key, s.active, s.source, m.map_name, m.game_type,
 	m.started_at, m.ended_at, m.exit_reason,
 	m.red_score, m.blue_score, m.mode, m.demo_available, m.is_featured`
 
-// scanMatchSummaryRow scans match summary fields from a row
 func scanMatchSummaryRow(s scanner) (*domain.MatchSummary, error) {
 	var m domain.MatchSummary
 	var endedAt sql.NullTime
@@ -112,7 +107,7 @@ func scanMatchSummaryRow(s scanner) (*domain.MatchSummary, error) {
 	return &m, nil
 }
 
-// scanMatchPlayerSummary scans a player summary row and returns the match ID and player data
+// scanMatchPlayerSummary returns a player summary row's match ID and player data.
 func scanMatchPlayerSummary(s scanner, includeMatchID bool) (int64, *domain.MatchPlayerSummary, error) {
 	var matchID int64
 	var ps domain.MatchPlayerSummary

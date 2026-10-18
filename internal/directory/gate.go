@@ -12,31 +12,25 @@ import (
 	"github.com/ernie/trinity-tracker/internal/storage"
 )
 
-// gateStore is the read-only slice of *storage.Store the gate needs.
-// Defined as an interface so tests can supply a fake without depending
-// on SQLite.
+// gateStore is the part of *storage.Store the gate reads; tests supply
+// a fake.
 type gateStore interface {
 	ListDirectoryGateEntries(ctx context.Context) ([]storage.RemoteServer, error)
 }
 
-// gateConns reports the IPs of every currently-authenticated NATS
-// connection for a given user pubkey (zero, one, or — briefly during a
-// reconnect overlap — more than one). Empty slice means "no live
-// connection"; the gate will exclude that row.
-//
-// Implemented by *natsbus.Server in production; fake in tests.
+// gateConns reports the IPs of the authenticated NATS connections for a
+// user pubkey: usually one, briefly two during a reconnect, none when
+// the collector is offline. *natsbus.Server implements it.
 type gateConns interface {
 	ConnectedClientIPs(userPubKey string) []netip.Addr
 }
 
-// gate is the membership filter: only heartbeats whose UDP source
-// (ip, port) matches a row in `servers` are admitted. The map is
-// rebuilt on a ticker so collector reconnects (and any IP changes that
-// come with them) propagate without a hub restart.
+// gate admits only heartbeats whose UDP source (ip, port) matches a
+// row in servers. The map is rebuilt on a ticker, so a collector that
+// reconnects from a new IP is picked up without a hub restart.
 //
-// Remote rows (is_remote=1) get their IP from the live NATS connection
-// authenticated for that source — kernel-recorded, so it updates the
-// moment a collector reconnects from a new public IP.
+// A remote row takes its IP from the source's live NATS connection, as
+// the kernel recorded it.
 type gate struct {
 	store   gateStore
 	conns   gateConns
@@ -56,8 +50,8 @@ func newGate(store gateStore, conns gateConns, refresh time.Duration) *gate {
 	return g
 }
 
-// Allow checks whether srcAddr is one of the (ip, port) tuples we last
-// loaded. Returns the matching servers.id (for logging) and a boolean.
+// Allow reports whether srcAddr is in the last loaded map, with the
+// matching servers.id for logging.
 func (g *gate) Allow(srcAddr netip.AddrPort) (int64, bool) {
 	m := g.current.Load()
 	if m == nil {
@@ -67,9 +61,9 @@ func (g *gate) Allow(srcAddr netip.AddrPort) (int64, bool) {
 	return id, ok
 }
 
-// Run blocks until ctx is cancelled, refreshing the gate every
-// g.refresh. It also performs an initial refresh synchronously so the
-// gate is populated before the first heartbeat hits it.
+// Run refreshes the gate every g.refresh until ctx is canceled. The
+// first refresh runs before Run starts waiting, so the gate is loaded
+// before the first heartbeat.
 func (g *gate) Run(ctx context.Context) {
 	g.refreshOnce(ctx)
 	t := time.NewTicker(g.refresh)
@@ -84,10 +78,8 @@ func (g *gate) Run(ctx context.Context) {
 	}
 }
 
-// refreshOnce queries the DB and replaces the gate's resolved map.
-// Remote rows whose collectors are not currently connected are silently
-// dropped; they'll reappear on the next refresh after the collector
-// reconnects.
+// refreshOnce rebuilds the map from the database. A remote row whose
+// collector is offline is left out until a refresh after it reconnects.
 func (g *gate) refreshOnce(ctx context.Context) {
 	rows, err := g.store.ListDirectoryGateEntries(ctx)
 	if err != nil {
@@ -111,10 +103,7 @@ func (g *gate) refreshOnce(ctx context.Context) {
 
 		if r.IsRemote {
 			if r.UserPubKey == "" {
-				// Source approved but no creds minted yet — no
-				// authenticated connection to identify, so the row
-				// can't be admitted. Picked up automatically on the
-				// next refresh after MintUserCreds.
+				// No credentials yet, so no connection to match.
 				continue
 			}
 			for _, ip := range g.conns.ConnectedClientIPs(r.UserPubKey) {
@@ -123,11 +112,9 @@ func (g *gate) refreshOnce(ctx context.Context) {
 			continue
 		}
 
-		// Local row: trusted by virtue of locality. Admit heartbeats
-		// from any of this host's own interfaces (including loopback)
-		// for the row's port. r.Address's host portion is informational
-		// — it's the user-facing hostname for demo download URLs etc.,
-		// not an authentication signal here.
+		// A local row admits the row's port from any of this host's own
+		// addresses, loopback included. r.Address's host is the public
+		// hostname for URLs and plays no part here.
 		_ = host
 		for _, ip := range localAddrs {
 			next[netip.AddrPortFrom(ip.Unmap(), port)] = r.ID
@@ -136,15 +123,12 @@ func (g *gate) refreshOnce(ctx context.Context) {
 	g.current.Store(&next)
 }
 
-// hostLocalAddrs returns the IPs this host accepts heartbeats from for
-// local rows: loopback (always) plus the primary outbound IP for v4
-// and v6 (if available) discovered via the kernel's routing table.
+// hostLocalAddrs returns the addresses local rows accept heartbeats
+// from: loopback plus the primary outbound IPv4 and IPv6 address.
 //
-// Uses a connected UDP socket as a netlink-free probe: net.Dial picks
-// the source IP the kernel would use for traffic to the target, and
-// no packets actually leave the box (UDP "connect" only). This avoids
-// AF_NETLINK, which is commonly blocked by systemd sandboxes via
-// RestrictAddressFamilies.
+// A connected UDP socket finds the source IP the kernel would route
+// from, sending nothing. It needs no AF_NETLINK, which systemd sandboxes
+// often block with RestrictAddressFamilies.
 func hostLocalAddrs() []netip.Addr {
 	out := []netip.Addr{
 		netip.MustParseAddr("127.0.0.1"),
@@ -159,9 +143,8 @@ func hostLocalAddrs() []netip.Addr {
 		seen[addr] = struct{}{}
 		out = append(out, addr)
 	}
-	// Targets are arbitrary; the kernel only consults the routing
-	// table, no traffic is sent until Write. Pick well-known anycast
-	// addresses to maximise the chance a default route exists.
+	// Any routable target works; well-known anycast addresses are the
+	// likeliest to have a default route.
 	for _, probe := range []struct{ network, target string }{
 		{"udp4", "8.8.8.8:80"},
 		{"udp6", "[2001:4860:4860::8888]:80"},
@@ -182,7 +165,7 @@ func hostLocalAddrs() []netip.Addr {
 	return out
 }
 
-// Size returns the current gate cardinality. For metrics/tests.
+// Size returns how many addresses the gate admits.
 func (g *gate) Size() int {
 	m := g.current.Load()
 	if m == nil {

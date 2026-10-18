@@ -31,8 +31,8 @@ function getSnapshot() {
 }
 
 /**
- * Returns the current pool of featured match IDs. Empty list while loading
- * (and after a 404). Consumers should treat empty as "fall back to /matches".
+ * Returns the featured match IDs: empty while loading or after a 404,
+ * when callers fall back to /matches.
  */
 export function useFeaturedMatches(): { ids: number[]; loaded: boolean } {
   const snap = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);

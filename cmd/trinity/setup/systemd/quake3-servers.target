@@ -1,5 +1,5 @@
 [Unit]
-Description=All Quake 3 Servers
+Description=All Quake III servers
 
 [Install]
 WantedBy=multi-user.target

@@ -1,5 +1,5 @@
-// Generates responsive WebP/AVIF variants of the landing-page wallpaper.
-// Run once (and after the source PNG changes); outputs are .gitignored.
+// Generates WebP and AVIF sizes of the landing-page wallpaper. Run it
+// again after the source PNG changes; the outputs are gitignored.
 //
 // Usage: bun scripts/build-landing-images.ts (run from web/)
 import sharp from "sharp";
@@ -17,7 +17,6 @@ interface Variant {
   filename: string;
   format: "webp" | "avif";
   quality: number;
-  // mobile variant focal-crops on the logo (which sits at vertical 38%)
   cropToMobile?: boolean;
 }
 
@@ -45,8 +44,8 @@ const variants: Variant[] = [
 for (const v of variants) {
   let img = sharp(SRC).resize(v.width);
   if (v.cropToMobile) {
-    // Source is 3440×1440 (~2.4:1). Mobile crop tightens to 16:9 around the
-    // center logo, which sits at vertical ~38% of the image.
+    // The 3440×1440 source crops to 16:9 around the logo, which sits
+    // about 38% of the way down.
     const aspectH = Math.round(v.width / (16 / 9));
     img = sharp(SRC).resize({
       width: v.width,

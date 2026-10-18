@@ -11,23 +11,19 @@ import (
 	"github.com/ernie/trinity-tracker/internal/storage"
 )
 
-// MaxRequestPurposeLen caps the free-text "what is this for?" field
-// to a length the admin pending-list can render inline without
-// truncation.
+// MaxRequestPurposeLen caps the "What is this for?" field so the admin
+// pending list shows it whole.
 const MaxRequestPurposeLen = 200
 
-// mySourcesEnvelope is the JSON shape returned by GET /api/sources/mine.
-// One entry per source the caller owns; an empty list means "no source
-// row at all" → button shows "Add Servers". A pending entry in the
-// list (HasPending also true) means the button shows "Request Pending".
+// mySourcesEnvelope lists the caller's sources and whether one of them
+// is pending.
 type mySourcesEnvelope struct {
 	Sources    []mySourceEntry `json:"sources"`
 	HasPending bool            `json:"has_pending"`
 }
 
-// mySourceEntry is one source the caller owns. Only fields relevant
-// to the source's current status are populated; absent fields are
-// omitted on the wire.
+// mySourceEntry is one of the caller's sources, with only the fields
+// its status uses.
 type mySourceEntry struct {
 	Source          string        `json:"source"`
 	Status          string        `json:"status"`
@@ -45,15 +41,12 @@ type serverEntry struct {
 	Active  bool   `json:"active"`
 }
 
-// requestSourceBody is what the request modal POSTs.
 type requestSourceBody struct {
 	Name    string `json:"name"`
 	Purpose string `json:"purpose"`
 }
 
-// handleGetMySources returns the caller's full list of sources. The
-// React MySourceButton drives its label off this: empty → "Add
-// Servers", any pending → "Request Pending", otherwise → "My Servers".
+// handleGetMySources returns every source the caller owns.
 //
 // path: GET /api/sources/mine
 func (r *Router) handleGetMySources(w http.ResponseWriter, req *http.Request) {
@@ -95,39 +88,35 @@ func (r *Router) handleGetMySources(w http.ResponseWriter, req *http.Request) {
 	writeJSON(w, http.StatusOK, env)
 }
 
-// handleRequestSource creates a pending source for the caller (or
-// re-activates their 'left' row of the same name). One pending at a
-// time per user; multiple actives are allowed (one source per host
-// is the recommended pattern). The handler does the cred mint inline
-// only on the rejoin path.
+// handleRequestSource creates a pending source for the caller, or
+// reactivates one they left under the same name. A user may have one
+// pending request at a time and any number of active sources.
 //
 // path: POST /api/sources/request
 func (r *Router) handleRequestSource(w http.ResponseWriter, req *http.Request) {
 	if r.userProv == nil {
-		writeError(w, http.StatusNotImplemented, "cred management not enabled on this hub")
+		writeError(w, http.StatusNotImplemented, "Credential management isn't enabled on this hub.")
 		return
 	}
 	var body requestSourceBody
 	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		writeError(w, http.StatusBadRequest, "The request couldn't be read.")
 		return
 	}
 	body.Name = strings.TrimSpace(body.Name)
 	body.Purpose = strings.TrimSpace(body.Purpose)
 
 	if err := storage.ValidateSource(body.Name); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid name: "+err.Error())
+		writeError(w, http.StatusBadRequest, "Name must be 3–16 characters: letters, numbers, _ or -.")
 		return
 	}
-	// User-facing floor on top of the storage layer's 1-16 ceiling:
-	// the request modal enforces a 3-char minimum to keep names
-	// memorable.
+	// Requested names need at least 3 characters; storage allows 1.
 	if len(body.Name) < 3 || len(body.Name) > 16 {
-		writeError(w, http.StatusBadRequest, "name must be 3-16 characters")
+		writeError(w, http.StatusBadRequest, "Name must be 3–16 characters: letters, numbers, _ or -.")
 		return
 	}
 	if len(body.Purpose) > MaxRequestPurposeLen {
-		writeError(w, http.StatusBadRequest, "purpose exceeds 200 characters")
+		writeError(w, http.StatusBadRequest, "Purpose can be at most 200 characters.")
 		return
 	}
 
@@ -139,18 +128,18 @@ func (r *Router) handleRequestSource(w http.ResponseWriter, req *http.Request) {
 	})
 	switch {
 	case errors.Is(err, storage.ErrPendingRequestExists):
-		writeError(w, http.StatusConflict, "you already have a pending request — wait for an admin to review it before submitting another")
+		writeError(w, http.StatusConflict, "You already have a pending request. Wait for an admin to review it before sending another.")
 		return
 	case errors.Is(err, storage.ErrSourceNameTaken):
-		writeError(w, http.StatusConflict, "source name is taken")
+		writeError(w, http.StatusConflict, "That source name is taken.")
 		return
 	case err != nil:
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	// Rejoin path: storage layer auto-approved a 'left' row, so the
-	// row is now 'active'. Re-mint creds and prime the ingest cache.
+	// Requesting a name the caller left approves it automatically, so
+	// it needs new credentials and an open ingest gate.
 	post, err := r.store.GetSourceByName(req.Context(), body.Name)
 	if err == nil && post.Status == "active" && post.OwnerUserID.Valid && post.OwnerUserID.Int64 == claims.UserID {
 		if _, mintErr := r.userProv.MintUserCreds(req.Context(), post.Source); mintErr != nil {
@@ -164,13 +153,13 @@ func (r *Router) handleRequestSource(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-// handleDownloadMyCreds streams the .creds file for the named source,
-// gated on caller ownership + status='active'. Audited per download.
+// handleDownloadMyCreds returns the .creds file for an active source the
+// caller owns, and audits the download.
 //
 // path: GET /api/sources/mine/{source}/creds
 func (r *Router) handleDownloadMyCreds(w http.ResponseWriter, req *http.Request) {
 	if r.userProv == nil {
-		writeError(w, http.StatusNotImplemented, "cred management not enabled on this hub")
+		writeError(w, http.StatusNotImplemented, "Credential management isn't enabled on this hub.")
 		return
 	}
 	src, claims, ok := r.requireOwnedActiveSource(w, req)
@@ -180,7 +169,7 @@ func (r *Router) handleDownloadMyCreds(w http.ResponseWriter, req *http.Request)
 	data, err := os.ReadFile(r.userProv.CredsPath(src.Source))
 	if err != nil {
 		if os.IsNotExist(err) {
-			writeError(w, http.StatusNotFound, "no creds on disk for this source")
+			writeError(w, http.StatusNotFound, "This source has no credentials file yet.")
 			return
 		}
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -192,14 +181,13 @@ func (r *Router) handleDownloadMyCreds(w http.ResponseWriter, req *http.Request)
 	_, _ = w.Write(data)
 }
 
-// handleRotateMyCreds mints a fresh user JWT for the named source,
-// rate-limited to 5/24h per source. Same wire shape as the admin
-// rotate path.
+// handleRotateMyCreds issues new credentials for the source and returns
+// the .creds file, at most 5 times in 24 hours per source.
 //
 // path: POST /api/sources/mine/{source}/rotate-creds
 func (r *Router) handleRotateMyCreds(w http.ResponseWriter, req *http.Request) {
 	if r.userProv == nil {
-		writeError(w, http.StatusNotImplemented, "cred management not enabled on this hub")
+		writeError(w, http.StatusNotImplemented, "Credential management isn't enabled on this hub.")
 		return
 	}
 	src, claims, ok := r.requireOwnedActiveSource(w, req)
@@ -207,12 +195,12 @@ func (r *Router) handleRotateMyCreds(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	if !r.rotateLimiter.allow(src.Source) {
-		writeError(w, http.StatusTooManyRequests, "rotation limit exceeded (5 per 24h)")
+		writeError(w, http.StatusTooManyRequests, "You can rotate credentials up to 5 times in 24 hours. Try again later.")
 		return
 	}
 	creds, err := r.userProv.MintUserCreds(req.Context(), src.Source)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "mint: "+err.Error())
+		writeError(w, http.StatusInternalServerError, "Couldn't create new credentials: "+err.Error())
 		return
 	}
 	_ = r.store.WriteSourceAudit(req.Context(), src.Source, &claims.UserID, "rotated", "")
@@ -221,9 +209,8 @@ func (r *Router) handleRotateMyCreds(w http.ResponseWriter, req *http.Request) {
 	_, _ = w.Write(creds)
 }
 
-// handleLeaveMySource is the soft owner-self-service exit for a
-// single named source. Other sources owned by the caller are
-// untouched.
+// handleLeaveMySource takes one of the caller's sources off the network
+// and revokes its credentials. The owner can request the name again.
 //
 // path: POST /api/sources/mine/{source}/leave
 func (r *Router) handleLeaveMySource(w http.ResponseWriter, req *http.Request) {
@@ -244,38 +231,31 @@ func (r *Router) handleLeaveMySource(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// requireOwnedActiveSource is the shared gate for the three
-// owner-action handlers. Pulls {source} from the path, looks the row
-// up, and verifies (a) caller is authenticated, (b) source exists,
-// (c) status='active', (d) caller owns it. On not-ok it has already
-// written an error response.
+// requireOwnedActiveSource returns the {source} row when the caller owns
+// it and it is active. Otherwise it writes the error response and
+// returns false.
 func (r *Router) requireOwnedActiveSource(w http.ResponseWriter, req *http.Request) (*storage.Source, *authClaimsProxy, bool) {
 	claims := r.getAuthClaims(req)
 	source, ok := sourceFromPath(req)
 	if !ok {
-		writeError(w, http.StatusBadRequest, "source path parameter required")
+		writeError(w, http.StatusBadRequest, "The source name is missing from the request.")
 		return nil, nil, false
 	}
 	src, err := r.store.GetSourceByName(req.Context(), source)
 	if err != nil {
-		// Either ErrNoRows or a real error — both go to 404 from the
-		// caller's perspective; revealing existence to non-owners would
-		// leak source names.
-		writeError(w, http.StatusNotFound, "no such source")
+		// Every failure is a 404 so non-owners can't probe for names.
+		writeError(w, http.StatusNotFound, "No such source.")
 		return nil, nil, false
 	}
 	if !src.OwnerUserID.Valid || src.OwnerUserID.Int64 != claims.UserID {
-		writeError(w, http.StatusNotFound, "no such source")
+		writeError(w, http.StatusNotFound, "No such source.")
 		return nil, nil, false
 	}
 	if src.Status != "active" {
-		writeError(w, http.StatusForbidden, "source is not active")
+		writeError(w, http.StatusForbidden, "This source isn't active.")
 		return nil, nil, false
 	}
 	return src, &authClaimsProxy{UserID: claims.UserID}, true
 }
 
-// authClaimsProxy carries just the bits the audit writer needs from
-// a Claims pointer — keeps the audit signature using *int64 without
-// the handler having to take the address of a struct field.
 type authClaimsProxy struct{ UserID int64 }

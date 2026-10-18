@@ -28,9 +28,9 @@ server {
 
     root {{ .StaticDir }};
 
-    # Recorded demos — fetched cross-origin by the hub's WASM engine
-    # loader, so wildcard CORS is required. Write-once under uuid names,
-    # so cache forever.
+    # Recorded demos: the hub's WASM engine loader fetches these
+    # cross-origin, so wildcard CORS is required. They are written once
+    # under UUID names, so cache forever.
     location /demos/ {
         autoindex off;
         expires 1y;
@@ -38,8 +38,7 @@ server {
         add_header Access-Control-Allow-Origin "*" always;
     }
 
-    # Map levelshots — `<img>` tags don't need CORS for display, but
-    # adding the header is harmless and future-proofs JS use.
+    # Map levelshots, with CORS so scripts can read them too.
     location /assets/levelshots/ {
         autoindex off;
         expires 30d;
@@ -47,15 +46,15 @@ server {
         add_header Access-Control-Allow-Origin "*" always;
     }
 
-    # Demobaked map pk3s — fetched cross-origin by the engine loader.
+    # Map pk3s from demobake, fetched cross-origin by the engine loader.
     location /demopk3s/ {
         autoindex off;
         add_header Access-Control-Allow-Origin "*" always;
     }
 
-    # TrinityVision live: the hub 302s viewers here (single bare segment, no
-    # extension — live is a stream, not a .tvd recording). Proxies to the local
-    # relay; buffering off so the delayed edge isn't re-buffered by nginx.
+    # TrinityVision live: the hub redirects viewers here (one bare segment,
+    # no extension). Proxies to the local relay with buffering off, so nginx
+    # adds no delay of its own.
     location ~ ^/tv/[^/]+$ {
         proxy_pass http://127.0.0.1:8081;
         proxy_buffering off;
@@ -74,7 +73,7 @@ server {
     }
 }
 
-# Quake 3 fast-downloads.
+# Quake III fast downloads.
 server {
     listen 80;
     listen [::]:80;

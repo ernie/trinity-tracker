@@ -22,7 +22,7 @@ type Claims struct {
 	PasswordChangeRequired bool   `json:"password_change_required"`
 	// TokenVersion must match users.token_version at validation; a
 	// bump (password change, logout-all) kills every outstanding JWT.
-	// Pre-versioning tokens carry the zero value and never match.
+	// Tokens without the claim carry the zero value and never match.
 	TokenVersion int64 `json:"token_ver"`
 	jwt.RegisteredClaims
 }

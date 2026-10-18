@@ -1,27 +1,24 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Provisions nginx + certbot for either flavor of Trinity install. Both
-# modes get their site config rendered Go-side (from the embedded
-# templates at cmd/trinity/setup/nginxtemplates/{hub,collector}.conf.tmpl)
-# and passed in via --site-file=<path>. This script is mode-agnostic in
-# its handling of the rendered config — it just installs nginx, opens
-# firewall ports, copies the file into place, runs certbot, and reloads.
+# Sets up nginx and certbot for a hub or a collector. The trinity binary
+# renders the site config from cmd/trinity/setup/nginxtemplates/ and
+# passes it in with --site-file; this script installs nginx, opens
+# firewall ports, puts the file in place, runs certbot and reloads.
 #
 # Modes:
-#   --mode=hub       Public front for a Trinity hub (SPA + api/ws +
-#                    asset-fallback proxy + dl.<host> fastdl).
-#   --mode=collector Static asset host the hub 302s to (demos,
-#                    levelshots, demopk3s + dl.<host> fastdl).
+#   --mode=hub       Public front for a hub: the website, api and ws,
+#                    the asset fallback proxy, and dl.<host> fast downloads.
+#   --mode=collector Asset host the hub redirects to (demos, levelshots,
+#                    demo pk3s) plus dl.<host> fast downloads.
 #
-# Cross-distro:
-#   - Debian/Ubuntu: sites-available/sites-enabled, certbot --nginx via
-#     python3-certbot-nginx
+# nginx layout by distro:
+#   - Debian/Ubuntu: sites-available/sites-enabled, python3-certbot-nginx
 #   - Arch: conf.d/, certbot-nginx
-#   - Fedora/RHEL: conf.d/, python3-certbot-nginx; demotes the stock
-#     :80 default_server so server_name matching wins for our vhost
+#   - Fedora/RHEL: conf.d/, python3-certbot-nginx; the stock :80
+#     default_server is demoted so our server_name matches
 #
-# See docs/collector-setup.md §6 for collector-mode background.
+# Collector mode is covered in section 6 of docs/collector-setup.md.
 
 usage() {
     cat <<'EOF'
@@ -37,30 +34,27 @@ Usage:
 
 Required:
   --mode=hub|collector   Which flavor of vhost to install.
-  --hostname=<host>      Bare public hostname (e.g. trinity.run).
-  --site-file=<path>     Pre-rendered nginx site file (the trinity
-                         binary stages this from its embedded template
-                         before invoking the script).
+  --hostname=<host>      Bare public hostname, such as trinity.run.
+  --site-file=<path>     Rendered nginx site file (the trinity binary
+                         writes it before running this script).
   --email=<addr>         Email certbot uses for renewal notices.
                          Required unless --skip-cert.
 
 Optional:
-  --quake3-dir=<path>    Informational only (the path is baked into
-                         --site-file already; passed for log output).
+  --quake3-dir=<path>    Unused: the path is already in --site-file.
                          Default /usr/lib/quake3.
-  --static-dir=<path>    Used in collector mode to pre-create the
-                         demos/, assets/levelshots/, demopk3s/ subtrees
-                         with quake ownership so trinity demobake +
-                         levelshots can write into them. Default
+  --static-dir=<path>    In collector mode, the demos/, assets/levelshots/
+                         and demopk3s/ directories are created here,
+                         owned by quake, so trinity demobake and
+                         levelshots can write to them. Default
                          /var/lib/trinity/web.
-  --skip-cert            Do not run certbot. Caller must have placed
+  --skip-cert            Skip certbot.
                          /etc/letsencrypt/live/<host>/{fullchain,privkey}.pem
-                         already (used during hub migrations where the
-                         operator rsynces /etc/letsencrypt from another
-                         host before DNS flips).
-  --skip-firewall        Do not poke ufw/firewalld. Operator manages
-                         host firewall via cloud dashboard, nftables,
-                         or config-management.
+                         must already be in place, as in a hub
+                         migration that copies /etc/letsencrypt from
+                         the old host before DNS changes.
+  --skip-firewall        Leave ufw and firewalld alone, for hosts whose
+                         firewall is managed another way.
 EOF
 }
 
@@ -116,8 +110,9 @@ fi
 
 if [[ $EUID -ne 0 ]]; then
     cat <<EOF
-This script needs root to install nginx + certbot, write to /etc/nginx,
-and run certbot. It will re-exec itself under sudo, preserving args.
+This script needs root to install nginx and certbot, write to /etc/nginx
+and run certbot. It will run itself again with sudo, keeping your
+arguments.
 
 EOF
     read -r -p "Proceed with sudo? [y/N] " reply
@@ -138,10 +133,7 @@ fi
 
 echo "==> mode=$MODE  host=$PUBLIC_HOST  skip-cert=$SKIP_CERT  skip-firewall=$SKIP_FIREWALL"
 
-echo "==> installing nginx + certbot"
-# Mirror install.sh's package-manager dispatch. Package names diverge:
-# Debian/Ubuntu ship the certbot --nginx integration as
-# python3-certbot-nginx; Arch calls it certbot-nginx.
+echo "==> installing nginx and certbot"
 if command -v apt-get >/dev/null 2>&1; then
     apt-get update
     DEBIAN_FRONTEND=noninteractive apt-get install -y nginx certbot python3-certbot-nginx acl
@@ -154,9 +146,8 @@ else
     exit 1
 fi
 
-# Collector-only: stage the asset dirs the hub will hit via 302. Hub
-# mode owns its own dir setup via apply.go's ensureDirs and doesn't
-# need this here.
+# The hub redirects asset requests to these directories. Hub installs
+# create their own in apply.go's ensureDirs.
 if [[ "$MODE" == "collector" ]]; then
     echo "==> ensuring asset dirs exist under $STATIC_DIR"
     install -d -o quake -g quake \
@@ -168,9 +159,8 @@ if [[ "$MODE" == "collector" ]]; then
         "$STATIC_DIR/demopk3s/maps"
 fi
 
-# Open the firewall before certbot runs — Let's Encrypt validates over
-# HTTP-01 to port 80, so a UFW/firewalld default-deny will time the
-# cert fetch out. Hub mode also opens 4222/tcp for remote collectors.
+# Let's Encrypt checks over HTTP on port 80, so the ports open before
+# certbot runs. Hubs also open 4222/tcp for remote collectors.
 open_firewall_ports() {
     local ports_tcp=(80 443)
     local ports_udp_range="27960:28000"
@@ -194,18 +184,15 @@ open_firewall_ports() {
         firewall-cmd --reload >/dev/null
         return
     fi
-    echo "==> no active host firewall (ufw/firewalld) detected; skipping local port-open"
-    echo "    (open ${ports_tcp[*]}/tcp + 27960-28000/udp on any cloud firewall yourself)"
+    echo "==> no active ufw or firewalld found, so no local ports were opened"
+    echo "    (open ${ports_tcp[*]}/tcp and 27960-28000/udp in any cloud firewall yourself)"
 }
 if (( SKIP_FIREWALL )); then
-    echo "==> --skip-firewall: leaving ufw/firewalld alone (operator manages host firewall)"
+    echo "==> --skip-firewall: leaving ufw and firewalld alone"
 else
     open_firewall_ports
 fi
 
-# Distro layout detection. Different distros lay out nginx config
-# differently; emit configs in the matching shape so we don't have to
-# maintain two scripts.
 if [[ -d /etc/nginx/sites-available && -d /etc/nginx/sites-enabled ]]; then
     LAYOUT=debian
     SITE_DIR=/etc/nginx/sites-available
@@ -227,19 +214,16 @@ else
     fi
 fi
 
-# Both modes write a single combined site file (HTTP→HTTPS + HTTPS
-# vhost + dl.<host> fastdl vhost all in one). Filename varies by distro
-# layout.
+# One site file holds the HTTP redirect, the HTTPS vhost and the
+# dl.<host> vhost.
 if [[ "$LAYOUT" == "debian" ]]; then
     PRIMARY_SITE="$SITE_DIR/trinity"
 else
     PRIMARY_SITE="$SITE_DIR/trinity.conf"
 fi
 
-# Stage-1 site is mode-agnostic: HTTP-only with both server_names (the
-# SAN cert covers both, so certbot needs HTTP-01 to succeed for each),
-# enough for certbot --nginx to add its ACME challenge location. We
-# overwrite it with --site-file once the cert is issued.
+# Before the certificate exists, certbot needs an HTTP site answering
+# for both names; --site-file replaces it once the certificate is issued.
 write_stage1_site() {
     cat > "$PRIMARY_SITE" <<NGINX
 server {
@@ -260,7 +244,6 @@ server {
 NGINX
 }
 
-# Decide between stage-1 and final based on cert presence + skip-cert.
 CERT_PATH="/etc/letsencrypt/live/$PUBLIC_HOST/fullchain.pem"
 NEEDS_CERTBOT=0
 if (( SKIP_CERT == 0 )) && [[ ! -e "$CERT_PATH" ]]; then
@@ -268,14 +251,13 @@ if (( SKIP_CERT == 0 )) && [[ ! -e "$CERT_PATH" ]]; then
 fi
 
 if (( NEEDS_CERTBOT )); then
-    echo "==> writing stage-1 site (HTTP-only, for ACME challenge)"
+    echo "==> writing stage-1 site (HTTP only, for the ACME challenge)"
     write_stage1_site
 else
     echo "==> installing $MODE site from $SITE_FILE"
     cp -f "$SITE_FILE" "$PRIMARY_SITE"
 fi
 
-# Activate the site file (Debian-style sites-enabled symlink).
 if [[ "$LAYOUT" == "debian" ]]; then
     ln -sf "$PRIMARY_SITE" "$SITE_ENABLED_DIR/$(basename "$PRIMARY_SITE")"
     if [[ -L "$SITE_ENABLED_DIR/default" || -e "$SITE_ENABLED_DIR/default" ]]; then
@@ -284,13 +266,13 @@ if [[ "$LAYOUT" == "debian" ]]; then
     fi
 fi
 
-# Fedora/RHEL nginx.conf has its own :80 default_server. Demote it.
+# Fedora and RHEL's nginx.conf has its own :80 default_server.
 if [[ -f /etc/nginx/nginx.conf ]] && grep -qE '^\s*listen\s+(\[::\]:)?80\s+default_server' /etc/nginx/nginx.conf; then
     echo "==> demoting /etc/nginx/nginx.conf's :80 default_server"
     sed -i -E 's/^(\s*listen\s+(\[::\]:)?80)\s+default_server/\1/' /etc/nginx/nginx.conf
 fi
 
-# Make sure cert renewals reload nginx so the served fullchain rotates.
+# nginx serves a renewed certificate only after a reload.
 echo "==> installing certbot deploy hook to reload nginx on renewal"
 install -d /etc/letsencrypt/renewal-hooks/deploy
 cat > /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh <<'EOF'
@@ -302,8 +284,7 @@ chmod 0755 /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh
 echo "==> nginx -t"
 nginx -t
 
-# Debian's nginx package starts + enables the service at install;
-# Fedora/RHEL/Arch install it disabled. enable --now is idempotent.
+# Fedora, RHEL and Arch install nginx disabled.
 echo "==> ensuring nginx is running"
 systemctl enable --now nginx
 
@@ -311,14 +292,10 @@ echo "==> reloading nginx"
 systemctl reload nginx
 
 if (( NEEDS_CERTBOT )); then
-    echo "==> issuing TLS cert via certbot (--nginx)"
-    # --nginx (full installer mode), not --webroot: certbot creates
-    # /etc/letsencrypt/options-ssl-nginx.conf as a side effect of its
-    # config-modification step, which collector configs `include`.
-    # certbot's edits to our stage-1 are transient — the final cp
-    # below overwrites them.
-    # SAN cert: <host> and dl.<host>. Both A/AAAA records must already
-    # resolve here or LE's HTTP-01 will fail for the missing name.
+    echo "==> getting a TLS certificate with certbot (--nginx)"
+    # --nginx writes /etc/letsencrypt/options-ssl-nginx.conf, which the
+    # collector site file includes; the copy below replaces certbot's
+    # edits to the stage-1 site. Both names must already resolve here.
     certbot --nginx \
         --non-interactive --agree-tos \
         --email "$ADMIN_EMAIL" \
@@ -334,11 +311,9 @@ if (( NEEDS_CERTBOT )); then
     systemctl reload nginx
 fi
 
-# Enable the auto-renewal timer. Debian's certbot package starts its own
-# (certbot.timer) at install; Arch installs it disabled. Without this,
-# certs expire silently in 90 days. Skip when --skip-cert (the operator
-# is managing renewals from elsewhere — typically a hub migration where
-# the old host is still doing renewals until the cutover).
+# Arch installs the certbot renewal timer disabled. With --skip-cert,
+# renewals stay where the certificate came from, as in a hub migration
+# where the old host renews until the cutover.
 if (( SKIP_CERT == 0 )); then
     echo "==> enabling certbot auto-renewal timer"
     for timer in certbot.timer certbot-renew.timer; do
@@ -346,13 +321,13 @@ if (( SKIP_CERT == 0 )); then
             if systemctl enable --now "$timer" >/dev/null 2>&1; then
                 echo "    enabled $timer"
             else
-                echo "    WARN: failed to enable $timer (cert auto-renewal will not run)" >&2
+                echo "    WARN: couldn't enable $timer, so certificates won't renew automatically" >&2
             fi
             break
         fi
     done
 else
-    echo "==> --skip-cert: leaving certbot.timer alone (operator manages cert renewals)"
+    echo "==> --skip-cert: leaving the certbot renewal timer alone"
 fi
 
 echo

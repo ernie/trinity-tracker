@@ -8,28 +8,22 @@ import (
 	"github.com/ernie/trinity-tracker/internal/natsbus"
 )
 
-// RconProxyHandler answers hub-issued RCON proxy requests on
-// trinity.rcon.exec.<source>. It re-validates the request against the
-// collector's own per-server delegation flag — the hub already
-// authenticated the user with JWT and decided role=owner|hub_admin,
-// but the rcon password lives here, so the final say is also here.
+// RconProxyHandler answers hub-issued RCON requests on
+// trinity.rcon.exec.<source>. The hub authenticates the user and picks
+// the role, but the rcon password lives here, so the collector makes
+// the final call.
 //
-// Owner role: trusted unconditionally. The hub knows the user owns
-// the source (sources.owner_user_id == user.id); a non-owner asking
-// to RCON gets rejected at the hub before we ever see it. We could
-// re-verify by carrying the owner identity through, but that would
-// duplicate the source-ownership SoT (which lives in the hub DB),
-// not strengthen it.
+// Owners are trusted: the hub checks source ownership against its own
+// database before a request reaches the collector.
 //
-// Hub admin role: validated against AllowHubAdminRcon for the named
-// server. A flip to false in the operator's cfg propagates within one
-// heartbeat to the hub UI; this layer is the safety net for the gap.
+// Hub admins are checked against AllowHubAdminRcon for the server. A
+// change in the operator's config reaches the hub UI on the next
+// heartbeat; this check covers the time in between.
 type RconProxyHandler struct {
 	manager *ServerManager
 }
 
-// NewRconProxyHandler wires the handler to the manager. Caller passes
-// the resulting handler to natsbus.RegisterRconHandler.
+// NewRconProxyHandler returns a handler for natsbus.RegisterRconHandler.
 func NewRconProxyHandler(manager *ServerManager) *RconProxyHandler {
 	return &RconProxyHandler{manager: manager}
 }
@@ -44,7 +38,7 @@ func (h *RconProxyHandler) HandleRcon(_ context.Context, req natsbus.RconExecReq
 	}
 	switch req.Role {
 	case natsbus.RconRoleOwner:
-		// Trust the hub: ownership was verified there.
+		// Ownership was verified at the hub.
 	case natsbus.RconRoleHubAdmin:
 		if !h.manager.AdminDelegationFor(req.ServerKey) {
 			log.Printf("collector.rcon: refusing hub-admin RCON for %q (delegation disabled in cfg)", req.ServerKey)
@@ -61,10 +55,9 @@ func (h *RconProxyHandler) HandleRcon(_ context.Context, req natsbus.RconExecReq
 	return natsbus.RconExecReply{Output: output}
 }
 
-// AuthorizeConsole implements natsbus.ConsoleAuthorizer: console
-// viewing is gated by the same delegation flag as rcon execution
-// (viewing the console of a server you can rcon discloses nothing
-// extra).
+// AuthorizeConsole implements natsbus.ConsoleAuthorizer. Console access
+// follows the rcon delegation flag, since anyone who can rcon a server
+// can already see its console output.
 func (h *RconProxyHandler) AuthorizeConsole(serverKey string, role natsbus.RconRole) error {
 	switch role {
 	case natsbus.RconRoleOwner:

@@ -1,6 +1,5 @@
-// Pure cross-match reconnect/map-swap state machine for the live player. The
-// impure shell (LivePlayerPage) performs the actions and feeds results back as
-// events. Time is injected via `now` (ms) so transitions are deterministic and testable.
+// Reconnect state machine for the live player. LivePlayerPage performs the
+// actions and feeds the results back as events; time comes in as `now` (ms).
 
 export const PROBE_INTERVAL_MS = 4000;
 export const GIVE_UP_MS = 60000;
@@ -18,12 +17,9 @@ export interface LiveState {
   phase: Phase;
   /** Wall-clock (ms) when the current reconnect attempt began. */
   reconnectStartedAt: number;
-  /** True once a probe gets a real HTTP answer from the relay (any status != 0,
-   *  != 200) — the relay is reachable but between sessions, a genuine inter-match
-   *  gap. Stays false while the reconnect is "our buffer drained but the stream is
-   *  still live" (a dropped/slow connection) OR when probes fail outright (status 0
-   *  — the viewer's network is down, e.g. airplane mode). The player uses it to say
-   *  "Waiting for the next match" vs "Reconnecting" rather than claiming a map change. */
+  /** True once a probe gets a non-200 HTTP answer: the relay is up and between
+   *  matches. A failed fetch (status 0) means the viewer's own network is down.
+   *  Picks "Waiting for the next match" over "Reconnecting". */
   gapConfirmed: boolean;
   action: LiveAction;
 }
@@ -45,9 +41,8 @@ export function initialLive(now: number): LiveState {
 export function reduce(state: LiveState, event: LiveEvent): LiveState {
   switch (event.type) {
     case "streamEnded":
-      // Begin a reconnect only from live. A duplicate streamEnded while
-      // reconnecting (the hook can re-observe it after a resize) is ignored so
-      // it can't reset the give-up timer below.
+      // The hook can report streamEnded again after a resize; only the first
+      // one starts the give-up timer.
       if (state.phase !== "live") return { ...state, action: null };
       return {
         phase: "probing",
@@ -61,17 +56,12 @@ export function reduce(state: LiveState, event: LiveEvent): LiveState {
       return { ...state, phase: "probing", action: { kind: "probe" } };
 
     case "probeResult": {
-      // Only a probe we're actively awaiting may drive a transition. An aborted
-      // in-flight fetch rejects into probeResult after we've moved to waiting;
-      // without this guard it would stack a concurrent probe (doubling the rate)
-      // or fire a stale 200 reboot out of order.
+      // An aborted fetch can land here after the move to waiting; only the
+      // probe being awaited may act.
       if (state.phase !== "probing") return { ...state, action: null };
       if (event.status === 200) {
-        // Next match is live — reboot the engine onto it; back to live. Carry
-        // gapConfirmed forward so the reboot side-effect can distinguish a clean
-        // inter-match advance (we saw a non-200 gap first) from an abrupt drop
-        // (immediate 200 — the stream never actually ended, our connection did),
-        // and count only the latter toward connection-health escalation.
+        // gapConfirmed rides along so the reboot counts only an abrupt drop
+        // (an immediate 200) toward connection health.
         return {
           phase: "live",
           reconnectStartedAt: event.now,
@@ -79,12 +69,8 @@ export function reduce(state: LiveState, event: LiveEvent): LiveState {
           action: { kind: "reboot" },
         };
       }
-      // Non-200 → keep retrying until the give-up window elapses, then stop. How we
-      // stop depends on WHY we never recovered: if we ever reached the relay
-      // (gapConfirmed — it answered 503/502, the match genuinely ended and the next
-      // never came), fall back to VOD. If we never got a real answer (all status 0),
-      // the viewer's own connection is down — say "connection lost", don't claim the
-      // match finished.
+      // At give-up, a relay that answered means the match ended, so show the
+      // recording; a relay never reached means the viewer's connection is lost.
       if (event.now - state.reconnectStartedAt >= GIVE_UP_MS) {
         return state.gapConfirmed
           ? { ...state, phase: "ended", action: { kind: "showVod" } }
@@ -93,11 +79,7 @@ export function reduce(state: LiveState, event: LiveEvent): LiveState {
       return {
         ...state,
         phase: "waiting",
-        // A *real HTTP answer* from the relay (status != 0, e.g. 503/502) means it's
-        // reachable but between sessions — a genuine inter-match gap. A status of 0
-        // is a failed fetch: we couldn't reach the relay at all, so the viewer's own
-        // network is down (airplane mode) — NOT a gap; keep it "Reconnecting…". Sticky
-        // once confirmed so a transient blip mid-gap doesn't flip the message back.
+        // Sticky, so a blip during a real gap keeps the message.
         gapConfirmed: state.gapConfirmed || event.status !== 0,
         action: { kind: "scheduleProbe", delayMs: PROBE_INTERVAL_MS },
       };

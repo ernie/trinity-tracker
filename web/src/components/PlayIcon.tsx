@@ -1,10 +1,3 @@
-// Small play-triangle glyph used by demo-watch links on the landing
-// page, MatchCard demo actions, and anywhere else the prior emoji "▶"
-// appeared. Thin-line outline matches the visual weight of the "↓"
-// download glyph rendered next to it on MatchCard, so the action pair
-// reads as a coherent set rather than two different icon styles.
-// currentColor on stroke lets callers drive the hue via CSS (text-dim
-// at rest, lifts to ember on hover).
 export function PlayIcon({
   size = 11,
   className,

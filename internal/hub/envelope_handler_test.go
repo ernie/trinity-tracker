@@ -20,7 +20,7 @@ func newTestWriter(t *testing.T) (*Writer, *storage.Store) {
 	}
 	t.Cleanup(func() { _ = store.Close() })
 	w := NewWriter(store)
-	// No Start() — we call HandleEnvelope synchronously in tests.
+	// Unstarted: the tests call HandleEnvelope synchronously.
 	return w, store
 }
 
@@ -40,8 +40,7 @@ func envelopeAt(t *testing.T, source string, seq uint64, ts time.Time, event str
 	}
 }
 
-// envelopeFor uses a fixed default timestamp; for tests that don't
-// care about the TS axis of dedup.
+// envelopeFor uses a fixed timestamp.
 func envelopeFor(t *testing.T, source string, seq uint64, event string, payload interface{}) domain.Envelope {
 	return envelopeAt(t, source, seq, time.Date(2026, 4, 19, 12, 0, 0, 0, time.UTC), event, payload)
 }
@@ -86,10 +85,6 @@ func TestHandleEnvelopeAdvancesProgress(t *testing.T) {
 }
 
 func TestHandleEnvelopeAcceptsOlderTSWithHigherSeq(t *testing.T) {
-	// q3 log timestamps aren't strictly monotonic at second
-	// resolution: events queued slightly out of order can have an
-	// older TS than the previous envelope's. Seq must still be the
-	// authoritative dedup signal — older TS does NOT mean drop.
 	w, store := newTestWriter(t)
 	ctx := context.Background()
 	const source = "jitter"

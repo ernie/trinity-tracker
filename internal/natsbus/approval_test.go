@@ -26,14 +26,9 @@ func approvalFreePort(t *testing.T) int {
 	return port
 }
 
-// TestProvisionedSourcePublishesStraightThrough exercises the pre-
-// provisioning flow: admin creates the source first, hands creds to
-// the remote operator, collector connects and publishes, events land
-// directly in the DB with no intermediate pending/DLQ state.
 func TestProvisionedSourcePublishesStraightThrough(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// Hub-side infrastructure.
 	port := approvalFreePort(t)
 	cfg := &config.TrackerConfig{
 		NATS: config.NATSConfig{URL: fmt.Sprintf("nats://127.0.0.1:%d", port)},
@@ -67,7 +62,6 @@ func TestProvisionedSourcePublishesStraightThrough(t *testing.T) {
 		t.Fatalf("reg sub: %v", err)
 	}
 
-	// --- Admin provisions the source up-front ---
 	const source = "remote"
 	if err := store.CreateUser(ctx, "owner", "x", false, nil); err != nil {
 		t.Fatalf("seed owner user: %v", err)
@@ -81,7 +75,6 @@ func TestProvisionedSourcePublishesStraightThrough(t *testing.T) {
 	}
 	writer.MarkSourceApproved(source)
 
-	// Collector-side publisher + registrar.
 	pubNC, err := ns.ConnectInternal()
 	if err != nil {
 		t.Fatalf("pub conn: %v", err)
@@ -125,7 +118,6 @@ func TestProvisionedSourcePublishesStraightThrough(t *testing.T) {
 		t.Fatal("servers row never created from registration")
 	}
 
-	// Publish a match_start — should land in the DB immediately.
 	matchUUID := "provisioned-match-1"
 	if err := pub.Publish(domain.FactEvent{
 		Type:      domain.FactMatchStart,

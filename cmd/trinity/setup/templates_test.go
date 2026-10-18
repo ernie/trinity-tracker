@@ -56,7 +56,7 @@ func TestDisplayHostname(t *testing.T) {
 		{"overload", "Trinity Overload"},
 		{"overload-2", "Trinity Overload-2"},
 		{"harvester", "Trinity Harvester"},
-		{"playoffs", "Trinity playoffs"}, // unknown stem → verbatim
+		{"playoffs", "Trinity playoffs"},
 	}
 	for _, tc := range cases {
 		if got := displayHostname(tc.in); got != tc.want {
@@ -103,12 +103,9 @@ func TestGametype_IsTeamArenaOnly(t *testing.T) {
 	}
 }
 
-// TestStartingMapIsFirstInRotation enforces that the cfg's boot `map` is the
-// FIRST entry of g_rotation. At startup the mod forces sessionMapIndex=1 and
-// only skips the redundant reload (denyMapRestart) when the boot map already
-// equals rotation[0]; a mismatch double-loads the map — a phantom ~0s match
-// and, with live TV, a tap that attaches to the throwaway boot map. Equality
-// also subsumes the weaker "boot map is somewhere in the rotation" guard.
+// At startup the mod skips the redundant map reload (denyMapRestart) only
+// when the boot map equals rotation[0]. Otherwise the map loads twice,
+// leaving a phantom 0-second match and a live TV tap on the discarded load.
 func TestStartingMapIsFirstInRotation(t *testing.T) {
 	for _, c := range GametypeChoices {
 		t.Run(c.Label(), func(t *testing.T) {
@@ -131,8 +128,8 @@ func TestStartingMapIsFirstInRotation(t *testing.T) {
 			if startMap == "" {
 				t.Fatalf("no `map X` line in rendered cfg")
 			}
-			// First rotation entry, mirroring ParseMapRotation: skip blanks,
-			// comments, $cvar= assignments, and { } scope braces.
+			// Skips what ParseMapRotation skips: blanks, comments, $cvar=
+			// assignments and { } scope braces.
 			firstMap := ""
 			for _, line := range strings.Split(string(rot), "\n") {
 				tok := strings.TrimSpace(line)

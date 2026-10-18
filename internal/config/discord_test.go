@@ -5,7 +5,6 @@ import (
 	"testing"
 )
 
-// A missing or empty discord block is fine — Discord is opt-in.
 func TestLoadAcceptsMissingDiscord(t *testing.T) {
 	p := writeConfig(t, `
 tracker:
@@ -66,9 +65,6 @@ tracker:
 	}
 }
 
-// Old-shape configs (discord.webhook_url / discord.digest_categories at
-// the top level) must fail loudly so operators upgrading see exactly
-// what to rename. Silent yaml passthrough would just stop posting.
 func TestLoadRejectsLegacyDiscordShape(t *testing.T) {
 	cases := []struct {
 		name string

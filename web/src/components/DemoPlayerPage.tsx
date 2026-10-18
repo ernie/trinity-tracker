@@ -24,11 +24,10 @@ export function DemoPlayerPage() {
   const [demoUrl, setDemoUrl] = useState<string | undefined>(undefined);
   const [mapName, setMapName] = useState<string | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  // Declared before the hook so it can wire the canvas-touch overlay dismiss.
+  // Declared before the hook, which closes the list on a canvas touch.
   const [playerListOpen, setPlayerListOpen] = useState(false);
 
-  // Deep-link URL params: ?t=<time>&f=<clientnum>. The hook applies them once the
-  // engine is live and the first snapshot has arrived, then flips initialViewApplied.
+  // ?t=<time>&f=<clientnum>; the hook applies them after the first snapshot.
   const [search] = useSearchParams();
   const initialSeek = parseTimeParam(search.get("t") ?? "");
   const initialFollow = parseClientNum(search.get("f") ?? "");
@@ -64,8 +63,7 @@ export function DemoPlayerPage() {
   const playerWrapRef = useRef<HTMLDivElement>(null);
   const [shareCopied, setShareCopied] = useState(false);
 
-  // Fetch the match to resolve the demo URL + map name; setting demoUrl boots
-  // the engine via useTvEngine (its boot effect no-ops until demoUrl is defined).
+  // Setting demoUrl boots the engine.
   useEffect(() => {
     let aborted = false;
     (async () => {
@@ -80,13 +78,15 @@ export function DemoPlayerPage() {
         if (aborted) return;
         setMapName(match.map_name);
         if (!match.demo_url) {
-          setFetchError("No demo available for this match");
+          setFetchError("This match has no demo.");
           return;
         }
         setDemoUrl(match.demo_url);
       } catch (e) {
         if (!aborted)
-          setFetchError(e instanceof Error ? e.message : "Failed to load demo");
+          setFetchError(
+            e instanceof Error ? e.message : "Couldn't load this demo.",
+          );
       }
     })();
     return () => {
@@ -94,8 +94,8 @@ export function DemoPlayerPage() {
     };
   }, [id]);
 
-  // Safari doesn't deliver arrow key events through Emscripten's SDL2 keyboard path
-  // when pointer lock is active.  Intercept them in JS and inject via Cbuf_AddText.
+  // Safari drops arrow keys from Emscripten's SDL2 keyboard path under pointer
+  // lock, so they go straight to Cbuf_AddText.
   useEffect(() => {
     const arrowCmds: Record<string, string> = {
       ArrowUp: "followrecenter",
@@ -116,7 +116,6 @@ export function DemoPlayerPage() {
     return () => window.removeEventListener("keydown", onDown, true);
   }, [moduleRef]);
 
-  // Close player list when tapping outside on mobile
   useEffect(() => {
     if (!playerListOpen) return;
     const handler = (e: TouchEvent) => {
@@ -157,7 +156,7 @@ export function DemoPlayerPage() {
       console.debug("cl_tvViewpoint read failed", e);
     }
     const params = new URLSearchParams();
-    // Drop near-start times so the common "from the beginning" share stays clean.
+    // A share from the first second leaves t off.
     if (tMs >= 1000) params.set("t", formatTimeParam(tMs / 1000));
     if (fNum >= 0 && fNum < 64) params.set("f", String(fNum | 0));
     const qs = params.toString();
@@ -198,7 +197,7 @@ export function DemoPlayerPage() {
         className="demo-canvas"
       />
       <div ref={statusRef} className="demo-status">
-        {loading ? "Loading..." : ""}
+        {loading ? "Loading…" : ""}
       </div>
       {progress.total > 0 && (
         <div
@@ -226,7 +225,6 @@ export function DemoPlayerPage() {
         className="demo-controls-bar"
         onContextMenu={(e) => e.preventDefault()}
       >
-        {/* Transport */}
         <div className="ctrl-group">
           <button
             className="ctrl-btn"
@@ -267,7 +265,6 @@ export function DemoPlayerPage() {
           </button>
         </div>
 
-        {/* View */}
         <div className="ctrl-group">
           <div
             ref={playerWrapRef}
@@ -361,7 +358,6 @@ export function DemoPlayerPage() {
           </button>
         </div>
 
-        {/* Toggle / Hold */}
         <div className="ctrl-group">
           <button
             className={`ctrl-btn${scrubActive ? " active" : ""}`}
@@ -408,9 +404,7 @@ export function DemoPlayerPage() {
         <div className="ctrl-group ctrl-share-wrap">
           <button
             className={`ctrl-btn${shareCopied ? " active" : ""}`}
-            title={
-              shareCopied ? "Link copied!" : "Copy share link to this moment"
-            }
+            title={shareCopied ? "Link copied!" : "Copy a link to this moment"}
             onMouseDown={preventFocus}
             onClick={onShare}
           >

@@ -1,7 +1,5 @@
-// Glossary terms surfaced in the Reference page. Sorted alphabetically
-// with non-letter prefixes (! and digits) coming first. Each entry's
-// `term` is the canonical display form; `definition` is plain prose
-// (no JSX) so the search filter can match against it.
+// Sorted alphabetically, with ! and digits first. Definitions are plain
+// text so the search filter can match them.
 
 export interface GlossaryEntry {
   term: string;
@@ -12,81 +10,81 @@ export const GLOSSARY: GlossaryEntry[] = [
   {
     term: "!claim",
     definition:
-      "Trinity chat command that starts account creation. Run it in-game and the server replies with a six-digit code; enter that code at trinity.run to create your account and link the current player slot to it.",
+      "Trinity chat command that starts account creation. Type it in-game and the server replies with a six-digit code; enter that code at trinity.run to create your account and link your current player to it.",
   },
   {
     term: "!link",
     definition:
-      "Trinity chat command that merges a stranded pre-account identity into your account. Used after creating an account if you played anonymously first.",
+      "Trinity chat command that links the install you're playing on to your account, using a code from your Account page. Use it for an install that didn't link when you logged in, or one you played on before you had an account.",
   },
   {
     term: "1.32 patch",
     definition:
-      "Quake 3's 1.32 point release patches — pak1.pk3 through pak8.pk3 plus the missionpack patches. Required for Trinity to launch correctly.",
+      "Quake III's 1.32 point release: pak1.pk3 through pak8.pk3, plus the Team Arena patch files. Trinity needs them to launch, and the Trinity Installer fetches them if your install lacks them.",
   },
   {
     term: "cvar",
     definition:
-      "Latched cvars take effect on whichever restart re-reads them: vid_restart for renderer cvars, the next map for game cvars. Read-only cvars (CVAR_ROM) are managed by the engine and can't be set by the player.",
+      "A console variable: a named setting you can change in the console or in autoexec.cfg. Latched cvars take effect after the restart that rereads them: vid_restart for renderer cvars, the next map for game cvars. Read-only cvars are set by the engine.",
   },
   {
     term: "color codes",
     definition:
-      "Three places in Quake 3 use single-digit color codes that work independently and disagree about which digit means which color: the player-settings color slider, the color1/color2 cvars (and the cg_enemyColors/cg_teamColors overrides built on them), and the ^N chat / player-name escapes. See Customize · Color codes for the side-by-side translation.",
+      "Three things in Quake III use single-digit color codes, and they disagree about which digit means which color: the color slider in the player-settings menu, the color1 and color2 cvars (and the cg_enemyColors and cg_teamColors strings built on them), and the ^N escapes in chat and player names. Color codes in Customize has the side-by-side translation.",
   },
   {
     term: "Console tap",
     definition:
-      "A live stream of the server console (sv_conTap 1) that powers trinity console <server>: remote rcon and console following for the server's operator and delegated admins, with no shell access to the game box.",
+      "A live stream of the server console (sv_conTap 1) behind trinity console <server>: remote rcon and console following for the server's operator and delegated admins, without shell access to the game box.",
   },
   {
     term: "fastdl",
     definition:
-      "HTTP-based fast download. A server-side nginx vhost on dl.<your-host> (provisioned by Trinity's bundled bootstrap-nginx.sh, served over HTTPS via Let's Encrypt) that delivers PK3s and TV demos so clients don't have to UDP-download them at the engine's slow built-in rate. Configured via sv_dlURL.",
+      "HTTP fast download: an nginx vhost on dl.<your-host>, served over HTTPS, that delivers pk3s and TV demos much faster than the engine's built-in UDP downloads. Set with sv_dlURL.",
   },
   {
     term: "GUID",
     definition:
-      "Quake 3's per-client identifier, derived from your qkey. Trinity uses it to associate match stats with players. With cl_guidServerUniq 0, your GUID stays consistent across servers; 1 generates a different GUID per server.",
+      "Quake III's per-client identifier, made from your qkey. Trinity uses it to tie match stats to players. With cl_guidServerUniq 0, the default, your GUID is the same on every server; 1 gives you a different GUID per server.",
   },
   {
     term: "missionpack",
     definition:
-      "Quake 3 Team Arena's asset folder. Required only if you want the Team Arena gametypes — One Flag CTF, Overload, Harvester. Trinity doesn't require it for vanilla CTF or other base gametypes.",
+      "Team Arena's asset folder, needed only for the Team Arena game types: One Flag CTF, Overload, and Harvester. Standard CTF and the other baseq3 game types work without it.",
   },
   {
     term: "pak0",
     definition:
-      "pak0.pk3 — the retail Quake 3 base assets archive. Comes in two copies: one in baseq3 (required for Trinity to run at all) and one in missionpack (required only for Team Arena gametypes like One Flag CTF, Overload, and Harvester). Both come from a legitimate Quake 3 install (Steam, retail CD, etc.).",
+      "pak0.pk3, the retail Quake III asset archive. There are two: one in baseq3, which Trinity always needs, and one in missionpack, needed only for Team Arena game types. Both come from your own copy of the game, from Steam or a retail CD.",
   },
   {
     term: "qkey",
     definition:
-      "Quake 3's per-install identity file. Generated on first launch; the seed for your GUID. Lives in the engine's per-user data directory.",
+      "Quake III's per-install identity file, generated on first launch and used to make your GUID. It lives in the engine's per-user data folder.",
   },
   {
     term: "RCON",
     definition:
-      "Remote console (rconpassword). Trinity's collector uses it to deliver welcome messages and !claim / !help replies to players in-game.",
+      "Remote console (rconpassword). Trinity's collector uses it to send welcome messages and !claim and !help replies to players in-game.",
   },
   {
     term: "sv_dlURL",
     definition:
-      "Server cvar for the fastdl base URL clients fetch PK3s and TV demos from. See Server Admin · Required server cvars.",
+      "Server cvar for the fast download base URL that clients fetch pk3s and TV demos from. See Required server cvars in Server admin.",
   },
   {
-    term: "Trinity Handshake",
+    term: "Trinity handshake",
     definition:
-      "g_trinityHandshake 1 gates a server to verified Trinity clients and links logged-in players' accounts during the handshake. See Server Admin · Required server cvars.",
+      "g_trinityHandshake 1 admits only verified Trinity clients and links logged-in players' accounts as they connect. See Required server cvars in Server admin.",
   },
   {
     term: "TVD",
     definition:
-      "TrinityVision Demo — Trinity's demo recording format. Servers record them automatically when sv_tvAuto is set, or on demand with the tvrecord / tvstop console commands; servers offer them to clients at end of match via sv_tvDownload + sv_dlURL. Playback works in the hub's web demo player and in any Trinity engine.",
+      "TrinityVision Demo, Trinity's demo recording format. Servers record them automatically when sv_tvAuto is set, or on demand with the tvrecord and tvstop console commands, and offer them to clients when a match ends through sv_tvDownload and sv_dlURL. They play back in the web demo player on this site and in any Trinity client.",
   },
   {
     term: "Vadrigar",
     definition:
-      'The unseen masters of the Arena Eternal in Quake III lore: they built the arenas and gather warriors to fight for their amusement. In Trinity, web viewers take their seat — when someone watches a live match from the site, players in the server hear "The Vadrigar watch." and an eye with the current viewer count appears on their HUD.',
+      'The unseen masters of the Arena Eternal in Quake III lore: they built the arenas and gather warriors to fight for their amusement. In Trinity, web viewers take their seat: when someone watches a live match from the site, players in the server hear "The Vadrigar watch." and an eye with the current viewer count appears on their HUD.',
   },
 ];

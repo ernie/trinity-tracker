@@ -1,4 +1,3 @@
-// internal/livestream/format_test.go
 package livestream
 
 import (

@@ -13,16 +13,13 @@ interface HeaderProps {
   title: string;
   className?: string;
   linkToHome?: boolean;
-  // Small subtitle next to the page title in the brand row. Used on the
-  // home page (title="Trinity") to disambiguate the tracker site from
-  // the Trinity game/community itself.
+  // Subtitle beside the title; the home page uses it to tell the tracker
+  // apart from Trinity itself.
   wordmark?: string;
-  // When true, the header sits over the LandingPage hero with no solid
-  // background or border. Task 26 toggles `app-header--solid` on scroll
-  // past the hero to flip it back to its standard look.
+  // Sits over the landing hero with no background or border.
   transparent?: boolean;
-  // Pairs with `transparent`: when both are true, the header renders solid
-  // (post-scroll). Used by LandingPage which observes a sentinel in the hero.
+  // With `transparent`, restores the solid look once the page scrolls
+  // past the hero.
   solid?: boolean;
 }
 
@@ -36,11 +33,8 @@ export function Header({
 }: HeaderProps) {
   const { auth, login, logout } = useAuth();
   const { setCommandPaletteOpen } = useLiveData();
-  // All Apple platforms (Mac, iPhone, iPad, iPod) use ⌘ for system
-  // shortcuts — including iOS with an attached external keyboard. The
-  // earlier /mac/i check missed iPhone/iPad and showed "Ctrl K" there,
-  // which reads as alien on iOS. Modern iPadOS reports "MacIntel" so
-  // it already matches /mac/, but iPhone and older iPad don't.
+  // iOS uses ⌘ with an external keyboard, and iPhones and older iPads
+  // don't report "Mac".
   const isApple =
     typeof navigator !== "undefined" &&
     /mac|iphone|ipad|ipod/i.test(navigator.platform);
@@ -108,7 +102,7 @@ export function Header({
                   {auth.username}
                 </Link>
                 <button onClick={logout} className="logout-btn">
-                  Logout
+                  Log out
                 </button>
               </div>
             ) : (

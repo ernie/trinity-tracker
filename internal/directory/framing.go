@@ -5,13 +5,11 @@ import (
 	"strings"
 )
 
-// OOBHeader is the Quake 3 out-of-band datagram prefix: four 0xFF bytes
-// followed immediately by the ASCII command. Every directory packet (in
-// or out) starts with this.
+// OOBHeader is the Quake III out-of-band datagram prefix, four 0xFF
+// bytes before the ASCII command. Every directory packet starts with it.
 const OOBHeader = "\xff\xff\xff\xff"
 
-// Command tokens we send or accept on the wire. Values match dpmaster
-// and the Quake3e fork at ../trinity-engine.
+// Commands sent and accepted, matching dpmaster and the Trinity engine.
 const (
 	cmdHeartbeat          = "heartbeat"
 	cmdGetinfo            = "getinfo"
@@ -22,23 +20,22 @@ const (
 	cmdGetserversExtResp  = "getserversExtResponse"
 )
 
-// Accepted heartbeat tags. `QuakeArena-1` is what ioquake3 (and the
-// trinity-engine fork) emit (see code/qcommon/q_shared.h:49).
-// `Quake3Arena` shows up in older trees and is harmless to accept.
+// Accepted heartbeat tags. ioquake3 and the Trinity engine send
+// QuakeArena-1 (HEARTBEAT_FOR_MASTER in q_shared.h); older trees send
+// Quake3Arena.
 var acceptedHeartbeatTags = map[string]bool{
 	"QuakeArena-1": true,
 	"Quake3Arena":  true,
 }
 
-// EnginePrefix is what trinity-engine puts in the `engine` infostring
-// field (the `com_engine` cvar's value, format "trinity-engine/<ver>").
-// Stock ioquake3 has no such field — its absence is enough to reject.
+// EnginePrefix starts the Trinity engine's `engine` infostring field,
+// the com_engine value "trinity-engine/<ver>". Stock ioquake3 sends no
+// such field, which is enough to reject it.
 const EnginePrefix = "trinity-engine/"
 
-// parseOOB strips the four 0xFF prefix and returns (command, rest).
-// rest is everything after the first whitespace (newline or space) and
-// has any trailing newline/CR trimmed. A packet without the OOB header
-// is rejected.
+// parseOOB strips the 0xFF prefix and returns the command and the rest,
+// split at the first space or newline, with trailing CR/LF trimmed.
+// ok is false without the OOB header.
 func parseOOB(pkt []byte) (cmd, rest string, ok bool) {
 	if len(pkt) < len(OOBHeader)+1 {
 		return "", "", false
@@ -48,9 +45,9 @@ func parseOOB(pkt []byte) (cmd, rest string, ok bool) {
 	}
 	body := string(pkt[4:])
 	body = strings.TrimRight(body, "\r\n")
-	// Split on first whitespace — Q3 uses either a space (heartbeat tag,
-	// getinfo challenge, getservers protocol) or a newline (infoResponse
-	// before its infostring).
+	// The game uses a space (heartbeat tag, getinfo challenge,
+	// getservers protocol) or a newline (before infoResponse's
+	// infostring).
 	for i, r := range body {
 		if r == ' ' || r == '\n' {
 			return body[:i], body[i+1:], true
@@ -59,10 +56,8 @@ func parseOOB(pkt []byte) (cmd, rest string, ok bool) {
 	return body, "", true
 }
 
-// parseInfostring parses a backslash-separated "\k1\v1\k2\v2..." string
-// into a map. Keys are lowercased to match how the rest of trinity
-// handles Q3 vars (see internal/collector/udp.go:200). Empty input
-// yields an empty map.
+// parseInfostring parses "\k1\v1\k2\v2..." into a map with lowercased
+// keys, as the collector's UDP status parsing does.
 func parseInfostring(s string) map[string]string {
 	out := make(map[string]string)
 	parts := strings.Split(s, "\\")
@@ -76,8 +71,6 @@ func parseInfostring(s string) map[string]string {
 	return out
 }
 
-// formatGetinfo builds an outbound getinfo probe with the given
-// challenge string.
 func formatGetinfo(challenge string) []byte {
 	return []byte(fmt.Sprintf("%s%s %s\n", OOBHeader, cmdGetinfo, challenge))
 }

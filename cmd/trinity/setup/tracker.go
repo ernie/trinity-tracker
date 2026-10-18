@@ -40,12 +40,8 @@ type TrackerStage struct {
 // DownloadTrackerRelease fetches the trinity-tracker release tarball
 // for tag (or latest if tag == ""), verifies it against the release's
 // sha256sums.txt, extracts into stageDir, and returns paths to the
-// trinity binary and the bundled web/ directory (when present).
-//
-// The web/ directory is the static SPA bundle the web build emits; release
-// pipelines that drop it into the tarball alongside the binary make
-// it possible to refresh hub web assets in the same step as the
-// binary swap.
+// trinity binary and the bundled web/ directory (when present), so an
+// update refreshes the hub's web assets along with the binary.
 func DownloadTrackerRelease(tag, stageDir string) (*TrackerStage, error) {
 	asset, err := trackerAsset("")
 	if err != nil {
@@ -88,10 +84,9 @@ func DownloadTrackerRelease(tag, stageDir string) (*TrackerStage, error) {
 	return stage, nil
 }
 
-// untarStripOne extracts a .tar.gz into dest, dropping the leading
-// path segment from each entry — matches `tar --strip-components=1`,
-// the convention every trinity-* release tarball uses (top-level dir
-// named after the asset).
+// untarStripOne extracts a .tar.gz into dest like
+// `tar --strip-components=1`; every trinity-* release tarball has one
+// top-level directory named after the asset.
 func untarStripOne(src, dest string) error {
 	f, err := os.Open(src)
 	if err != nil {
@@ -117,7 +112,7 @@ func untarStripOne(src, dest string) error {
 			continue
 		}
 		target := filepath.Join(dest, parts[1])
-		// Reject path traversal — entries must stay inside dest.
+		// Entries must stay inside dest.
 		if !strings.HasPrefix(target, filepath.Clean(dest)+string(os.PathSeparator)) {
 			return fmt.Errorf("tar entry %q escapes destination", hdr.Name)
 		}

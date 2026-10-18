@@ -7,18 +7,17 @@ import (
 	"strings"
 )
 
-// handleHeartbeat is invoked when a UDP packet's command is "heartbeat".
-// `arg` is everything after the command (the game tag, e.g.
-// "QuakeArena-1"). We gate by membership, then issue a getinfo probe
-// with a random challenge — only on a valid infoResponse echo will the
-// server land in the registry.
+// handleHeartbeat handles a "heartbeat" packet; arg is the game tag,
+// such as "QuakeArena-1". A member server gets a getinfo probe with a
+// random challenge, and only a valid infoResponse echo puts it in the
+// registry.
 func (s *Server) handleHeartbeat(conn *net.UDPConn, srcAddr netip.AddrPort, arg string) {
 	s.metrics.heartbeatsRecv.Add(1)
 
 	if !acceptedHeartbeatTags[arg] {
 		s.metrics.heartbeatsRejected.Add(1)
 		if s.debug {
-			log.Printf("directory: heartbeat from %s with unknown tag %q — dropping", srcAddr, arg)
+			log.Printf("directory: heartbeat from %s with unknown tag %q; dropping", srcAddr, arg)
 		}
 		return
 	}
@@ -26,16 +25,14 @@ func (s *Server) handleHeartbeat(conn *net.UDPConn, srcAddr netip.AddrPort, arg 
 	if _, ok := s.gate.Allow(srcAddr); !ok {
 		s.metrics.heartbeatsRejected.Add(1)
 		if s.debug {
-			log.Printf("directory: heartbeat from %s rejected — not in hub registration", srcAddr)
+			log.Printf("directory: heartbeat from %s rejected: not in hub registration", srcAddr)
 		}
 		return
 	}
 
 	c := s.challenges.Issue(srcAddr)
 	if c == "" {
-		// Capacity reached — caller dropped. This only happens under a
-		// flood of distinct source addrs; logging at warn so it's
-		// noticeable but not noisy.
+		// Only a flood of distinct source addresses fills the tracker.
 		log.Printf("directory: challenge tracker full, dropping heartbeat from %s", srcAddr)
 		return
 	}
@@ -45,9 +42,8 @@ func (s *Server) handleHeartbeat(conn *net.UDPConn, srcAddr netip.AddrPort, arg 
 	}
 }
 
-// handleInfoResponse parses an infoResponse packet and, if the echoed
-// challenge matches what we issued, validates the source into the
-// registry.
+// handleInfoResponse adds the sender to the registry when its echoed
+// challenge matches the one issued.
 func (s *Server) handleInfoResponse(srcAddr netip.AddrPort, body string) {
 	s.metrics.infoResponsesRecv.Add(1)
 	info := parseInfostring(body)
@@ -57,31 +53,25 @@ func (s *Server) handleInfoResponse(srcAddr netip.AddrPort, body string) {
 		return
 	}
 	if !s.challenges.Take(srcAddr, echoed) {
-		// Either the challenge doesn't match (spoofed/late) or it expired
-		// (server too slow). Either way: drop quietly. Don't decrement
-		// any counter — the validations counter only ticks on success.
+		// A wrong (spoofed or late) or expired challenge.
 		return
 	}
 	if !strings.HasPrefix(info["engine"], EnginePrefix) {
-		// Stock ioquake3 (and most forks) have no `engine` field; any
-		// server admitted to the directory MUST self-identify as
-		// trinity-engine. This prevents an arbitrary registered IP from
-		// proxying a non-trinity server onto our list.
+		// Only the Trinity engine sends this field, so a registered IP
+		// can't put some other server on the list.
 		s.metrics.heartbeatsRejected.Add(1)
 		if s.debug {
-			log.Printf("directory: %s passed challenge but engine=%q does not match prefix %q — rejecting",
+			log.Printf("directory: %s passed challenge but engine=%q does not match prefix %q; rejecting",
 				srcAddr, info["engine"], EnginePrefix)
 		}
 		return
 	}
 	id, ok := s.gate.Allow(srcAddr)
 	if !ok {
-		// Membership could have changed between heartbeat and response;
-		// treat as if the entry was never there.
+		// Membership changed between heartbeat and response.
 		return
 	}
 	if !s.registry.Upsert(srcAddr, info, id) {
-		// Registry at capacity. Already logged inside Upsert? No — log here.
 		log.Printf("directory: registry full (max=%d), refusing %s", s.cfg.MaxServers, srcAddr)
 		return
 	}

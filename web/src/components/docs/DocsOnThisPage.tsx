@@ -5,8 +5,6 @@ interface DocsOnThisPageProps {
   sections: DocSection[];
 }
 
-// Right rail: scroll-spy-highlighted list of the current page's h2s.
-// The tri-point glyph marks the active section and scales as you read.
 export function DocsOnThisPage({ sections }: DocsOnThisPageProps) {
   const ids = sections.map((s) => s.id);
   const activeId = useScrollSpy(ids, 120);

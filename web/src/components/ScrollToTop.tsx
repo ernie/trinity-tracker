@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 
-// Resets scroll to top on every route change. BrowserRouter doesn't.
+// BrowserRouter keeps the scroll position across route changes.
 export function ScrollToTop() {
   const { pathname } = useLocation();
   useEffect(() => {

@@ -51,7 +51,7 @@ type Gametype int
 const (
 	GametypeFFA        Gametype = 0
 	GametypeTournament Gametype = 1
-	// 2 is "Single Player" — not exposed to operators.
+	// 2 is single player, which operators can't pick.
 	GametypeTDM       Gametype = 3
 	GametypeCTF       Gametype = 4
 	GametypeOneFlag   Gametype = 5
@@ -59,8 +59,8 @@ const (
 	GametypeHarvester Gametype = 7
 )
 
-// IsTeamArenaOnly reports whether the gametype only exists in TA's
-// missionpack mod (operator can't pick baseq3 for it).
+// IsTeamArenaOnly reports whether the gametype exists only in Team
+// Arena (missionpack).
 func (g Gametype) IsTeamArenaOnly() bool {
 	switch g {
 	case GametypeOneFlag, GametypeOverload, GametypeHarvester:
@@ -69,18 +69,18 @@ func (g Gametype) IsTeamArenaOnly() bool {
 	return false
 }
 
-// Label returns the canonical short name. " (TA)" is appended by
-// GametypeChoice when the menu entry runs under missionpack.
+// Label returns the game type's menu name. GametypeChoice appends
+// " (Team Arena)" to entries that run under missionpack.
 func (g Gametype) Label() string {
 	switch g {
 	case GametypeFFA:
-		return "Free-For-All"
+		return "Free For All"
 	case GametypeTournament:
 		return "Tournament (1v1)"
 	case GametypeTDM:
 		return "Team Deathmatch"
 	case GametypeCTF:
-		return "Capture The Flag"
+		return "Capture the Flag"
 	case GametypeOneFlag:
 		return "One Flag CTF"
 	case GametypeOverload:
@@ -100,7 +100,7 @@ type GametypeChoice struct {
 
 func (c GametypeChoice) Label() string {
 	if c.UseMissionpack {
-		return c.Gametype.Label() + " (TA)"
+		return c.Gametype.Label() + " (Team Arena)"
 	}
 	return c.Gametype.Label()
 }
@@ -170,13 +170,9 @@ func bareStem(g Gametype) string {
 	}
 }
 
-// RenderServerCfg fills the shared-per-gametype cfg template.
-// {{stem}} → the cfg's filename stem (e.g. "tdm-ta"); {{hostname}} →
-// "Trinity <DISPLAY>" derived from the same stem; {{rcon_password}} →
-// the rcon credential, which lives here (mode 0640) rather than in
-// trinity.cfg or the .env file so it's not exposed via `ps` and not
-// world-readable. Operators tweak the rendered file post-install for
-// per-instance customization.
+// RenderServerCfg fills the per-game-type cfg template: {{stem}} is
+// the file stem (e.g. "tdm-ta"), {{hostname}} the "Trinity <NAME>"
+// derived from it, and {{rcon_password}} the RCON password.
 func RenderServerCfg(g Gametype, useMissionpack bool, rconPassword string) (string, error) {
 	name := cfgTemplateFor(g, useMissionpack)
 	if name == "" {
@@ -194,8 +190,8 @@ func RenderServerCfg(g Gametype, useMissionpack bool, rconPassword string) (stri
 }
 
 // RenderRotation returns the default map list for the (gametype, mod)
-// pair. Stock pak0 maps only; operators edit rotation.<stem> in the q3
-// fs to add custom maps.
+// pair: stock pak0 maps, which operators extend by editing
+// rotation.<stem>.
 func RenderRotation(g Gametype, useMissionpack bool) ([]byte, error) {
 	name := rotationTemplateFor(g, useMissionpack)
 	if name == "" {
@@ -208,12 +204,11 @@ func RenderRotation(g Gametype, useMissionpack bool) ([]byte, error) {
 	return raw, nil
 }
 
-// RenderTrinityCfg fills the trinity.cfg template (required cvars
-// shared across servers). publicURL is used to derive the optional
-// fast-download block and the default g_motd; pass an empty string
-// to omit fastdl and leave the MOTD blank (collector-only installs
-// without nginx, or hub-only installs). rconpassword is intentionally
-// not set here — see the per-server +set in installPerServerFiles.
+// RenderTrinityCfg fills the trinity.cfg template, the required cvars
+// every server shares. publicURL sets the fast-download block and the
+// default g_motd; an empty one leaves fastdl commented out and the
+// MOTD blank. The rconpassword goes in each game type's cfg instead
+// (RenderServerCfg).
 func RenderTrinityCfg(publicURL string) (string, error) {
 	raw, err := cfgTemplates.ReadFile("cfgtemplates/trinity.cfg")
 	if err != nil {
@@ -230,9 +225,9 @@ func RenderTrinityCfg(publicURL string) (string, error) {
 func fastdlBlock(publicURL string) string {
 	host := HostFromURL(publicURL)
 	if host == "" {
-		return `// (Fast-download is required for participation in the hub network:
-// set sv_dlURL to your collector's dl.<hostname>. Without it, players
-// can't fetch missing maps and matches can't offer .tvd downloads.)
+		return `// Fast downloads are required to join the hub network: set sv_dlURL
+// to your collector's dl.<hostname>. Without it, players can't fetch
+// missing maps and matches can't offer .tvd downloads.
 // set sv_tvDownload         1
 // set sv_dlURL              "https://dl.your-hostname"`
 	}
@@ -246,8 +241,7 @@ func HostFromURL(s string) string {
 	if s == "" {
 		return ""
 	}
-	// url.Parse is lenient — strip the scheme manually for robustness
-	// against operators who paste "example.com" without "https://".
+	// Operators sometimes paste "example.com" without a scheme.
 	rest := s
 	if i := strings.Index(rest, "://"); i >= 0 {
 		rest = rest[i+3:]
@@ -263,15 +257,13 @@ func HostFromURL(s string) string {
 
 // SystemdUnit returns the embedded unit file content with the User=
 // and Group= lines patched to match the requested service user.
-// units names are without the "systemd/" prefix, e.g.
-// "trinity.service".
+// name omits the "systemd/" prefix, e.g. "trinity.service".
 func SystemdUnit(name, serviceUser string) ([]byte, error) {
 	return SystemdUnitTemplated(name, serviceUser, nil)
 }
 
-// SystemdUnitTemplated is SystemdUnit plus arbitrary {{key}} → value
-// substitutions. Used by trinity-digest.timer to inject the operator's
-// chosen OnCalendar= schedule.
+// SystemdUnitTemplated is SystemdUnit plus {{key}} → value
+// substitutions, such as the digest timer's OnCalendar= schedule.
 func SystemdUnitTemplated(name, serviceUser string, subs map[string]string) ([]byte, error) {
 	raw, err := systemdUnits.ReadFile("systemd/" + name)
 	if err != nil {
@@ -289,8 +281,7 @@ func SystemdUnitTemplated(name, serviceUser string, subs map[string]string) ([]b
 }
 
 // ListSystemdUnits returns the names of every embedded unit, in a
-// stable order. Used by Apply to copy them all into
-// /etc/systemd/system.
+// stable order.
 func ListSystemdUnits() ([]string, error) {
 	entries, err := fs.ReadDir(systemdUnits, "systemd")
 	if err != nil {

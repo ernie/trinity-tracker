@@ -18,11 +18,7 @@ import (
 //   auth/hub_internal.creds   in-process hub client creds
 //   creds/<source>.creds      collector user creds (transport artifact)
 //
-// User pubkeys live in sources.user_pubkey, accessed via the
-// PubKeyStore interface. Was previously creds/<source>.pub on disk;
-// moved to the DB to consolidate per-source state on the source row
-// and to decouple the directory/poller from this package's on-disk
-// layout.
+// User pubkeys live in sources.user_pubkey, through PubKeyStore.
 
 const (
 	authSubdir  = "auth"
@@ -30,10 +26,8 @@ const (
 	userPrefix  = "trinity"
 )
 
-// PubKeyStore is the slice of *storage.Store that AuthStore depends on
-// for persisting per-source NATS user pubkeys. Defined here so the
-// natsbus package owns its own dependency contract; *storage.Store
-// satisfies it.
+// PubKeyStore is the part of *storage.Store that AuthStore uses to save
+// per-source NATS user pubkeys.
 type PubKeyStore interface {
 	GetSourceUserPubKey(ctx context.Context, source string) (string, error)
 	SetSourceUserPubKey(ctx context.Context, source, pubkey string) error
@@ -62,9 +56,9 @@ type AuthStore struct {
 
 // LoadOrCreateAuthStore initializes auth material under <hubDataDir>/auth/
 // and prepares an account resolver with SYS + TRINITY JWTs. First run
-// generates everything; subsequent runs load from disk. store is used
-// by Mint/Revoke to persist per-source user pubkeys; pass nil only in
-// tests that don't exercise those paths.
+// generates everything; later runs load it from disk. store keeps
+// per-source user pubkeys for MintUserCreds and RevokeSource; tests
+// that skip those may pass nil.
 func LoadOrCreateAuthStore(hubDataDir string, store PubKeyStore) (*AuthStore, error) {
 	s := &AuthStore{dir: hubDataDir, store: store}
 	authDir := filepath.Join(hubDataDir, authSubdir)
@@ -298,9 +292,8 @@ func (s *AuthStore) buildInternalCreds(path string) ([]byte, error) {
 
 // InboxPrefixFor is the per-source NATS inbox prefix. A collector sets
 // its nats.CustomInboxPrefix to this string; the hub issues its NKey
-// with Sub permission scoped to "<prefix>.>". Without this scoping any
-// collector could subscribe to _INBOX.> and harvest other collectors'
-// RPC replies (e.g. link codes).
+// with Sub permission scoped to "<prefix>.>", which keeps collectors
+// from reading each other's RPC replies, such as link codes.
 func InboxPrefixFor(sourceID string) string {
 	return "_INBOX." + sourceID
 }
@@ -331,20 +324,16 @@ func addSourcePermissions(uc *jwt.UserClaims, sourceID string) {
 		"trinity.rpc.source.progress."+sourceID,
 		// Console-follow line stream (hub-leased; see console.go).
 		ConsoleLinesSubjectPrefix+sourceID+".>",
-		// _INBOX.> lets the collector m.Respond() to a hub-issued RCON
-		// proxy request. NATS request-reply uses random reply tokens
-		// under _INBOX.<random>, so the broad rule is fine here — the
-		// collector still can't invent its own request to a known
-		// inbox token (those are unguessable per-call).
+		// _INBOX.> lets the collector m.Respond() to the hub's RCON
+		// requests. Reply subjects carry unguessable per-call tokens,
+		// so the broad rule is safe.
 		"_INBOX.>",
 	)
 	uc.Permissions.Sub.Allow.Add(InboxPrefixFor(sourceID) + ".>")
-	// Hub → collector RCON proxy: collector listens on
-	// trinity.rcon.exec.<sourceID>. Scoped to the collector's own
-	// source so a malicious collector can't intercept requests
-	// addressed to a different source.
+	// RCON requests: scoped to the collector's own source so it can't
+	// intercept requests for another.
 	uc.Permissions.Sub.Allow.Add(RconExecSubjectPrefix + sourceID)
-	// Hub → collector console-watch lease requests.
+	// Console-watch lease requests from the hub.
 	uc.Permissions.Sub.Allow.Add(ConsoleWatchSubjectPrefix + sourceID)
 }
 

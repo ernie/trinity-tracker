@@ -1,11 +1,10 @@
 // Package discord holds shared types and helpers for posting messages
-// to a Discord webhook. Used by the weekly leaderboard digest command
-// and by the event-driven server-activity notifier.
+// to a Discord webhook, for the leaderboard digest and the
+// server-activity notifier.
 package discord
 
-// Webhook embed shapes — only the fields we use. See
+// Webhook embed shapes, with the fields Trinity uses. The full schema:
 // https://discord.com/developers/docs/resources/channel#embed-object
-// for the full schema.
 
 type Embed struct {
 	Title       string     `json:"title,omitempty"`
@@ -19,10 +18,8 @@ type Embed struct {
 	Timestamp   string     `json:"timestamp,omitempty"`
 }
 
-// Author renders as a small icon + name line at the very top of the
-// embed, above the title. The icon is smaller than a thumbnail
-// (~24×24) and sits beside the name rather than above it — closest
-// Discord-native equivalent of a labeled portrait.
+// Author renders as a small icon and name line above the title,
+// Discord's closest equivalent of a labeled portrait.
 type Author struct {
 	Name    string `json:"name,omitempty"`
 	URL     string `json:"url,omitempty"`
@@ -39,8 +36,7 @@ type Footer struct {
 	Text string `json:"text"`
 }
 
-// Thumbnail is the small image that appears in the top-right corner
-// of an embed.
+// Thumbnail is the small image in the embed's top-right corner.
 type Thumbnail struct {
 	URL string `json:"url"`
 }

@@ -11,7 +11,6 @@ import (
 	"strings"
 )
 
-// Prefix whitelist for baseline pk3 files
 var baselinePrefixes = []string{
 	"gfx/",
 	"sprites/",
@@ -41,7 +40,6 @@ var baselinePrefixes = []string{
 	"models/players/",
 }
 
-// baselineExcludePrefixes are prefixes explicitly excluded from baseline
 var baselineExcludePrefixes = []string{
 	"textures/",
 	"maps/",
@@ -71,7 +69,6 @@ func BuildBaseline(quake3Dir, outputDir string) error {
 		Games: make(map[string]*GameManifest),
 	}
 
-	// Process each game directory
 	for _, game := range []string{"baseq3", "missionpack"} {
 		pk3s, ok := gamePk3s[game]
 		if !ok {
@@ -87,7 +84,7 @@ func BuildBaseline(quake3Dir, outputDir string) error {
 		manifest.Games[game] = gm
 	}
 
-	// For missionpack, merge baseq3 file index underneath (baseq3 as base, missionpack overrides)
+	// missionpack layers over baseq3, as the engine mounts them.
 	if mp, ok := manifest.Games["missionpack"]; ok {
 		if bq3, ok := manifest.Games["baseq3"]; ok {
 			merged := make(map[string]string, len(bq3.FileIndex)+len(mp.FileIndex))
@@ -99,7 +96,6 @@ func BuildBaseline(quake3Dir, outputDir string) error {
 			}
 			mp.FileIndex = merged
 
-			// Merge shaders too
 			mergedShaders := make(map[string][]string, len(bq3.Shaders)+len(mp.Shaders))
 			for k, v := range bq3.Shaders {
 				mergedShaders[k] = v
@@ -109,7 +105,6 @@ func BuildBaseline(quake3Dir, outputDir string) error {
 			}
 			mp.Shaders = mergedShaders
 
-			// Merge shader files
 			mergedShaderFiles := make(map[string]string, len(bq3.ShaderFiles)+len(mp.ShaderFiles))
 			for k, v := range bq3.ShaderFiles {
 				mergedShaderFiles[k] = v
@@ -119,7 +114,6 @@ func BuildBaseline(quake3Dir, outputDir string) error {
 			}
 			mp.ShaderFiles = mergedShaderFiles
 
-			// Merge baseline files
 			mergedBaseline := make(map[string]bool, len(bq3.BaselineFiles)+len(mp.BaselineFiles))
 			for k := range bq3.BaselineFiles {
 				mergedBaseline[k] = true
@@ -131,14 +125,12 @@ func BuildBaseline(quake3Dir, outputDir string) error {
 		}
 	}
 
-	// Save manifest
 	manifestPath := filepath.Join(outputDir, "manifest.json")
 	if err := manifest.Save(manifestPath); err != nil {
 		return fmt.Errorf("save manifest: %w", err)
 	}
 	log.Printf("Manifest saved to %s", manifestPath)
 
-	// Pre-build all map pk3s.
 	var games []string
 	for _, game := range []string{"baseq3", "missionpack"} {
 		if _, ok := manifest.Games[game]; ok {
@@ -169,13 +161,11 @@ func BuildBaseline(quake3Dir, outputDir string) error {
 }
 
 func buildGameBaseline(game string, pk3s []string, outputDir string) (*GameManifest, error) {
-	// Build file index across ALL pk3s
 	fileIndex, err := BuildFileIndex(pk3s)
 	if err != nil {
 		return nil, fmt.Errorf("build file index: %w", err)
 	}
 
-	// Identify official pak files and Trinity pak files
 	var officialPaks []string
 	var trinityPak string
 	for _, pk3Path := range pk3s {
@@ -219,7 +209,6 @@ func buildGameBaseline(game string, pk3s []string, outputDir string) (*GameManif
 		r.Close()
 	}
 
-	// Write baseline pk3
 	outputName := game + ".pk3"
 	outputPath := filepath.Join(outputDir, outputName)
 	if err := WritePk3(outputPath, baselineFiles); err != nil {
@@ -229,7 +218,6 @@ func buildGameBaseline(game string, pk3s []string, outputDir string) (*GameManif
 	info, _ := os.Stat(outputPath)
 	log.Printf("  %s: %d files, %.1f MB", outputName, len(baselineFiles), float64(info.Size())/(1024*1024))
 
-	// Track baseline file set
 	baselineSet := make(map[string]bool, len(baselineFiles))
 	for path := range baselineFiles {
 		baselineSet[path] = true
@@ -247,7 +235,8 @@ func buildGameBaseline(game string, pk3s []string, outputDir string) (*GameManif
 		}
 	}
 
-	// Add Trinity pk3 contents to baseline set (loaded separately by demo player)
+	// The demo player loads the Trinity pk3 itself, so its files count as
+	// baseline.
 	if trinityPak != "" {
 		r, err := zip.OpenReader(trinityPak)
 		if err == nil {
@@ -280,14 +269,13 @@ func buildGameBaseline(game string, pk3s []string, outputDir string) (*GameManif
 }
 
 func isBaselineFile(lowerPath string) bool {
-	// Check specific includes first (these override broad excludes)
+	// Specific includes override the broader excludes.
 	for _, prefix := range baselinePrefixes {
 		if strings.HasPrefix(lowerPath, prefix) {
 			return true
 		}
 	}
 
-	// Check excludes
 	for _, prefix := range baselineExcludePrefixes {
 		if strings.HasPrefix(lowerPath, prefix) {
 			return false

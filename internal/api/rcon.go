@@ -13,54 +13,52 @@ import (
 	"github.com/ernie/trinity-tracker/internal/natsbus"
 )
 
-// RconRequest is the request body for RCON commands
+// RconRequest is the RCON command request body.
 type RconRequest struct {
 	Command string `json:"command"`
 }
 
-// RconResponse is the response body for RCON commands
+// RconResponse carries a command's output.
 type RconResponse struct {
 	Output string `json:"output"`
 }
 
-// handleRconCommand executes an RCON command. The route is requireAuth
-// (not requireAdmin) because non-admin users can RCON servers on
-// sources they own. Admin access to a remote source's server is
-// gated by the collector's per-server allow_hub_admin_rcon flag,
-// which is mirrored on the hub via servers.admin_delegation_enabled.
+// handleRconCommand runs an RCON command for the source's owner, or for
+// an admin when the server allows hub admin RCON (the collector's
+// allow_hub_admin_rcon, mirrored in servers.admin_delegation_enabled).
 func (r *Router) handleRconCommand(w http.ResponseWriter, req *http.Request) {
 	claims := r.getAuthClaims(req)
 	if claims == nil {
-		writeError(w, http.StatusUnauthorized, "authentication required")
+		writeError(w, http.StatusUnauthorized, "Log in first.")
 		return
 	}
 
 	serverID, err := parseID(req, "id")
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid server id")
+		writeError(w, http.StatusBadRequest, "Invalid server ID.")
 		return
 	}
 
 	var rconReq RconRequest
 	if err := json.NewDecoder(req.Body).Decode(&rconReq); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
+		writeError(w, http.StatusBadRequest, "The request couldn't be read.")
 		return
 	}
 	if rconReq.Command == "" {
-		writeError(w, http.StatusBadRequest, "command is required")
+		writeError(w, http.StatusBadRequest, "Enter a command.")
 		return
 	}
 
 	server, err := r.store.GetServerByID(req.Context(), serverID)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "server not found")
+		writeError(w, http.StatusNotFound, "Server not found.")
 		return
 	}
 
 	role, err := r.authorizeRcon(req.Context(), server, claims)
 	if err != nil {
 		if errors.Is(err, errRconForbidden) {
-			writeError(w, http.StatusForbidden, "you do not have RCON access to this server")
+			writeError(w, http.StatusForbidden, "You don't have RCON access to this server.")
 			return
 		}
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -83,14 +81,13 @@ func (r *Router) handleRconCommand(w http.ResponseWriter, req *http.Request) {
 	writeJSON(w, http.StatusOK, RconResponse{Output: output})
 }
 
-// handleRconStatus returns whether RCON is available for a server.
-// Returns available=true when the caller is authorized (owner or
-// admin-with-delegation); the actual rcon-password check happens at
-// dispatch time on whichever box holds the password.
+// handleRconStatus reports whether the caller may use RCON on a server.
+// Whether the server has an rconpassword is only known when a command
+// is sent.
 func (r *Router) handleRconStatus(w http.ResponseWriter, req *http.Request) {
 	serverID, err := parseID(req, "id")
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid server id")
+		writeError(w, http.StatusBadRequest, "Invalid server ID.")
 		return
 	}
 
@@ -115,20 +112,16 @@ func (r *Router) handleRconStatus(w http.ResponseWriter, req *http.Request) {
 
 var errRconForbidden = errors.New("rcon: forbidden")
 
-// AuthorizeUserForRcon is the policy decision: given a user (by id +
-// admin bit) and a server, what RCON role (if any) should the collector
-// honor? Re-exported from internal/hub so existing api callers (and the
-// tests in rcon_authorize_test.go) keep working at the api.* path; the
-// implementation lives one layer down so the handshake-time autoset
-// path can call it without an import cycle.
+// AuthorizeUserForRcon returns the RCON role a user gets on a server,
+// if any. It wraps hub.AuthorizeUserForRcon, which the handshake's
+// rconpassword autoset also uses.
 func AuthorizeUserForRcon(userID int64, isAdmin bool, server *domain.Server, localSource string, sourceOwners map[string]int64) (natsbus.RconRole, bool) {
 	return hub.AuthorizeUserForRcon(userID, isAdmin, server, localSource, sourceOwners)
 }
 
-// authorizeRcon is the JWT-flavored wrapper around AuthorizeUserForRcon.
-// Reads admin_delegation_enabled directly off the freshly-fetched server
-// row — the operator can flip the flag between the user landing on the
-// page and clicking RCON.
+// authorizeRcon authorizes the request's user against a freshly read
+// server row, since the operator can change admin delegation at any
+// time.
 func (r *Router) authorizeRcon(ctx context.Context, server *domain.Server, claims *auth.Claims) (natsbus.RconRole, error) {
 	owners, err := r.store.SourceOwners(ctx)
 	if err != nil {

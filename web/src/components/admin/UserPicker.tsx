@@ -14,8 +14,7 @@ interface Props {
   selected: UserOption | null;
   onChange: (user: UserOption | null) => void;
   placeholder?: string;
-  // excludeUserId disables the row in results (used for transfer-owner where
-  // the current owner shouldn't be re-selectable).
+  // Shown but unselectable, such as the current owner in a transfer.
   excludeUserId?: number;
   autoFocus?: boolean;
   required?: boolean;
@@ -33,9 +32,8 @@ export function UserPicker({
   const [results, setResults] = useState<UserOption[]>([]);
   const debounced = useDebouncedValue(query.trim(), 200);
 
-  // Fire a search whenever the debounced query changes. Skip when the query
-  // already matches the picked user's username — otherwise selecting a row
-  // would re-trigger a search and re-open the dropdown a moment later.
+  // A query equal to the picked user's name is the pick itself, so it
+  // neither searches nor shows results; the dropdown stays closed.
   useEffect(() => {
     if (debounced.length < 2) return;
     if (
@@ -51,14 +49,11 @@ export function UserPicker({
       .then((res) => (res.ok ? res.json() : []))
       .then((users: UserOption[]) => setResults(users ?? []))
       .catch(() => {
-        /* aborted or network error — leave previous results in place */
+        /* keep the previous results */
       });
     return () => ctrl.abort();
   }, [debounced, selected]);
 
-  // Hide stored results when the query is too short, or when the
-  // current input already matches the picked user's name (otherwise
-  // selecting a row would re-open the dropdown a moment later).
   const showResults =
     debounced.length >= 2 &&
     !(selected && debounced.toLowerCase() === selected.username.toLowerCase());

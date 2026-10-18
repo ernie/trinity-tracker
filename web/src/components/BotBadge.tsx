@@ -5,18 +5,15 @@ interface BotBadgeProps {
 }
 
 const SKILL_TITLES: Record<number, string> = {
-  1: "Bot - I Can Win",
-  2: "Bot - Bring It On",
-  3: "Bot - Hurt Me Plenty",
-  4: "Bot - Hardcore",
-  5: "Bot - Nightmare!",
+  1: "Bot: I Can Win",
+  2: "Bot: Bring It On",
+  3: "Bot: Hurt Me Plenty",
+  4: "Bot: Hardcore",
+  5: "Bot: Nightmare!",
 };
 
-// HelpMode text — describes the badge as a taxonomy rather than the
-// specific skill of the bot in front of the reader. The native title=
-// stays per-skill so hover-tooltips on /servers still tell you which
-// tier this specific bot is at.
-const BOT_HELP = `Bot. Icon indicates difficulty:
+// Help mode lists every skill level; the tooltip names this bot's.
+const BOT_HELP = `Bot. The icon shows its skill level:
 • I Can Win (easy)
 • Bring It On
 • Hurt Me Plenty

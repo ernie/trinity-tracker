@@ -9,7 +9,7 @@ import (
 
 func TestHandleRconExec_KnownGuidAttributedToUser(t *testing.T) {
 	f := seedRconFixture(t)
-	// owner's player has a GUID seeded as "guid-owner" by the fixture
+	// The fixture seeds the owner's GUID as "guid-owner".
 	f.w.handleRconExec(f.ctx, f.server.ID, domain.RconExecData{
 		ClientAddr: "1.2.3.4:27960",
 		GUID:       "guid-owner",
@@ -35,8 +35,6 @@ func TestHandleRconExec_KnownGuidAttributedToUser(t *testing.T) {
 }
 
 func TestHandleRconExec_UnknownGuidIsSkipped(t *testing.T) {
-	// Unlinked GUID (engine matched a connected client but that GUID
-	// isn't tied to a user). Skip — same rule as "no GUID at all".
 	f := seedRconFixture(t)
 	f.w.handleRconExec(f.ctx, f.server.ID, domain.RconExecData{
 		ClientAddr: "10.0.0.5:54321",
@@ -57,9 +55,6 @@ func TestHandleRconExec_UnknownGuidIsSkipped(t *testing.T) {
 }
 
 func TestHandleRconExec_NoGuidIsSkipped(t *testing.T) {
-	// Empty GUID — collector hairpin or external operator. Skip.
-	// Successful rcon already has its own attributed audit row written
-	// by internal/api/rcon.go for the web-UI path.
 	f := seedRconFixture(t)
 	f.w.handleRconExec(f.ctx, f.server.ID, domain.RconExecData{
 		ClientAddr: "10.0.0.5:54321",

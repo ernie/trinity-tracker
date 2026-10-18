@@ -53,7 +53,7 @@ func TestSpillRoundTrip(t *testing.T) {
 	if got.Type != domain.FactMatchStart {
 		t.Errorf("Peek Type = %q", got.Type)
 	}
-	// Data survives as json.RawMessage — confirm it round-trips via json.
+	// Data comes back as json.RawMessage and must round-trip.
 	raw, ok := got.Data.(json.RawMessage)
 	if !ok {
 		t.Fatalf("Data type = %T, want json.RawMessage", got.Data)
@@ -123,7 +123,6 @@ func TestSpillPersistsAcrossReopen(t *testing.T) {
 
 func TestSpillRotatesOnOverflow(t *testing.T) {
 	dir := t.TempDir()
-	// Temporarily shrink the cap so the test can exercise rotation.
 	old := overrideSpillCap(t, 1024)
 	defer old()
 
@@ -133,8 +132,8 @@ func TestSpillRotatesOnOverflow(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = q.Close() })
 
-	// Pack the queue well past the cap so rotation drops oldest
-	// entries. Each entry is ~200–300 bytes.
+	// Fill well past the cap so rotation drops the oldest entries;
+	// each entry is 200–300 bytes.
 	ts := time.Date(2026, 4, 19, 12, 0, 0, 0, time.UTC)
 	for i := 0; i < 30; i++ {
 		if err := q.Append(fact(t, "u-"+strings.Repeat("x", i%5), ts.Add(time.Duration(i)*time.Second))); err != nil {
@@ -178,8 +177,8 @@ func TestSpillHeadFileWritten(t *testing.T) {
 	}
 }
 
-// overrideSpillCap temporarily swaps the package-level SpillCapBytes so
-// tests can exercise rotation without writing 100MB.
+// overrideSpillCap sets spillCapOverride so tests can rotate without
+// writing 100 MB.
 func overrideSpillCap(t *testing.T, n int64) func() {
 	t.Helper()
 	orig := spillCapOverride

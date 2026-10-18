@@ -10,12 +10,7 @@ interface ReferenceSearchProps {
   currentPlatform: Platform;
 }
 
-// Sticky search input + platform-filter toggle pinned to the top of
-// the Reference content area. `/` keybinding focuses the search input
-// (skipped when the user is already typing in a form field). The
-// toggle flips between "filter to current platform" (default) and
-// "show all platforms" — its label always describes the *action* the
-// click will perform, not the current state.
+// The toggle's label names what a click will do.
 export function ReferenceSearch({
   value,
   onChange,

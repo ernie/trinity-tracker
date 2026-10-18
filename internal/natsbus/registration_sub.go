@@ -15,8 +15,8 @@ type RegistrationHandler interface {
 	HandleRegistration(ctx context.Context, reg domain.Registration) error
 }
 
-// RegistrationSubscriber listens on trinity.register.> (core NATS, not
-// JetStream — late hubs resync within one heartbeat interval).
+// RegistrationSubscriber listens on trinity.register.> over core NATS; a
+// hub that starts late catches up within one heartbeat.
 type RegistrationSubscriber struct {
 	sub *nats.Subscription
 }

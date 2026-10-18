@@ -6,10 +6,8 @@ import "github.com/ernie/trinity-tracker/internal/domain"
 func StripVRTag(name string) string { return domain.StripVRTag(name) }
 
 // DisplayName returns name with the VR tag stripped only when isVR
-// is true. A non-VR player who deliberately put "[VR]" in their
-// chosen name keeps it — for those players the literal in the name
-// is the only signal we have, since the platform badge would (and
-// should) be absent.
+// is true. A flatscreen player who typed "[VR]" into their name
+// keeps it, since no platform badge shows for them.
 func DisplayName(name string, isVR bool) string {
 	if !isVR {
 		return name

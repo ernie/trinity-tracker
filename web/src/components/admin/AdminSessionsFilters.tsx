@@ -2,12 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Server, PlayerProfile } from "../../types";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 
-// "Hidden" model mirrors ActivityFilters: items present in `hiddenServers`
-// are filtered out of the listing. Empty set = all visible. The player and
-// date filters are single-select rather than multi-select because the
-// backend only takes one of each — they remain in the same vocabulary as
-// the rest of the structured-filter recipe but with a typeahead and
-// preset chips inside their <details> bodies.
+// As in ActivityFilters, `hiddenServers` names what's filtered out. Player
+// and date are single-select because the API takes one of each.
 export type DatePreset = "" | "24h" | "7d" | "30d" | "custom";
 
 export interface AdminSessionsFilterState {
@@ -15,8 +11,7 @@ export interface AdminSessionsFilterState {
   playerId: number | null;
   playerLabel: string;
   datePreset: DatePreset;
-  // ISO-8601 strings only when datePreset === 'custom'. Stored as strings
-  // (rather than Date) so localStorage round-trips losslessly.
+  // datetime-local strings, set only for the custom preset.
   customSince: string;
   customUntil: string;
 }
@@ -62,10 +57,7 @@ export function loadAdminSessionsFilters(): AdminSessionsFilterState {
   }
 }
 
-// Resolve the active filter window to the RFC3339 strings the backend
-// accepts. Presets compute a relative window from "now"; custom uses
-// the literal datetime-local strings (interpreted in the browser's
-// local zone, then serialized to UTC).
+// Custom times are read in the browser's time zone and sent as UTC.
 export function resolveDateRange(state: AdminSessionsFilterState): {
   since?: string;
   until?: string;
@@ -102,16 +94,12 @@ interface Props {
 }
 
 export function AdminSessionsFilters({ servers, state, onChange }: Props) {
-  // Persist on every change. Doing it in an effect (rather than the
-  // setter) avoids a double-write on the first render that hydrates
-  // from localStorage.
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
 
-  // Stale-prune hiddenServers once the live server list arrives. Same
-  // pattern as ActivityFilters/ServerFilters — protects users from
-  // ending up with a localStorage value that filters every row out.
+  // A saved server that no longer exists could hide every row, so stale
+  // ids are pruned once the server list arrives.
   const serversValidated = useRef(false);
   useEffect(() => {
     if (!serversValidated.current && servers.length > 0) {
@@ -131,12 +119,6 @@ export function AdminSessionsFilters({ servers, state, onChange }: Props) {
         hidden={state.hiddenServers}
         onChange={(v) => onChange({ ...state, hiddenServers: v })}
       />
-      {/* Player + Date range share a horizontal row below the
-          collapsible Sources & servers section. Neither has a meaningful
-          collapsed state (Player is always either an input or a chip;
-          Date range is always preset chips), so no caret. The row sits
-          inside the same admin-filters-panel border with a shared
-          top-rule provided by .static-section--row. */}
       <div className="static-section static-section--row">
         <PlayerSection
           playerId={state.playerId}
@@ -161,13 +143,8 @@ export function AdminSessionsFilters({ servers, state, onChange }: Props) {
 }
 
 // ── Sources & servers ────────────────────────────────────────────────
-// Mirrors the activity drawer's recipe: each source is a
-// <details className="filter-subgroup"> with the source switch inside
-// the summary; servers hang as switches in the body. Source switch
-// derives its state from the children — visible if any child visible,
-// mixed if some-but-not-all hidden, off if all hidden — so we don't
-// need a separate hiddenSources field on the state (every session is
-// server-bound, unlike activity which also has source-only events).
+// Every session belongs to a server, so a source switch takes its state
+// from its servers' switches.
 
 function ServersSection({
   servers,
@@ -178,9 +155,7 @@ function ServersSection({
   hidden: number[];
   onChange: (v: number[]) => void;
 }) {
-  // Group servers by source. Sort sources alphabetically and servers
-  // within each source by id so panel order stays stable across the
-  // websocket-driven server list updates.
+  // Sorted so the panel holds still as the server list updates.
   const bySource = useMemo(() => {
     const map = new Map<string, Server[]>();
     for (const s of servers) {
@@ -212,12 +187,10 @@ function ServersSection({
 
         const toggleSource = () => {
           if (sourceVisible) {
-            // Hide all children: union their ids into the hidden set.
             const next = new Set(hidden);
             sourceServers.forEach((s) => next.add(s.id));
             onChange(Array.from(next));
           } else {
-            // Show all children: drop their ids from the hidden set.
             const ids = new Set(sourceServers.map((s) => s.id));
             onChange(hidden.filter((id) => !ids.has(id)));
           }
@@ -229,10 +202,8 @@ function ServersSection({
               <span className="filter-subgroup__caret" aria-hidden="true">
                 ▸
               </span>
-              {/* Click on the title-wrap toggles the source switch
-                  (preventDefault keeps <details> open/close on the caret
-                  alone). Click on the caret-only area still toggles the
-                  details collapse. */}
+              {/* preventDefault leaves collapsing to the caret, so a
+                  click on the title toggles the switch. */}
               <span
                 className="filter-subgroup__title-wrap"
                 onClick={(e) => {
@@ -299,7 +270,6 @@ function PlayerSection({ playerId, playerLabel, onPick }: PlayerSectionProps) {
     return () => ctrl.abort();
   }, [debounced]);
 
-  // Hide stored results once the query is too short.
   const displayResults = debounced.length >= 2 ? results : [];
 
   return (
@@ -398,11 +368,11 @@ function DateRangeSection({
             onClick={() => onChange({ datePreset: preset === p ? "" : p })}
           >
             {p === "24h"
-              ? "Last 24h"
+              ? "Last 24 hours"
               : p === "7d"
-                ? "Last 7d"
+                ? "Last 7 days"
                 : p === "30d"
-                  ? "Last 30d"
+                  ? "Last 30 days"
                   : "Custom"}
           </button>
         ))}
@@ -431,7 +401,7 @@ function DateRangeSection({
   );
 }
 
-// ── Collapsible section (carets, used by Sources & servers) ─────────
+// ── Collapsible section ──────────────────────────────────────────────
 
 interface FilterSectionProps {
   title: string;
@@ -479,11 +449,7 @@ function FilterSection({ title, onAll, onNone, children }: FilterSectionProps) {
   );
 }
 
-// ── Static (non-collapsible) section — for Player + Date range ──────
-// No caret because the content is always shown — Player is either an
-// input or a chip, Date range is always preset chips. Single optional
-// action on the right (typically "Clear"). Visually shares the title
-// vocabulary with .filter-section__title so the panel reads as one set.
+// ── Static section ───────────────────────────────────────────────────
 
 interface StaticSectionProps {
   title: string;
@@ -509,14 +475,11 @@ function StaticSection({ title, action, children }: StaticSectionProps) {
   );
 }
 
-// ── Toggle switch (mirrors ActivityFilters' Switch component) ────────
+// ── Toggle switch ────────────────────────────────────────────────────
 
 interface SwitchProps {
   checked: boolean;
-  // When true (and !checked), the underlying checkbox renders the
-  // browser's native indeterminate state and we paint .switch--mixed
-  // to match — the source-level toggle uses this for "some children
-  // hidden, some visible." Mirrors ActivityFilters' Switch.
+  // Only shows while unchecked, as the checkbox's native mixed state.
   indeterminate?: boolean;
   onChange: () => void;
   label: string;
@@ -542,8 +505,6 @@ function Switch({ checked, indeterminate, onChange, label }: SwitchProps) {
   );
 }
 
-// Convenience: any active filter? Used by the parent to decide whether
-// to render a "Clear filters" affordance somewhere else in the page.
 export function adminSessionsFiltersActive(
   s: AdminSessionsFilterState,
 ): boolean {
@@ -556,7 +517,6 @@ export function adminSessionsFiltersActive(
   );
 }
 
-// Re-export memo helper so the parent can keep referential stability if needed.
 export function useStableServers(servers: Server[]): Server[] {
   return useMemo(() => servers.slice().sort((a, b) => a.id - b.id), [servers]);
 }

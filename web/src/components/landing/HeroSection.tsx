@@ -9,24 +9,20 @@ import { InstallerDownloadLink } from "../InstallerDownloadLink";
 import { useInstallerDownload } from "../../hooks/useInstallerDownload";
 import { pickHeroVariant } from "./heroVariants";
 
-// Preserve the non-breaking-space treatment the static headline used
-// (`WELCOME&nbsp;BACK&nbsp;TO`) so dynamic headline lines don't wrap
-// mid-phrase on narrow viewports.
+// Non-breaking spaces keep a headline line from wrapping mid-phrase on
+// narrow viewports.
 const nbsp = (s: string) => s.replace(/ /g, " ");
 
 export function HeroSection() {
   const live = useLiveData();
   const humans = live.activeHumanPlayersCount;
   const arenas = live.activeServersCount;
-  // Pick once per mount; useState lazy-init means the random roll is
-  // stable across re-renders. Route navigation that unmounts and remounts
-  // the landing will pick a fresh variant — matches "random per visit".
+  // One roll per mount: stable across re-renders, fresh on each visit.
   const [variant] = useState(pickHeroVariant);
   const installer = useInstallerDownload();
 
-  // Pulse line 1: pre-WS and quiet share one line — the swap-in on connect
-  // conveyed nothing and read as a glitch. Only real news (players fragging)
-  // replaces it.
+  // Connecting and quiet share one line, so the socket connecting causes no
+  // visible swap; only players fragging changes it.
   let pulse: React.ReactNode;
   if (!live.isConnected || humans === 0) {
     pulse = <span>the arena is waiting for you.</span>;
@@ -40,9 +36,8 @@ export function HeroSection() {
     );
   }
 
-  // Pulse line 2: matches today + frag duration. Stubbed in v1 — the underlying
-  // values aren't on LiveDataContext yet. When `matchesToday === 0` the line
-  // gracefully renders empty, so the hero still looks complete.
+  // Pulse line 2: matches today and frag time. Stubbed until LiveDataContext
+  // carries the values; it renders empty while `matchesToday` is 0.
   // TODO(landing-page): wire matchesToday + fragSecondsToday from a derived hook
   //   or add the fields to LiveDataContext (compute from recentMatches today UTC,
   //   filtered to has_human_player && demo_available).

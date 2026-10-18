@@ -17,7 +17,6 @@ type Match struct {
 	Mode       string     `json:"mode,omitempty"`
 }
 
-// GameType constants
 const (
 	GameTypeFFA       = "ffa"
 	GameTypeTDM       = "tdm"
@@ -28,8 +27,8 @@ const (
 	GameTypeHarvester = "harvester"
 )
 
-// GameTypeFromInt converts Q3's numeric gametype to string. Mirrors the
-// engine's g_gametype values; 5/6/7 are Team Arena gametypes.
+// GameTypeFromInt maps a g_gametype value to its name; 5, 6 and 7 are
+// the Team Arena game types.
 func GameTypeFromInt(gt int) string {
 	switch gt {
 	case 0:
@@ -79,12 +78,11 @@ type MatchPlayerSummary struct {
 	ObelisksDestroyed int      `json:"obelisks_destroyed,omitempty"`
 }
 
-// MatchSummary represents a match with server and player info.
-// Source + ServerKey are the (source, key) identity of the server
-// the match was played on; UI renders "<source> / <key>". When
-// ServerActive=false the UI dims the card. DemoAvailable=true means
-// the .tvd file has been finalized somewhere (local or remote);
-// populateDemoURLs uses it to decide whether to set DemoURL.
+// MatchSummary is a match with its server and players. Source and
+// ServerKey identify the server; the UI shows "<source> / <key>" and
+// dims the card when ServerActive is false. DemoAvailable means the
+// .tvd was finalized, locally or remotely; populateDemoURLs sets
+// DemoURL from it.
 type MatchSummary struct {
 	ID            int64                `json:"id"`
 	UUID          string               `json:"-"`

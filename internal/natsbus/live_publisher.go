@@ -10,8 +10,8 @@ import (
 	"github.com/ernie/trinity-tracker/internal/domain"
 )
 
-// SubjectLivePrefix is the core-NATS (non-JetStream) base subject.
-// Live events are fire-and-forget; disconnected publishers drop them.
+// SubjectLivePrefix is the core NATS subject for live events, which are
+// fire-and-forget: a disconnected publisher drops them.
 const SubjectLivePrefix = "trinity.live."
 
 // LivePublisher wraps events in an Envelope and publishes them to

@@ -1,31 +1,15 @@
-// LazyVideo — mounts a <video> element only while its placeholder is
-// within ~half a viewport of being visible. Without this, every
-// autoplay video in a long docs page decodes frames continuously even
-// when scrolled far away — multiple such videos plus other heavyweight
-// page content can overwhelm mobile Safari's renderer process and
-// trigger a tab reload.
-//
-// Mount/unmount is symmetric: scrolling away tears the <video> down
-// (freeing decoder + frame buffer memory); scrolling back mounts a
-// fresh element that auto-plays from frame 0. Acceptable for short
-// looping effect demos; would be jarring for long-form video where
-// playback position matters.
-//
-// Layout: the wrapper captures the video's rendered height the first
-// time it's measured, then uses that as the placeholder height after
-// unmounting. Before the first mount, falls back to `minHeight`
-// (caller-supplied or a coarse default) — best we can do without
-// knowing the video's intrinsic aspect ratio up front.
+// Mounts the <video> only while it's within about half a viewport of
+// the screen: several autoplaying videos on one page can crash mobile
+// Safari's renderer. Scrolling back starts it from frame 0, which suits
+// short loops.
 import { useEffect, useRef, useState } from "react";
 
 interface LazyVideoProps {
-  /** Optional WebM source — typically the smaller/preferred encoding. */
+  /** Tried before the MP4. */
   webm?: string;
-  /** MP4 source — required as the cross-browser fallback. */
   mp4: string;
-  /** Pre-measurement placeholder min-height, in px. */
+  /** Placeholder height in px until the video has been measured. */
   minHeight?: number;
-  /** Extra class on the wrapper div (rare; usually inherits parent layout). */
   className?: string;
 }
 
@@ -40,8 +24,8 @@ export function LazyVideo({
     undefined,
   );
   const ref = useRef<HTMLDivElement>(null);
-  // Mirror `visible` in a ref so the IntersectionObserver callback can
-  // read the latest value without re-subscribing every toggle.
+  // Lets the observer callback read the latest value without
+  // resubscribing.
   const visibleRef = useRef(visible);
   useEffect(() => {
     visibleRef.current = visible;
@@ -51,16 +35,13 @@ export function LazyVideo({
     if (!ref.current) return;
     const observer = new IntersectionObserver(
       ([entry]) => {
-        // Measure the rendered video JUST before tearing it down so
-        // the placeholder reserves the same vertical space and the
-        // page doesn't jump.
+        // Measured just before unmounting so the placeholder keeps the
+        // page from jumping.
         if (!entry.isIntersecting && visibleRef.current && ref.current) {
           setMeasuredHeight(ref.current.offsetHeight);
         }
         setVisible(entry.isIntersecting);
       },
-      // Mount ~half a viewport ahead of the scroll edge so the video
-      // is ready by the time the user reaches it.
       { rootMargin: "50% 0px" },
     );
     observer.observe(ref.current);

@@ -1,4 +1,4 @@
-// Parse a Q3A model string into model name + skin.
+// Parse a model string into model name and skin.
 // "sarge" -> {sarge, default}; "sarge/krusade" -> {sarge, krusade};
 // "*james" (Team Arena head) -> {james, default}.
 export function parseModel(model: string): { modelName: string; skin: string } {

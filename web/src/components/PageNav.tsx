@@ -1,8 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 
-// Order mirrors the landing page's door grid so cross-surface
-// navigation feels consistent. Matches → Players adjacency keeps the
-// stats-oriented surfaces (Players + Leaderboard) next to each other.
+// Same order as the landing page doors.
 const NAV_ITEMS = [
   { path: "/servers", label: "Servers" },
   { path: "/matches", label: "Matches" },
@@ -30,7 +28,7 @@ export function PageNav() {
             to={item.path}
             className={`nav-link ${active ? "active" : ""}`}
           >
-            {/* Always rendered so the slot is reserved; visibility-toggled to keep layout stable. */}
+            {/* Every link reserves the glyph's width so labels hold still. */}
             <img
               src="/assets/icon-128.png"
               alt=""

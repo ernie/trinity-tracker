@@ -1,20 +1,16 @@
-// Hero greeting variants — one is picked at random on each HeroSection
-// mount to keep the landing page lively.
-//
-// Typographic constraints: headlines mostly follow a 3-word top + 2-word
-// bottom cadence, with top lines within ~18 chars so the Cinzel 700
-// display at the largest hero size doesn't shrink or wrap. The CTF
-// variant ("HOME IS WHERE / YOUR FLAG IS") deliberately breaks the 5-word
-// rule with a 3+3 couplet.
+// Headlines mostly follow a 3-word top + 2-word bottom cadence, with top
+// lines within ~18 chars so the Cinzel 700 display at the largest hero size
+// doesn't shrink or wrap. The CTF variant ("HOME IS WHERE / YOUR FLAG IS")
+// breaks the 5-word rule on purpose with a 3+3 couplet.
 
 export type HeroVariant = {
-  headline1: string; // first line of <h1>, rendered uppercase via content
-  headline2: string; // second line of <h1>
-  subhead: string; // <p> body — CSS auto-lowercases via text-transform
+  headline1: string;
+  headline2: string;
+  subhead: string; // CSS lowercases it
 };
 
-// Quake III Arena shipped 1999-12-02. Use full elapsed years so the line
-// only ticks up on the anniversary, not at January 1st.
+// Quake III Arena shipped 1999-12-02; counting full years makes the line
+// tick up on the anniversary.
 const QUAKE3_RELEASE = new Date(1999, 11, 2);
 
 function fullYearsSince(date: Date, now: Date = new Date()): number {
@@ -30,7 +26,7 @@ export const HERO_VARIANTS: readonly HeroVariant[] = [
   {
     headline1: "THE RAILGUN WAITS,",
     headline2: "STILL HUMMING",
-    subhead: "it knows you're impressive — prove it right.",
+    subhead: "it knows you're impressive. prove it right.",
   },
   {
     headline1: "YOU DON'T ALWAYS",
@@ -52,7 +48,7 @@ export const HERO_VARIANTS: readonly HeroVariant[] = [
     headline2: "QUAKE III",
     subhead: "the arena missed your footsteps.",
   },
-  // Direct quote of the Q3 campaign announcer's opening line (1999);
+  // Direct quote of the Quake III campaign announcer's opening line (1999);
   // subhead references q3dm0 ("Introduction"), the map where it played.
   {
     headline1: "WELCOME TO",
@@ -62,7 +58,7 @@ export const HERO_VARIANTS: readonly HeroVariant[] = [
   {
     headline1: "NO LOADOUTS AND",
     headline2: "NO COOLDOWNS",
-    subhead: "the arena asks more of you.",
+    subhead: "only skill will save you.",
   },
   {
     headline1: "YOU KNOW WHAT",

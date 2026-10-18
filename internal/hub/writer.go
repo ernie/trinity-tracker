@@ -35,29 +35,24 @@ type Writer struct {
 	// flag. Shared with the poller, which stamps it onto ServerStatus.IsLive.
 	liveState *LiveState
 
-	// localSource is the collector source colocated with this hub
-	// (when hub+collector run on the same box). Empty for hub-only
-	// deployments. Drives the local-admin shortcut in rcon authorization.
+	// localSource is the collector source on the same box as this hub,
+	// empty on a hub-only install. Local admins get rcon there.
 	localSource string
 
-	// guidCache memoizes GUID → player_id. Positive entries are
-	// invalidated explicitly by AssociateGUIDWithPlayer and MergePlayers;
-	// negative results are not cached because a GUID can transition to
-	// known at any time via UpsertPlayerIdentity.
+	// guidCache maps GUID to player_id. AssociateGUIDWithPlayer and
+	// MergePlayers invalidate entries. Misses stay uncached because
+	// UpsertPlayerIdentity can make a GUID known at any time.
 	guidMu    sync.RWMutex
 	guidCache map[string]int64
 
-	// handshakeState memoizes servers.handshake_required by serverID.
-	// Updated authoritatively on every observed match_start (both accept
-	// and reject paths). Lazy-loaded from the column on first lookup so
-	// post-restart we don't have to warm the whole table.
+	// handshakeState caches servers.handshake_required by server ID.
+	// Every observed match_start updates it; a cold entry loads from the
+	// column on first lookup.
 	handshakeMu    sync.RWMutex
 	handshakeState map[int64]bool
 
-	// activityNotifier (if installed) receives human-player join/leave
-	// transitions for Discord server-activity notifications. Pointer-to-
-	// interface so SetActivityNotifier can flip it after Start without
-	// racing the dispatch goroutine.
+	// activityNotifier is atomic so SetActivityNotifier can change it
+	// while the dispatch goroutine runs.
 	activityNotifier atomic.Pointer[ActivityNotifier]
 
 	wg       sync.WaitGroup
@@ -67,13 +62,12 @@ type Writer struct {
 type Option func(*Writer)
 
 // WithPreStop runs fn before Stop closes the event channel, so inbound
-// sources (e.g. the embedded NATS server) can quiesce first.
+// sources, such as the embedded NATS server, can quiesce first.
 func WithPreStop(fn func()) Option {
 	return func(w *Writer) { w.preStop = fn }
 }
 
-// FactPublisher forwards fact events off-box instead of dispatching
-// in-process.
+// FactPublisher sends fact events to a remote hub.
 type FactPublisher interface {
 	Publish(e domain.FactEvent) error
 }
@@ -83,10 +77,8 @@ func WithFactPublisher(p FactPublisher) Option {
 	return func(w *Writer) { w.publisher = p }
 }
 
-// WithLocalSource records the source name of the collector colocated
-// with this hub. Used by the Greet handler to grant the local-admin
-// rcon shortcut without requiring the operator to flip
-// admin_delegation_enabled on every local server.
+// WithLocalSource names the collector source on the same box, so local
+// admins get rcon there without admin_delegation_enabled on each server.
 func WithLocalSource(source string) Option {
 	return func(w *Writer) { w.localSource = source }
 }
@@ -126,19 +118,15 @@ func (w *Writer) ResolveIdentity(ctx context.Context, guid string) (playerID int
 	return id, v, a, true
 }
 
-// MarkSourceApproved primes the in-memory cache for a source known
-// to exist. Callers must have already created the sources row (or
-// know it was created elsewhere); this just skips the first DB
-// lookup on the ingest path.
+// MarkSourceApproved primes the cache for a source whose row already
+// exists, skipping the first DB lookup on the ingest path.
 func (w *Writer) MarkSourceApproved(source string) {
 	w.sources.MarkApproved(source)
 }
 
-// DeactivateSource marks the source + its servers inactive and flips
-// the in-memory cache to Blocked. Rows stay in the DB so historical
-// matches keep their (source, key) reference; the UI dims inactive
-// content. Admin endpoint pairs this with creds revocation at the
-// NATS layer.
+// DeactivateSource marks the source and its servers inactive and blocks
+// it at ingest. The rows stay so past matches keep their (source, key).
+// The admin handler also revokes its NATS credentials.
 func (w *Writer) DeactivateSource(ctx context.Context, source string) error {
 	if err := w.store.DeactivateSource(ctx, source); err != nil {
 		return err
@@ -156,11 +144,9 @@ func (w *Writer) ReactivateSource(ctx context.Context, source string) error {
 	return nil
 }
 
-// LeaveSource is the owner-self-service variant of DeactivateSource:
-// flips status to 'left', marks the source blocked at ingest, and
-// cascades servers inactive — same observable result as DeactivateSource
-// except the row stays self-rejoinable. Caller pairs this with a
-// userProv.RevokeSource() so any connected collector disconnects on
+// LeaveSource is the owner's version of DeactivateSource. It sets status
+// 'left', so the owner can rejoin under the same name. The caller also
+// revokes the credentials, which cuts off a connected collector at its
 // next publish.
 func (w *Writer) LeaveSource(ctx context.Context, source string) error {
 	if err := w.store.LeaveSource(ctx, source); err != nil {
@@ -223,8 +209,8 @@ func (w *Writer) Stop() {
 	w.wg.Wait()
 }
 
-// Publish forwards to the configured FactPublisher if set, otherwise
-// blocks on the in-process channel (losing fact events would corrupt state).
+// Publish sends e to the FactPublisher when one is set, and otherwise
+// blocks on the local channel, since a dropped fact event corrupts state.
 func (w *Writer) Publish(e domain.FactEvent) error {
 	if w.publisher != nil {
 		return w.publisher.Publish(e)
@@ -276,11 +262,10 @@ func (w *Writer) dispatch(ctx context.Context, e domain.FactEvent) {
 	}
 }
 
-// IsHandshakeEnforced reports whether the most recently observed
-// match_start for serverID had handshake_required=true. Returns false
-// for servers we've never seen a match_start for. Backs the
-// Router.Broadcast filter so live events for unproven servers don't
-// reach the WebSocket.
+// IsHandshakeEnforced reports whether serverID's latest match_start had
+// handshake_required set; it's false for a server with none yet.
+// Router.Broadcast uses it to keep unproven servers' live events off the
+// WebSocket.
 func (w *Writer) IsHandshakeEnforced(ctx context.Context, serverID int64) bool {
 	w.handshakeMu.RLock()
 	v, ok := w.handshakeState[serverID]
@@ -290,9 +275,8 @@ func (w *Writer) IsHandshakeEnforced(ctx context.Context, serverID int64) bool {
 	}
 	srv, err := w.store.GetServerByID(ctx, serverID)
 	if err != nil || srv == nil {
-		// Unknown server — refuse. This includes the FK-violation case
-		// where a misrouted event references a serverID that doesn't
-		// exist in the hub's table.
+		// An unknown server, including a misrouted event's bad ID, is
+		// refused.
 		return false
 	}
 	w.handshakeMu.Lock()
@@ -301,11 +285,9 @@ func (w *Writer) IsHandshakeEnforced(ctx context.Context, serverID int64) bool {
 	return srv.HandshakeRequired
 }
 
-// recordHandshakeRequired persists the new value to the servers row and
-// updates the in-memory cache. Cache update only happens on a successful
-// DB write so the column stays authoritative — otherwise a transient
-// UPDATE failure would leave the cache claiming "true" while the row
-// stays 0, and a restart would silently flip the server out of the UI.
+// recordHandshakeRequired writes the value to the servers row, then the
+// cache. The cache changes only after a successful write, so it always
+// agrees with the column a restart reads.
 func (w *Writer) recordHandshakeRequired(ctx context.Context, serverID int64, required bool) {
 	if err := w.store.SetServerHandshakeRequired(ctx, serverID, required); err != nil {
 		log.Printf("hub: SetServerHandshakeRequired(server=%d, %v): %v", serverID, required, err)
@@ -316,13 +298,12 @@ func (w *Writer) recordHandshakeRequired(ctx context.Context, serverID int64, re
 	w.handshakeMu.Unlock()
 }
 
-// handleMatchStart persists a new match or adopts an existing row with
-// the same UUID (idempotent across collector replay and retries). Refuses
-// matches from servers that don't require g_trinityHandshake so stats
-// are scoped to clients that submit a Trinity handshake — independent
-// of whether those handshakes carry valid auth info. Also latches the
-// handshake state onto the servers row so the Router.Broadcast filter
-// and the pollable-list filter know which servers to surface in the UI.
+// handleMatchStart creates the match, or adopts an existing row with the
+// same UUID so replays and retries are idempotent. Servers without
+// g_trinityHandshake are refused, so stats only cover clients that send
+// a Trinity handshake, with or without auth. It also records the
+// handshake state on the servers row, which Router.Broadcast and the
+// pollable-server list read.
 func (w *Writer) handleMatchStart(ctx context.Context, serverID int64, data domain.MatchStartData) {
 	w.recordHandshakeRequired(ctx, serverID, data.HandshakeRequired)
 	if !data.HandshakeRequired {
@@ -433,12 +414,9 @@ func (w *Writer) handleMatchCrashed(ctx context.Context, data domain.MatchCrashe
 	log.Printf("hub: match_crashed match=%d uuid=%s ended_at=%s", match.ID, data.MatchUUID, data.EndedAt.Format(time.RFC3339))
 }
 
-// handlePresenceSnapshot restores an in-memory presence entry for a
-// player the collector already has in state.clients — typically after
-// a hub restart while a match was in progress. Unlike handlePlayerJoin
-// it does no session work, because the player didn't actually join;
-// they were already there and their DB session (if any) was persisted
-// on the original join.
+// handlePresenceSnapshot restores the presence entry for a player the
+// collector already has, usually after a hub restart mid-match. It opens
+// no session: the player's session was saved when they first joined.
 func (w *Writer) handlePresenceSnapshot(serverID int64, data domain.PresenceSnapshotData) {
 	w.presence.RecordJoin(serverID, data.ClientNum, PresenceEntry{
 		GUID:            data.GUID,
@@ -575,9 +553,8 @@ func (w *Writer) handleServerShutdown(ctx context.Context, serverID int64, data 
 	log.Printf("hub: server_shutdown server=%d swept open sessions before %s", serverID, data.ShutdownAt.Format(time.RFC3339))
 }
 
-// handleDemoFinalized flips matches.demo_available so the UI knows to
-// render a play button. Idempotent — if the match doesn't exist or is
-// already flagged, this is a no-op (the UPDATE just affects 0 rows).
+// handleDemoFinalized sets matches.demo_available so the UI shows a play
+// button. Repeats are harmless.
 func (w *Writer) handleDemoFinalized(ctx context.Context, data domain.DemoFinalizedData) {
 	if data.MatchUUID == "" {
 		return
@@ -590,15 +567,11 @@ func (w *Writer) handleDemoFinalized(ctx context.Context, data domain.DemoFinali
 		data.MatchUUID, data.Frames, data.DurationMS, data.Bytes)
 }
 
-// handleRconExec writes a source_audit row for an in-game /rcon
-// command observed by the engine. Attribution requires that the
-// command's source address matches a connected client whose GUID
-// links to a real user — anything we can't attribute is service
-// noise (collector welcome rcon hairpinning back, web-UI rcon
-// already audited at the api/rcon.go layer, or external operator
-// rcon we can't tie to a person). Failed attempts get their own
-// rcon.denied audit lane so brute-force visibility doesn't ride on
-// this success-path code.
+// handleRconExec audits an in-game /rcon command the engine saw. Only
+// commands from a connected client whose GUID links to a user are
+// recorded; the rest is service traffic (the collector's own rcon, web
+// rcon already audited in api/rcon.go, or operator rcon with no person
+// attached). Failed attempts go through handleRconDenied.
 func (w *Writer) handleRconExec(ctx context.Context, serverID int64, data domain.RconExecData) {
 	if data.GUID == "" {
 		return
@@ -623,11 +596,10 @@ func (w *Writer) handleRconExec(ctx context.Context, serverID int64, data domain
 	}
 }
 
-// handleRconDenied writes a source_audit row for an rcon attempt the
-// engine rejected (bad password). Actor is intentionally NULL — these
-// are by definition unattributed attempts. The display layer renders
-// these as "system" rows; together with the per-source filtering on
-// the audit page that's the brute-force-visibility surface.
+// handleRconDenied audits an rcon attempt the engine rejected for a bad
+// password. The actor is NULL because nobody can be attributed; the
+// audit page shows these as system rows, which is where brute-force
+// attempts show up.
 func (w *Writer) handleRconDenied(ctx context.Context, serverID int64, data domain.RconDeniedData) {
 	srv, err := w.store.GetServerByID(ctx, serverID)
 	if err != nil || srv == nil {
@@ -725,9 +697,9 @@ func (w *Writer) GetSourceProgress(ctx context.Context, source string) (SourcePr
 	}, nil
 }
 
-// Greet resolves identity, optionally verifies Trinity auth credentials
-// via SipHash, and auto-associates the GUID with the user's player on
-// successful auth.
+// Greet resolves identity, checks Trinity auth with SipHash when the
+// handshake carries it, and links the GUID to the user's player when it
+// passes.
 func (w *Writer) Greet(ctx context.Context, req GreetRequest) (GreetReply, error) {
 	reply := GreetReply{AuthResult: AuthUnauthenticated}
 
@@ -740,8 +712,8 @@ func (w *Writer) Greet(ctx context.Context, req GreetRequest) (GreetReply, error
 	}
 	playerID := pg.PlayerID
 
-	// authedUser is set when this handshake produced a verified auth
-	// proof. Used after the GUID-link step to evaluate rcon-autoset.
+	// authedUser is set when the handshake's auth proof checks out;
+	// rcon-autoset uses it.
 	var authedUser *storage.User
 
 	if req.Auth != nil {
@@ -782,8 +754,8 @@ func (w *Writer) Greet(ctx context.Context, req GreetRequest) (GreetReply, error
 
 	reply.CanonicalName = pg.CleanName
 
-	// Only exclude the player's own ID when auth proved identity.
-	// Without auth, GUID alone is not proof — qkeys can be copied.
+	// The player's own ID is excluded only when auth proved identity,
+	// because a GUID alone can be copied along with its qkey.
 	var excludePlayerID int64
 	if authedUser != nil {
 		excludePlayerID = playerID

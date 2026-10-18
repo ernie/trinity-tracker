@@ -16,7 +16,7 @@ func mkStatus() *domain.ServerStatus {
 		GameType: "FFA",
 		Players: []domain.PlayerStatus{
 			{Name: "rocketeer", IsBot: false},
-			{Name: "^1ernie", IsBot: false},
+			{Name: "^1alice", IsBot: false},
 			{Name: "Sarge", IsBot: true},
 		},
 	}
@@ -35,9 +35,6 @@ func TestBuildActiveEmbed_TitleAndIdentity(t *testing.T) {
 	}
 }
 
-// When a server is being live-tapped, the active embed's title links
-// straight to the in-browser player at /tv/<source>/<key> and invites
-// the click.
 func TestBuildActiveEmbed_LiveLink(t *testing.T) {
 	s := mkStatus()
 	s.IsLive = true
@@ -50,7 +47,6 @@ func TestBuildActiveEmbed_LiveLink(t *testing.T) {
 	}
 }
 
-// No tap → title points at the server list, no "click to watch" cue.
 func TestBuildActiveEmbed_NoLiveLinkWhenNotLive(t *testing.T) {
 	embed := buildActiveEmbed(mkStatus(), "https://trinity.example.com", nil)
 	if embed.URL != "https://trinity.example.com/servers" {
@@ -61,7 +57,6 @@ func TestBuildActiveEmbed_NoLiveLinkWhenNotLive(t *testing.T) {
 	}
 }
 
-// No public URL → no link even when live (nothing to link to).
 func TestBuildActiveEmbed_NoLiveLinkWithoutPublicURL(t *testing.T) {
 	s := mkStatus()
 	s.IsLive = true
@@ -74,7 +69,6 @@ func TestBuildActiveEmbed_NoLiveLinkWithoutPublicURL(t *testing.T) {
 	}
 }
 
-// Map gets its long name when mapMeta has it; short id when not.
 func TestBuildActiveEmbed_MapLongName(t *testing.T) {
 	mapMeta := map[string]string{"q3dm17": "The Longest Yard"}
 	embed := buildActiveEmbed(mkStatus(), "https://trinity.example.com", mapMeta)
@@ -83,30 +77,28 @@ func TestBuildActiveEmbed_MapLongName(t *testing.T) {
 	}
 }
 
-// Roster groups humans before bots, name-sorted within each group;
-// bot rows get a "(bot)" suffix so the channel doesn't think a bot
-// is the headline player.
+// Humans come before bots, each sorted by name, and bots are marked.
 func TestBuildActiveEmbed_RosterShape(t *testing.T) {
 	embed := buildActiveEmbed(mkStatus(), "", nil)
 	if len(embed.Fields) != 1 {
 		t.Fatalf("expected 1 roster field, got %d", len(embed.Fields))
 	}
 	val := embed.Fields[0].Value
-	idxErnie := strings.Index(val, "ernie")
+	idxAlice := strings.Index(val, "alice")
 	idxRocketeer := strings.Index(val, "rocketeer")
 	idxSarge := strings.Index(val, "Sarge")
-	if idxErnie < 0 || idxRocketeer < 0 || idxSarge < 0 {
+	if idxAlice < 0 || idxRocketeer < 0 || idxSarge < 0 {
 		t.Fatalf("roster missing player(s): %q", val)
 	}
-	if !(idxErnie < idxRocketeer && idxRocketeer < idxSarge) {
-		t.Errorf("expected order ernie < rocketeer < sarge in roster, got %q", val)
+	if !(idxAlice < idxRocketeer && idxRocketeer < idxSarge) {
+		t.Errorf("expected order alice < rocketeer < sarge in roster, got %q", val)
 	}
 	if !strings.Contains(val, "(bot)") {
 		t.Errorf("bot row should be marked (bot): %q", val)
 	}
-	// Q3-colored ^1 should translate to a 31m ANSI escape in the block.
+	// ^1 becomes the 31m ANSI escape.
 	if !strings.Contains(val, "\x1b[31m") {
-		t.Errorf("colored ernie name missing ANSI escape: %q", val)
+		t.Errorf("colored alice name missing ANSI escape: %q", val)
 	}
 }
 
@@ -120,9 +112,6 @@ func TestBuildActiveEmbed_PlayerCounts(t *testing.T) {
 	}
 }
 
-// Team modes get two inline columns (Red, Blue). When the engine has
-// assigned anyone to Red/Blue, that's the trigger — not the game-type
-// string, which can be ambiguous during warmup.
 func TestBuildActiveEmbed_TeamModeColumns(t *testing.T) {
 	s := &domain.ServerStatus{
 		ServerID: 42, Source: "local", Key: "dm-hub", Map: "q3ctf3", GameType: "CTF",
@@ -151,8 +140,6 @@ func TestBuildActiveEmbed_TeamModeColumns(t *testing.T) {
 	}
 }
 
-// Spectators land in a non-inline third field below the play roster,
-// regardless of whether the play roster is team-split or FFA.
 func TestBuildActiveEmbed_SpectatorsField(t *testing.T) {
 	s := &domain.ServerStatus{
 		ServerID: 42, Source: "local", Key: "dm-hub", Map: "q3ctf3", GameType: "CTF",
@@ -178,8 +165,6 @@ func TestBuildActiveEmbed_SpectatorsField(t *testing.T) {
 	}
 }
 
-// FFA renders a two-column grid so a fuller server doesn't waste so
-// much vertical space. With four players the first row holds two.
 func TestBuildActiveEmbed_FFATwoColumns(t *testing.T) {
 	s := &domain.ServerStatus{
 		ServerID: 42, Source: "local", Key: "dm-hub", Map: "q3dm17", GameType: "FFA",
@@ -195,8 +180,6 @@ func TestBuildActiveEmbed_FFATwoColumns(t *testing.T) {
 		t.Errorf("FFA Players field should not be inline")
 	}
 	val := embed.Fields[0].Value
-	// Find the line containing "alpha" — it should also contain "bravo"
-	// because two-column layout pairs them.
 	var alphaLine string
 	for _, line := range strings.Split(val, "\n") {
 		if strings.Contains(line, "alpha") {
@@ -209,9 +192,6 @@ func TestBuildActiveEmbed_FFATwoColumns(t *testing.T) {
 	}
 }
 
-// "[VR] " leading or trailing decoration gets stripped from the
-// displayed name — IsVR carries the same info without the visual
-// noise.
 func TestBuildActiveEmbed_StripsVRTag(t *testing.T) {
 	s := &domain.ServerStatus{
 		ServerID: 42, Source: "local", Key: "dm-hub", Map: "q3dm17", GameType: "FFA",
@@ -244,7 +224,6 @@ func TestBuildInactiveEmbed_TitleAndDesc(t *testing.T) {
 	if embed.Color != inactiveColor {
 		t.Errorf("color: got %#x", embed.Color)
 	}
-	// An idle server has nothing to watch or join, so the embed carries no link.
 	if embed.URL != "" {
 		t.Errorf("idle embed should have no link: %q", embed.URL)
 	}

@@ -2,21 +2,13 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 
 interface NavScrollerProps {
   children: ReactNode;
-  // Class applied to the inner scroll container. Each surface (header
-  // page-nav, admin sidebar, etc.) supplies its own so it can hook the
-  // mobile overflow + mask CSS without colliding with siblings. The
-  // `is-scroll-left` / `is-scroll-right` state classes are appended
-  // alongside it.
+  // Each nav brings its own scroll class for its mobile overflow and mask
+  // CSS; the is-scroll-left and is-scroll-right classes join it.
   scrollClassName?: string;
 }
 
-// Wraps a mobile-scrollable nav strip with edge affordances that
-// appear when there's content past the visible edge. Desktop is
-// unchanged — the wrapper is `display: contents` so the nav children
-// still participate directly in the host row/column layout. On mobile
-// the wrapper becomes a positioned host for the chevron hints; the
-// scroll container itself stays where it was so its mask + scroll
-// behavior keep working.
+// On desktop the wrapper is `display: contents`; on mobile it positions
+// the edge chevrons.
 export function NavScroller({
   children,
   scrollClassName = "app-header__nav-scroll",
@@ -36,8 +28,7 @@ export function NavScroller({
     };
     update();
     el.addEventListener("scroll", update, { passive: true });
-    // Catches both viewport resize (rotation) and PageNav children
-    // changing width (login state flipping nav-link count, etc.).
+    // The nav's width changes with rotation and with login state.
     const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => {
@@ -46,9 +37,8 @@ export function NavScroller({
     };
   }, []);
 
-  // Bar always shows >= half the items, so a single tap can reveal the
-  // remainder by jumping straight to the corresponding edge — no
-  // intermediate paging needed.
+  // The bar always shows at least half the items, so one jump to the
+  // edge reveals the rest.
   const scrollToEdge = (direction: "left" | "right") => {
     const el = scrollRef.current;
     if (!el) return;

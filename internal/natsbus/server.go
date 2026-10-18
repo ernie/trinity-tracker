@@ -37,9 +37,9 @@ type Server struct {
 }
 
 // Start boots the embedded server and declares the TRINITY streams.
-// JetStream state is persisted under <storeDirParent>/nats. store is
-// used by AuthStore to persist per-source user pubkeys; pass nil only
-// in tests that don't exercise mint/revoke.
+// JetStream state is saved under <storeDirParent>/nats. store keeps
+// per-source user pubkeys for AuthStore; tests that never mint or
+// revoke may pass nil.
 func Start(cfg *config.TrackerConfig, storeDirParent string, store PubKeyStore) (*Server, error) {
 	if cfg == nil || cfg.Hub == nil {
 		return nil, fmt.Errorf("natsbus.Start: hub config required")
@@ -141,29 +141,19 @@ func (s *Server) StoreDir() string { return s.storeDir }
 // by the admin flow to mint and rotate per-source credentials.
 func (s *Server) Auth() *AuthStore { return s.auth }
 
-// ConnectedClientIPs returns the public IPs of every open NATS
-// connection currently authenticated as userPubKey, ordered most-
-// recently-active first. Used by the Q3 directory gate and the hub's
-// UDP poller to find a live collector's IP without DNS — kernel-
-// recorded, so IP rotations on dynamic-DNS hosts are picked up the
-// moment the collector reconnects.
+// ConnectedClientIPs returns the public IPs of the open NATS connections
+// authenticated as userPubKey, most recently active first. The directory
+// gate and the hub's UDP poller use it to find a collector without DNS,
+// so a new IP counts as soon as the collector reconnects.
 //
-// JWT-authenticated NATS clients identify in Connz as their user NKey
-// pubkey, not their JWT Name claim — that's why this takes a pubkey
-// rather than a source ID. Callers (the gate, the poller) get the
-// pubkey from sources.user_pubkey via storage queries that already
-// JOIN sources.
+// Connz lists JWT-authenticated clients by user NKey, so this takes the
+// pubkey (sources.user_pubkey) rather than a source ID. During a
+// reconnect the old session lingers until its keepalive times out; the
+// poller takes index 0, the newest, and the gate admits them all.
 //
-// Ordering matters during a reconnect overlap: the old session can
-// linger for keepalive timeout while the new one is already
-// authenticated. Callers that pick a single IP (the poller) want the
-// newest; the gate admits all of them and is order-independent. We
-// sort by ByLast so the freshest connection is index 0.
-//
-// Returns nil when userPubKey is empty (source not yet minted) or
-// when no matching connection is currently open. v4-mapped v6
-// addresses are unmapped so callers can compare against UDP source
-// addresses directly.
+// It returns nil for an empty userPubKey or when no connection is open.
+// IPv4-mapped IPv6 addresses are unmapped so callers can compare them
+// with UDP source addresses.
 func (s *Server) ConnectedClientIPs(userPubKey string) []netip.Addr {
 	if s == nil || s.ns == nil || userPubKey == "" {
 		return nil
@@ -195,8 +185,8 @@ func (s *Server) ConnectedClientIPs(userPubKey string) []netip.Addr {
 }
 
 // ConnectInternal opens an in-process NATS client authenticated as the
-// hub-internal user (full pub/sub under TRINITY). Extra nats options
-// (e.g. nats.Name) are appended after the required auth options.
+// hub-internal user (full pub/sub under TRINITY). Extra nats options,
+// such as nats.Name, follow the required auth options.
 func (s *Server) ConnectInternal(extra ...nats.Option) (*nats.Conn, error) {
 	opts := []nats.Option{
 		nats.InProcessServer(s.ns),
@@ -239,9 +229,9 @@ func declareStreams(nc *nats.Conn, hub *config.HubConfig) error {
 		return err
 	}
 
-	// Register stream keeps the latest payload per source so a late-
-	// joining hub sees the current roster without needing the publisher
-	// to still be connected.
+	// The register stream keeps the latest payload per source, so a hub
+	// that starts late sees the current roster even after the publisher
+	// disconnects.
 	if err := upsertStream(js, &nats.StreamConfig{
 		Name:              StreamRegister,
 		Subjects:          []string{"trinity.register.>"},

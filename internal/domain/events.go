@@ -41,11 +41,9 @@ type PlayerJoinEvent struct {
 	PlayerID *int64       `json:"player_id,omitempty"`
 }
 
-// ClientUserinfoEvent mirrors a Q3 ClientUserinfoChanged on the wire:
-// a client already in the game changed their userinfo (model, VR flag).
-// Distinct from PlayerJoinEvent — no session creation, no greeting,
-// no "X joined" on the UI. Hub applies it to the existing presence
-// entry so the live card reflects the new portrait.
+// ClientUserinfoEvent carries a ClientUserinfoChanged log line for a
+// client already in the game (a new model or VR flag). The hub updates
+// the existing presence entry so the live card shows the new portrait.
 type ClientUserinfoEvent struct {
 	ClientNum int    `json:"client_num"`
 	GUID      string `json:"guid"`
@@ -145,9 +143,9 @@ type SkullPickupEvent struct {
 	PlayerID   *int64 `json:"player_id,omitempty"`
 }
 
-// ObeliskDamageEvent signals start/stop of "actively attacking an
-// obelisk". The collector coalesces per-hit log lines; see the
-// sweeper in collector/manager.go for the timing. Live-only.
+// ObeliskDamageEvent marks a player starting or stopping an attack on
+// an obelisk. The collector coalesces per-hit log lines (the sweeper in
+// collector/manager.go sets the timing). Live only.
 type ObeliskDamageEvent struct {
 	ClientNum    int    `json:"client_num"`
 	AttackerName string `json:"attacker_name"`
@@ -202,7 +200,7 @@ type SayRconEvent struct {
 	Message string `json:"message"`
 }
 
-// AwardEvent is sent when a player earns an award (impressive, excellent, humiliation, defend, assist)
+// AwardEvent is sent when a player earns an award.
 type AwardEvent struct {
 	ClientNum      int    `json:"client_num"`
 	PlayerName     string `json:"player_name"`

@@ -105,11 +105,10 @@ func TestRconsetRoundTrip(t *testing.T) {
 	}
 }
 
-// TestRconsetVectors locks the committed test vectors. The same blobs
-// must be produced byte-for-byte by the engine's BG_SipHash128Raw and
-// the trinity_rconset decoder. If you change the labels, framing, or
-// SipHash byte layout, this test will fail loudly and the engine's
-// self-test will need parallel updates.
+// The engine's BG_SipHash128Raw and trinity_rconset decoder must
+// produce these same blobs byte for byte, so a change to the labels,
+// framing or SipHash byte layout also needs the engine's self-test
+// updated.
 func TestRconsetVectors(t *testing.T) {
 	path := filepath.Join("testdata", "rconset_vectors.json")
 	if os.Getenv("TRINITY_REGEN_VECTORS") == "1" {

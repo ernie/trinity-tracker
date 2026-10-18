@@ -11,9 +11,8 @@ import (
 )
 
 // scriptedPrompter is a deterministic Prompter for tests. It pops
-// answers off a slice; "" means "use the default". Test failure on
-// unknown call types catches drift between the wizard's prompts and
-// the test's expectations.
+// answers off a slice; "" means "use the default". It fails the test
+// when the wizard asks more than the script answers.
 type scriptedPrompter struct {
 	answers []string
 	t       *testing.T
@@ -92,20 +91,17 @@ func (s *scriptedPrompter) Password(prompt string, allowEmpty bool) (string, err
 }
 
 func (s *scriptedPrompter) Pause(prompt string) error {
-	// Pause is acknowledgment-only — discard whatever's at the top of
-	// the answer queue so the test scripts can be explicit about the
-	// pause without caring what it returns.
+	// Each pause takes one scripted answer, whatever it is.
 	s.pop()
 	return nil
 }
 
 func TestRunWizard_CombinedDefaults(t *testing.T) {
-	// allowHub=true so the mode prompt is exposed. Pick option 1 (combined)
-	// since the new default is collector.
+	// allowHub unlocks the mode prompt.
 	p := &scriptedPrompter{
 		t: t,
 		answers: []string{
-			"1",               // mode → ModeCombined (override the new collector default)
+			"1",               // mode → ModeCombined
 			"",                // service user → quake
 			"",                // database path → default
 			"",                // static dir → default
@@ -201,8 +197,7 @@ func TestSuggestKey(t *testing.T) {
 }
 
 func TestRunWizard_CollectorOnly(t *testing.T) {
-	// Default front door: allowHub=false, mode is locked to collector
-	// with no prompt — answers list does NOT include a mode response.
+	// With allowHub false there is no mode prompt.
 	credsPath := writeFakeCreds(t)
 	p := &scriptedPrompter{
 		t: t,
@@ -255,9 +250,6 @@ func TestRunWizard_CollectorOnly(t *testing.T) {
 	}
 }
 
-// TestRunWizard_HubOnly_DiscordAccepted exercises the Discord prompt's
-// happy path: webhook URL is captured, schedule defaults to "Mon 00:00",
-// and ToConfig emits a discord block.
 func TestRunWizard_HubOnly_DiscordAccepted(t *testing.T) {
 	p := &scriptedPrompter{
 		t: t,
@@ -295,10 +287,8 @@ func TestRunWizard_HubOnly_DiscordAccepted(t *testing.T) {
 	}
 }
 
-// writeFakeCreds drops a placeholder .creds file in t.TempDir() so
-// the wizard's CredsFile validator (which checks readability) is
-// satisfied. Tests that exercise actual creds parsing should use
-// real fixtures instead.
+// writeFakeCreds writes a placeholder .creds file that passes the
+// wizard's readability check.
 func writeFakeCreds(t *testing.T) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "test.creds")
@@ -308,16 +298,11 @@ func writeFakeCreds(t *testing.T) string {
 	return path
 }
 
-// TestRunWizard_NoCredsExits verifies that an operator who answers
-// "no" to the up-front prereq gate gets ErrMissingPrereqs and is not
-// asked any further questions. This protects the user-experience
-// contract: don't make people answer ten questions before telling
-// them they're missing a credential.
 func TestRunWizard_NoCredsExits(t *testing.T) {
 	p := &scriptedPrompter{
 		t: t,
 		answers: []string{
-			"n", // creds prereqs NOT in hand
+			"n", // creds prereqs not in hand
 		},
 	}
 	var buf bytes.Buffer
@@ -336,10 +321,6 @@ func TestRunWizard_NoCredsExits(t *testing.T) {
 	}
 }
 
-// TestRunWizard_LockedCollector_NoModePrompt is the regression guard
-// for the default front door: with allowHub=false the wizard never
-// asks about mode and never lets the operator end up in a hub
-// install. If this test ever needs a mode answer, the lock is broken.
 func TestRunWizard_LockedCollector_NoModePrompt(t *testing.T) {
 	credsPath := writeFakeCreds(t)
 	p := &scriptedPrompter{
@@ -367,16 +348,10 @@ func TestRunWizard_LockedCollector_NoModePrompt(t *testing.T) {
 		t.Fatalf("locked wizard must yield ModeCollector, got %v", a.Mode)
 	}
 	if len(p.answers) != 0 {
-		t.Errorf("scripted prompter has %d unused answers — wizard asked fewer questions than expected:\n  remaining: %q", len(p.answers), p.answers)
+		t.Errorf("scripted prompter has %d unused answers; the wizard asked fewer questions than expected:\n  remaining: %q", len(p.answers), p.answers)
 	}
 }
 
-// TestRunWizard_CredsAutoDiscovery checks that when the operator runs
-// the wizard from a directory containing a single *.creds file, both
-// SourceID and CredsFile are filled from the filename — collapsing two
-// prompts into one Y/n confirmation. Lifted into its own test (rather
-// than folding it into the main collector test) so the existing
-// manual-path coverage stays intact.
 func TestRunWizard_CredsAutoDiscovery(t *testing.T) {
 	dir := t.TempDir()
 	credsPath := filepath.Join(dir, "myserver.creds")
@@ -415,11 +390,6 @@ func TestRunWizard_CredsAutoDiscovery(t *testing.T) {
 	}
 }
 
-// TestDiscoverCredsIn_PartitionsValidAndRejected covers the silent-drop
-// regression that hid a 2-char source ID's .creds from auto-fill: the
-// hub admin path can mint sources with names the wizard's old strict
-// validator rejected, and the operator deserves a "why was this ignored"
-// line rather than silence.
 func TestDiscoverCredsIn_PartitionsValidAndRejected(t *testing.T) {
 	dir := t.TempDir()
 	good := filepath.Join(dir, "myserver.creds")

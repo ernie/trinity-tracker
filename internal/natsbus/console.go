@@ -12,18 +12,17 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
-// Console following runs hub → collector with the same two-check trust
-// model as RCON: the hub authorizes the viewer, the collector
-// re-validates the role against its own per-server config. Lines cross
-// the WAN only while a TTL lease is live — expiry is the off-switch,
-// so a vanished hub can't leak a forever-stream.
+// Console following runs from hub to collector with the same two checks
+// as RCON: the hub authorizes the viewer and the collector rechecks the
+// role against its own config. Lines cross the WAN only while a TTL
+// lease is live, so a hub that disappears can't leave a stream running.
 const (
 	ConsoleWatchSubjectPrefix = "trinity.console.watch."
 	ConsoleLinesSubjectPrefix = "trinity.console.lines."
 
 	defaultConsoleWatchTimeout = 5 * time.Second
-	// consoleFlushInterval batches line publishes (console output is
-	// bursty; per-line WAN messages would be wasteful).
+	// consoleFlushInterval batches line publishes, since console output
+	// comes in bursts.
 	consoleFlushInterval = 100 * time.Millisecond
 )
 
@@ -49,8 +48,8 @@ type ConsoleLineBatch struct {
 	Lines []console.Line `json:"lines"`
 }
 
-// ConsoleAuthorizer is the collector-side re-validation hook (the
-// rcon_proxy pattern): may this role view this server's console?
+// ConsoleAuthorizer is the collector-side recheck: may this role view
+// this server's console?
 type ConsoleAuthorizer interface {
 	AuthorizeConsole(serverKey string, role RconRole) error
 }
@@ -144,9 +143,9 @@ func (f *ConsoleForwarder) handleWatch(m *nats.Msg) {
 	if !ok {
 		l = &consoleLease{expiry: time.Now().Add(ttl), stop: make(chan struct{})}
 		f.leases[req.ServerKey] = l
-		// Subscribe before snapshotting so no line can fall between
-		// the reply's scrollback and the pump's stream (overlap is
-		// deduped hub-side by seq).
+		// Subscribe before snapshotting so no line falls between the
+		// reply's scrollback and the pump's stream; the hub dedups the
+		// overlap by seq.
 		snap, ch := ring.Subscribe()
 		scrollback = snap
 		go f.pump(req.ServerKey, ring, l, ch)
@@ -193,7 +192,7 @@ func (f *ConsoleForwarder) pump(key string, ring *console.Ring, l *consoleLease,
 			flush()
 			f.mu.Lock()
 			cur, ok := f.leases[key]
-			if !ok || cur != l { // replaced — a newer pump owns the key
+			if !ok || cur != l { // replaced: a newer pump owns the key
 				f.mu.Unlock()
 				return
 			}
@@ -221,7 +220,7 @@ func NewConsoleClient(nc *nats.Conn) (*ConsoleClient, error) {
 	return &ConsoleClient{nc: nc}, nil
 }
 
-// Watch issues (or renews) a lease and returns scrollback + tap state.
+// Watch issues or renews a lease and returns scrollback and tap state.
 func (c *ConsoleClient) Watch(ctx context.Context, source string, req ConsoleWatchRequest) (*ConsoleWatchReply, error) {
 	body, err := json.Marshal(req)
 	if err != nil {

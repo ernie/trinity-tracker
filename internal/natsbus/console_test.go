@@ -81,7 +81,7 @@ func TestConsoleWatchLeaseAndLines(t *testing.T) {
 	hubNC.Flush()
 
 	reply, err := client.Watch(context.Background(), "src", natsbus.ConsoleWatchRequest{
-		ServerKey: "ffa", Username: "ernie", Role: natsbus.RconRoleOwner, TTLMs: 500,
+		ServerKey: "ffa", Username: "alice", Role: natsbus.RconRoleOwner, TTLMs: 500,
 	})
 	if err != nil {
 		t.Fatalf("Watch: %v", err)
@@ -121,7 +121,7 @@ func TestConsoleWatchLeaseAndLines(t *testing.T) {
 
 	// Re-watch: a fresh pump resumes, with the line in scrollback.
 	reply, err = client.Watch(context.Background(), "src", natsbus.ConsoleWatchRequest{
-		ServerKey: "ffa", Username: "ernie", Role: natsbus.RconRoleOwner, TTLMs: 500,
+		ServerKey: "ffa", Username: "alice", Role: natsbus.RconRoleOwner, TTLMs: 500,
 	})
 	if err != nil {
 		t.Fatalf("re-watch: %v", err)

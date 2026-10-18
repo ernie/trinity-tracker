@@ -4,10 +4,6 @@ import {
   PLATFORM_ORDER,
 } from "./PlatformContext";
 
-// Persistent rail-mounted indicator + flipper. Shows the current
-// platform and lets the user change it without hunting for an inline
-// PlatformTabs. Mirrors the same context — flipping here syncs all
-// inline tabs on the page.
 export function PlatformBadge() {
   const { platform, setPlatform } = usePlatform();
 
