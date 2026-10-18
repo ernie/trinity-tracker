@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -511,5 +510,3 @@ func (r *Router) handleLevelshot(w http.ResponseWriter, req *http.Request) {
 		strings.TrimRight(base, "/")+"/assets/levelshots/"+mapName+".jpg",
 		http.StatusFound)
 }
-
-var _ fs.FS

@@ -15,8 +15,6 @@ set -euo pipefail
 # nginx layout by distro:
 #   - Debian/Ubuntu: sites-available/sites-enabled, python3-certbot-nginx
 #   - Arch: conf.d/, certbot-nginx
-#   - Fedora/RHEL: conf.d/, python3-certbot-nginx; the stock :80
-#     default_server is demoted so our server_name matches
 #
 # Collector mode is covered in section 6 of docs/collector-setup.md.
 
@@ -28,7 +26,6 @@ Usage:
       --hostname=<host> \
       --site-file=<path> \
       [--email=<addr>] \
-      [--quake3-dir=<path>] \
       [--static-dir=<path>] \
       [--skip-cert]
 
@@ -41,8 +38,6 @@ Required:
                          Required unless --skip-cert.
 
 Optional:
-  --quake3-dir=<path>    Unused: the path is already in --site-file.
-                         Default /usr/lib/quake3.
   --static-dir=<path>    In collector mode, the demos/, assets/levelshots/
                          and demopk3s/ directories are created here,
                          owned by quake, so trinity demobake and
@@ -62,7 +57,6 @@ MODE=""
 PUBLIC_HOST=""
 ADMIN_EMAIL=""
 SITE_FILE=""
-QUAKE3_DIR="/usr/lib/quake3"
 STATIC_DIR="/var/lib/trinity/web"
 SKIP_CERT=0
 SKIP_FIREWALL=0
@@ -73,7 +67,6 @@ while [[ $# -gt 0 ]]; do
         --hostname=*)    PUBLIC_HOST="${1#*=}" ;;
         --email=*)       ADMIN_EMAIL="${1#*=}" ;;
         --site-file=*)   SITE_FILE="${1#*=}" ;;
-        --quake3-dir=*)  QUAKE3_DIR="${1#*=}" ;;
         --static-dir=*)  STATIC_DIR="${1#*=}" ;;
         --skip-cert)     SKIP_CERT=1 ;;
         --skip-firewall) SKIP_FIREWALL=1 ;;
@@ -124,7 +117,6 @@ EOF
         --mode="$MODE" \
         --hostname="$PUBLIC_HOST" \
         --site-file="$SITE_FILE" \
-        --quake3-dir="$QUAKE3_DIR" \
         --static-dir="$STATIC_DIR" \
         ${ADMIN_EMAIL:+--email="$ADMIN_EMAIL"} \
         $( (( SKIP_CERT     )) && echo --skip-cert ) \
@@ -139,10 +131,8 @@ if command -v apt-get >/dev/null 2>&1; then
     DEBIAN_FRONTEND=noninteractive apt-get install -y nginx certbot python3-certbot-nginx acl
 elif command -v pacman >/dev/null 2>&1; then
     pacman -Sy --noconfirm nginx certbot certbot-nginx acl
-elif command -v dnf >/dev/null 2>&1; then
-    dnf install -y nginx certbot python3-certbot-nginx acl
 else
-    echo "ERROR: no supported package manager (apt/pacman/dnf) found." >&2
+    echo "ERROR: no supported package manager (apt or pacman) found." >&2
     exit 1
 fi
 
@@ -266,12 +256,6 @@ if [[ "$LAYOUT" == "debian" ]]; then
     fi
 fi
 
-# Fedora and RHEL's nginx.conf has its own :80 default_server.
-if [[ -f /etc/nginx/nginx.conf ]] && grep -qE '^\s*listen\s+(\[::\]:)?80\s+default_server' /etc/nginx/nginx.conf; then
-    echo "==> demoting /etc/nginx/nginx.conf's :80 default_server"
-    sed -i -E 's/^(\s*listen\s+(\[::\]:)?80)\s+default_server/\1/' /etc/nginx/nginx.conf
-fi
-
 # nginx serves a renewed certificate only after a reload.
 echo "==> installing certbot deploy hook to reload nginx on renewal"
 install -d /etc/letsencrypt/renewal-hooks/deploy
@@ -284,7 +268,7 @@ chmod 0755 /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh
 echo "==> nginx -t"
 nginx -t
 
-# Fedora, RHEL and Arch install nginx disabled.
+# Arch installs nginx disabled.
 echo "==> ensuring nginx is running"
 systemctl enable --now nginx
 

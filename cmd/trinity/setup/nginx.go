@@ -68,7 +68,7 @@ const (
 
 // InstallNginx writes the embedded bootstrap-nginx.sh to a tempfile
 // and runs it under bash with the wizard-collected fields. The script
-// handles package installation (nginx + certbot via apt/dnf/pacman),
+// handles package installation (nginx + certbot via apt or pacman),
 // site config, firewall ports (ufw/firewalld), and (unless skipCert)
 // the certbot --nginx run that gets the TLS cert.
 //
@@ -128,7 +128,6 @@ func InstallNginx(plan *Plan, mode NginxMode, publicURL, adminEmail, staticDir, 
 		scriptPath,
 		"--mode=" + string(mode),
 		"--hostname=" + publicHost,
-		"--quake3-dir=" + quake3Dir,
 		"--static-dir=" + staticDir,
 		"--site-file=" + siteFile,
 	}

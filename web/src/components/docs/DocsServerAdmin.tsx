@@ -58,13 +58,12 @@ export function DocsServerAdmin() {
             rotate credentials or leave the network anytime.
           </li>
           <li>
-            <strong>Run the installer.</strong> On a Linux host (Debian and
-            Ubuntu are the main targets), put your downloaded{" "}
-            <code>.creds</code> file in a working directory, with your retail
-            Quake III Arena <code>pak0.pk3</code> renamed{" "}
-            <code>q3-pak0.pk3</code> and, for Team Arena game types, the Team
-            Arena <code>pak0.pk3</code> renamed <code>mp-pak0.pk3</code>. Then
-            run this from inside it:
+            <strong>Run the installer.</strong> On a Debian, Ubuntu or Arch
+            Linux host, put your downloaded <code>.creds</code> file in a
+            working directory, with your retail Quake III Arena{" "}
+            <code>pak0.pk3</code> renamed <code>q3-pak0.pk3</code> and, for Team
+            Arena game types, the Team Arena <code>pak0.pk3</code> renamed{" "}
+            <code>mp-pak0.pk3</code>. Then run this from inside it:
             <CopyableCommand>
               {
                 "curl -fsSL https://raw.githubusercontent.com/ernie/trinity-tracker/main/scripts/install.sh | sudo bash"

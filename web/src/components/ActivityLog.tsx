@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import type { ActivityItem, Player, ServerStatus } from "../types";
 import { BotBadge } from "./BotBadge";
 import { ColoredText } from "./ColoredText";
@@ -40,13 +40,6 @@ export function ActivityLog({
   const [filters, setFilters] = useState<ActivityFilterState>(() =>
     loadActivityFilters(),
   );
-
-  // Nothing reads these keys; clear them from browsers that saved them.
-  useEffect(() => {
-    localStorage.removeItem("q3a_activity_server_filter");
-    localStorage.removeItem("q3a_activity_source_filter");
-    localStorage.removeItem("q3a_activity_include_bots");
-  }, []);
 
   const humanPlayersWithServer = useMemo(() => {
     const players: Array<{ player: Player; serverName: string }> = [];

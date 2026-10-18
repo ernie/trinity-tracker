@@ -1700,183 +1700,6 @@ h2 {
   margin-bottom: 15px;
 }
 
-/* Player list in match card */
-.match-player-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.match-player-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 4px 0;
-  font-size: 0.9rem;
-  box-shadow: inset 0 -1px 0 #222;
-}
-
-.match-player-row:last-child {
-  box-shadow: none;
-}
-
-.match-player-row.team-red {
-  border-left: 3px solid #ff4444;
-  padding-left: 8px;
-}
-
-.match-player-row.team-blue {
-  /* Lighter than --blue so the 3px border reads as a team band on dark
-     cards. */
-  border-left: 3px solid #9eb5d4;
-  padding-left: 8px;
-}
-
-.match-player-row.team-spec {
-  border-left: 3px solid #888888;
-  padding-left: 8px;
-}
-
-.match-player-row.spectator {
-  opacity: 0.6;
-}
-
-.completion-dot.spectator {
-  background: #9c27b0;
-}
-
-.spectator-label {
-  font-style: italic;
-  opacity: 0.7;
-  font-size: 0.85em;
-}
-
-.match-player-row .player-name {
-  font-weight: bold;
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.match-player-row .completion-dot {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  min-width: 6px;
-  border-radius: 50%;
-  margin-right: 4px;
-  vertical-align: middle;
-  flex-shrink: 0;
-}
-
-.match-player-row .completion-dot.completed {
-  background: var(--green);
-}
-
-.match-player-row .completion-dot.left-early {
-  background: var(--text-dim);
-  opacity: 0.5;
-}
-
-.match-player-row .player-stats {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
-  margin-left: 8px;
-}
-
-.match-player-row .kd {
-  color: var(--text-dim);
-}
-
-.match-player-row .kd .frags {
-  color: var(--green);
-}
-
-.match-player-row .kd .sep {
-  opacity: 0.5;
-  margin: 0 1px;
-}
-
-.match-player-row .kd .deaths {
-  color: var(--red);
-}
-
-.match-player-row .score {
-  min-width: 24px;
-  text-align: right;
-  color: var(--blue);
-  font-weight: bold;
-}
-
-.match-player-row.clickable {
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.match-player-row.clickable:hover {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.match-player-row.highlighted {
-  background: rgba(255, 204, 0, 0.15);
-}
-
-.match-player-row.highlighted.clickable:hover {
-  background: rgba(255, 204, 0, 0.25);
-}
-
-/* Award badge overflow handling */
-.match-player-row .player-name {
-  flex: 1;
-  min-width: 0;
-  flex-wrap: nowrap;
-  overflow: hidden;
-  position: relative;
-  white-space: nowrap;
-}
-
-.match-player-row:hover .player-name {
-  z-index: 10;
-  overflow: visible;
-}
-
-.match-player-row .awards-container {
-  display: inline-flex;
-  align-items: center;
-  overflow: hidden;
-  flex-shrink: 1;
-  min-width: 0;
-  position: relative;
-}
-
-.match-player-row .awards-container.overflowing {
-  mask-image: linear-gradient(to right, black 85%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
-}
-
-.match-player-row:hover .awards-container.overflowing {
-  overflow: visible;
-  mask-image: none;
-  -webkit-mask-image: none;
-}
-
-.match-player-row:hover .awards-container.overflowing::before {
-  content: "";
-  position: absolute;
-  top: -2px;
-  left: -1px;
-  bottom: -2px;
-  width: calc(var(--scroll-width, 100%) + 2px);
-  background: var(--bg-card);
-  border-radius: var(--radius-sm);
-  z-index: -1;
-}
-
 .load-more-container {
   display: flex;
   justify-content: center;
@@ -2721,11 +2544,6 @@ h2 {
   font-family: "Barlow", sans-serif;
 }
 
-.username {
-  color: var(--green);
-  font-size: 0.9rem;
-}
-
 .admin-btn,
 .change-pwd-btn {
   background: transparent;
@@ -3506,12 +3324,6 @@ h2 {
 .admin-pending-inline-form input:focus {
   outline: none;
   border-color: var(--accent-dim);
-}
-
-.admin-nav-badge {
-  color: var(--accent);
-  font-size: 0.85em;
-  margin-left: var(--space-1);
 }
 
 /* Modal */
@@ -6994,12 +6806,6 @@ h2 {
 
 /* ── Match card header ────────────────────────────────────────────── */
 
-.match-header-right {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
 .demo-download-btn {
   display: flex;
   align-items: center;
@@ -10450,11 +10256,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
     transform: scale(0.9);
   }
 }
-.landing-hero__pulse-line2 {
-  font-size: 11px;
-  letter-spacing: 0.25em;
-  color: var(--text-dim);
-}
 .landing-hero__cta-row {
   display: flex;
   align-items: center;
@@ -11570,18 +11371,6 @@ h2.docs-h2:focus-within .docs-h2__anchor {
 .duelist-awards .medal-icon-sm img {
   width: 18px;
   height: 18px;
-}
-.medal-excellent {
-  color: #facc15;
-}
-.medal-impressive {
-  color: rgba(255, 248, 240, 0.7);
-}
-.medal-humiliation {
-  color: var(--red);
-}
-.medal-gauntlet {
-  color: var(--ember-strong);
 }
 
 /* A wider VS track keeps the ember rules clear of the score digits. */

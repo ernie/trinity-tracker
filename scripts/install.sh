@@ -249,9 +249,7 @@ elif command -v pacman >/dev/null 2>&1; then
     pacman -Sy --noconfirm "${pkgs[@]}"
 else
     echo "ERROR: no supported package manager (apt or pacman) found." >&2
-    echo "       Trinity supports Debian, Ubuntu and Arch. To try another" >&2
-    echo "       platform, install these yourself and run this again from" >&2
-    echo "       a checkout: ${pkgs[*]}" >&2
+    echo "       Trinity supports Debian, Ubuntu and Arch." >&2
     exit 1
 fi
 

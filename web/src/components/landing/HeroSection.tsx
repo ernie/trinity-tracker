@@ -2,7 +2,7 @@ import type React from "react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useLiveData } from "../../contexts/LiveDataContext";
-import { plural, formatFragTime } from "./format";
+import { plural } from "./format";
 import { HeroHeader } from "./HeroHeader";
 import { ArrowIcon } from "../ArrowIcon";
 import { InstallerDownloadLink } from "../InstallerDownloadLink";
@@ -35,18 +35,6 @@ export function HeroSection() {
       </span>
     );
   }
-
-  // Pulse line 2: matches today and frag time. Stubbed until LiveDataContext
-  // carries the values; it renders empty while `matchesToday` is 0.
-  // TODO(landing-page): wire matchesToday + fragSecondsToday from a derived hook
-  //   or add the fields to LiveDataContext (compute from recentMatches today UTC,
-  //   filtered to has_human_player && demo_available).
-  const matchesToday = 0;
-  const fragTime = formatFragTime(0);
-  const pulse2 =
-    matchesToday > 0
-      ? `${matchesToday} matches recorded today${fragTime ? ` · ${fragTime}` : ""}`
-      : "";
 
   return (
     <section className="landing-hero">
@@ -93,7 +81,6 @@ export function HeroSection() {
 
         <div className="landing-hero__pulse" aria-live="polite">
           <div className="landing-hero__pulse-line">{pulse}</div>
-          {pulse2 && <div className="landing-hero__pulse-line2">{pulse2}</div>}
         </div>
 
         <div className="landing-hero__cta-row">

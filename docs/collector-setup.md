@@ -18,12 +18,8 @@ The stack:
 
 ## Prerequisites
 
-- **A Linux host.** Debian and Ubuntu are the main targets. The
-  installer looks for `apt` or `pacman` and stops if it finds neither.
-  Fedora and RHEL aren't supported: nothing installs the packages
-  there, and SELinux is untested. If you know those platforms, you can
-  install the base packages by hand and run from a checkout, but the
-  curl|bash path won't get you there.
+- **A Linux host** running Debian, Ubuntu or Arch Linux. The installer
+  looks for `apt` or `pacman` and stops if it finds neither.
 - **A retail `pak0.pk3`** for baseq3, and a second one for missionpack
   if you want the Team Arena game types (One Flag CTF, Overload,
   Harvester). The Trinity engine release includes the engine and the
