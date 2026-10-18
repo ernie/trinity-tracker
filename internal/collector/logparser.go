@@ -422,6 +422,7 @@ func (t *LogTailer) ReplayFromTimestamp(after time.Time, handler func(LogEvent, 
 		if err != nil {
 			return fmt.Errorf("reading line: %w", err)
 		}
+		t.position += int64(len(line))
 
 		line = strings.TrimSpace(line)
 		if line == "" {
@@ -434,9 +435,6 @@ func (t *LogTailer) ReplayFromTimestamp(after time.Time, handler func(LogEvent, 
 			handler(*event, replayMode)
 		}
 	}
-
-	pos, _ := t.file.Seek(0, io.SeekCurrent)
-	t.position = pos
 	return nil
 }
 
@@ -485,15 +483,20 @@ func (t *LogTailer) readNewContent() error {
 		return nil
 	}
 
+	if _, err := t.file.Seek(t.position, io.SeekStart); err != nil {
+		return fmt.Errorf("seeking to position: %w", err)
+	}
 	reader := bufio.NewReader(t.file)
 	for {
 		line, err := reader.ReadString('\n')
 		if err == io.EOF {
+			// The game may be mid-write; a partial line is read again once its newline lands.
 			break
 		}
 		if err != nil {
 			return fmt.Errorf("reading line: %w", err)
 		}
+		t.position += int64(len(line))
 
 		line = strings.TrimSpace(line)
 		if line == "" {
@@ -509,9 +512,6 @@ func (t *LogTailer) readNewContent() error {
 			}
 		}
 	}
-
-	pos, _ := t.file.Seek(0, io.SeekCurrent)
-	t.position = pos
 
 	return nil
 }
