@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { MatchCard } from "./MatchCard";
 import { Breadcrumbs } from "./Breadcrumbs";
 import { useAuth } from "../hooks/useAuth";
@@ -11,6 +11,10 @@ import type { MatchSummary } from "../types";
 
 export function MatchDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  const playerParam = Number(searchParams.get("player"));
+  const highlightPlayerId =
+    Number.isInteger(playerParam) && playerParam > 0 ? playerParam : undefined;
   const { showPlayer } = useLiveData();
   const { auth } = useAuth();
   const [match, setMatch] = useState<MatchSummary | null>(null);
@@ -119,7 +123,11 @@ export function MatchDetailPage() {
               </div>
             )}
             <div className="match-detail-card-container">
-              <MatchCard match={match} onPlayerClick={showPlayer} />
+              <MatchCard
+                match={match}
+                onPlayerClick={showPlayer}
+                highlightPlayerId={highlightPlayerId}
+              />
             </div>
           </>
         ) : null}

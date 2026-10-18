@@ -310,7 +310,11 @@ export function MatchCard({
         )}
         {match.ended_at && (
           <Link
-            to={`/matches/${match.id}`}
+            to={
+              highlightPlayerId !== undefined
+                ? `/matches/${match.id}?player=${highlightPlayerId}`
+                : `/matches/${match.id}`
+            }
             className="card__time"
             title={`Ended ${new Date(match.ended_at).toLocaleString()}. Click for match details.`}
           >
