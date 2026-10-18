@@ -47,6 +47,7 @@ interface PlayerRowsProps {
     cleanName: string,
     playerId?: number,
   ) => void;
+  highlightPlayerId?: number;
 }
 
 // The team-dot help lists every color, so it reads the same on any card.
@@ -58,7 +59,12 @@ export const SCORE_HELP = `Score for this match.
 FFA, Tournament and TDM count frags. CTF, One Flag CTF, Overload and Harvester add points for captures, defends, returns and other objectives on top of frags.`;
 export const PING_HELP = `Round-trip time to the server, in milliseconds. Bots always show 0.`;
 
-export function PlayerRows({ players, mode, onPlayerClick }: PlayerRowsProps) {
+export function PlayerRows({
+  players,
+  mode,
+  onPlayerClick,
+  highlightPlayerId,
+}: PlayerRowsProps) {
   return (
     <div className="player-rows">
       <div className={`player-row header ${mode}`}>
@@ -74,13 +80,15 @@ export function PlayerRows({ players, mode, onPlayerClick }: PlayerRowsProps) {
       </div>
       {players.map((p, i) => {
         const clickable = !!onPlayerClick && !p.isBot;
+        const highlighted =
+          highlightPlayerId !== undefined && p.playerId === highlightPlayerId;
         const handleClick = clickable
           ? () => onPlayerClick!(p.name, p.cleanName ?? p.name, p.playerId)
           : undefined;
         return (
           <div
             key={i}
-            className={`player-row ${mode} ${clickable ? "clickable" : ""}`}
+            className={`player-row ${mode} ${clickable ? "clickable" : ""} ${highlighted ? "highlighted" : ""}`}
             onClick={handleClick}
             role={clickable ? "button" : undefined}
             tabIndex={clickable ? 0 : undefined}

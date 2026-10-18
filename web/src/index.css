@@ -7000,28 +7000,6 @@ h2 {
   gap: 10px;
 }
 
-.permalink-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: var(--radius-sm);
-  color: var(--text-dim);
-  text-decoration: none;
-  font-weight: bold;
-  font-size: 0.9rem;
-  transition:
-    background 0.2s,
-    color 0.2s;
-}
-
-.permalink-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-  color: var(--text);
-}
-
 .demo-download-btn {
   display: flex;
   align-items: center;
@@ -12092,6 +12070,18 @@ h2.docs-h2:focus-within .docs-h2__anchor {
 .duelist.clickable:focus-visible .duelist__portrait-wrap {
   border-color: var(--ember-strong);
   box-shadow: 0 0 12px rgba(255, 110, 60, 0.35);
+}
+.player-row.highlighted {
+  background: rgba(255, 204, 0, 0.15);
+}
+.duelist.highlighted .duelist__name {
+  background: rgba(255, 204, 0, 0.15);
+  border-radius: var(--radius-sm);
+  padding: 0 6px;
+}
+.player-row.highlighted.clickable:hover,
+.player-row.highlighted.clickable:focus-visible {
+  background: rgba(255, 204, 0, 0.25);
 }
 .player-row .stat {
   font-variant-numeric: tabular-nums;

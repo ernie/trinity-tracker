@@ -306,7 +306,6 @@ export function MatchesPage() {
                   key={match.id}
                   match={match}
                   onPlayerClick={showPlayer}
-                  showPermalink
                 />
               ))}
             </div>

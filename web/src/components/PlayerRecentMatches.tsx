@@ -99,7 +99,6 @@ export function PlayerRecentMatches({
             match={match}
             onPlayerClick={onPlayerClick}
             highlightPlayerId={playerId}
-            showPermalink
           />
         ))}
       </div>

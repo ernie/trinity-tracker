@@ -38,6 +38,7 @@ interface DuelistsProps {
     cleanName: string,
     playerId?: number,
   ) => void;
+  highlightPlayerId?: number;
 }
 
 function DuelistAwards({
@@ -71,9 +72,16 @@ interface DuelistProps {
   side: "left" | "right";
   winnerSide: "left" | "right" | null;
   onClick?: (playerName: string, cleanName: string, playerId?: number) => void;
+  highlighted: boolean;
 }
 
-function Duelist({ data, side, winnerSide, onClick }: DuelistProps) {
+function Duelist({
+  data,
+  side,
+  winnerSide,
+  onClick,
+  highlighted,
+}: DuelistProps) {
   const isWinner = winnerSide === side;
   const isLoser = winnerSide !== null && winnerSide !== side;
   const clickable = !!onClick && !data.isBot;
@@ -83,7 +91,7 @@ function Duelist({ data, side, winnerSide, onClick }: DuelistProps) {
 
   return (
     <div
-      className={`duelist ${clickable ? "clickable" : ""}`}
+      className={`duelist ${clickable ? "clickable" : ""} ${highlighted ? "highlighted" : ""}`}
       onClick={handleClick}
       role={clickable ? "button" : undefined}
       tabIndex={clickable ? 0 : undefined}
@@ -132,6 +140,7 @@ export function Duelists({
   state,
   live,
   onPlayerClick,
+  highlightPlayerId,
 }: DuelistsProps) {
   const winnerSide =
     !live && state === "left"
@@ -158,6 +167,10 @@ export function Duelists({
           side="left"
           winnerSide={winnerSide}
           onClick={onPlayerClick}
+          highlighted={
+            highlightPlayerId !== undefined &&
+            left.playerId === highlightPlayerId
+          }
         />
         <span className="scoreboard__vs">vs</span>
         <Duelist
@@ -165,6 +178,10 @@ export function Duelists({
           side="right"
           winnerSide={winnerSide}
           onClick={onPlayerClick}
+          highlighted={
+            highlightPlayerId !== undefined &&
+            right.playerId === highlightPlayerId
+          }
         />
       </div>
     </>

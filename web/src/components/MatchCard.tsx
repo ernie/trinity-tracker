@@ -141,13 +141,13 @@ interface MatchCardProps {
   /** Called after the feature toggle succeeds on the server. */
   onFeatureChange?: (matchId: number, isFeatured: boolean) => void;
   highlightPlayerId?: number;
-  showPermalink?: boolean;
 }
 
 export function MatchCard({
   match,
   onPlayerClick,
   onFeatureChange,
+  highlightPlayerId,
 }: MatchCardProps) {
   const { hasMultiple: hasMultipleSources } = useSources();
   const meta = useMapMeta(match.map_name);
@@ -340,6 +340,7 @@ export function MatchCard({
             activeTeams[1]?.score ?? 0,
           )}
           onPlayerClick={onPlayerClick}
+          highlightPlayerId={highlightPlayerId}
         />
       ) : (
         <>
@@ -363,6 +364,7 @@ export function MatchCard({
             players={rowData}
             mode="finished"
             onPlayerClick={onPlayerClick}
+            highlightPlayerId={highlightPlayerId}
           />
         </>
       )}
