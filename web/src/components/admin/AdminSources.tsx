@@ -240,7 +240,12 @@ export function AdminSources() {
       if (!res.ok) {
         throw new Error(`${res.status} ${res.statusText}`);
       }
-      setNotice(`Deactivated ${source.source}.`);
+      if (res.status === 200) {
+        const data = await res.json();
+        setError(data.warning);
+      } else {
+        setNotice(`Deactivated ${source.source}.`);
+      }
       await fetchAll();
     } catch (err) {
       setError(

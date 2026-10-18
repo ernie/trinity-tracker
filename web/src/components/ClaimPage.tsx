@@ -227,7 +227,7 @@ export function ClaimPage() {
         return;
       }
 
-      setSuccessMessage("Player linked to your account.");
+      setSuccessMessage(data.message);
       setStep("success");
     } catch {
       setError("Couldn't reach the server.");
@@ -253,7 +253,7 @@ export function ClaimPage() {
         return;
       }
 
-      setSuccessMessage("Player linked to your account.");
+      setSuccessMessage(data.message);
       setStep("success");
     } catch {
       setError("Couldn't reach the server.");

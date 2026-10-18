@@ -46,7 +46,7 @@ export function AccountPage() {
   const [claimCode, setClaimCode] = useState("");
   const [claimLoading, setClaimLoading] = useState(false);
   const [claimError, setClaimError] = useState("");
-  const [claimSuccess, setClaimSuccess] = useState(false);
+  const [claimSuccess, setClaimSuccess] = useState("");
 
   const [gameToken, setGameToken] = useState<string | null>(null);
   const [gameTokenLoading, setGameTokenLoading] = useState(false);
@@ -68,7 +68,7 @@ export function AccountPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
-  const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [passwordSuccess, setPasswordSuccess] = useState("");
 
   const displayNameValidation = useDisplayNameValidation(
     displayNameValue,
@@ -223,7 +223,7 @@ export function AccountPage() {
     if (claimCode.length !== 6) return;
     setClaimLoading(true);
     setClaimError("");
-    setClaimSuccess(false);
+    setClaimSuccess("");
 
     try {
       const validateRes = await fetch("/api/claim/validate", {
@@ -247,7 +247,7 @@ export function AccountPage() {
         setClaimError(data.error || "Couldn't link this player.");
         return;
       }
-      setClaimSuccess(true);
+      setClaimSuccess(`${data.message} Refresh the page to see it.`);
       setClaimCode("");
     } catch {
       setClaimError("Couldn't reach the server.");
@@ -290,7 +290,7 @@ export function AccountPage() {
   const handlePasswordSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setPasswordError("");
-    setPasswordSuccess(false);
+    setPasswordSuccess("");
 
     if (newPassword.length < 8) {
       setPasswordError("Password must be at least 8 characters.");
@@ -309,7 +309,7 @@ export function AccountPage() {
     if (!result.success) {
       setPasswordError(result.error || "Couldn't change your password.");
     } else {
-      setPasswordSuccess(true);
+      setPasswordSuccess(result.message ?? "");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
@@ -499,7 +499,7 @@ export function AccountPage() {
             <section className="account-section account-password">
               <h2>Security</h2>
               {passwordSuccess && (
-                <div className="success-message">Password changed.</div>
+                <div className="success-message">{passwordSuccess}</div>
               )}
               {showPasswordForm ? (
                 <form onSubmit={handlePasswordSubmit} className="password-form">
@@ -673,7 +673,7 @@ export function AccountPage() {
                       const val = e.target.value.replace(/\D/g, "").slice(0, 6);
                       setClaimCode(val);
                       setClaimError("");
-                      setClaimSuccess(false);
+                      setClaimSuccess("");
                     }}
                     placeholder="000000"
                     maxLength={6}
@@ -691,9 +691,7 @@ export function AccountPage() {
                   <div className="error-message">{claimError}</div>
                 )}
                 {claimSuccess && (
-                  <div className="success-message">
-                    Identity linked. Refresh the page to see it.
-                  </div>
+                  <div className="success-message">{claimSuccess}</div>
                 )}
               </div>
 

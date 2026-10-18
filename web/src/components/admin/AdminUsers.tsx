@@ -15,6 +15,7 @@ export function AdminUsers() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [createUsername, setCreateUsername] = useState("");
   const [createPassword, setCreatePassword] = useState("");
@@ -64,6 +65,7 @@ export function AdminUsers() {
   const handleCreateUser = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
+    setNotice("");
 
     if (createPassword.length < 8) {
       setError("Password must be at least 8 characters.");
@@ -83,6 +85,8 @@ export function AdminUsers() {
       });
 
       if (res.ok) {
+        const data = await res.json();
+        setNotice(data.message);
         setShowCreateForm(false);
         setCreateUsername("");
         setCreatePassword("");
@@ -101,6 +105,8 @@ export function AdminUsers() {
 
   const handleDeleteUser = async (username: string) => {
     if (!confirm(`Delete user "${username}"?`)) return;
+    setError("");
+    setNotice("");
 
     try {
       const res = await apiFetch(`/api/users/${username}`, {
@@ -108,6 +114,8 @@ export function AdminUsers() {
       });
 
       if (res.ok) {
+        const data = await res.json();
+        setNotice(data.message);
         fetchUsers();
       } else {
         const data = await res.json();
@@ -119,6 +127,8 @@ export function AdminUsers() {
   };
 
   const handleResetPassword = async (userId: number) => {
+    setError("");
+    setNotice("");
     if (newPassword.length < 8) {
       setError("Password must be at least 8 characters.");
       return;
@@ -132,6 +142,8 @@ export function AdminUsers() {
       });
 
       if (res.ok) {
+        const data = await res.json();
+        setNotice(data.message);
         setResetPasswordUserId(null);
         setNewPassword("");
         fetchUsers();
@@ -235,6 +247,7 @@ export function AdminUsers() {
 
   const handleUpdatePlayerLink = async (userId: number) => {
     setError("");
+    setNotice("");
     try {
       const res = await apiFetch(`/api/users/${userId}`, {
         method: "PATCH",
@@ -243,6 +256,8 @@ export function AdminUsers() {
       });
 
       if (res.ok) {
+        const data = await res.json();
+        setNotice(data.message);
         cancelEditing();
         fetchUsers();
       } else {
@@ -268,6 +283,7 @@ export function AdminUsers() {
       </div>
 
       {error && <div className="error-message">{error}</div>}
+      {notice && <div className="notice-message">{notice}</div>}
 
       <details
         open={showCreateForm}

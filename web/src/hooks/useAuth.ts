@@ -20,7 +20,7 @@ interface AuthContextType {
   changePassword: (
     currentPassword: string,
     newPassword: string,
-  ) => Promise<{ success: boolean; error?: string }>;
+  ) => Promise<{ success: boolean; error?: string; message?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -138,7 +138,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     async (
       currentPassword: string,
       newPassword: string,
-    ): Promise<{ success: boolean; error?: string }> => {
+    ): Promise<{ success: boolean; error?: string; message?: string }> => {
       try {
         const res = await fetch("/api/auth/change-password", {
           method: "POST",
@@ -159,7 +159,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
         // The server reissued this device's cookie; other devices are logged out.
         setAuth((prev) => ({ ...prev, passwordChangeRequired: false }));
-        return { success: true };
+        return { success: true, message: data.message };
       } catch {
         return { success: false, error: "Couldn't reach the server." };
       }
