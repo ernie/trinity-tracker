@@ -79,6 +79,30 @@ export function AdminSources() {
     return () => clearInterval(id);
   }, [fetchAll, fetchPending]);
 
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch("/api/account/profile")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((profile) => {
+        if (cancelled || !profile?.user) return;
+        setSelectedOwner(
+          (prev) =>
+            prev ?? {
+              id: profile.user.id,
+              username: profile.user.username,
+              is_admin: profile.user.is_admin,
+              player_name: profile.player?.name ?? null,
+            },
+        );
+      })
+      .catch(() => {
+        /* the picker starts empty */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const approveRequest = async (req: PendingRequest) => {
     setError("");
     setNotice("");
@@ -380,7 +404,8 @@ export function AdminSources() {
         <p className="admin-help">
           Pick a short name. It scopes the source&rsquo;s NATS subjects, and the
           remote operator sets it as <code>tracker.collector.source_id</code>.
-          Every remote source has an owner, who sees it under My servers.
+          Every remote source has an owner, who sees it under My servers. The
+          owner defaults to you; pick another user to create it for them.
         </p>
         <form className="admin-sources-form" onSubmit={createSource}>
           <div className="form-group">
