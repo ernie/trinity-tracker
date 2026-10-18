@@ -181,12 +181,12 @@ function ServersSection({
         const hiddenCount = sourceServers.filter((s) =>
           hidden.includes(s.id),
         ).length;
-        const sourceVisible = hiddenCount < sourceServers.length;
+        const allVisible = hiddenCount === 0;
         const indeterminate =
           hiddenCount > 0 && hiddenCount < sourceServers.length;
 
         const toggleSource = () => {
-          if (sourceVisible) {
+          if (allVisible) {
             const next = new Set(hidden);
             sourceServers.forEach((s) => next.add(s.id));
             onChange(Array.from(next));
@@ -213,7 +213,7 @@ function ServersSection({
                 }}
               >
                 <Switch
-                  checked={sourceVisible}
+                  checked={allVisible}
                   indeterminate={indeterminate}
                   onChange={toggleSource}
                   label={source}
@@ -503,20 +503,4 @@ function Switch({ checked, indeterminate, onChange, label }: SwitchProps) {
       <span className="switch__label">{label}</span>
     </label>
   );
-}
-
-export function adminSessionsFiltersActive(
-  s: AdminSessionsFilterState,
-): boolean {
-  return (
-    s.hiddenServers.length > 0 ||
-    s.playerId !== null ||
-    s.datePreset !== "" ||
-    s.customSince !== "" ||
-    s.customUntil !== ""
-  );
-}
-
-export function useStableServers(servers: Server[]): Server[] {
-  return useMemo(() => servers.slice().sort((a, b) => a.id - b.id), [servers]);
 }
