@@ -316,9 +316,11 @@ export function DocsCustomize() {
             <strong>Setup → Display → HDR Calibration</strong>: raise{" "}
             <strong>Peak</strong> until the inner rectangle's edge just vanishes
             into the outer one — that is the brightness your display actually
-            reaches. Set <strong>Highlight</strong> to taste.{" "}
-            <code>r_hdrActive</code> reads <code>1</code> once HDR is genuinely
-            live.
+            reaches. On a Mac there's no calibration screen, because macOS
+            supplies the peak itself.{" "}
+            <strong>Setup → Display → Highlight Boost</strong> sets how bright
+            the brightest highlights get. <code>r_hdrActive</code> reads{" "}
+            <code>1</code> once HDR is genuinely live.
           </p>
           <p>
             <strong>SDR Gamma</strong>, right under HDR Display, sets how the

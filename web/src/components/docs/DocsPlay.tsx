@@ -1728,7 +1728,8 @@ bind e "voiptarget"        // cycle channel: spatial → team → all`}</Copyabl
             of standard dynamic range. It's a native Vulkan feature, off by
             default. Turn it on under{" "}
             <strong>Setup → Display → HDR Display</strong>, then calibrate it
-            under <strong>Setup → Display → HDR Calibration</strong>; the{" "}
+            under <strong>Setup → Display → HDR Calibration</strong> (macOS
+            supplies the peak itself, so a Mac skips this step); the{" "}
             <Link to="/docs/customize#display-output">Customize guide</Link>{" "}
             walks through it.
           </p>
