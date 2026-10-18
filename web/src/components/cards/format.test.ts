@@ -2,12 +2,18 @@ import { describe, expect, test } from "bun:test";
 import { formatExitReason, classifyScores } from "./format";
 
 describe("formatExitReason", () => {
-  test("maps known reasons to prose", () => {
-    expect(formatExitReason("score_limit")).toBe("Score limit reached");
-    expect(formatExitReason("time_limit")).toBe("Time limit");
-    expect(formatExitReason("overtime")).toBe("Decided in OT");
-    expect(formatExitReason("forfeit")).toBe("Forfeit");
-    expect(formatExitReason("intermission")).toBe("Match ended");
+  test("maps the game's and collector's reasons to prose", () => {
+    expect(formatExitReason("Fraglimit hit.")).toBe("Frag limit");
+    expect(formatExitReason("Capturelimit hit.")).toBe("Capture limit");
+    expect(formatExitReason("Timelimit hit.")).toBe("Time limit");
+    expect(formatExitReason("Overtime timelimit hit.")).toBe(
+      "Overtime time limit",
+    );
+    expect(formatExitReason("Server shutdown.")).toBe("Server shut down");
+    expect(formatExitReason("shutdown")).toBe("Server shut down");
+    expect(formatExitReason("crashed")).toBe("Server crashed");
+    expect(formatExitReason("Rotation.")).toBe("Map rotation");
+    expect(formatExitReason("Vote passed.")).toBe("Vote passed");
   });
   test("falls back to titlecased input for unknown reasons", () => {
     expect(formatExitReason("weird_thing")).toBe("Weird thing");

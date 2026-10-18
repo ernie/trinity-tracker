@@ -1,15 +1,16 @@
 export type ScoreState = "left" | "right" | "tie" | "no_contest";
 
+// Keys are the game's LogExit strings plus the collector's own reasons.
 const EXIT_REASONS: Record<string, string> = {
-  score_limit: "Score limit reached",
-  time_limit: "Time limit",
-  overtime: "Decided in OT",
-  sudden_death: "Decided in OT",
-  intermission: "Match ended",
-  forfeit: "Forfeit",
-  tie: "Tie",
-  no_contest: "No contest",
-  client_disconnect: "Client disconnect",
+  "Fraglimit hit.": "Frag limit",
+  "Capturelimit hit.": "Capture limit",
+  "Timelimit hit.": "Time limit",
+  "Overtime timelimit hit.": "Overtime time limit",
+  "Server shutdown.": "Server shut down",
+  shutdown: "Server shut down",
+  crashed: "Server crashed",
+  "Rotation.": "Map rotation",
+  "Vote passed.": "Vote passed",
 };
 
 export function formatExitReason(reason?: string | null): string {
