@@ -73,8 +73,16 @@ func renderDigestEmbed(results map[string]*domain.LeaderboardResponse, categorie
 		"⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀" +
 		"⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀"
 
+	period := ""
+	for _, cat := range categories {
+		if r := results[cat]; r != nil && r.Period != "" {
+			period = r.Period
+			break
+		}
+	}
+
 	embed := discord.Embed{
-		Title: "This week's leaderboard",
+		Title: digestTitle(period),
 		URL:   footerURL,
 		Color: trinityEmbedColor,
 		Footer: &discord.Footer{
@@ -255,6 +263,20 @@ func portraitPath(model string) string {
 		return ""
 	}
 	return fmt.Sprintf("/assets/portraits/%s/icon_%s.png", head, skin)
+}
+
+func digestTitle(p string) string {
+	switch p {
+	case "day":
+		return "Today's leaderboard"
+	case "month":
+		return "This month's leaderboard"
+	case "year":
+		return "This year's leaderboard"
+	case "all":
+		return "All-time leaderboard"
+	}
+	return "This week's leaderboard"
 }
 
 func humanPeriod(p string) string {

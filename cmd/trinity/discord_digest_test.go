@@ -93,6 +93,26 @@ func TestRenderDigestEmbed_FullWeek(t *testing.T) {
 	}
 }
 
+func TestRenderDigestEmbed_TitleFollowsPeriod(t *testing.T) {
+	now := time.Date(2026, 5, 6, 20, 0, 0, 0, time.UTC)
+	cases := map[string]string{
+		"day":   "Today's leaderboard",
+		"week":  "This week's leaderboard",
+		"month": "This month's leaderboard",
+		"year":  "This year's leaderboard",
+		"all":   "All-time leaderboard",
+	}
+	for period, want := range cases {
+		results := map[string]*domain.LeaderboardResponse{
+			"frags": mkLeaderboard(period, mkEntry(1, "alice", 10, 1.0)),
+		}
+		embed := renderDigestEmbed(results, []string{"frags"}, 5, "", "", "", now)
+		if embed.Title != want {
+			t.Errorf("period %q: title %q, want %q", period, embed.Title, want)
+		}
+	}
+}
+
 func TestRenderDigestEmbed_OddCountAddsTwoTrailingSpacers(t *testing.T) {
 	now := time.Date(2026, 5, 6, 20, 0, 0, 0, time.UTC)
 	results := map[string]*domain.LeaderboardResponse{
