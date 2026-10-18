@@ -733,9 +733,44 @@ func (s *Store) GetPlayerNames(ctx context.Context, playerID int64) ([]domain.Pl
 
 // --- Player Merge/Link methods ---
 
+// ErrBothPlayersLinked refuses a merge that would leave one of two accounts without its player.
+var ErrBothPlayersLinked = errors.New("both players are linked to accounts")
+
 // MergePlayers moves all GUIDs from sourcePlayerID to targetPlayerID, then deletes source.
+// An account linked to the source player moves to the target.
 func (s *Store) MergePlayers(ctx context.Context, targetPlayerID, sourcePlayerID int64) error {
-	_, err := s.db.ExecContext(ctx, `
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("starting transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	if err := mergePlayersTx(ctx, tx, targetPlayerID, sourcePlayerID); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func mergePlayersTx(ctx context.Context, tx *sql.Tx, targetPlayerID, sourcePlayerID int64) error {
+	var linked int
+	err := tx.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM users WHERE player_id IN (?, ?)
+	`, targetPlayerID, sourcePlayerID).Scan(&linked)
+	if err != nil {
+		return err
+	}
+	if linked > 1 {
+		return ErrBothPlayersLinked
+	}
+
+	_, err = tx.ExecContext(ctx, `
+		UPDATE users SET player_id = ? WHERE player_id = ?
+	`, targetPlayerID, sourcePlayerID)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.ExecContext(ctx, `
 		UPDATE player_guids SET player_id = ? WHERE player_id = ?
 	`, targetPlayerID, sourcePlayerID)
 	if err != nil {
@@ -743,7 +778,7 @@ func (s *Store) MergePlayers(ctx context.Context, targetPlayerID, sourcePlayerID
 	}
 
 	// The target keeps its name until one of the merged GUIDs plays again.
-	_, err = s.db.ExecContext(ctx, `
+	_, err = tx.ExecContext(ctx, `
 		UPDATE players SET
 			first_seen = (SELECT MIN(first_seen) FROM player_guids WHERE player_id = ?),
 			last_seen = (SELECT MAX(last_seen) FROM player_guids WHERE player_id = ?),
@@ -754,7 +789,7 @@ func (s *Store) MergePlayers(ctx context.Context, targetPlayerID, sourcePlayerID
 		return err
 	}
 
-	_, err = s.db.ExecContext(ctx, `DELETE FROM players WHERE id = ?`, sourcePlayerID)
+	_, err = tx.ExecContext(ctx, `DELETE FROM players WHERE id = ?`, sourcePlayerID)
 	return err
 }
 
@@ -2378,28 +2413,7 @@ func (s *Store) ClaimLink(ctx context.Context, codeID, claimPlayerID, userID int
 
 	if currentPlayerID.Valid && currentPlayerID.Int64 != claimPlayerID {
 		// The user already has a player: merge the claimed one into it.
-		targetPlayerID := currentPlayerID.Int64
-
-		_, err = tx.ExecContext(ctx, `
-			UPDATE player_guids SET player_id = ? WHERE player_id = ?
-		`, targetPlayerID, claimPlayerID)
-		if err != nil {
-			return err
-		}
-
-		_, err = tx.ExecContext(ctx, `
-			UPDATE players SET
-				first_seen = (SELECT MIN(first_seen) FROM player_guids WHERE player_id = ?),
-				last_seen = (SELECT MAX(last_seen) FROM player_guids WHERE player_id = ?),
-				is_vr = EXISTS(SELECT 1 FROM player_guids WHERE player_id = ? AND is_vr = TRUE)
-			WHERE id = ?
-		`, targetPlayerID, targetPlayerID, targetPlayerID, targetPlayerID)
-		if err != nil {
-			return err
-		}
-
-		_, err = tx.ExecContext(ctx, `DELETE FROM players WHERE id = ?`, claimPlayerID)
-		if err != nil {
+		if err := mergePlayersTx(ctx, tx, currentPlayerID.Int64, claimPlayerID); err != nil {
 			return err
 		}
 	} else if !currentPlayerID.Valid {

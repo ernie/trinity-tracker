@@ -2180,6 +2180,8 @@ func (m *ServerManager) handleLinkCommand(ctx context.Context, serverID int64, s
 		m.sendPrint(serverID, clientID, "^3This identity is already linked to your account.")
 	case hub.LinkUnknownGUID:
 		m.sendPrint(serverID, clientID, "^1Couldn't find a player record for this identity.")
+	case hub.LinkOtherAccount:
+		m.sendPrint(serverID, clientID, "^1This identity is linked to another account.")
 	default:
 		log.Printf("link RPC error for GUID %s: %s", client.guid, reply.Message)
 		m.sendPrint(serverID, clientID, "^1Couldn't link this identity. Ask for help in the Trinity Discord.")

@@ -843,6 +843,9 @@ func (w *Writer) Link(ctx context.Context, req LinkRequest) (LinkReply, error) {
 		return LinkReply{Status: LinkInvalidCode, Message: err.Error()}, nil
 	}
 	if err := w.store.MergePlayers(ctx, linkCode.PlayerID, sourcePG.PlayerID); err != nil {
+		if errors.Is(err, storage.ErrBothPlayersLinked) {
+			return LinkReply{Status: LinkOtherAccount}, nil
+		}
 		return LinkReply{Status: LinkError, Message: err.Error()}, nil
 	}
 	w.invalidateAllGUIDs()

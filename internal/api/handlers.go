@@ -3,6 +3,7 @@ package api
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -465,6 +466,10 @@ func (r *Router) handleMergePlayers(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if err := r.store.MergePlayers(req.Context(), targetID, body.MergePlayerID); err != nil {
+		if errors.Is(err, storage.ErrBothPlayersLinked) {
+			writeError(w, http.StatusConflict, "Both players are linked to accounts. Unlink one under Users first.")
+			return
+		}
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}

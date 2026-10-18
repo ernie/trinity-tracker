@@ -107,6 +107,7 @@ const (
 	LinkInvalidCode   LinkStatus = "invalid_code"
 	LinkAlreadyLinked LinkStatus = "already_linked"
 	LinkUnknownGUID   LinkStatus = "unknown_guid"
+	LinkOtherAccount  LinkStatus = "other_account"
 	LinkError         LinkStatus = "error"
 )
 
