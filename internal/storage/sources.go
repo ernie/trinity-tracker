@@ -125,8 +125,8 @@ func (s *Store) DeactivateSource(ctx context.Context, source string) error {
 	return tx.Commit()
 }
 
-// ReactivateSource sets the source active again and reactivates all of
-// its servers. A server the operator removed from
+// ReactivateSource sets the source active again, status included, and
+// reactivates all of its servers. A server the operator removed from
 // cfg.Q3Servers goes inactive again when the collector next starts.
 func (s *Store) ReactivateSource(ctx context.Context, source string) error {
 	if source == "" {
@@ -137,7 +137,9 @@ func (s *Store) ReactivateSource(ctx context.Context, source string) error {
 		return err
 	}
 	defer tx.Rollback()
-	if _, err := tx.ExecContext(ctx, "UPDATE sources SET active = 1 WHERE source = ?", source); err != nil {
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE sources SET active = 1, status = 'active', status_changed_at = CURRENT_TIMESTAMP
+		WHERE source = ?`, source); err != nil {
 		return fmt.Errorf("storage: ReactivateSource sources(%s): %w", source, err)
 	}
 	if _, err := tx.ExecContext(ctx, "UPDATE servers SET active = 1 WHERE source = ?", source); err != nil {

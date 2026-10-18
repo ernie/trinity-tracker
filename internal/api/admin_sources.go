@@ -303,7 +303,9 @@ func (r *Router) handleDeactivateSource(w http.ResponseWriter, req *http.Request
 }
 
 // handleReactivateSource is the inverse of handleDeactivateSource: it
-// makes the source and its servers active again.
+// makes the source active again and mints new NATS creds, since
+// deactivation revoked the old ones. The owner and admins download
+// the new .creds file from the source card.
 //
 // path: POST /api/admin/sources/{source}/reactivate
 func (r *Router) handleReactivateSource(w http.ResponseWriter, req *http.Request) {
@@ -315,6 +317,12 @@ func (r *Router) handleReactivateSource(w http.ResponseWriter, req *http.Request
 	if err := r.writer.ReactivateSource(req.Context(), source); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+	if r.userProv != nil {
+		if _, err := r.userProv.MintUserCreds(req.Context(), source); err != nil {
+			http.Error(w, "mint creds: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 	if claims := r.getAuthClaims(req); claims != nil {
 		_ = r.store.WriteSourceAudit(req.Context(), source, &claims.UserID, "reactivated", "")

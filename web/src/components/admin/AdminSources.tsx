@@ -256,7 +256,7 @@ export function AdminSources() {
   const reactivateSource = async (source: ApprovedSource) => {
     if (
       !confirm(
-        `Reactivate ${source.source}? Its servers come back on the network. Then rotate its credentials and give the collector the new .creds file.`,
+        `Reactivate ${source.source}? Its servers come back on the network with new credentials, so its collector needs the new .creds file.`,
       )
     ) {
       return;
@@ -274,7 +274,7 @@ export function AdminSources() {
         throw new Error(`${res.status} ${res.statusText}`);
       }
       setNotice(
-        `Reactivated ${source.source}. Rotate its credentials to get a working .creds file.`,
+        `Reactivated ${source.source}. Download its new .creds file for the collector.`,
       );
       await fetchAll();
     } catch (err) {

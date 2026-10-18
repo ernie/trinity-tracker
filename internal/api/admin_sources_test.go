@@ -347,10 +347,23 @@ func TestHandleReactivateSource_RestoresAndAudits(t *testing.T) {
 	mustOK(t, tr.requestSource(t, aliceTok, "alice-q3", ""))
 	mustOK(t, tr.do("POST", "/api/admin/sources/alice-q3/approve", "", adminTok))
 	mustOK(t, tr.do("POST", "/api/admin/sources/alice-q3/deactivate", "", adminTok))
+	mintsBefore := tr.userProv.mintCalls
 
 	w := tr.do("POST", "/api/admin/sources/alice-q3/reactivate", "", adminTok)
 	if w.Code != http.StatusNoContent {
 		t.Fatalf("reactivate: %d %s", w.Code, w.Body)
+	}
+	if tr.userProv.mintCalls != mintsBefore+1 {
+		t.Errorf("mint calls = %d, want %d", tr.userProv.mintCalls, mintsBefore+1)
+	}
+
+	dl := tr.do("GET", "/api/sources/mine/alice-q3/creds", "", aliceTok)
+	if dl.Code != http.StatusOK {
+		t.Fatalf("owner download after reactivate: %d %s", dl.Code, dl.Body)
+	}
+	want := fmt.Sprintf("MINT:alice-q3:%d", mintsBefore+1)
+	if dl.Body.String() != want {
+		t.Errorf("owner creds = %q, want %q", dl.Body.String(), want)
 	}
 
 	approved, err := tr.store.IsSourceApproved(context.Background(), "alice-q3")
