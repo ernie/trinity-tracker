@@ -30,12 +30,10 @@ export function DocsWelcome() {
       <div className="about-section docs-welcome__hero">
         <h1 className="docs-welcome__title">Welcome to Trinity</h1>
         <p className="docs-welcome__lead">
-          Trinity is Quake III Arena brought up to date. It adds widescreen
-          support, high-resolution UI, a better renderer, voice chat, the
-          grapple, and VR, with flatscreen and VR players in the same matches.
-          It fixes long-standing bugs, especially in Team Arena, and your stats
-          follow you from server to server. It still connects to standard Quake
-          III servers.
+          Trinity is Quake III Arena brought up to date, with VR, voice chat and
+          stats that follow you between servers. It still connects to standard
+          Quake III servers. Start with Install. Play has everything else you
+          need.
         </p>
       </div>
 

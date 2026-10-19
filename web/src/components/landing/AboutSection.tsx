@@ -13,10 +13,10 @@ export function AboutSection() {
         </p>
         <p>
           It&rsquo;s Quake III Arena the way you remember it, which is better
-          than it actually was. Widescreen works, the interface is sharp at any
-          resolution, the renderer looks better, and the settings menus have the
-          options that matter. VR is fully supported, and flatscreen and VR
-          players share the same matches.
+          than it was. Widescreen works, the interface is sharp at any
+          resolution, the renderer looks better, the settings menus have the
+          options that matter, and voice chat is built in. VR is fully
+          supported, and flatscreen and VR players share the same matches.
         </p>
         <p>
           Long-standing bugs are fixed, especially in Team Arena. The grappling

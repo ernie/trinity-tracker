@@ -15,8 +15,8 @@ export function DocsInstall() {
       <div className="about-section">
         <DocsH2 id="get-quake3">Step 1: Get Quake III Arena</DocsH2>
         <p>
-          Trinity needs a retail Quake III Arena with Team Arena; it uses their{" "}
-          <code>pak0.pk3</code> files.
+          Trinity needs a retail Quake III Arena and, optionally, Team Arena; it
+          uses their <code>pak0.pk3</code> files.
         </p>
         <p>
           Buy{" "}

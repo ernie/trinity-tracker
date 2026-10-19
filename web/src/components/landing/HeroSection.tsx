@@ -5,8 +5,6 @@ import { useLiveData } from "../../contexts/LiveDataContext";
 import { plural } from "./format";
 import { HeroHeader } from "./HeroHeader";
 import { ArrowIcon } from "../ArrowIcon";
-import { InstallerDownloadLink } from "../InstallerDownloadLink";
-import { useInstallerDownload } from "../../hooks/useInstallerDownload";
 import { pickHeroVariant } from "./heroVariants";
 
 // Non-breaking spaces keep a headline line from wrapping mid-phrase on
@@ -19,13 +17,12 @@ export function HeroSection() {
   const arenas = live.activeServersCount;
   // One roll per mount: stable across re-renders, fresh on each visit.
   const [variant] = useState(pickHeroVariant);
-  const installer = useInstallerDownload();
 
   // Connecting and quiet share one line, so the socket connecting causes no
   // visible swap; only players fragging changes it.
   let pulse: React.ReactNode;
   if (!live.isConnected || humans === 0) {
-    pulse = <span>the arena is waiting for you.</span>;
+    pulse = <span>Nobody&rsquo;s fragging now. Get things started.</span>;
   } else {
     pulse = (
       <span>
@@ -84,12 +81,9 @@ export function HeroSection() {
         </div>
 
         <div className="landing-hero__cta-row">
-          <InstallerDownloadLink
-            download={installer}
-            className="landing-cta-primary"
-          >
+          <Link to="/docs/install" className="landing-cta-primary">
             Enter the arena
-          </InstallerDownloadLink>
+          </Link>
           <Link to="/leaderboard" className="landing-cta-secondary">
             See the leaderboard <ArrowIcon direction="right" />
           </Link>

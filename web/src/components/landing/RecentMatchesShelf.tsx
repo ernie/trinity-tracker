@@ -42,7 +42,7 @@ export function RecentMatchesShelf() {
         </Link>
       </header>
       <p className="landing-section__lead">
-        Recently played. Click any to watch it in your browser.
+        Recently played. Click one to watch it in your browser.
       </p>
       <div className="landing-shelf-h">
         <NavScroller scrollClassName="landing-shelf-h__scroll">

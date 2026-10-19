@@ -29,8 +29,7 @@ export function ActiveNowShelf() {
     <section className="landing-section">
       <header className="landing-section__head">
         <h2 className="landing-section__title">
-          <span className="landing-section__pulse" aria-hidden /> IN PROGRESS,
-          RIGHT NOW.
+          <span className="landing-section__pulse" aria-hidden /> LIVE NOW.
         </h2>
         <Link to="/servers" className="landing-section__cta">
           All servers <ArrowIcon direction="right" />
