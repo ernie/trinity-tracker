@@ -1076,8 +1076,8 @@ export function DocsPlay() {
 
           <h3 className="docs-play__feature-title">Comfort options</h3>
           <p>
-            Comfort vignette, height adjust, haptic intensity, and the
-            single-player 6DoF toggle are in{" "}
+            Comfort vignette, height adjust, physical crouch, haptic intensity,
+            and the single-player 6DoF toggle are in{" "}
             <strong>Setup → VR Options → Comfort</strong>. Snap turn is under{" "}
             <strong>Setup → VR Options → Controls</strong>, and HUD depth,
             scale, and vertical position under{" "}

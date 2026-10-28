@@ -68,8 +68,8 @@ export function DocsCustomize() {
             Most VR settings have a row under{" "}
             <strong>Setup → VR Options</strong>: <strong>Controls</strong> for
             aiming, input, and turning, <strong>Comfort</strong> for vignette,
-            height, and haptics, and <strong>HUD &amp; Display</strong> for HUD
-            placement, display, and rendering. Their cvars, for{" "}
+            height, crouch, and haptics, and <strong>HUD &amp; Display</strong>{" "}
+            for HUD placement, display, and rendering. Their cvars, for{" "}
             <code>autoexec.cfg</code>:
           </p>
           <ul className="docs-cvars">

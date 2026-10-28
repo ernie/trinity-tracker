@@ -570,6 +570,17 @@ export const VR_CVARS: CvarEntry[] = [
     description: "Show a laser sight from the muzzle of held weapons.",
   },
   {
+    name: "vr_physicalCrouch",
+    default: "1",
+    platforms: VR_PLATFORMS,
+    description:
+      "Crouch in game when you crouch in real life, alongside the Crouch button. It doesn't apply while swimming or flying. Setup → VR Options → Comfort → Physical Crouch.",
+    values: [
+      { value: "0", meaning: "Off" },
+      { value: "1", meaning: "On" },
+    ],
+  },
+  {
     name: "vr_refreshrate",
     default: "90",
     platforms: VR_PLATFORMS,

@@ -74,7 +74,9 @@ export function DocsInstall() {
             it installs to <code>C:\Games\Trinity</code> by default. On Windows
             and Linux you pick whether shortcuts start in VR or flatscreen, and
             "Add to Steam" adds Trinity to your Steam library, where the VR
-            shortcut also shows up in SteamVR.
+            shortcut also shows up in SteamVR. With Add to Steam chosen, the VR
+            shortcut starts Trinity through Steam, so SteamVR goes straight to
+            the game.
           </li>
           <li>
             <strong>Steam Frame:</strong> turn on Developer Mode on the headset,
