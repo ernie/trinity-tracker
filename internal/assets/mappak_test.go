@@ -66,14 +66,12 @@ func TestBuildMapPak_UnionsAcrossGames(t *testing.T) {
 		"baseq3": {
 			FileIndex:     bq3Index,
 			BaselineFiles: map[string]bool{},
-			Shaders:       map[string][]string{},
-			ShaderFiles:   map[string]string{},
+			Shaders:       map[string]ShaderEntry{},
 		},
 		"missionpack": {
 			FileIndex:     mpIndex,
 			BaselineFiles: map[string]bool{},
-			Shaders:       map[string][]string{"textures/skies2/nebula2": skyFaces},
-			ShaderFiles:   map[string]string{},
+			Shaders:       map[string]ShaderEntry{"textures/skies2/nebula2": {Textures: skyFaces, Pak: "pak0.pk3"}},
 		},
 	}}
 
@@ -107,14 +105,12 @@ func TestBuildMapPak_BaselineSubtractionPerGame(t *testing.T) {
 		"baseq3": {
 			FileIndex:     index,
 			BaselineFiles: map[string]bool{},
-			Shaders:       map[string][]string{},
-			ShaderFiles:   map[string]string{},
+			Shaders:       map[string]ShaderEntry{},
 		},
 		"missionpack": {
 			FileIndex:     index,
 			BaselineFiles: map[string]bool{"textures/ctf2/banner.jpg": true},
-			Shaders:       map[string][]string{},
-			ShaderFiles:   map[string]string{},
+			Shaders:       map[string]ShaderEntry{},
 		},
 	}}
 

@@ -19,7 +19,7 @@ func CollectGamePk3s(quake3Dir string) map[string][]string {
 		if _, err := os.Stat(dir); os.IsNotExist(err) {
 			continue
 		}
-		files := collectPk3FilesFromDir(dir)
+		files := CollectPk3sInDir(dir)
 		if len(files) > 0 {
 			result[subdir] = files
 		}
@@ -27,41 +27,56 @@ func CollectGamePk3s(quake3Dir string) map[string][]string {
 	return result
 }
 
-// collectPk3FilesFromDir collects pk3 files from a directory in Quake III load order:
-// pak0-9 first (numerically), then other pk3s alphabetically.
-func collectPk3FilesFromDir(dir string) []string {
-	var pakFiles []string
-	var otherFiles []string
-
-	filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return nil
-		}
-		if !strings.HasSuffix(strings.ToLower(d.Name()), ".pk3") {
-			return nil
-		}
-
-		name := d.Name()
-		lowerName := strings.ToLower(name)
-
-		isRootLevel := filepath.Dir(path) == dir
-		if isRootLevel && strings.HasPrefix(lowerName, "pak") && len(lowerName) == 8 {
-			numChar := lowerName[3]
-			if numChar >= '0' && numChar <= '9' {
-				pakFiles = append(pakFiles, path)
-				return nil
-			}
-		}
-		otherFiles = append(otherFiles, path)
+// CollectPk3sInDir returns the pk3s directly inside dir in the engine's load
+// order (FS_AddGameDirectory), so a later pk3 takes priority over an earlier one.
+func CollectPk3sInDir(dir string) []string {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
 		return nil
+	}
+	var files []string
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(strings.ToLower(e.Name()), ".pk3") {
+			files = append(files, filepath.Join(dir, e.Name()))
+		}
+	}
+	sort.SliceStable(files, func(i, j int) bool {
+		return fsPathCmp(filepath.Base(files[i]), filepath.Base(files[j])) < 0
 	})
+	return files
+}
 
-	sort.Slice(pakFiles, func(i, j int) bool {
-		return pakFiles[i] < pakFiles[j]
-	})
-	sort.Strings(otherFiles)
+// fsPathCmp mirrors the engine's FS_PathCmp, which folds letters to upper
+// case, so '_' sorts after every letter.
+func fsPathCmp(a, b string) int {
+	for i := 0; ; i++ {
+		var ca, cb byte
+		if i < len(a) {
+			ca = fsFold(a[i])
+		}
+		if i < len(b) {
+			cb = fsFold(b[i])
+		}
+		if ca != cb {
+			if ca < cb {
+				return -1
+			}
+			return 1
+		}
+		if ca == 0 {
+			return 0
+		}
+	}
+}
 
-	return append(pakFiles, otherFiles...)
+func fsFold(c byte) byte {
+	switch {
+	case c >= 'a' && c <= 'z':
+		return c - ('a' - 'A')
+	case c == '\\' || c == ':':
+		return '/'
+	}
+	return c
 }
 
 // ReadFileFromPk3 reads a single file from a pk3 archive.

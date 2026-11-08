@@ -21,7 +21,6 @@ import (
 	"os/signal"
 	"os/user"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -3439,8 +3438,7 @@ func cmdServerRemove(args []string) {
 }
 
 // collectPk3FilesOrdered returns pk3s in the game's load order, later
-// files overriding earlier ones: baseq3, then missionpack, each with
-// pak0-9 first and the rest alphabetical.
+// files overriding earlier ones: baseq3, then missionpack.
 func collectPk3FilesOrdered(quake3Dir string) []string {
 	var files []string
 
@@ -3469,53 +3467,13 @@ func collectPk3FilesOrdered(quake3Dir string) []string {
 			if _, err := os.Stat(dir); os.IsNotExist(err) {
 				continue
 			}
-			files = append(files, collectPk3FilesFromDir(dir)...)
+			files = append(files, assets.CollectPk3sInDir(dir)...)
 		}
 	} else {
-		files = collectPk3FilesFromDir(quake3Dir)
+		files = assets.CollectPk3sInDir(quake3Dir)
 	}
 
 	return files
-}
-
-// collectPk3FilesFromDir walks dir recursively; only root-level pak0-9
-// sort ahead of the rest.
-func collectPk3FilesFromDir(dir string) []string {
-	var pakFiles []string
-	var otherFiles []string
-
-	filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return nil
-		}
-		if d.IsDir() {
-			return nil
-		}
-		if !strings.HasSuffix(strings.ToLower(d.Name()), ".pk3") {
-			return nil
-		}
-
-		name := d.Name()
-		lowerName := strings.ToLower(name)
-
-		isRootLevel := filepath.Dir(path) == dir
-		if isRootLevel && strings.HasPrefix(lowerName, "pak") && len(lowerName) == 8 {
-			numChar := lowerName[3]
-			if numChar >= '0' && numChar <= '9' {
-				pakFiles = append(pakFiles, path)
-				return nil
-			}
-		}
-		otherFiles = append(otherFiles, path)
-		return nil
-	})
-
-	sort.Slice(pakFiles, func(i, j int) bool {
-		return pakFiles[i] < pakFiles[j]
-	})
-	sort.Strings(otherFiles)
-
-	return append(pakFiles, otherFiles...)
 }
 
 func extractTgaToPng(f *zip.File, outputPath string, targetSize int) error {

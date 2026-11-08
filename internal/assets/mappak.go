@@ -17,6 +17,7 @@ func BuildMapPak(mapName string, games []string, manifest *Manifest, outputPath 
 
 	var bspAssets *BSPAssets
 	union := make(map[string]string) // lowered path → source pk3
+	used := make(map[string]ShaderEntry)
 
 	for _, game := range games {
 		gm, ok := manifest.Games[game]
@@ -41,11 +42,17 @@ func BuildMapPak(mapName string, games []string, manifest *Manifest, outputPath 
 				mapName, len(bspAssets.Shaders), len(bspAssets.Models), len(bspAssets.Sounds), len(bspAssets.Music))
 		}
 
-		for path := range resolveMapNeeds(mapName, lowerBSP, bspAssets, gm) {
+		needed, defs := resolveMapNeeds(mapName, lowerBSP, bspAssets, mapResolver{files: gm.FileIndex, shaders: gm.Shaders})
+		for path := range needed {
 			if gm.BaselineFiles[path] {
 				continue
 			}
 			union[path] = gm.FileIndex[path]
+		}
+		for name, e := range defs {
+			if _, ok := used[name]; !ok {
+				used[name] = e
+			}
 		}
 	}
 
@@ -53,7 +60,11 @@ func BuildMapPak(mapName string, games []string, manifest *Manifest, outputPath 
 		return fmt.Errorf("BSP not found: maps/%s.bsp", mapName)
 	}
 
-	if len(union) == 0 {
+	// The web player loads only the baseline and Trinity paks besides this
+	// one, so it carries every definition the server takes from elsewhere.
+	script := generatedShaderScript(used, func(e ShaderEntry) bool { return !isClientPak(e.Pak) })
+
+	if len(union) == 0 && script == "" {
 		log.Printf("  %s: no non-baseline files needed", mapName)
 		return nil
 	}
@@ -68,6 +79,9 @@ func BuildMapPak(mapName string, games []string, manifest *Manifest, outputPath 
 	if err != nil {
 		return fmt.Errorf("extract files: %w", err)
 	}
+	if script != "" {
+		files["scripts/demobake_"+mapName+".shader"] = []byte(script)
+	}
 
 	if err := WritePk3(outputPath, files); err != nil {
 		return fmt.Errorf("write map pk3: %w", err)
@@ -77,18 +91,27 @@ func BuildMapPak(mapName string, games []string, manifest *Manifest, outputPath 
 	return nil
 }
 
-// resolveMapNeeds collects every file the map needs under one game's manifest.
-func resolveMapNeeds(mapName, lowerBSP string, bspAssets *BSPAssets, gm *GameManifest) map[string]bool {
+// mapResolver holds every file a client can load (lowered path → pk3) and
+// the shader definitions the engine uses.
+type mapResolver struct {
+	files   map[string]string
+	shaders map[string]ShaderEntry
+}
+
+// resolveMapNeeds collects every file the map needs and the shader
+// definitions it draws.
+func resolveMapNeeds(mapName, lowerBSP string, bspAssets *BSPAssets, r mapResolver) (map[string]bool, map[string]ShaderEntry) {
 	needed := map[string]bool{lowerBSP: true}
+	used := make(map[string]ShaderEntry)
 
 	// Resolve BSP surface shaders
 	for _, shaderName := range bspAssets.Shaders {
-		resolveShaderTextures(shaderName, gm, needed)
+		resolveShaderTextures(shaderName, r, needed, used)
 	}
 
 	// Resolve entity models (model2)
 	for _, modelPath := range bspAssets.Models {
-		resolveModel(modelPath, gm, needed)
+		resolveModel(modelPath, r, needed, used)
 	}
 
 	// BSP "noise" values often omit the extension (such as
@@ -97,14 +120,14 @@ func resolveMapNeeds(mapName, lowerBSP string, bspAssets *BSPAssets, gm *GameMan
 	// the real file; a missing one plays default_sfx,
 	// sound/feedback/hit.wav, which looped speakers repeat forever.
 	for _, soundPath := range bspAssets.Sounds {
-		if resolved, ok := resolveAudioPath(soundPath, gm.FileIndex); ok {
+		if resolved, ok := resolveAudioPath(soundPath, r.files); ok {
 			needed[resolved] = true
 		}
 	}
 
 	// Resolve music (same extension-fallback rules as entity sounds)
 	for _, musicPath := range bspAssets.Music {
-		if resolved, ok := resolveAudioPath(musicPath, gm.FileIndex); ok {
+		if resolved, ok := resolveAudioPath(musicPath, r.files); ok {
 			needed[resolved] = true
 		}
 	}
@@ -112,7 +135,7 @@ func resolveMapNeeds(mapName, lowerBSP string, bspAssets *BSPAssets, gm *GameMan
 	// Include levelshot
 	for _, ext := range []string{".jpg", ".tga"} {
 		ls := "levelshots/" + mapName + ext
-		if _, ok := gm.FileIndex[ls]; ok {
+		if _, ok := r.files[ls]; ok {
 			needed[ls] = true
 			break
 		}
@@ -120,39 +143,38 @@ func resolveMapNeeds(mapName, lowerBSP string, bspAssets *BSPAssets, gm *GameMan
 
 	// Include arena file
 	arenaPath := "scripts/" + mapName + ".arena"
-	if _, ok := gm.FileIndex[arenaPath]; ok {
+	if _, ok := r.files[arenaPath]; ok {
 		needed[arenaPath] = true
 	}
 
-	return needed
+	return needed, used
 }
 
-// resolveShaderTextures adds a shader's texture dependencies to needed.
+// resolveShaderTextures adds a shader's texture dependencies to needed and
+// its definition to used.
 // The engine strips any extension before the shader lookup (R_FindShader
 // calls COM_StripExtension), so an MD3 ref like "textures/x/flag_0.tga"
 // matches a shader script's "textures/x/flag_0"; this does the same.
-func resolveShaderTextures(shaderName string, gm *GameManifest, needed map[string]bool) {
+func resolveShaderTextures(shaderName string, r mapResolver, needed map[string]bool, used map[string]ShaderEntry) {
 	lower := stripExtension(strings.ToLower(shaderName))
 
-	if textures, ok := gm.Shaders[lower]; ok {
-		for _, tex := range textures {
-			if resolved, ok := ResolveTexture(tex, gm.FileIndex); ok {
+	if def, ok := r.shaders[lower]; ok {
+		used[lower] = def
+		for _, tex := range def.Textures {
+			if resolved, ok := ResolveTexture(tex, r.files); ok {
 				needed[resolved] = true
 			}
 		}
 		// A shader with no texture refs (only surfaceparms, say) uses
 		// its name as the texture.
-		if len(textures) == 0 {
-			if resolved, ok := ResolveTexture(lower, gm.FileIndex); ok {
+		if len(def.Textures) == 0 {
+			if resolved, ok := ResolveTexture(lower, r.files); ok {
 				needed[resolved] = true
 			}
 		}
-		if scriptPath, ok := gm.ShaderFiles[lower]; ok {
-			needed[scriptPath] = true
-		}
 	} else {
 		// With no shader, the name is a texture path.
-		if resolved, ok := ResolveTexture(lower, gm.FileIndex); ok {
+		if resolved, ok := ResolveTexture(lower, r.files); ok {
 			needed[resolved] = true
 		}
 	}
@@ -172,8 +194,8 @@ func stripExtension(p string) string {
 // engine's fallback order (renderer/tr_model.c modelLoaders: iqm, mdr,
 // md3) for completeness so a custom map referencing a bare path doesn't
 // silently drop the model from the bundle.
-func resolveModel(modelPath string, gm *GameManifest, needed map[string]bool) {
-	resolved, ok := resolveModelPath(modelPath, gm.FileIndex)
+func resolveModel(modelPath string, r mapResolver, needed map[string]bool, used map[string]ShaderEntry) {
+	resolved, ok := resolveModelPath(modelPath, r.files)
 	if !ok {
 		return
 	}
@@ -185,7 +207,7 @@ func resolveModel(modelPath string, gm *GameManifest, needed map[string]bool) {
 		return
 	}
 
-	data, err := readFileFromIndex(resolved, gm.FileIndex)
+	data, err := readFileFromIndex(resolved, r.files)
 	if err != nil {
 		return
 	}
@@ -195,7 +217,7 @@ func resolveModel(modelPath string, gm *GameManifest, needed map[string]bool) {
 	}
 
 	for _, ref := range shaderRefs {
-		resolveShaderTextures(ref, gm, needed)
+		resolveShaderTextures(ref, r, needed, used)
 	}
 }
 

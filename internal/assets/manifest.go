@@ -14,10 +14,9 @@ type Manifest struct {
 
 // GameManifest holds per-game manifest data.
 type GameManifest struct {
-	FileIndex     map[string]string   `json:"fileIndex"`     // lowered path → source pk3
-	BaselineFiles map[string]bool     `json:"baselineFiles"` // paths in baseline + trinity pk3s
-	Shaders       map[string][]string `json:"shaders"`       // shader name → texture deps
-	ShaderFiles   map[string]string   `json:"shaderFiles"`   // shader name → source .shader script path
+	FileIndex     map[string]string      `json:"fileIndex"`     // lowered path → source pk3
+	BaselineFiles map[string]bool        `json:"baselineFiles"` // paths in baseline + trinity pk3s
+	Shaders       map[string]ShaderEntry `json:"shaders"`       // shader name → definition the engine uses
 }
 
 // LoadManifest loads a manifest from a JSON file.

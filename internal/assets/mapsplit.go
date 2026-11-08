@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -36,39 +37,48 @@ type SplitReport struct {
 
 type srcEntry struct {
 	pk3   string
-	crc   uint32
 	bytes int64
 }
 
+// stockSet is what every client already has: the official paks and the
+// Trinity paks of the baseline games.
+type stockSet struct {
+	files map[string]string // lowered path → pak
+	paks  []string          // load order
+}
+
 // Guard against bundling id Software's copyrighted assets.
-func stockBaseline(quake3Dir string, games []string) (map[string]uint32, error) {
+func stockBaseline(quake3Dir string, games []string) (*stockSet, error) {
 	allPaks := CollectGamePk3s(quake3Dir)
-	var stockPaks []string
+	stock := &stockSet{files: make(map[string]string)}
+	official := false
 	for _, game := range games {
 		for _, p := range allPaks[game] {
 			if IsOfficialPak(p) {
-				stockPaks = append(stockPaks, p)
+				official = true
+			} else if !IsTrinityPak(p) {
+				continue
 			}
+			stock.paks = append(stock.paks, p)
 		}
 	}
-	if len(stockPaks) == 0 {
+	if !official {
 		return nil, fmt.Errorf("no official pak[0-9].pk3 found under %s for games %v, so not running", quake3Dir, games)
 	}
 
-	crc := make(map[string]uint32)
-	for _, p := range stockPaks {
+	for _, p := range stock.paks {
 		r, err := zip.OpenReader(p)
 		if err != nil {
 			return nil, fmt.Errorf("open stock pak %s: %w", p, err)
 		}
 		for _, f := range r.File {
 			if !f.FileInfo().IsDir() {
-				crc[strings.ToLower(f.Name)] = f.CRC32
+				stock.files[strings.ToLower(f.Name)] = p
 			}
 		}
 		r.Close()
 	}
-	return crc, nil
+	return stock, nil
 }
 
 func scanSources(sources []string) (map[string]srcEntry, error) {
@@ -82,15 +92,16 @@ func scanSources(sources []string) (map[string]srcEntry, error) {
 			if f.FileInfo().IsDir() {
 				continue
 			}
-			index[strings.ToLower(f.Name)] = srcEntry{p, f.CRC32, int64(f.CompressedSize64)}
+			index[strings.ToLower(f.Name)] = srcEntry{p, int64(f.CompressedSize64)}
 		}
 		r.Close()
 	}
 	return index, nil
 }
 
-// SplitMapPack writes one standalone pk3 per map, carrying every non-stock
-// asset the map references plus its .aas botfile.
+// SplitMapPack writes one standalone pk3 per map. Each carries its shader
+// definitions in a generated script, so every pk3 holds the same definition
+// for a name however many of them a client installs.
 func SplitMapPack(opts SplitOptions) (*SplitReport, error) {
 	games := opts.BaselineGames
 	if len(games) == 0 {
@@ -105,24 +116,45 @@ func SplitMapPack(opts SplitOptions) (*SplitReport, error) {
 		return nil, err
 	}
 
-	fileIndex := make(map[string]string, len(src))
+	srcIndex := make(map[string]string, len(src))
 	for path, e := range src {
-		fileIndex[path] = e.pk3
+		srcIndex[path] = e.pk3
+	}
+	files := make(map[string]string, len(src)+len(stock.files))
+	for path, pk3 := range srcIndex {
+		files[path] = pk3
+	}
+	for path, pak := range stock.files {
+		files[path] = pak
 	}
 
-	stockIndex := make(map[string]string, len(stock))
-	for path := range stock {
-		stockIndex[path] = ""
+	stockShaders, err := BuildShaderIndex(stock.paks)
+	if err != nil {
+		return nil, fmt.Errorf("index stock shaders: %w", err)
 	}
+	srcShaders, err := BuildShaderIndex(opts.Sources)
+	if err != nil {
+		return nil, fmt.Errorf("index source shaders: %w", err)
+	}
+	shaders := make(map[string]ShaderEntry, len(srcShaders)+len(stockShaders))
+	for name, e := range srcShaders {
+		shaders[name] = e
+	}
+	for name, e := range stockShaders {
+		shaders[name] = e
+	}
+	resolver := mapResolver{files: files, shaders: shaders}
 
-	shaders := make(map[string][]string)
-	shaderFiles := make(map[string]string)
-	for _, p := range opts.Sources {
-		if err := parseShadersPk3(p, shaders, shaderFiles); err != nil {
-			return nil, fmt.Errorf("parse shaders %s: %w", p, err)
-		}
+	stockPak := make(map[string]bool, len(stock.paks))
+	for _, p := range stock.paks {
+		stockPak[p] = true
 	}
-	gm := &GameManifest{FileIndex: fileIndex, Shaders: shaders, ShaderFiles: shaderFiles}
+	fromSource := func(e ShaderEntry) bool { return !stockPak[e.Pak] }
+
+	arenas, err := sourceArenas(opts.Sources)
+	if err != nil {
+		return nil, err
+	}
 
 	var names []string
 	for path := range src {
@@ -143,7 +175,7 @@ func SplitMapPack(opts SplitOptions) (*SplitReport, error) {
 
 	for _, name := range names {
 		lowerBSP := "maps/" + name + ".bsp"
-		bspData, err := ReadFileFromPk3(fileIndex[lowerBSP], lowerBSP)
+		bspData, err := ReadFileFromPk3(srcIndex[lowerBSP], lowerBSP)
 		if err != nil {
 			report.Failed = append(report.Failed, name+" (read bsp)")
 			continue
@@ -154,41 +186,64 @@ func SplitMapPack(opts SplitOptions) (*SplitReport, error) {
 			continue
 		}
 
-		needed := resolveMapNeeds(name, lowerBSP, bspAssets, gm)
+		needed, used := resolveMapNeeds(name, lowerBSP, bspAssets, resolver)
 		if aas := "maps/" + name + ".aas"; src[aas].pk3 != "" {
 			needed[aas] = true
 		}
+		arenaPath := "scripts/" + name + ".arena"
+		delete(needed, arenaPath)
 
-		missing := missingAudio(append(append([]string{}, bspAssets.Sounds...), bspAssets.Music...), fileIndex, stockIndex)
+		missing := missingAudio(append(append([]string{}, bspAssets.Sounds...), bspAssets.Music...), srcIndex, stock.files)
 
 		var keep []string
 		var nbytes int64
 		for p := range needed {
 			referenced[p] = true
-			if sc, ok := stock[p]; ok && src[p].crc == sc {
+			if _, ok := stock.files[p]; ok {
 				continue // the client already has it
 			}
 			keep = append(keep, p)
 			nbytes += src[p].bytes
 		}
-		if len(keep) == 0 {
-			continue
-		}
 		sort.Strings(keep)
 
+		generated := make(map[string][]byte)
+		if script := generatedShaderScript(used, fromSource); script != "" {
+			generated["scripts/mapsplit_"+name+".shader"] = []byte(script)
+			for _, e := range used {
+				if fromSource(e) {
+					referenced[e.File] = true
+				}
+			}
+		}
+		if a, ok := arenas[name]; ok {
+			generated[arenaPath] = []byte(a.text + "\n")
+			referenced[a.file] = true
+		}
+		for _, data := range generated {
+			nbytes += int64(len(data))
+		}
+
+		if len(keep) == 0 && len(generated) == 0 {
+			continue
+		}
+
 		if !opts.DryRun {
-			files, err := ExtractFilesFromPk3s(keep, fileIndex)
+			out, err := ExtractFilesFromPk3s(keep, srcIndex)
 			if err != nil {
 				report.Failed = append(report.Failed, name+" (extract)")
 				continue
 			}
+			for path, data := range generated {
+				out[path] = data
+			}
 			outPath := filepath.Join(opts.OutputDir, opts.Prefix+name+".pk3")
-			if err := WritePk3(outPath, files); err != nil {
+			if err := WritePk3(outPath, out); err != nil {
 				return nil, fmt.Errorf("write %s: %w", outPath, err)
 			}
 		}
 
-		report.Maps = append(report.Maps, MapReport{Name: name, FileCount: len(keep), Bytes: nbytes, MissingAudio: missing})
+		report.Maps = append(report.Maps, MapReport{Name: name, FileCount: len(keep) + len(generated), Bytes: nbytes, MissingAudio: missing})
 		report.TotalBytes += nbytes
 	}
 
@@ -199,6 +254,80 @@ func SplitMapPack(opts SplitOptions) (*SplitReport, error) {
 		}
 	}
 	return report, nil
+}
+
+type arenaEntry struct {
+	text string
+	file string
+}
+
+// sourceArenas maps each map id to its { ... } entry from the sources'
+// .arena files and arenas.txt, later sources winning.
+func sourceArenas(sources []string) (map[string]arenaEntry, error) {
+	out := make(map[string]arenaEntry)
+	for _, p := range sources {
+		err := IteratePk3(p, func(name string, open func() (io.ReadCloser, error)) error {
+			lower := strings.ToLower(name)
+			if !strings.HasPrefix(lower, "scripts/") || !(strings.HasSuffix(lower, ".arena") || lower == "scripts/arenas.txt") {
+				return nil
+			}
+			rc, err := open()
+			if err != nil {
+				return nil
+			}
+			data, err := io.ReadAll(rc)
+			rc.Close()
+			if err != nil {
+				return nil
+			}
+			for _, block := range arenaBlocks(string(data)) {
+				if id := arenaMapID(block); id != "" {
+					out[id] = arenaEntry{text: block, file: lower}
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, fmt.Errorf("read arenas %s: %w", p, err)
+		}
+	}
+	return out, nil
+}
+
+// arenaBlocks returns each top-level { ... } entry verbatim.
+func arenaBlocks(s string) []string {
+	var blocks []string
+	start := -1
+	for i := 0; i < len(s); i++ {
+		switch c := s[i]; {
+		case c == '"':
+			if j := strings.IndexByte(s[i+1:], '"'); j >= 0 {
+				i += j + 1
+			} else {
+				i = len(s)
+			}
+		case c == '/' && i+1 < len(s) && s[i+1] == '/':
+			for i < len(s) && s[i] != '\n' {
+				i++
+			}
+		case c == '{' && start < 0:
+			start = i
+		case c == '}' && start >= 0:
+			blocks = append(blocks, s[start:i+1])
+			start = -1
+		}
+	}
+	return blocks
+}
+
+func arenaMapID(block string) string {
+	toks := tokenizeArena([]byte(block))
+	for i := 0; i+1 < len(toks); i++ {
+		if strings.EqualFold(toks[i], "map") {
+			return strings.ToLower(toks[i+1])
+		}
+	}
+	return ""
 }
 
 // missingAudio lists refs in neither the sources nor stock, which the

@@ -74,7 +74,7 @@ func ParseMD3Shaders(r io.ReaderAt, size int64) ([]string, error) {
 			if _, err := r.ReadAt(shaderData, shaderOfs); err != nil {
 				break
 			}
-			name := strings.ReplaceAll(readNullTerminated(shaderData[:64]), "\\", "/")
+			name := readNullTerminated(shaderData[:64])
 			if name != "" && !seen[name] {
 				seen[name] = true
 				shaders = append(shaders, name)

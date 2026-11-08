@@ -67,7 +67,7 @@ func ParseBSP(r io.ReaderAt, size int64) (*BSPAssets, error) {
 		}
 		for i := int64(0); i < numShaders; i++ {
 			nameBytes := shaderData[i*bspShaderSize : i*bspShaderSize+64]
-			name := strings.ReplaceAll(readNullTerminated(nameBytes), "\\", "/")
+			name := readNullTerminated(nameBytes)
 			if name != "" && !strings.HasPrefix(name, "*") {
 				assets.Shaders = append(assets.Shaders, name)
 			}
@@ -125,12 +125,12 @@ func parseEntities(text string, assets *BSPAssets) {
 			continue
 		}
 
-		key, value := parseEntityKV(line)
+		key, raw := parseEntityKV(line)
 		if key == "" {
 			continue
 		}
 
-		value = strings.ReplaceAll(value, "\\", "/")
+		value := strings.ReplaceAll(raw, "\\", "/")
 
 		switch strings.ToLower(key) {
 		case "classname":
@@ -160,8 +160,8 @@ func parseEntities(text string, assets *BSPAssets) {
 			// G_UseTargets remaps these mid-match via CS_SHADERSTATE, so the
 			// "new" shader's textures are needed even though no BSP surface
 			// references it.
-			if value != "" && !strings.HasPrefix(value, "*") {
-				assets.Shaders = append(assets.Shaders, value)
+			if raw != "" && !strings.HasPrefix(raw, "*") {
+				assets.Shaders = append(assets.Shaders, raw)
 			}
 		}
 	}

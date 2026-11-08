@@ -77,14 +77,19 @@ func BuildBaseline(quake3Dir, outputDir string) error {
 
 		log.Printf("Processing %s (%d pk3s)...", game, len(pk3s))
 
-		gm, err := buildGameBaseline(game, pk3s, outputDir)
+		// missionpack layers over baseq3, as the engine mounts them.
+		shaderPk3s := pk3s
+		if game == "missionpack" {
+			shaderPk3s = append(append([]string{}, gamePk3s["baseq3"]...), pk3s...)
+		}
+
+		gm, err := buildGameBaseline(game, pk3s, shaderPk3s, outputDir)
 		if err != nil {
 			return fmt.Errorf("build %s baseline: %w", game, err)
 		}
 		manifest.Games[game] = gm
 	}
 
-	// missionpack layers over baseq3, as the engine mounts them.
 	if mp, ok := manifest.Games["missionpack"]; ok {
 		if bq3, ok := manifest.Games["baseq3"]; ok {
 			merged := make(map[string]string, len(bq3.FileIndex)+len(mp.FileIndex))
@@ -95,24 +100,6 @@ func BuildBaseline(quake3Dir, outputDir string) error {
 				merged[k] = v
 			}
 			mp.FileIndex = merged
-
-			mergedShaders := make(map[string][]string, len(bq3.Shaders)+len(mp.Shaders))
-			for k, v := range bq3.Shaders {
-				mergedShaders[k] = v
-			}
-			for k, v := range mp.Shaders {
-				mergedShaders[k] = v
-			}
-			mp.Shaders = mergedShaders
-
-			mergedShaderFiles := make(map[string]string, len(bq3.ShaderFiles)+len(mp.ShaderFiles))
-			for k, v := range bq3.ShaderFiles {
-				mergedShaderFiles[k] = v
-			}
-			for k, v := range mp.ShaderFiles {
-				mergedShaderFiles[k] = v
-			}
-			mp.ShaderFiles = mergedShaderFiles
 
 			mergedBaseline := make(map[string]bool, len(bq3.BaselineFiles)+len(mp.BaselineFiles))
 			for k := range bq3.BaselineFiles {
@@ -160,7 +147,7 @@ func BuildBaseline(quake3Dir, outputDir string) error {
 	return nil
 }
 
-func buildGameBaseline(game string, pk3s []string, outputDir string) (*GameManifest, error) {
+func buildGameBaseline(game string, pk3s, shaderPk3s []string, outputDir string) (*GameManifest, error) {
 	fileIndex, err := BuildFileIndex(pk3s)
 	if err != nil {
 		return nil, fmt.Errorf("build file index: %w", err)
@@ -250,13 +237,9 @@ func buildGameBaseline(game string, pk3s []string, outputDir string) (*GameManif
 		log.Printf("  %s: %d files added to baseline set", filepath.Base(trinityPak), len(baselineSet)-len(baselineFiles))
 	}
 
-	// Parse all shaders from all pk3s (in load order)
-	shaders := make(map[string][]string)
-	shaderFiles := make(map[string]string)
-	for _, pk3Path := range pk3s {
-		if err := parseShadersPk3(pk3Path, shaders, shaderFiles); err != nil {
-			log.Printf("Warning: failed to parse shaders from %s: %v", filepath.Base(pk3Path), err)
-		}
+	shaders, err := BuildShaderIndex(shaderPk3s)
+	if err != nil {
+		return nil, fmt.Errorf("index shaders: %w", err)
 	}
 	log.Printf("  %d shader definitions parsed", len(shaders))
 
@@ -264,7 +247,6 @@ func buildGameBaseline(game string, pk3s []string, outputDir string) (*GameManif
 		FileIndex:     fileIndex,
 		BaselineFiles: baselineSet,
 		Shaders:       shaders,
-		ShaderFiles:   shaderFiles,
 	}, nil
 }
 
@@ -288,33 +270,6 @@ func isBaselineFile(lowerPath string) bool {
 	}
 
 	return false
-}
-
-func parseShadersPk3(pk3Path string, shaders map[string][]string, shaderFiles map[string]string) error {
-	return IteratePk3(pk3Path, func(name string, open func() (io.ReadCloser, error)) error {
-		lower := strings.ToLower(name)
-		if !strings.HasPrefix(lower, "scripts/") || !strings.HasSuffix(lower, ".shader") {
-			return nil
-		}
-
-		rc, err := open()
-		if err != nil {
-			return nil
-		}
-		defer rc.Close()
-
-		defs, err := ParseShaderTextures(rc)
-		if err != nil {
-			return nil
-		}
-
-		for _, def := range defs {
-			key := strings.ToLower(def.Name)
-			shaders[key] = def.Textures
-			shaderFiles[key] = lower
-		}
-		return nil
-	})
 }
 
 // readFileFromIndex reads a file using the file index to locate its source pk3.

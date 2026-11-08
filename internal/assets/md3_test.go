@@ -87,27 +87,25 @@ func TestResolveShaderTexturesStripsExtension(t *testing.T) {
 	// MD3 shader refs often carry an extension ("flag_0.tga") while
 	// shader scripts define names without one; the engine strips before
 	// lookup (R_FindShader → COM_StripExtension), and the resolver must too.
-	gm := &GameManifest{
-		Shaders: map[string][]string{
-			"textures/13castle/flag_0": {"textures/13castle/xflag01.tga"},
+	r := mapResolver{
+		shaders: map[string]ShaderEntry{
+			"textures/13castle/flag_0": {Textures: []string{"textures/13castle/xflag01.tga"}, File: "scripts/13castle.shader"},
 		},
-		ShaderFiles: map[string]string{
-			"textures/13castle/flag_0": "scripts/13castle.shader",
-		},
-		FileIndex: map[string]string{
+		files: map[string]string{
 			"textures/13castle/xflag01.tga": "map-13castle.pk3",
 			"scripts/13castle.shader":       "map-13castle.pk3",
 		},
 	}
 
 	needed := make(map[string]bool)
-	resolveShaderTextures("textures/13castle/flag_0.tga", gm, needed)
+	used := make(map[string]ShaderEntry)
+	resolveShaderTextures("textures/13castle/flag_0.tga", r, needed, used)
 
 	if !needed["textures/13castle/xflag01.tga"] {
 		t.Errorf("xflag01.tga not resolved from extension-bearing shader ref; needed = %v", needed)
 	}
-	if !needed["scripts/13castle.shader"] {
-		t.Errorf("shader script not included; needed = %v", needed)
+	if _, ok := used["textures/13castle/flag_0"]; !ok {
+		t.Errorf("shader definition not recorded; used = %v", used)
 	}
 }
 
