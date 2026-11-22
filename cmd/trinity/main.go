@@ -100,6 +100,8 @@ func main() {
 		cmdSkills(os.Args[2:])
 	case "objectives":
 		cmdObjectives(os.Args[2:])
+	case "clans":
+		cmdClans(os.Args[2:])
 	case "arenas":
 		cmdArenas(os.Args[2:])
 	case "assets":
@@ -159,8 +161,9 @@ func printUsage() {
 	fmt.Println("  medals [path]                       Extract medal icons from pk3 file(s)")
 	fmt.Println("  skills [path]                       Extract skill icons from pk3 file(s)")
 	fmt.Println("  objectives [path]                   Extract objective-state icons (CTF flags, Harvester skulls) from pk3 file(s)")
+	fmt.Println("  clans [path]                        Extract team-colored clan logos from pk3 file(s)")
 	fmt.Println("  arenas [path]                       Extract map longnames into maps.json")
-	fmt.Println("  assets [path]                       Extract all assets (portraits, heads, medals, skills, objectives, levelshots)")
+	fmt.Println("  assets [path]                       Extract all assets (portraits, heads, medals, skills, objectives, clans, levelshots)")
 	fmt.Println("  mapsync [path]                      Regenerate every map-derived artifact: levelshots, maps.json, demo pk3s")
 	fmt.Println("  demobake [path]                     Build baseline pk3, map pk3s, and manifest for web demo playback")
 	fmt.Println("  unpackmaps <pk3>... [--output dir] [--prefix p] [--game baseq3|missionpack] [--quake3-dir d] [--dry-run]")
@@ -2407,6 +2410,57 @@ func runObjectives(cfg *config.Config, inputPath string) {
 	fmt.Printf("Objectives: %d extracted\n", totalExtracted)
 }
 
+func cmdClans(args []string) {
+	fs := flag.NewFlagSet("clans", flag.ExitOnError)
+	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
+	fs.Parse(args)
+
+	cfg := loadAssetConfig(*configPath)
+	runClans(cfg, assetInputPath(cfg, fs.Args()))
+}
+
+// runClans writes team_icon/<clan>_{red,blue}.tga to <static>/assets/clans/,
+// later pk3s overriding earlier ones as the engine mounts them.
+func runClans(cfg *config.Config, inputPath string) {
+	outputDir := filepath.Join(cfg.Server.StaticDir, "assets", "clans")
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: couldn't create the output directory: %v\n", err)
+		os.Exit(1)
+	}
+
+	pk3Files := collectPk3FilesOrdered(inputPath)
+	if len(pk3Files) == 0 {
+		fmt.Fprintf(os.Stderr, "Error: no pk3 files found in %s\n", inputPath)
+		os.Exit(1)
+	}
+
+	var totalExtracted int
+	for _, pk3Path := range pk3Files {
+		displayPath := pk3DisplayPath(pk3Path, inputPath)
+		r, err := zip.OpenReader(pk3Path)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "  Warning: %s: couldn't open the pk3: %v\n", displayPath, err)
+			continue
+		}
+		for _, f := range r.File {
+			key, team, ok := assets.ClanIconPath(f.Name)
+			if !ok {
+				continue
+			}
+			name := key + "_" + team + ".png"
+			if err := extractTgaToPng(f, filepath.Join(outputDir, name), 256); err != nil {
+				fmt.Fprintf(os.Stderr, "  Warning: couldn't extract %s: %v\n", f.Name, err)
+				continue
+			}
+			fmt.Printf("  %s: %s\n", displayPath, name)
+			totalExtracted++
+		}
+		r.Close()
+	}
+
+	fmt.Printf("Clans: %d extracted\n", totalExtracted)
+}
+
 func extractObjectivesFromPk3(pk3Path, flagsDir, iconsDir, displayPath string) (int, error) {
 	r, err := zip.OpenReader(pk3Path)
 	if err != nil {
@@ -2618,6 +2672,10 @@ func cmdAssets(args []string) {
 
 	fmt.Println("=== Extracting objectives ===")
 	runObjectives(cfg, inputPath)
+	fmt.Println()
+
+	fmt.Println("=== Extracting clan logos ===")
+	runClans(cfg, inputPath)
 	fmt.Println()
 
 	fmt.Println("=== Extracting map names ===")
