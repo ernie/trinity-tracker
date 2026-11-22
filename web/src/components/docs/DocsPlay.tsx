@@ -1596,39 +1596,32 @@ export function DocsPlay() {
         </p>
 
         <h3 className="docs-play__feature-title">
-          Improved stencil shadows <code>cg_shadows 2</code>
+          Soft shadows <code>cg_shadows 4</code>
         </h3>
         <p>
-          Real shadow volumes for player models, clipped so they stay on the
-          near side of walls. Pick it under{" "}
-          <strong>Setup → Graphics → Shadows</strong> (<em>None</em>,{" "}
-          <em>Low</em> for the default blob shadow, or <em>High</em> for
-          stencil), or set <code>cg_shadows</code> to <code>0</code>,{" "}
-          <code>1</code>, or <code>2</code> in autoexec.
+          Player models, items and other models cast soft-edged shadows onto the
+          floors and walls behind them. The shadows follow nearby lights such as
+          muzzle flashes and rockets, and fade with distance. Pick <em>High</em>{" "}
+          under <strong>Setup → Graphics → Shadows</strong>, or set{" "}
+          <code>cg_shadows 4</code> in autoexec. <em>Low</em> is the classic
+          blob shadow and <em>None</em> turns shadows off. Soft shadows need the
+          Vulkan renderer; with another renderer, <em>High</em> draws the blob
+          shadow.
         </p>
         <figure className="docs-hud-figure">
           <LazyVideo
             webm="/assets/play/cg_shadows.webm"
             mp4="/assets/play/cg_shadows.mp4"
           />
-          <figcaption>Stencil shadow cast by the green armor.</figcaption>
+          <figcaption>Soft shadows in a firefight, at half speed.</figcaption>
         </figure>
         <p>
-          Four cvars tune stencil shadows. <code>r_shadowDistance</code>{" "}
-          (default <code>256</code> units) is how far away shadows are drawn.{" "}
-          <code>r_shadowClip</code> (on by default),{" "}
-          <code>r_shadowClipPenetration</code> (default <code>4</code>), and{" "}
-          <code>r_shadowClipExtension</code> (default <code>16</code>) keep
-          shadows off the far side of walls.{" "}
+          <code>r_shadowFadeLength</code> (default <code>256</code>, from{" "}
+          <code>16</code> to <code>512</code> units) sets how far a shadow
+          stretches from its caster before it fades out.{" "}
           <Link to="/docs/reference#player-cvars">Player CVars</Link> has the
           details.
         </p>
-        <PlatformOnly platform="vr">
-          <p>
-            Stencil shadows cost more than blob shadows. A Quest 3 handles them;
-            older standalone headsets may struggle.
-          </p>
-        </PlatformOnly>
 
         <h3 className="docs-play__feature-title">
           Light coronas <code>r_flares</code>

@@ -451,32 +451,11 @@ export const PLAYER_CVARS: CvarEntry[] = [
     notes: "Takes effect after a vid_restart, or set it in autoexec.cfg.",
   },
   {
-    name: "r_shadowClip",
-    default: "1",
-    platforms: ALL_PLATFORMS,
-    description:
-      "Clip stencil shadows (cg_shadows 2) against level geometry, so they stop at walls and floors.",
-  },
-  {
-    name: "r_shadowClipExtension",
-    default: "16",
-    platforms: ALL_PLATFORMS,
-    description:
-      "How far a clipped shadow may stretch back toward the surface it falls on, in game units. Raising it closes gaps where a shadow stops short; lowering it keeps shadows tighter to the caster.",
-  },
-  {
-    name: "r_shadowClipPenetration",
-    default: "4",
-    platforms: ALL_PLATFORMS,
-    description:
-      "How far a shadow may pass through a surface before it's clipped, in game units. Smaller values clip sooner.",
-  },
-  {
-    name: "r_shadowDistance",
+    name: "r_shadowFadeLength",
     default: "256",
     platforms: ALL_PLATFORMS,
     description:
-      "How far from the caster a stencil shadow reaches, in game units. Lower values save frame time.",
+      "How far a soft shadow (cg_shadows 4) stretches from its caster before it has faded out, in game units. Range 16 to 512. Needs the Vulkan renderer.",
   },
 ];
 
