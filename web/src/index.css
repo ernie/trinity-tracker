@@ -11196,7 +11196,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   height: 150%;
   aspect-ratio: 1;
   transform: translate(-50%, -50%);
-  opacity: 0.2;
+  opacity: 0.35;
   z-index: -1;
   pointer-events: none;
 }
