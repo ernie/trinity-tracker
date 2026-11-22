@@ -321,6 +321,8 @@ export interface MatchSummary {
   players: MatchPlayerSummary[];
   red_score?: number;
   blue_score?: number;
+  red_team?: string;
+  blue_team?: string;
   demo_url?: string;
   is_featured?: boolean;
   mode?: string; // g_mode profile (0..3)

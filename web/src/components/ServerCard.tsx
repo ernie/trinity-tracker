@@ -657,6 +657,8 @@ const ServerCardImpl = memo(function ServerCardImpl({
               redIndicator={redInd ?? overloadRed ?? harvestRed}
               blueIndicator={blueInd ?? overloadBlue ?? harvestBlue}
               centerIndicator={centerInd}
+              redClan={server.server_vars?.g_redteam}
+              blueClan={server.server_vars?.g_blueteam}
             />
           );
         })()}

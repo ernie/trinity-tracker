@@ -11175,7 +11175,7 @@ h2.docs-h2:focus-within .docs-h2__anchor {
 .scoreboard {
   position: relative; /* anchors the One Flag CTF `vs` */
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: 12px;
   margin-bottom: 14px;
@@ -11186,6 +11186,19 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   align-items: center;
   gap: 2px;
   position: relative;
+  isolation: isolate;
+  min-width: 0;
+}
+.scoreboard__clan {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  height: 150%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  opacity: 0.2;
+  z-index: -1;
+  pointer-events: none;
 }
 .scoreboard__label {
   font-family: "Barlow", sans-serif;
@@ -11193,6 +11206,10 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   font-size: 10px;
   letter-spacing: 0.25em;
   text-transform: uppercase;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .scoreboard__label.red {
   color: var(--red);

@@ -350,11 +350,13 @@ export function MatchCard({
         <>
           {isTeam && (
             <Scoreboard
-              redLabel="Red"
+              redLabel={match.red_team || "Red"}
               redScore={redScore}
-              blueLabel="Blue"
+              blueLabel={match.blue_team || "Blue"}
               blueScore={blueScore}
               state={scoreState}
+              redClan={match.red_team}
+              blueClan={match.blue_team}
             />
           )}
           {isFfa && ffaHero && (
