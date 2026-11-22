@@ -51,6 +51,8 @@ type MatchStartData struct {
 	MapName           string    `json:"map"`
 	GameType          string    `json:"gametype"`
 	Mode              string    `json:"mode,omitempty"`
+	RedTeam           string    `json:"red_team,omitempty"`
+	BlueTeam          string    `json:"blue_team,omitempty"`
 	StartedAt         time.Time `json:"started_at"`
 	HandshakeRequired bool      `json:"handshake_required"`
 }

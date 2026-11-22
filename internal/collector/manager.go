@@ -850,7 +850,7 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 	switch event.Type {
 	case EventTypeInitGame:
 		data := event.Data.(InitGameData)
-		m.handleMatchChange(ctx, state, data.MapName, data.GameType, data.UUID, data.Settings["g_mode"], data.Settings["g_trinityhandshake"] == "1", event.Timestamp, replayMode)
+		m.handleMatchChange(ctx, state, data.MapName, data.GameType, data.UUID, data.Settings["g_mode"], data.Settings["g_redteam"], data.Settings["g_blueteam"], data.Settings["g_trinityhandshake"] == "1", event.Timestamp, replayMode)
 		// Open the tap at InitGame so warmup streams too: the engine streams from
 		// spawn (sv_tvLive), separately from .tvd recording.
 		if !replayMode && state.match != nil && state.match.UUID != "" {
@@ -882,6 +882,8 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 							MapName:           state.match.MapName,
 							GameType:          state.match.GameType,
 							Mode:              state.match.Mode,
+							RedTeam:           state.match.RedTeam,
+							BlueTeam:          state.match.BlueTeam,
 							StartedAt:         event.Timestamp,
 							HandshakeRequired: state.handshakeRequired,
 						},
@@ -1830,7 +1832,7 @@ func (m *ServerManager) handleLogEvent(ctx context.Context, serverID int64, even
 }
 
 // handleMatchChange starts tracking the match an InitGame begins.
-func (m *ServerManager) handleMatchChange(ctx context.Context, state *serverState, mapName string, gameType int, uuid string, mode string, handshakeEnabled bool, ts time.Time, replayMode bool) {
+func (m *ServerManager) handleMatchChange(ctx context.Context, state *serverState, mapName string, gameType int, uuid string, mode string, redTeam, blueTeam string, handshakeEnabled bool, ts time.Time, replayMode bool) {
 	state.handshakeRequired = handshakeEnabled
 	// The game can log InitGame twice at one timestamp when a server restarts.
 	if ts.Equal(state.lastInitGame) {
@@ -1863,6 +1865,8 @@ func (m *ServerManager) handleMatchChange(ctx context.Context, state *serverStat
 			GameType:  gameTypeStr,
 			StartedAt: ts,
 			Mode:      mode,
+			RedTeam:   redTeam,
+			BlueTeam:  blueTeam,
 		}
 		state.matchStarted = false
 		state.clients = make(map[int]*clientState)
@@ -1898,6 +1902,8 @@ func (m *ServerManager) handleMatchChange(ctx context.Context, state *serverStat
 		GameType:  gameTypeStr,
 		StartedAt: ts,
 		Mode:      mode,
+		RedTeam:   redTeam,
+		BlueTeam:  blueTeam,
 	}
 	state.match = match
 	state.matchStarted = false

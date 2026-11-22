@@ -15,6 +15,8 @@ type Match struct {
 	RedScore   *int       `json:"red_score,omitempty"`
 	BlueScore  *int       `json:"blue_score,omitempty"`
 	Mode       string     `json:"mode,omitempty"`
+	RedTeam    string     `json:"red_team,omitempty"`
+	BlueTeam   string     `json:"blue_team,omitempty"`
 }
 
 const (
