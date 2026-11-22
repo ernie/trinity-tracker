@@ -47,3 +47,16 @@ func TestParseHeadHonkNoTaunt(t *testing.T) {
 		t.Fatal("honk parsed without a TAUNT clip")
 	}
 }
+
+func TestHeadHonkClampedToModelFrames(t *testing.T) {
+	h := HeadHonk{First: 6, Count: 11, FPS: 20}
+	if got, ok := h.Clamped(211); !ok || got.Count != 11 {
+		t.Fatalf("Clamped(211) = %+v, %v; want Count 11", got, ok)
+	}
+	if got, ok := h.Clamped(10); !ok || got.Count != 4 {
+		t.Fatalf("Clamped(10) = %+v, %v; want Count 4", got, ok)
+	}
+	if _, ok := h.Clamped(6); ok {
+		t.Fatal("Clamped(6) kept a honk that starts past the last frame")
+	}
+}

@@ -171,7 +171,10 @@ func TestParseMD3FramesTag(t *testing.T) {
 	if len(pos[0]) != i*3 {
 		t.Fatalf("frame has %d floats, want %d", len(pos[0]), i*3)
 	}
-	if beak[0] != ([12]float32{}) {
-		t.Fatalf("sarge has no tag_beak, got %v", beak[0])
+	if want := ([12]float32{0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1}); beak[0] != want {
+		t.Fatalf("sarge has no tag_beak: got %v, want the head's own origin and axis", beak[0])
+	}
+	if n, err := MD3FrameCount(bytes.NewReader(data), int64(len(data))); err != nil || n != 1 {
+		t.Fatalf("MD3FrameCount = %d, %v; want 1", n, err)
 	}
 }

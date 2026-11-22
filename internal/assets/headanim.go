@@ -92,3 +92,13 @@ func ParseHeadHonk(r io.Reader) (HeadHonk, bool) {
 	}
 	return honk, true
 }
+
+// Clamped fits the honk to a model with frames frames, as the game clamps a
+// clip that runs past the model's last frame.
+func (h HeadHonk) Clamped(frames int) (HeadHonk, bool) {
+	if h.First >= frames {
+		return h, false
+	}
+	h.Count = min(h.Count, frames-h.First)
+	return h, true
+}

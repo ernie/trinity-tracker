@@ -2143,6 +2143,14 @@ func writeHeadBundle(model, assetDir, md3Path, md3Pk3 string, fileIndex map[stri
 // writeHeadHonk writes honk.geo, the honk drawings and honk.wav for one honk
 // of the head; a model without a usable taunt.wav honks silently.
 func writeHeadHonk(model string, h assets.HeadHonk, md3 []byte, fileIndex map[string]string, shaderIndex map[string]assets.ShaderDef, modelDir string) (*assets.HeadHonkManifest, error) {
+	modelFrames, err := assets.MD3FrameCount(bytes.NewReader(md3), int64(len(md3)))
+	if err != nil {
+		return nil, err
+	}
+	h, ok := h.Clamped(modelFrames)
+	if !ok {
+		return nil, fmt.Errorf("TAUNT starts at frame %d of %d", h.First, modelFrames)
+	}
 	frames := make([]int, h.Count)
 	for i := range frames {
 		frames[i] = h.First + i

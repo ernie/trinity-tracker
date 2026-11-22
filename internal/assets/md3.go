@@ -214,7 +214,8 @@ func ParseMD3Geometry(r io.ReaderAt, size int64) (*MD3Geometry, error) {
 
 // ParseMD3Frames reads the requested frames' positions and normals, every
 // surface's vertices in the order ParseMD3Geometry gives them, and each
-// frame's tag_beak (origin then axis rows; zero when the model has none).
+// frame's tag_beak (origin then axis rows). A model without one gets the
+// head's own origin and axis, which is where the game draws.
 func ParseMD3Frames(r io.ReaderAt, size int64, frames []int) (positions, normals [][]float32, beak [][12]float32, err error) {
 	header := make([]byte, md3HeaderSize)
 	if size < md3HeaderSize {
@@ -239,6 +240,9 @@ func ParseMD3Frames(r io.ReaderAt, size int64, frames []int) (positions, normals
 	positions = make([][]float32, len(frames))
 	normals = make([][]float32, len(frames))
 	beak = make([][12]float32, len(frames))
+	for fi := range beak {
+		beak[fi] = [12]float32{0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1}
+	}
 
 	const tagSize = 112 // 64-byte name, origin, 3x3 axis
 	tag := make([]byte, tagSize)
@@ -284,4 +288,19 @@ func ParseMD3Frames(r io.ReaderAt, size int64, frames []int) (positions, normals
 		surfaceOfs += ofsEnd
 	}
 	return positions, normals, beak, nil
+}
+
+// MD3FrameCount reads the model's frame count from its header.
+func MD3FrameCount(r io.ReaderAt, size int64) (int, error) {
+	header := make([]byte, md3HeaderSize)
+	if size < md3HeaderSize {
+		return 0, fmt.Errorf("MD3 too small: %d bytes", size)
+	}
+	if _, err := r.ReadAt(header, 0); err != nil {
+		return 0, fmt.Errorf("read MD3 header: %w", err)
+	}
+	if string(header[0:4]) != md3Magic {
+		return 0, fmt.Errorf("invalid MD3 magic: %q", header[0:4])
+	}
+	return int(binary.LittleEndian.Uint32(header[76:80])), nil
 }
