@@ -1,15 +1,27 @@
 import * as THREE from "three";
 import { HeadScene } from "./headScene";
 import { HeadIdleAnimator } from "./headIdleAngles";
-import { frameIntervalMs, phaseOffsetFor } from "./headRenderMath";
+import {
+  frameIntervalMs,
+  HEAD_OVERFLOW,
+  phaseOffsetFor,
+} from "./headRenderMath";
+import { HonkClock, honkPose } from "./headHonk";
+import { playHonk } from "./honkSound";
 
 export interface HeadHandle {
   release(): void;
+  honk(): void;
 }
 
 // Square render resolution per head; each head's target canvas is sized to
 // match and CSS-scaled to its box.
 const RENDER_PX = 256;
+
+// The honk overlay spans this many head boxes, matching ModelHead.css, at the
+// head canvas's pixel density.
+const HONK_OVERLAY_BOXES = 4;
+const OVERLAY_PX = Math.round((RENDER_PX * HONK_OVERLAY_BOXES) / HEAD_OVERFLOW);
 
 interface HeadEntry {
   canvas: HTMLCanvasElement;
@@ -27,6 +39,9 @@ interface HeadEntry {
   // scene built against the dead context.
   loadGen: number;
   onLive: () => void;
+  overlay: CanvasRenderingContext2D | null;
+  honkClock: HonkClock | null;
+  honking: boolean;
 }
 
 const matches = (q: string) =>
@@ -51,10 +66,15 @@ class SharedHeadRenderer {
     model: string,
     skin: string,
     onLive: () => void,
+    overlayCanvas: HTMLCanvasElement | null = null,
   ): HeadHandle | null {
     if (!this.ensureContext()) return null;
     const ctx = canvas.getContext("2d");
     if (!ctx) return null;
+    if (overlayCanvas) {
+      overlayCanvas.width = OVERLAY_PX;
+      overlayCanvas.height = OVERLAY_PX;
+    }
     const entry: HeadEntry = {
       canvas,
       ctx,
@@ -68,10 +88,42 @@ class SharedHeadRenderer {
       loaded: false,
       loadGen: 0,
       onLive,
+      overlay: overlayCanvas?.getContext("2d") ?? null,
+      honkClock: null,
+      honking: false,
     };
     this.entries.add(entry);
     this.io!.observe(canvas);
-    return { release: () => this.release(entry) };
+    return {
+      release: () => this.release(entry),
+      honk: () => this.honk(entry),
+    };
+  }
+
+  private honk(entry: HeadEntry): void {
+    const honk = entry.scene?.honk;
+    if (this.reducedMotion || !entry.loaded || !honk || !entry.overlay) return;
+    entry.honkClock ??= new HonkClock(honk.durationMs);
+    if (!entry.honkClock.start(performance.now())) return;
+    entry.scene!.resetHonk();
+    entry.honking = true;
+    if (honk.soundUrl) playHonk(honk.soundUrl);
+    this.wake();
+  }
+
+  private poseHonk(head: HeadEntry, now: number): void {
+    const scene = head.scene!;
+    const since = head.honkClock?.since(now) ?? null;
+    if (since === null) {
+      if (head.honking) {
+        head.honking = false;
+        scene.setHonkPose(null);
+        scene.drawHonk(head.overlay!, -1, RENDER_PX / 2);
+      }
+      return;
+    }
+    const { frames, fps } = scene.honk!.manifest;
+    scene.setHonkPose(honkPose(since, frames, fps));
   }
 
   private async loadEntry(entry: HeadEntry): Promise<void> {
@@ -186,7 +238,8 @@ class SharedHeadRenderer {
     }
     if (visible.length === 0) return; // parked until a wake()
 
-    if (!this.reducedMotion) {
+    // A honk runs at full rate so its frames and drawings don't stutter.
+    if (!this.reducedMotion && !visible.some((h) => h.honking)) {
       const interval = frameIntervalMs(visible.length, this.coarse);
       if (now - this.lastFrame < interval) {
         this.raf = requestAnimationFrame(this.boundFrame);
@@ -200,9 +253,13 @@ class SharedHeadRenderer {
       const t = this.reducedMotion ? 0 : now + head.phaseOffset;
       const { yaw, pitch } = head.animator.sample(t);
       head.scene!.update(yaw, pitch, t);
+      this.poseHonk(head, now);
       r.render(head.scene!.scene, head.scene!.camera);
       head.ctx.clearRect(0, 0, RENDER_PX, RENDER_PX);
       head.ctx.drawImage(gl, 0, 0, RENDER_PX, RENDER_PX);
+      const since = head.honking ? head.honkClock!.since(now) : null;
+      if (since !== null)
+        head.scene!.drawHonk(head.overlay!, since, RENDER_PX / 2);
     }
 
     // Reduced motion draws one frame per wake(); model changes re-wake.

@@ -19,6 +19,13 @@
 .model-head.is-live > canvas {
   opacity: 1;
 }
+/* Spans HONK_OVERLAY_BOXES head boxes, so drawings can reach past the head. */
+.model-head > canvas.model-head__honk {
+  width: 400%;
+  height: 400%;
+  z-index: 1;
+  transition: none;
+}
 .model-head > .player-portrait {
   transition: opacity 200ms ease;
 }

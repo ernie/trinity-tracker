@@ -2,6 +2,37 @@ import * as THREE from "three";
 import { stageDescriptor, type StageManifest } from "./stageMaterial";
 import { buildBillboard, type Billboard } from "./billboard";
 import { HEAD_OVERFLOW } from "./headRenderMath";
+import {
+  HONK_FX_SCALE,
+  HONK_RETURN_MS,
+  honkFxCard,
+  honkFxFrame,
+  type HonkCard,
+  type HonkFx,
+} from "./headHonk";
+
+interface HonkManifest {
+  fps: number;
+  frames: number;
+  fx: HonkFx;
+  beak: number[][];
+  drawings: string[];
+  sound?: string;
+}
+
+interface HonkData {
+  manifest: HonkManifest;
+  geo: Float32Array;
+  drawings: HTMLImageElement[];
+  soundUrl: string | null;
+  durationMs: number;
+}
+
+export interface HonkPose {
+  a: number;
+  b: number;
+  t: number;
+}
 
 interface Framing {
   cx: number;
@@ -34,6 +65,7 @@ interface HeadManifest {
   }[];
   skins: Record<string, Record<string, StageManifest[]>>;
   headOffset?: [number, number, number];
+  honk?: HonkManifest;
 }
 
 interface StageRT {
@@ -56,6 +88,12 @@ export class HeadScene {
   private upv = new THREE.Vector3();
   private framing: Framing = { cx: 0, cy: 0, cz: 0, dist: 20 };
   private stages: StageRT[] = [];
+  private verts: Float32Array | null = null;
+  private rest: Float32Array | null = null;
+  private interleaved: THREE.InterleavedBuffer | null = null;
+  private honkPoseNow: HonkPose = { a: 0, b: 0, t: 0 };
+  private honkCard: HonkCard | null = null;
+  honk: HonkData | null = null;
 
   constructor() {
     this.camera = new THREE.PerspectiveCamera(30, 1, 1, 4096);
@@ -96,6 +134,9 @@ export class HeadScene {
     }
     const interleaved = new THREE.InterleavedBuffer(verts, 8);
     const indexAttr = new THREE.BufferAttribute(indices, 1);
+    this.verts = verts;
+    this.rest = verts.slice();
+    this.interleaved = interleaved;
 
     const buildSubGeometry = (
       idxOffset: number,
@@ -319,6 +360,161 @@ export class HeadScene {
         });
       }
     }
+    if (manifest.honk) await this.loadHonk(base, manifest.honk);
+  }
+
+  // A head whose honk files fail to load still shows, just without the honk.
+  private async loadHonk(base: string, h: HonkManifest): Promise<void> {
+    try {
+      const geo = await fetch(`${base}/honk.geo`).then((r) => {
+        if (!r.ok) throw new Error(`honk.geo ${r.status}`);
+        return r.arrayBuffer();
+      });
+      const drawings = await Promise.all(
+        h.drawings.map(
+          (d) =>
+            new Promise<HTMLImageElement>((resolve, reject) => {
+              const img = new Image();
+              img.onload = () => resolve(img);
+              img.onerror = reject;
+              img.src = `${base}/${d}`;
+            }),
+        ),
+      );
+      this.honk = {
+        manifest: h,
+        geo: new Float32Array(geo),
+        drawings,
+        soundUrl: h.sound ? `${base}/${h.sound}` : null,
+        durationMs: Math.max(
+          (h.frames * 1000) / h.fps + HONK_RETURN_MS,
+          h.fx.delay + h.fx.msec,
+        ),
+      };
+    } catch {
+      this.honk = null;
+    }
+  }
+
+  resetHonk(): void {
+    this.honkCard = null;
+  }
+
+  // Pose indices count the rest pose as 0 and honk.geo's frames from 1.
+  setHonkPose(pose: HonkPose | null): void {
+    const v = this.verts;
+    const rest = this.rest;
+    const honk = this.honk;
+    if (!v || !rest || !this.interleaved) return;
+    if (!pose || !honk) {
+      v.set(rest);
+      this.honkPoseNow = { a: 0, b: 0, t: 0 };
+      this.interleaved.needsUpdate = true;
+      return;
+    }
+    const n = v.length / 8;
+    const geo = honk.geo;
+    const stride = n * 6;
+    const value = (frame: number, vert: number, k: number) =>
+      frame === 0
+        ? rest[vert * 8 + k]
+        : k < 3
+          ? geo[(frame - 1) * stride + vert * 3 + k]
+          : geo[(frame - 1) * stride + n * 3 + vert * 3 + k - 3];
+    for (let i = 0; i < n; i++) {
+      for (let k = 0; k < 6; k++) {
+        const a = value(pose.a, i, k);
+        v[i * 8 + k] = a + (value(pose.b, i, k) - a) * pose.t;
+      }
+    }
+    this.honkPoseNow = pose;
+    this.interleaved.needsUpdate = true;
+  }
+
+  // The rest pose has no beak tag of its own; the honk's first frame stands in.
+  private beakTag(): number[] {
+    const beak = this.honk!.manifest.beak;
+    const at = (f: number) => beak[Math.max(0, f - 1)];
+    const { a, b, t } = this.honkPoseNow;
+    return at(a).map((x, i) => x + (at(b)[i] - x) * t);
+  }
+
+  // Draws the honk's drawings for msecSince into ctx, whose center is the
+  // head's center and ndcHalfPx pixels span half the head canvas.
+  drawHonk(
+    ctx: CanvasRenderingContext2D,
+    msecSince: number,
+    ndcHalfPx: number,
+  ): void {
+    const { width: W, height: H } = ctx.canvas;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    const honk = this.honk;
+    if (!honk) return;
+    const fx = honk.manifest.fx;
+    const frame = honkFxFrame(fx, msecSince);
+    if (frame < 0) return;
+
+    const tag = this.beakTag();
+    this.headGroup.updateMatrixWorld(true);
+    this.camera.updateMatrixWorld(true);
+    const origin = this.headGroup.localToWorld(
+      new THREE.Vector3(tag[0], tag[1], tag[2]),
+    );
+    const fwd = new THREE.Vector3(tag[3], tag[4], tag[5]).applyQuaternion(
+      this.headGroup.quaternion,
+    );
+    const right = new THREE.Vector3().setFromMatrixColumn(
+      this.camera.matrixWorld,
+      0,
+    );
+    const up = new THREE.Vector3().setFromMatrixColumn(
+      this.camera.matrixWorld,
+      1,
+    );
+    const back = new THREE.Vector3().setFromMatrixColumn(
+      this.camera.matrixWorld,
+      2,
+    );
+    if (!this.honkCard) {
+      this.honkCard = honkFxCard(
+        fx,
+        [fwd.dot(right), fwd.dot(up)],
+        -fwd.dot(back),
+      );
+    }
+    const card = this.honkCard;
+    const corner = (cx: number, cy: number): [number, number] => {
+      const sx =
+        HONK_FX_SCALE *
+        (card.center[0] +
+          cx * fx.width * 0.5 * card.right[0] +
+          cy * fx.height * 0.5 * card.up[0]);
+      const sy =
+        HONK_FX_SCALE *
+        (card.center[1] +
+          cx * fx.width * 0.5 * card.right[1] +
+          cy * fx.height * 0.5 * card.up[1]);
+      const p = origin
+        .clone()
+        .addScaledVector(right, sx)
+        .addScaledVector(up, sy)
+        .project(this.camera);
+      return [W / 2 + p.x * ndcHalfPx, H / 2 - p.y * ndcHalfPx];
+    };
+    const tl = corner(-1, 1);
+    const tr = corner(1, 1);
+    const bl = corner(-1, -1);
+    const img = honk.drawings[frame];
+    ctx.setTransform(
+      (tr[0] - tl[0]) / img.width,
+      (tr[1] - tl[1]) / img.width,
+      (bl[0] - tl[0]) / img.height,
+      (bl[1] - tl[1]) / img.height,
+      tl[0],
+      tl[1],
+    );
+    ctx.drawImage(img, 0, 0);
   }
 
   // headAngles in degrees: yaw about Z (up), pitch about Y. Base yaw 180
