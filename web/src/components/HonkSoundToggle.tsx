@@ -1,28 +1,35 @@
-import { useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
 import {
   isHonkSoundOn,
   setHonkSoundOn,
   subscribeHonkSound,
 } from "../utils/honkSound";
 
+// Heads don't honk under reduced motion, so the switch would do nothing.
+const reducedMotion =
+  typeof window !== "undefined" &&
+  !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
 export function HonkSoundToggle() {
   const on = useSyncExternalStore(subscribeHonkSound, isHonkSoundOn);
-  const label = on ? "Turn honk sounds off" : "Turn honk sounds on";
+  const [missing, setMissing] = useState(false);
+  if (reducedMotion || missing) return null;
 
   return (
     <button
       type="button"
       className={`honk-toggle${on ? "" : " is-off"}`}
       onClick={() => setHonkSoundOn(!on)}
-      aria-pressed={!on}
-      aria-label={label}
-      title={label}
+      aria-pressed={on}
+      aria-label="Honk sounds"
+      title={on ? "Honk sounds on" : "Honk sounds off"}
     >
       <span className="honk-toggle__face">
         <img
           className="honk-toggle__goose"
           src="/assets/portraits/goose/icon_default.png"
           alt=""
+          onError={() => setMissing(true)}
         />
       </span>
       {on && (

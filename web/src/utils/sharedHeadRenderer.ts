@@ -71,10 +71,6 @@ class SharedHeadRenderer {
     if (!this.ensureContext()) return null;
     const ctx = canvas.getContext("2d");
     if (!ctx) return null;
-    if (overlayCanvas) {
-      overlayCanvas.width = OVERLAY_PX;
-      overlayCanvas.height = OVERLAY_PX;
-    }
     const entry: HeadEntry = {
       canvas,
       ctx,
@@ -105,24 +101,35 @@ class SharedHeadRenderer {
     if (this.reducedMotion || !entry.loaded || !honk || !entry.overlay) return;
     entry.honkClock ??= new HonkClock(honk.durationMs);
     if (!entry.honkClock.start(performance.now())) return;
+    // Most heads never honk, so the large overlay is sized on first use.
+    const overlay = entry.overlay.canvas;
+    if (overlay.width !== OVERLAY_PX) {
+      overlay.width = OVERLAY_PX;
+      overlay.height = OVERLAY_PX;
+    }
     entry.scene!.resetHonk();
     entry.honking = true;
     if (honk.soundUrl) playHonk(honk.soundUrl);
     this.wake();
   }
 
+  private stopHonk(head: HeadEntry): void {
+    if (!head.honking) return;
+    head.honking = false;
+    head.scene?.setHonkPose(null);
+    const o = head.overlay!;
+    o.setTransform(1, 0, 0, 1, 0, 0);
+    o.clearRect(0, 0, o.canvas.width, o.canvas.height);
+  }
+
   private poseHonk(head: HeadEntry, now: number): void {
     const scene = head.scene!;
     const since = head.honkClock?.since(now) ?? null;
-    if (since === null) {
-      if (head.honking) {
-        head.honking = false;
-        scene.setHonkPose(null);
-        scene.drawHonk(head.overlay!, -1, RENDER_PX / 2);
-      }
+    if (since === null || !scene.honk) {
+      this.stopHonk(head);
       return;
     }
-    const { frames, fps } = scene.honk!.manifest;
+    const { frames, fps } = scene.honk.manifest;
     scene.setHonkPose(honkPose(since, frames, fps));
   }
 
@@ -212,6 +219,7 @@ class SharedHeadRenderer {
       head.scene?.dispose();
       head.scene = null;
       head.loaded = false;
+      this.stopHonk(head);
     }
   };
 
@@ -235,11 +243,11 @@ class SharedHeadRenderer {
     const visible: HeadEntry[] = [];
     for (const head of this.entries) {
       if (head.visible && head.scene && head.loaded) visible.push(head);
+      else this.stopHonk(head);
     }
     if (visible.length === 0) return; // parked until a wake()
 
-    // A honk runs at full rate so its frames and drawings don't stutter.
-    if (!this.reducedMotion && !visible.some((h) => h.honking)) {
+    if (!this.reducedMotion) {
       const interval = frameIntervalMs(visible.length, this.coarse);
       if (now - this.lastFrame < interval) {
         this.raf = requestAnimationFrame(this.boundFrame);

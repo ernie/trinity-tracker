@@ -10,6 +10,7 @@ import {
   type HonkCard,
   type HonkFx,
 } from "./headHonk";
+import { preloadHonk } from "./honkSound";
 
 interface HonkManifest {
   fps: number;
@@ -391,6 +392,7 @@ export class HeadScene {
           h.fx.delay + h.fx.msec,
         ),
       };
+      if (this.honk.soundUrl) preloadHonk(this.honk.soundUrl);
     } catch {
       this.honk = null;
     }

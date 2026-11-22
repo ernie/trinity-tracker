@@ -1,6 +1,7 @@
-// Browsers allow audio only after a click, tap or key press, so the context
-// waits for the first one.
+// Browsers allow audio only after a user gesture, and count only some events
+// as one (a click or a lifted touch, not a touch's pointerdown).
 let ctx: AudioContext | null = null;
+const files = new Map<string, Promise<ArrayBuffer | null>>();
 const buffers = new Map<string, Promise<AudioBuffer | null>>();
 
 const STORAGE_KEY = "honk_sound";
@@ -37,26 +38,44 @@ function unlock(): void {
 }
 
 if (typeof window !== "undefined") {
-  window.addEventListener("pointerdown", unlock, true);
-  window.addEventListener("keydown", unlock, true);
+  for (const type of ["pointerup", "click", "touchend", "keydown"]) {
+    window.addEventListener(type, unlock, true);
+  }
 }
 
-function load(url: string): Promise<AudioBuffer | null> {
+export function preloadHonk(url: string): void {
+  if (!files.has(url)) {
+    files.set(
+      url,
+      fetch(url)
+        .then((r) => (r.ok ? r.arrayBuffer() : null))
+        .catch(() => null),
+    );
+  }
+}
+
+function decoded(
+  audio: AudioContext,
+  url: string,
+): Promise<AudioBuffer | null> {
   let p = buffers.get(url);
   if (!p) {
-    p = fetch(url)
-      .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(r.status)))
-      .then((b) => ctx!.decodeAudioData(b))
+    preloadHonk(url);
+    p = files
+      .get(url)!
+      .then((b) => (b ? audio.decodeAudioData(b.slice(0)) : null))
       .catch(() => null);
     buffers.set(url, p);
   }
   return p;
 }
 
+// A honk started by the gesture that unlocks audio plays once the context
+// finishes resuming.
 export function playHonk(url: string): void {
   const audio = ctx;
-  if (!soundOn || !audio || audio.state !== "running") return;
-  void load(url).then((buffer) => {
+  if (!soundOn || !audio || audio.state === "closed") return;
+  void decoded(audio, url).then((buffer) => {
     if (!buffer) return;
     const src = audio.createBufferSource();
     src.buffer = buffer;

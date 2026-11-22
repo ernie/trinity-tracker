@@ -68,7 +68,7 @@ export function ModelHead({
   const onClick = (e: MouseEvent<HTMLSpanElement>) => {
     if (
       pointerRef.current === "mouse" ||
-      !e.currentTarget.closest("a, button")
+      !e.currentTarget.closest('a, button, [role="button"], [role="link"]')
     ) {
       handleRef.current?.honk();
     }
