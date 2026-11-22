@@ -1385,10 +1385,11 @@ export function DocsPlay() {
         <DocsH2 id="clans">Team Arena clans</DocsH2>
         <p>
           On Team Arena servers, red and blue are clans: Crusaders, Intruders,
-          Pagans, Stroggs, The Fallen, and a sixth added specially for fans of
-          VR ports, who bring an exceptionally beefy challenge. Bot teammates
-          come from the named five-member roster of the clan they fight for,
-          with the occasional free agent filling out a squad.
+          Pagans, Stroggs, The Fallen, and two added specially: one for fans of
+          VR ports, who bring an exceptionally beefy challenge, and The Flock,
+          for fans of horrible geese. Bot teammates come from the named
+          five-member roster of the clan they fight for, with the occasional
+          free agent filling out a squad.
         </p>
         <p>
           Clans play winner-stays: when a match ends, the losing side's clan

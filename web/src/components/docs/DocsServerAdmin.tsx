@@ -184,9 +184,9 @@ export function DocsServerAdmin() {
             rotates out, its roster bots replaced by the incoming clan&rsquo;s,
             and the next clan in line challenges the winner. It works only when{" "}
             <code>g_redteam</code> and <code>g_blueteam</code> name real Team
-            Arena clans (Crusaders, Intruders, Pagans, Stroggs, The Fallen);
-            custom team names turn clan rosters and rotation off. The install
-            templates ship it on, with valid clan names.
+            Arena clans (Crusaders, Intruders, Pagans, Stroggs, The Fallen, Team
+            Beef, The Flock); custom team names turn clan rosters and rotation
+            off. The install templates ship it on, with valid clan names.
           </li>
           <li>
             <code>g_grapple 1</code>: hands every player the grapple, starting

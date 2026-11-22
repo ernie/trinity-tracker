@@ -734,7 +734,7 @@ export const SERVER_CVARS: CvarEntry[] = [
     default: "0",
     platforms: ALL_PLATFORMS,
     description:
-      "Winner-stays clan rotation in Team Arena: when a match ends, the losing team's clan rotates out (its roster bots swapped for the incoming clan's) and the next clan in teaminfo.txt order challenges the winner. It works only when g_redteam and g_blueteam name real Team Arena clans (Crusaders, Intruders, Pagans, Stroggs, The Fallen); custom team names leave teams alone.",
+      "Winner-stays clan rotation in Team Arena: when a match ends, the losing team's clan rotates out (its roster bots swapped for the incoming clan's) and the next clan in teaminfo.txt order challenges the winner. It works only when g_redteam and g_blueteam name real Team Arena clans (Crusaders, Intruders, Pagans, Stroggs, The Fallen, Team Beef, The Flock); custom team names leave teams alone.",
   },
   {
     name: "g_damage_gh",
