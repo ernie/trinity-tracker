@@ -4,9 +4,9 @@ import "testing"
 
 func TestClanKey(t *testing.T) {
 	for name, want := range map[string]string{
-		"The Flock":       "theflock",
-		"Team Beef":       "teambeef",
-		"Crusaders":       "crusaders",
+		"The Flock":      "theflock",
+		"Team Beef":      "teambeef",
+		"Crusaders":      "crusaders",
 		"  The  Fallen ": "thefallen",
 	} {
 		if got := ClanKey(name); got != want {
