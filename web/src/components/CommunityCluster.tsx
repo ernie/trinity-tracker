@@ -1,5 +1,6 @@
 import { DiscordButton } from "./DiscordButton";
 import { GitHubButton } from "./GitHubButton";
+import { HonkSoundToggle } from "./HonkSoundToggle";
 import { DownloadIcon } from "./DownloadIcon";
 import { InstallerDownloadLink } from "./InstallerDownloadLink";
 import { useInstallerDownload } from "../hooks/useInstallerDownload";
@@ -21,6 +22,7 @@ export function CommunityCluster() {
       </InstallerDownloadLink>
       <DiscordButton />
       <GitHubButton />
+      <HonkSoundToggle />
     </div>
   );
 }

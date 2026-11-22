@@ -2268,6 +2268,63 @@ h2 {
   outline: none;
 }
 
+.honk-toggle {
+  position: relative;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(208, 200, 184, 0.25);
+  background: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.honk-toggle:hover,
+.honk-toggle:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+}
+.honk-toggle__face {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  overflow: hidden;
+}
+.honk-toggle__goose {
+  width: 24px;
+  height: 24px;
+}
+/* The game's honk card (45:36, centered just past the beak tip, turned 136°
+   from the beak), swung 50° down about the tip. */
+.honk-toggle__honk {
+  position: absolute;
+  left: 15.1px;
+  top: 12.6px;
+  width: 18.6px;
+  height: 14.9px;
+  transform: rotate(-86deg);
+  pointer-events: none;
+}
+.honk-toggle.is-off .honk-toggle__goose {
+  opacity: 0.55;
+}
+/* The ring's inner edge sits on the button's border circle. */
+.honk-toggle__no {
+  position: absolute;
+  left: -3px;
+  top: -3px;
+  width: 32px;
+  height: 32px;
+  fill: none;
+  stroke: #e0352b;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+
 .status-pill__dot {
   width: 7px;
   height: 7px;
