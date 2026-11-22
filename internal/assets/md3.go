@@ -211,3 +211,77 @@ func ParseMD3Geometry(r io.ReaderAt, size int64) (*MD3Geometry, error) {
 
 	return geo, nil
 }
+
+// ParseMD3Frames reads the requested frames' positions and normals, every
+// surface's vertices in the order ParseMD3Geometry gives them, and each
+// frame's tag_beak (origin then axis rows; zero when the model has none).
+func ParseMD3Frames(r io.ReaderAt, size int64, frames []int) (positions, normals [][]float32, beak [][12]float32, err error) {
+	header := make([]byte, md3HeaderSize)
+	if size < md3HeaderSize {
+		return nil, nil, nil, fmt.Errorf("MD3 too small: %d bytes", size)
+	}
+	if _, err := r.ReadAt(header, 0); err != nil {
+		return nil, nil, nil, fmt.Errorf("read MD3 header: %w", err)
+	}
+	if string(header[0:4]) != md3Magic {
+		return nil, nil, nil, fmt.Errorf("invalid MD3 magic: %q", header[0:4])
+	}
+	numFrames := int(binary.LittleEndian.Uint32(header[76:80]))
+	numTags := int64(binary.LittleEndian.Uint32(header[80:84]))
+	numSurfaces := int32(binary.LittleEndian.Uint32(header[84:88]))
+	ofsTags := int64(binary.LittleEndian.Uint32(header[96:100]))
+	ofsSurfaces := int64(binary.LittleEndian.Uint32(header[100:104]))
+	for _, f := range frames {
+		if f < 0 || f >= numFrames {
+			return nil, nil, nil, fmt.Errorf("MD3 frame %d out of range (%d frames)", f, numFrames)
+		}
+	}
+	positions = make([][]float32, len(frames))
+	normals = make([][]float32, len(frames))
+	beak = make([][12]float32, len(frames))
+
+	const tagSize = 112 // 64-byte name, origin, 3x3 axis
+	tag := make([]byte, tagSize)
+	for fi, f := range frames {
+		for t := int64(0); t < numTags; t++ {
+			if _, err := r.ReadAt(tag, ofsTags+(int64(f)*numTags+t)*tagSize); err != nil {
+				return nil, nil, nil, fmt.Errorf("read MD3 tag: %w", err)
+			}
+			if readNullTerminated(tag[:64]) != "tag_beak" {
+				continue
+			}
+			for k := 0; k < 12; k++ {
+				beak[fi][k] = math.Float32frombits(binary.LittleEndian.Uint32(tag[64+k*4:]))
+			}
+		}
+	}
+
+	surfaceOfs := ofsSurfaces
+	surfHeader := make([]byte, md3HeaderSize)
+	for i := int32(0); i < numSurfaces; i++ {
+		if _, err := r.ReadAt(surfHeader, surfaceOfs); err != nil {
+			return nil, nil, nil, fmt.Errorf("read MD3 surface %d header: %w", i, err)
+		}
+		numVerts := int64(binary.LittleEndian.Uint32(surfHeader[80:84]))
+		ofsXyzNormals := int64(binary.LittleEndian.Uint32(surfHeader[100:104]))
+		ofsEnd := int64(binary.LittleEndian.Uint32(surfHeader[104:108]))
+		xyz := make([]byte, numVerts*8)
+		for fi, f := range frames {
+			if _, err := r.ReadAt(xyz, surfaceOfs+ofsXyzNormals+int64(f)*numVerts*8); err != nil {
+				return nil, nil, nil, fmt.Errorf("read MD3 surface %d frame %d: %w", i, f, err)
+			}
+			for v := int64(0); v < numVerts; v++ {
+				const scale = 1.0 / 64.0
+				for c := int64(0); c < 3; c++ {
+					positions[fi] = append(positions[fi], float32(int16(binary.LittleEndian.Uint16(xyz[v*8+c*2:])))*scale)
+				}
+				enc := binary.LittleEndian.Uint16(xyz[v*8+6:])
+				lat := float64((enc>>8)&0xff) * (2 * math.Pi / 256)
+				lng := float64(enc&0xff) * (2 * math.Pi / 256)
+				normals[fi] = append(normals[fi], float32(math.Cos(lat)*math.Sin(lng)), float32(math.Sin(lat)*math.Sin(lng)), float32(math.Cos(lng)))
+			}
+		}
+		surfaceOfs += ofsEnd
+	}
+	return positions, normals, beak, nil
+}

@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -2109,6 +2110,17 @@ func writeHeadBundle(model, assetDir, md3Path, md3Pk3 string, fileIndex map[stri
 		}
 	}
 
+	var honk *assets.HeadHonkManifest
+	if cfgPath := assetDir + "headanim.cfg"; fileIndex[cfgPath] != "" {
+		if cfg, err := assets.ReadFileFromPk3(fileIndex[cfgPath], cfgPath); err == nil {
+			if h, ok := assets.ParseHeadHonk(bytes.NewReader(cfg)); ok {
+				if honk, err = writeHeadHonk(model, h, raw, fileIndex, shaderIndex, modelDir); err != nil {
+					fmt.Fprintf(os.Stderr, "  Warning: %s honk: %v\n", model, err)
+				}
+			}
+		}
+	}
+
 	manifest := assets.HeadManifest{
 		Bounds:      assets.HeadBounds{Mins: geo.Mins, Maxs: geo.Maxs},
 		VertexCount: vertCount,
@@ -2116,6 +2128,7 @@ func writeHeadBundle(model, assetDir, md3Path, md3Pk3 string, fileIndex map[stri
 		Surfaces:    surfaces,
 		Skins:       skins,
 		HeadOffset:  headOffset,
+		Honk:        honk,
 	}
 	if err := os.WriteFile(filepath.Join(modelDir, "head.geo"), geoBytes, 0644); err != nil {
 		return err
@@ -2125,6 +2138,61 @@ func writeHeadBundle(model, assetDir, md3Path, md3Pk3 string, fileIndex map[stri
 		return err
 	}
 	return os.WriteFile(filepath.Join(modelDir, "head.json"), mj, 0644)
+}
+
+// writeHeadHonk writes honk.geo, the honk drawings and honk.wav for one honk
+// of the head; a model without a usable taunt.wav honks silently.
+func writeHeadHonk(model string, h assets.HeadHonk, md3 []byte, fileIndex map[string]string, shaderIndex map[string]assets.ShaderDef, modelDir string) (*assets.HeadHonkManifest, error) {
+	frames := make([]int, h.Count)
+	for i := range frames {
+		frames[i] = h.First + i
+	}
+	positions, normals, beak, err := assets.ParseMD3Frames(bytes.NewReader(md3), int64(len(md3)), frames)
+	if err != nil {
+		return nil, err
+	}
+	var geo bytes.Buffer
+	for i := range frames {
+		_ = binary.Write(&geo, binary.LittleEndian, positions[i])
+		_ = binary.Write(&geo, binary.LittleEndian, normals[i])
+	}
+
+	honk := &assets.HeadHonkManifest{FPS: h.FPS, Frames: h.Count, Fx: h.Fx, Beak: beak}
+	for n := 0; n < h.Fx.Frames; n++ {
+		ref := strings.ToLower(fmt.Sprintf("%s_%d", h.Fx.Prefix, n))
+		if def, ok := shaderIndex[ref]; ok && len(def.Stages) > 0 && len(def.Stages[0].Maps) > 0 {
+			ref = def.Stages[0].Maps[0]
+		}
+		resolved, ok := assets.ResolveTexture(ref, fileIndex)
+		if !ok {
+			return nil, fmt.Errorf("no image for drawing %s", ref)
+		}
+		out := fmt.Sprintf("honk_%d.png", n)
+		if err := convertIndexedTextureToPng(resolved, fileIndex[resolved], filepath.Join(modelDir, out)); err != nil {
+			return nil, err
+		}
+		honk.Drawings = append(honk.Drawings, out)
+	}
+	if err := os.WriteFile(filepath.Join(modelDir, "honk.geo"), geo.Bytes(), 0644); err != nil {
+		return nil, err
+	}
+
+	soundPath := "sound/player/" + model + "/taunt.wav"
+	if pk3 := fileIndex[soundPath]; pk3 != "" {
+		raw, err := assets.ReadFileFromPk3(pk3, soundPath)
+		if err == nil {
+			var wav []byte
+			if wav, err = assets.TrimWav(bytes.NewReader(raw), float64(h.Count)/float64(h.FPS), 0.1); err == nil {
+				err = os.WriteFile(filepath.Join(modelDir, "honk.wav"), wav, 0644)
+			}
+		}
+		if err == nil {
+			honk.Sound = "honk.wav"
+		} else {
+			fmt.Fprintf(os.Stderr, "  Warning: %s honk sound: %v\n", model, err)
+		}
+	}
+	return honk, nil
 }
 
 // resolveSurfaceStages uses a matching shader's stages, or else one opaque

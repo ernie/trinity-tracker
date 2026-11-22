@@ -143,3 +143,35 @@ func TestParseMD3Geometry(t *testing.T) {
 		t.Fatalf("degenerate bounds: mins=%v maxs=%v", geo.Mins, geo.Maxs)
 	}
 }
+
+func TestParseMD3FramesTag(t *testing.T) {
+	data, err := os.ReadFile("testdata/sarge_head.md3")
+	if err != nil {
+		t.Skipf("no fixture: %v", err)
+	}
+	geo, err := ParseMD3Geometry(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	pos, nrm, beak, err := ParseMD3Frames(bytes.NewReader(data), int64(len(data)), []int{0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	i := 0
+	for _, s := range geo.Surfaces {
+		for _, v := range s.Vertices {
+			for c := 0; c < 3; c++ {
+				if pos[0][i*3+c] != v.Pos[c] || nrm[0][i*3+c] != v.Normal[c] {
+					t.Fatalf("vertex %d differs from ParseMD3Geometry", i)
+				}
+			}
+			i++
+		}
+	}
+	if len(pos[0]) != i*3 {
+		t.Fatalf("frame has %d floats, want %d", len(pos[0]), i*3)
+	}
+	if beak[0] != ([12]float32{}) {
+		t.Fatalf("sarge has no tag_beak, got %v", beak[0])
+	}
+}

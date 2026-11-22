@@ -51,7 +51,19 @@ type HeadManifest struct {
 	Skins       map[string]map[string][]StageManifest `json:"skins"`
 	// HeadOffset is the model's animation.cfg headoffset (fwd, y, up): the
 	// artist's per-model correction for the HUD head icon framing.
-	HeadOffset [3]float32 `json:"headOffset,omitempty"`
+	HeadOffset [3]float32        `json:"headOffset,omitempty"`
+	Honk       *HeadHonkManifest `json:"honk,omitempty"`
+}
+
+// HeadHonkManifest describes honk.geo (each honk frame's positions, then its
+// normals, as float32) and the files that go with it.
+type HeadHonkManifest struct {
+	FPS      int           `json:"fps"`
+	Frames   int           `json:"frames"`
+	Fx       HeadFx        `json:"fx"`
+	Beak     [][12]float32 `json:"beak"`
+	Drawings []string      `json:"drawings"`
+	Sound    string        `json:"sound,omitempty"`
 }
 
 // ParseHeadOffset reads a model's animation.cfg and returns its headoffset
