@@ -997,9 +997,9 @@ func (s *Store) GetActiveSessions(ctx context.Context, serverID int64) ([]domain
 // CreateMatch starts a new match
 func (s *Store) CreateMatch(ctx context.Context, m *domain.Match) error {
 	result, err := s.db.ExecContext(ctx, `
-		INSERT INTO matches (uuid, server_id, map_name, game_type, started_at, mode)
-		VALUES (?, ?, ?, ?, ?, ?)
-	`, m.UUID, m.ServerID, m.MapName, m.GameType, formatTimestamp(m.StartedAt), m.Mode)
+		INSERT INTO matches (uuid, server_id, map_name, game_type, started_at, mode, red_team, blue_team)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+	`, m.UUID, m.ServerID, m.MapName, m.GameType, formatTimestamp(m.StartedAt), m.Mode, m.RedTeam, m.BlueTeam)
 	if err != nil {
 		return err
 	}

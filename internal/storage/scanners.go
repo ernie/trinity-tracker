@@ -79,7 +79,7 @@ func scanUser(s scanner) (*User, error) {
 // each column maps to one Scan target there, so change them together.
 const matchSummaryColumns = `m.id, m.uuid, m.server_id, s.key, s.active, s.source, m.map_name, m.game_type,
 	m.started_at, m.ended_at, m.exit_reason,
-	m.red_score, m.blue_score, m.mode, m.demo_available, m.is_featured`
+	m.red_score, m.blue_score, m.red_team, m.blue_team, m.mode, m.demo_available, m.is_featured`
 
 func scanMatchSummaryRow(s scanner) (*domain.MatchSummary, error) {
 	var m domain.MatchSummary
@@ -87,11 +87,13 @@ func scanMatchSummaryRow(s scanner) (*domain.MatchSummary, error) {
 	var exitReason sql.NullString
 	var gameType sql.NullString
 	var redScore, blueScore sql.NullInt64
+	var redTeam, blueTeam sql.NullString
 	var mode sql.NullString
 	var source sql.NullString
 
 	err := s.Scan(&m.ID, &m.UUID, &m.ServerID, &m.ServerKey, &m.ServerActive, &source, &m.MapName, &gameType,
-		&m.StartedAt, &endedAt, &exitReason, &redScore, &blueScore, &mode, &m.DemoAvailable, &m.IsFeatured)
+		&m.StartedAt, &endedAt, &exitReason, &redScore, &blueScore, &redTeam, &blueTeam, &mode, &m.DemoAvailable,
+		&m.IsFeatured)
 	if err != nil {
 		return nil, err
 	}
@@ -102,6 +104,8 @@ func scanMatchSummaryRow(s scanner) (*domain.MatchSummary, error) {
 	m.GameType = scanNullStringValue(gameType)
 	m.RedScore = scanNullInt64ToIntPtr(redScore)
 	m.BlueScore = scanNullInt64ToIntPtr(blueScore)
+	m.RedTeam = scanNullStringValue(redTeam)
+	m.BlueTeam = scanNullStringValue(blueTeam)
 	m.Mode = scanNullStringValue(mode)
 
 	return &m, nil

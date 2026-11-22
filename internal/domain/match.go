@@ -103,5 +103,7 @@ type MatchSummary struct {
 	Players       []MatchPlayerSummary `json:"players"`
 	RedScore      *int                 `json:"red_score,omitempty"`
 	BlueScore     *int                 `json:"blue_score,omitempty"`
+	RedTeam       string               `json:"red_team,omitempty"`
+	BlueTeam      string               `json:"blue_team,omitempty"`
 	Mode          string               `json:"mode,omitempty"`
 }

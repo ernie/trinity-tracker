@@ -118,6 +118,8 @@ CREATE TABLE IF NOT EXISTS matches (
     exit_reason TEXT,
     red_score INTEGER,
     blue_score INTEGER,
+    red_team TEXT,
+    blue_team TEXT,
     has_human_player BOOLEAN DEFAULT FALSE,
     mode TEXT,
     -- Flipped to 1 by FactDemoFinalized; the UI uses this to decide

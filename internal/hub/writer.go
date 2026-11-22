@@ -334,6 +334,8 @@ func (w *Writer) handleMatchStart(ctx context.Context, serverID int64, data doma
 		GameType:  data.GameType,
 		StartedAt: data.StartedAt,
 		Mode:      data.Mode,
+		RedTeam:   data.RedTeam,
+		BlueTeam:  data.BlueTeam,
 	}
 	if err := w.store.CreateMatch(ctx, match); err != nil {
 		log.Printf("hub: CreateMatch failed for UUID %s: %v", data.MatchUUID, err)
