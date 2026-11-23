@@ -57,3 +57,57 @@ func isImagePath(lowerPath string) bool {
 	}
 	return false
 }
+
+// RefreshMobilePak rewrites trinityPak's mobile copy in demoDir against the
+// baseline the last demo bake wrote there, so a mod update needs no new bake.
+// The copy is renamed into place, so a client never downloads a partial one.
+func RefreshMobilePak(demoDir, game, trinityPak string) (string, error) {
+	r, err := zip.OpenReader(filepath.Join(demoDir, game+".pk3"))
+	if err != nil {
+		return "", fmt.Errorf("read the %s baseline (run trinity demobake first): %w", game, err)
+	}
+	baseline := make(map[string]bool, len(r.File))
+	for _, f := range r.File {
+		if !f.FileInfo().IsDir() {
+			baseline[strings.ToLower(f.Name)] = true
+		}
+	}
+	r.Close()
+
+	base := filepath.Base(trinityPak)
+	out := filepath.Join(demoDir, strings.TrimSuffix(base, filepath.Ext(base))+"-mobile.pk3")
+	tmp := out + ".tmp"
+	if err := WriteMobilePak(trinityPak, tmp, baseline); err != nil {
+		os.Remove(tmp)
+		return "", err
+	}
+	if err := os.Rename(tmp, out); err != nil {
+		os.Remove(tmp)
+		return "", err
+	}
+	return out, nil
+}
+
+// RefreshMobilePaks rewrites the mobile copy of each game's installed Trinity
+// pak, picking the pak the demo bake would.
+func RefreshMobilePaks(quake3Dir, demoDir string) ([]string, error) {
+	gamePk3s := CollectGamePk3s(quake3Dir)
+	var written []string
+	for _, game := range []string{"baseq3", "missionpack"} {
+		var trinityPak string
+		for _, pk3 := range gamePk3s[game] {
+			if IsTrinityPak(pk3) {
+				trinityPak = pk3
+			}
+		}
+		if trinityPak == "" {
+			continue
+		}
+		out, err := RefreshMobilePak(demoDir, game, trinityPak)
+		if err != nil {
+			return written, err
+		}
+		written = append(written, out)
+	}
+	return written, nil
+}

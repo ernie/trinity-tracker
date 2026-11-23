@@ -99,3 +99,62 @@ func TestBuildBaseline_WritesMobileTrinityPak(t *testing.T) {
 		}
 	}
 }
+
+func TestRefreshMobilePak_UsesTheBakedBaseline(t *testing.T) {
+	dir := t.TempDir()
+	writeTestPk3(t, dir, "baseq3.pk3", map[string]string{
+		"models/players/doom/doom_blue.tga": "stock",
+	})
+	src := writeTestPk3(t, dir, "pak8t.pk3", map[string]string{
+		"models/players/doom/doom_blue.tga":     "upscaled",
+		"models/players/goose/icon_default.tga": "new",
+		"vm/cgame.qvm":                          "qvm",
+	})
+
+	out, err := RefreshMobilePak(dir, "baseq3", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.Join(dir, "pak8t-mobile.pk3"); out != want {
+		t.Fatalf("RefreshMobilePak wrote %s, want %s", out, want)
+	}
+	got := pk3Names(t, out)
+	if got["models/players/doom/doom_blue.tga"] || !got["models/players/goose/icon_default.tga"] || !got["vm/cgame.qvm"] {
+		t.Fatalf("mobile pak has %v", got)
+	}
+	if _, err := os.Stat(out + ".tmp"); !os.IsNotExist(err) {
+		t.Fatalf("temp file left behind: %v", err)
+	}
+}
+
+func TestRefreshMobilePak_NeedsABakedBaseline(t *testing.T) {
+	dir := t.TempDir()
+	src := writeTestPk3(t, dir, "pak8t.pk3", map[string]string{"vm/cgame.qvm": "qvm"})
+	if _, err := RefreshMobilePak(dir, "baseq3", src); err == nil {
+		t.Fatal("refreshed without a baked baseq3.pk3")
+	}
+}
+
+func TestRefreshMobilePaks_CoversEachGame(t *testing.T) {
+	q3 := t.TempDir()
+	demo := t.TempDir()
+	for _, d := range []string{"baseq3", "missionpack"} {
+		if err := os.MkdirAll(filepath.Join(q3, d), 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writeTestPk3(t, filepath.Join(q3, "baseq3"), "pak0.pk3", map[string]string{"vm/cgame.qvm": "stock"})
+	writeTestPk3(t, filepath.Join(q3, "baseq3"), "pak8t.pk3", map[string]string{"vm/cgame.qvm": "trinity"})
+	writeTestPk3(t, filepath.Join(q3, "missionpack"), "pak3t.pk3", map[string]string{"vm/ui.qvm": "trinity"})
+	writeTestPk3(t, demo, "baseq3.pk3", map[string]string{"gfx/2d/crosshaira.tga": "stock"})
+	writeTestPk3(t, demo, "missionpack.pk3", map[string]string{"gfx/2d/crosshaira.tga": "stock"})
+
+	written, err := RefreshMobilePaks(q3, demo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{filepath.Join(demo, "pak8t-mobile.pk3"), filepath.Join(demo, "pak3t-mobile.pk3")}
+	if len(written) != len(want) || written[0] != want[0] || written[1] != want[1] {
+		t.Fatalf("RefreshMobilePaks wrote %v, want %v", written, want)
+	}
+}

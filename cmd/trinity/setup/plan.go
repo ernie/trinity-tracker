@@ -176,6 +176,22 @@ func (p *Plan) Systemctl(args ...string) error {
 	return nil
 }
 
+// Run runs a command with output going to plan.Out. In dry-run mode
+// prints what it would run.
+func (p *Plan) Run(name string, args ...string) error {
+	if p.DryRun {
+		p.Say("would run %s %s", name, strings.Join(args, " "))
+		return nil
+	}
+	cmd := exec.Command(name, args...)
+	cmd.Stdout = p.Out
+	cmd.Stderr = p.Out
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("%s %s: %w", name, strings.Join(args, " "), err)
+	}
+	return nil
+}
+
 // asUserCmd builds an exec.Cmd that will run with uid/gid credentials
 // when started, with stdout and stderr going to plan.Out.
 func (p *Plan) asUserCmd(uid, gid int, name string, args ...string) *exec.Cmd {
@@ -188,11 +204,11 @@ func (p *Plan) asUserCmd(uid, gid int, name string, args ...string) *exec.Cmd {
 	return cmd
 }
 
-// helperPath is the path used to re-exec trinity for `_helper`
+// SelfPath is the path used to re-exec trinity for its own
 // subcommands. /proc/self/exe always resolves to the currently-
 // running binary, even mid-update when /usr/local/bin/trinity has
 // been atomically renamed onto a new inode.
-const helperPath = "/proc/self/exe"
+const SelfPath = "/proc/self/exe"
 
 // runHelper re-execs trinity as uid/gid with `_helper <verb> args...`,
 // so writes, copies, downloads and unzips run without root.
@@ -202,7 +218,7 @@ func (p *Plan) runHelper(uid, gid int, stdin []byte, verb string, args ...string
 		p.Say("would run as uid=%d gid=%d: trinity _helper %s %s", uid, gid, verb, strings.Join(args, " "))
 		return nil
 	}
-	cmd := p.asUserCmd(uid, gid, helperPath, full...)
+	cmd := p.asUserCmd(uid, gid, SelfPath, full...)
 	if stdin != nil {
 		cmd.Stdin = bytes.NewReader(stdin)
 	}

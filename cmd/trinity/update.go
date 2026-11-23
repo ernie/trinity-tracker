@@ -423,6 +423,17 @@ func cmdUpdate(args []string) {
 		}
 	}
 
+	// The site's mod-derived assets and the phones' demo paks are built from
+	// the installed mod paks. Each command drops to the service user itself.
+	if hasLocalServers && approve["mod"] && hasHub && staticDir != "" {
+		for _, step := range []string{"portraits", "heads", "medals", "skills", "objectives", "clans", "mobilepaks"} {
+			plan.Say("Running trinity %s…", step)
+			if err := plan.Run(setup.SelfPath, step, "--config", *configPath); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: %v; rerun `sudo trinity %s` after the update.\n", err, step)
+			}
+		}
+	}
+
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Update complete.")
 }

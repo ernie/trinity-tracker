@@ -103,6 +103,8 @@ func main() {
 		cmdObjectives(os.Args[2:])
 	case "clans":
 		cmdClans(os.Args[2:])
+	case "mobilepaks":
+		cmdMobilepaks(os.Args[2:])
 	case "arenas":
 		cmdArenas(os.Args[2:])
 	case "assets":
@@ -163,6 +165,7 @@ func printUsage() {
 	fmt.Println("  skills [path]                       Extract skill icons from pk3 file(s)")
 	fmt.Println("  objectives [path]                   Extract objective-state icons (CTF flags, Harvester skulls) from pk3 file(s)")
 	fmt.Println("  clans [path]                        Extract team-colored clan logos from pk3 file(s)")
+	fmt.Println("  mobilepaks [path]                   Rewrite the phone demo player's reduced mod paks from the installed ones")
 	fmt.Println("  arenas [path]                       Extract map longnames into maps.json")
 	fmt.Println("  assets [path]                       Extract all assets (portraits, heads, medals, skills, objectives, clans, levelshots)")
 	fmt.Println("  mapsync [path]                      Regenerate every map-derived artifact: levelshots, maps.json, demo pk3s")
@@ -2484,6 +2487,27 @@ func runObjectives(cfg *config.Config, inputPath string) {
 	}
 
 	fmt.Printf("Objectives: %d extracted\n", totalExtracted)
+}
+
+func cmdMobilepaks(args []string) {
+	fs := flag.NewFlagSet("mobilepaks", flag.ExitOnError)
+	configPath := fs.String("config", defaultConfigPath, "path to configuration file")
+	fs.Parse(args)
+
+	cfg := loadAssetConfig(*configPath)
+	runMobilepaks(cfg, assetInputPath(cfg, fs.Args()))
+}
+
+func runMobilepaks(cfg *config.Config, quake3Dir string) {
+	written, err := assets.RefreshMobilePaks(quake3Dir, filepath.Join(cfg.Server.StaticDir, "demopk3s"))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	for _, path := range written {
+		fmt.Printf("  %s\n", filepath.Base(path))
+	}
+	fmt.Printf("Mobile paks: %d written\n", len(written))
 }
 
 func cmdClans(args []string) {
