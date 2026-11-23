@@ -1610,8 +1610,8 @@ export function DocsPlay() {
         </p>
         <figure className="docs-hud-figure">
           <LazyVideo
-            webm="/assets/play/cg_shadows.webm"
-            mp4="/assets/play/cg_shadows.mp4"
+            webm="/assets/play/soft_shadows.webm"
+            mp4="/assets/play/soft_shadows.mp4"
           />
           <figcaption>Soft shadows in a firefight, at half speed.</figcaption>
         </figure>
