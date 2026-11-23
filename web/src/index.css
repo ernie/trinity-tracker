@@ -2309,7 +2309,7 @@ h2 {
   padding: 0;
   border-radius: 50%;
   border: 1px solid rgba(208, 200, 184, 0.25);
-  background: none;
+  background: #3c6bd6;
   cursor: pointer;
   transition: border-color 0.15s;
 }
