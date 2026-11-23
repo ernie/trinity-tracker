@@ -54,6 +54,16 @@ func TestRenderHubNginxConfig_ContainsExpectedDirectives(t *testing.T) {
 		t.Errorf("rendered hub.conf still references the legacy hostname:\n%s", rendered)
 	}
 
+	// A missing asset must not be cached for a year, and the files
+	// `trinity assets` rewrites in place must revalidate.
+	assets := "location /assets/ {\n        expires 1y;\n        add_header Cache-Control \"public, max-age=31536000, immutable\";\n    }"
+	if !strings.Contains(rendered, assets) {
+		t.Errorf("rendered hub.conf /assets/ block should cache only successful responses:\n%s", rendered)
+	}
+	if !strings.Contains(rendered, "location ~ ^/assets/(clans|portraits|heads|medals|skills|flags|icons)/ {\n        add_header Cache-Control \"no-cache\";") {
+		t.Errorf("rendered hub.conf should revalidate the generated asset folders:\n%s", rendered)
+	}
+
 	// A pure hub has no local relay to proxy to.
 	if strings.Contains(rendered, "127.0.0.1:8081") {
 		t.Errorf("pure hub.conf must not proxy to the relay :8081:\n%s", rendered)
