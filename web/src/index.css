@@ -2268,6 +2268,39 @@ h2 {
   outline: none;
 }
 
+.honk-toggle-wrap {
+  position: relative;
+  display: inline-flex;
+}
+/* The padding bridges the gap to the button, so the pointer can reach the link. */
+.honk-note {
+  position: absolute;
+  top: 100%;
+  right: -8px;
+  z-index: 200;
+  padding-top: 10px;
+}
+.honk-note__card {
+  display: block;
+  width: 230px;
+  padding: 10px 12px;
+  /* gander.ernie.io's blue, so the note reads as Gander's. */
+  border: 1px solid #1e3c86;
+  border-radius: var(--radius-md);
+  background: #3c6bd6;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-family: "Barlow", sans-serif;
+  font-size: 13px;
+  letter-spacing: normal;
+  text-transform: none;
+  line-height: 1.45;
+  text-align: left;
+}
+.honk-note__card a {
+  color: #fff;
+  font-weight: 700;
+}
 .honk-toggle {
   position: relative;
   flex-shrink: 0;
