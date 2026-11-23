@@ -978,6 +978,8 @@ export function DocsPlay() {
           <LazyVideo
             webm="/assets/play/vr_tracking.webm"
             mp4="/assets/play/vr_tracking.mp4"
+            width={480}
+            height={480}
           />
           <figcaption>
             A VR player&rsquo;s head pose and weapon aim, tracked in real time,
@@ -1336,6 +1338,8 @@ export function DocsPlay() {
           <LazyVideo
             webm="/assets/play/grapple.webm"
             mp4="/assets/play/grapple.mp4"
+            width={480}
+            height={480}
           />
           <figcaption>
             The pad stuck to the underside of a mover on q3dm19, a map that is
@@ -1520,6 +1524,8 @@ export function DocsPlay() {
           <LazyVideo
             webm="/assets/play/cg_damagePlums.webm"
             mp4="/assets/play/cg_damagePlums.mp4"
+            width={480}
+            height={480}
           />
         </figure>
         <p>
@@ -1547,6 +1553,8 @@ export function DocsPlay() {
           <LazyVideo
             webm="/assets/play/modern_blood.webm"
             mp4="/assets/play/modern_blood.mp4"
+            width={480}
+            height={480}
           />
           <figcaption>
             Modern blood reacting to each hit: spray, lingering trails, and
@@ -1584,6 +1592,8 @@ export function DocsPlay() {
           <LazyVideo
             webm="/assets/play/cg_damageEffect.webm"
             mp4="/assets/play/cg_damageEffect.mp4"
+            width={480}
+            height={480}
           />
           <figcaption>
             Red flares from the side the hit came from, fading quickly so it
@@ -1612,6 +1622,8 @@ export function DocsPlay() {
           <LazyVideo
             webm="/assets/play/soft_shadows.webm"
             mp4="/assets/play/soft_shadows.mp4"
+            width={480}
+            height={480}
           />
           <figcaption>Soft shadows in a firefight, at half speed.</figcaption>
         </figure>

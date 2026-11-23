@@ -12898,6 +12898,40 @@ h2.docs-h2:focus-within .docs-h2__anchor {
   border: 1px solid var(--rule);
 }
 
+.lazy-video {
+  position: relative;
+}
+
+.lazy-video__play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--rule);
+  border-radius: 50%;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 0;
+  transition:
+    color 0.12s,
+    border-color 0.12s,
+    background 0.12s;
+}
+
+.lazy-video__play:hover,
+.lazy-video__play:focus-visible {
+  color: var(--ember-strong);
+  border-color: var(--ember-strong);
+  background: rgba(0, 0, 0, 0.6);
+  outline: none;
+}
+
 /* ─── Zoomable image ────────────────────────────────────────── */
 
 .docs-zoomable-image__trigger {
