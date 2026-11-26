@@ -1087,6 +1087,12 @@ export function DocsPlay() {
             <Link to="/docs/reference#vr-cvars">VR CVars</Link> lists the cvar
             names for setting them in <code>autoexec.cfg</code>.
           </p>
+          <p>
+            When the game starts and whenever you recenter your headset, Trinity
+            takes your head height at that moment as your in-game eye height, so
+            you see from the usual height whether you sit or stand. If you start
+            the game before putting the headset on, recenter once it&rsquo;s on.
+          </p>
 
           <h3 className="docs-play__feature-title">
             Refresh rate and supersampling
@@ -1422,14 +1428,29 @@ export function DocsPlay() {
             <code>cg_followMode 2</code>), works only during TV demo playback,
             so the menu leaves it out.
           </p>
+          <p>
+            <strong>Setup → Game Options → Follow Turn</strong> picks how the
+            mouse turns the camera: <em>Look</em> (the default) turns your view
+            the way you move the mouse, as in first person, and <em>Orbit</em>{" "}
+            moves the camera around the player that way instead.
+          </p>
         </PlatformOnly>
         <PlatformOnly platform="vr">
           <p>
             The same <strong>Follow Camera</strong> setting applies in VR. While
-            following, the turn stick orbits the camera, snapping if you use
-            snap turn; the buttons that switch views, recenter, and free the
-            camera are in the Follow rows of{" "}
-            <strong>Setup → VR Options → Bindings</strong>.
+            following with smooth turning, the turn stick&rsquo;s left and right
+            turn the camera around the player, and its up and down raise and
+            lower the camera straight up while your view stays level: look down
+            to watch from above. The move stick brings the camera nearer or
+            farther. With snap turn the camera snaps instead. The buttons that
+            switch views, recenter, and free the camera are in the Follow rows
+            of <strong>Setup → VR Options → Bindings</strong>.
+          </p>
+          <p>
+            <strong>Setup → Game Options → Follow Turn</strong> picks the turn
+            stick&rsquo;s left and right: <em>Look</em> (the default) turns your
+            view the way you push, and <em>Orbit</em> moves the camera around
+            the player that way instead.
           </p>
         </PlatformOnly>
 

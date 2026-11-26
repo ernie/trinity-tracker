@@ -242,6 +242,23 @@ export function DocsCustomize() {
               </li>
             </ul>
           </li>
+          <li>
+            <code>cg_followTurn</code>: <strong>Follow Turn</strong> in Game
+            Options, how the third-person follow camera turns. In flatscreen it
+            sets both mouse directions; in VR it sets the turn stick&rsquo;s
+            left and right, while stick up always raises the camera. Default{" "}
+            <code>0</code>.
+            <ul>
+              <li>
+                <code>0</code> Look: turns your view the way you move, as in
+                first person
+              </li>
+              <li>
+                <code>1</code> Orbit: moves the camera around the player that
+                way instead
+              </li>
+            </ul>
+          </li>
         </ul>
       </div>
 

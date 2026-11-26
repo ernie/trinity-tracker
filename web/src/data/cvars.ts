@@ -150,6 +150,23 @@ export const PLAYER_CVARS: CvarEntry[] = [
     ],
   },
   {
+    name: "cg_followTurn",
+    default: "0",
+    platforms: ALL_PLATFORMS,
+    description:
+      "How the third-person follow camera turns. In flatscreen it sets both mouse directions; in VR it sets the turn stick's left and right, while stick up always raises the camera. Setup → Game Options → Follow Turn.",
+    values: [
+      {
+        value: "0",
+        meaning: "Look: turns your view the way you move, as in first person",
+      },
+      {
+        value: "1",
+        meaning: "Orbit: moves the camera around the player that way instead",
+      },
+    ],
+  },
+  {
     name: "cg_fovAdjust",
     default: "1",
     platforms: ["flatscreen"],
